@@ -1,5 +1,6 @@
-# interact
-Not chat. Just actions. Elegant UI components for AI-driven operations.
+# INTERACT
+
+There is more than just chat: Elegant UI components for AI-driven operations.
 
 ## Purpose
 
