@@ -16,7 +16,6 @@ This repository aims to support system builders to integrate generic AI in a tho
 - [ ] Define the key dimensions for gen AI components
 - [ ] Build central logic into a (hopefully agnostic) core module
 - [ ] Build React adapters
- 
 
 ## Contributing
 
