@@ -11,20 +11,26 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/interact.es.mjs",
       "require": "./dist/interact.cjs"
-    }
+    },
+    "./styles.css": "./dist/styles.css"
   },
   "sideEffects": false,
   "scripts": {
-    "build": "tsc --emitDeclarationOnly && vite build"
+    "build:types": "tsc --emitDeclarationOnly",
+    "build:js": "vite build",
+    "build:css": "tailwindcss -i ./tailwind.css -o ./dist/styles.css --minify",
+    "build": "pnpm build:types && pnpm build:js && pnpm build:css"
   },
   "peerDependencies": {
     "react": "^19.2.0",
     "react-dom": "^19.2.0"
   },
   "devDependencies": {
+    "@tailwindcss/cli": "^4.1.17",
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^5.1.1",
+    "tailwindcss": "^4",
     "typescript": "^5.9.3",
     "vite": "^7.2.4"
   },
