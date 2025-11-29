@@ -13,6 +13,10 @@ This repository aims to support system builders to integrate generic AI in a tho
 
 ## Roadmap
 
+- [x] Set up monorepo
+- [x] Set up simple package
+- [x] Set up simple next js app, that successfully imports the simple package
+- [ ] Set up initial doc pages and consider MDX for the next js app
 - [ ] Define the key dimensions for gen AI components
 - [ ] Build central logic into a (hopefully agnostic) core module
 - [ ] Build React adapters
