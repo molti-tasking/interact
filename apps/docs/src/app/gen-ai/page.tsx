@@ -1,12 +1,11 @@
 "use client";
 import { AIForm } from "@/components/AIForm";
 import { ComponentWrapper } from "@/components/ComponentWrapper";
-import { HiMum } from "interact";
 
 export default function Page() {
   return (
     <ComponentWrapper
-      title="Second component"
+      title="AI powered form interactions"
       description="This example shall showcase an interactive form."
       className="mt-8"
     >
