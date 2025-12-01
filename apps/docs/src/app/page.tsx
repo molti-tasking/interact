@@ -16,31 +16,10 @@ export default function Home() {
             and interactable UI components for gen AI systems. We want to go
             beyond chat.
           </p>
+          <p className="text-zinc-600">
+            Checkout the components on the side menu.
+          </p>
         </div>
-
-        <ComponentWrapper
-          title="First component"
-          description="First things first. The component below is the first component that is exposed from our package and loaded into this application."
-          className="mt-8"
-        >
-          {/* These components require client components. The overall setup of these projects is not perfect yet and the abstraction layer of design and behaviour needs to be found. */}
-          <HiMum />
-        </ComponentWrapper>
-
-        <ComponentWrapper
-          title="Second component"
-          description=""
-          className="mt-8"
-        >
-          <AIForm
-            questionNumber={1}
-            currentContribution="Test"
-            currentQuestion="Test"
-            initialContribution="Test 1"
-            initialQuestion="Test 1"
-            onUpdate={console.log}
-          />
-        </ComponentWrapper>
       </main>
     </div>
   );
