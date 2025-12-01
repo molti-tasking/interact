@@ -13,9 +13,9 @@ import {
   SidebarMenuItem,
   SidebarRail,
 } from "@/components/ui/sidebar";
-import { GalleryVerticalEnd, GithubIcon } from "lucide-react";
-import { NavSecondary } from "./nav-secondary";
+import { GalleryVerticalEnd } from "lucide-react";
 import Link from "next/link";
+import { NavSecondary } from "./nav-secondary";
 
 // This is sample data.
 const data = {
@@ -27,22 +27,22 @@ const data = {
       items: [
         {
           title: "Hi Mum",
-          url: "/hi-mum",
+          url: "hi-mum",
         },
         {
           title: "Generative Form",
-          url: "/gen-ai",
+          url: "gen-ai",
         },
       ],
     },
   ],
 
   navSecondary: [
-    {
-      title: "Github",
-      url: "#",
-      icon: GithubIcon,
-    },
+    // {
+    //   title: "Background",
+    //   url: "/background",
+    //   icon: BookIcon,
+    // },
   ],
 };
 
