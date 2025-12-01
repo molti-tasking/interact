@@ -1,4 +1,4 @@
-import { cn } from "@/lib/util/cn";
+import { cn } from "@/lib/utils";
 import { type ClassValue } from "clsx";
 import { PropsWithChildren } from "react";
 
@@ -15,7 +15,7 @@ export const ComponentWrapper = ({
   children,
 }: ComponentWrapperProps) => {
   return (
-    <div className={cn(className)}>
+    <div className={cn("w-full", className)}>
       <h3 className="text-xl">{title}</h3>
       <p className="mb-4">{description}</p>
       <div className="bg-slate-100 p-8 rounded-xl">{children}</div>

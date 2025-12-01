@@ -1,4 +1,5 @@
 "use client";
+import { AIForm } from "@/components/AIForm";
 import { ComponentWrapper } from "@/components/ComponentWrapper";
 import { HiMum } from "interact";
 
@@ -24,6 +25,21 @@ export default function Home() {
         >
           {/* These components require client components. The overall setup of these projects is not perfect yet and the abstraction layer of design and behaviour needs to be found. */}
           <HiMum />
+        </ComponentWrapper>
+
+        <ComponentWrapper
+          title="Second component"
+          description=""
+          className="mt-8"
+        >
+          <AIForm
+            questionNumber={1}
+            currentContribution="Test"
+            currentQuestion="Test"
+            initialContribution="Test 1"
+            initialQuestion="Test 1"
+            onUpdate={console.log}
+          />
         </ComponentWrapper>
       </main>
     </div>
