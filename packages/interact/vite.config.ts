@@ -21,5 +21,7 @@ export default defineConfig({
       },
     },
     sourcemap: true,
+    // We currently generate types first, and then the vite build (which by default removes all types), so for the moment we configure vite to NOT remove the earlier assets. Alternatively, we should switch the order of the steps in the build command, which requires implicit knowledge about the build process of vite. This is why I prefer this explicit statement at this place.
+    emptyOutDir: false,
   },
 });
