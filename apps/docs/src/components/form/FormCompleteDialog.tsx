@@ -4,7 +4,6 @@ import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -35,26 +34,22 @@ export function FormCompleteDialog({}: FormCompleteDialogProps) {
             </div>
             <span className={cn(contextMode.color)}>{title}</span>
           </DialogTitle>
-          <DialogDescription className="pt-3 space-y-3">
-            <div className="bg-muted/50 rounded-lg p-3 mt-4">
-              <p className="text-sm">
-                <span className="font-medium">
-                  What will happen (once implemented):
-                </span>
-              </p>
-              <ul className="text-sm text-muted-foreground mt-2 space-y-1 ml-4">
-                <li className="list-disc">
-                  You prompt will be analyzed and compared to the underlying
-                  form
-                </li>
-                <li className="list-disc">
-                  It will update the entire form accordingly
-                </li>
-              </ul>
-            </div>
-          </DialogDescription>
         </DialogHeader>
-
+        <div className="bg-muted/50 rounded-lg p-3 mt-4">
+          <p className="text-sm">
+            <span className="font-medium">
+              What will happen (once implemented):
+            </span>
+          </p>
+          <ul className="text-sm text-muted-foreground mt-2 space-y-1 ml-4">
+            <li className="list-disc">
+              You prompt will be analyzed and compared to the underlying form
+            </li>
+            <li className="list-disc">
+              It will update the entire form accordingly
+            </li>
+          </ul>
+        </div>
         <DialogFooter className="flex flex-row gap-2">
           <Button variant="outline">Cancel</Button>
           <Button>Process</Button>
