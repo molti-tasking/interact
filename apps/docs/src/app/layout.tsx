@@ -41,40 +41,31 @@ export default function RootLayout({
         <SidebarProvider>
           <AppSidebar />
           <SidebarInset>
-            <header className="flex h-16 items-center gap-2 border-b px-4">
-              <div className="flex flex-row justify-between w-full">
+            <header className="flex h-16 items-center gap-2 border-b px-6 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-50">
+              <div className="flex flex-row justify-between w-full items-center">
                 <div className="flex flex-row items-center gap-4">
                   <SidebarTrigger className="-ml-1" />
-                  <h2>Page Title</h2>
+                  <h2 className="text-lg font-semibold tracking-tight">
+                    Interact Gen AI
+                  </h2>
                 </div>
-                <Button variant={"link"} asChild>
+                <Button variant={"ghost"} size="sm" asChild>
                   <Link
                     href={"https://github.com/molti-tasking/interact"}
                     target="_blank"
+                    className="gap-2"
                   >
-                    <Github className="mr-2" /> Github
+                    <Github className="h-4 w-4" />
+                    <span className="hidden sm:inline">Github</span>
                   </Link>
                 </Button>
               </div>
-              {/* <Separator
-            orientation="vertical"
-            className="mr-2 data-[orientation=vertical]:h-4"
-          />
-          <Breadcrumb>
-            <BreadcrumbList>
-              <BreadcrumbItem className="hidden md:block">
-                <BreadcrumbLink href="#">
-                  Building Your Application
-                </BreadcrumbLink>
-              </BreadcrumbItem>
-              <BreadcrumbSeparator className="hidden md:block" />
-              <BreadcrumbItem>
-                <BreadcrumbPage>Data Fetching</BreadcrumbPage>
-              </BreadcrumbItem>
-            </BreadcrumbList>
-          </Breadcrumb> */}
             </header>
-            <div className="p-4">{children}</div>
+            <main className="flex-1">
+              <div className="container max-w-7xl mx-auto px-6 py-8">
+                {children}
+              </div>
+            </main>
           </SidebarInset>
         </SidebarProvider>
       </body>

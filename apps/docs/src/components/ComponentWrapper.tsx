@@ -16,9 +16,17 @@ export const ComponentWrapper = ({
 }: ComponentWrapperProps) => {
   return (
     <div className={cn("w-full", className)}>
-      <h3 className="text-xl">{title}</h3>
-      <p className="mb-4">{description}</p>
-      <div className="bg-slate-100 p-8 rounded-xl">{children}</div>
+      <div className="mb-6 space-y-2">
+        <h3 className="text-2xl font-semibold tracking-tight text-foreground font-sans">
+          {title}
+        </h3>
+        <p className="text-base text-muted-foreground leading-relaxed max-w-3xl">
+          {description}
+        </p>
+      </div>
+      <div className="bg-linear-to-br from-slate-50 to-slate-100/50 dark:from-slate-900 dark:to-slate-800/50 p-8 rounded-2xl border border-border shadow-sm">
+        {children}
+      </div>
     </div>
   );
 };

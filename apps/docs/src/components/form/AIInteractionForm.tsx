@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Loader2, ShieldQuestionIcon } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
-import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 
 interface AIFormProps {
   questionNumber: number;
@@ -21,7 +21,7 @@ interface AIFormProps {
   disabled?: boolean;
 }
 
-export function AIForm({
+export function AIInteractionForm({
   questionNumber,
   initialQuestion,
   initialContribution,
