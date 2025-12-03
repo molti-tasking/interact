@@ -11,7 +11,10 @@ export default function Home() {
             and interactable UI components for gen AI systems. We want to go
             beyond chat.
           </p>
-          <p>Checkout the components on the side menu.</p>
+          <p>
+            This overall project is proud to be non-vibecoded. Checkout the
+            components on the side menu.
+          </p>
         </div>
 
         <div className="flex flex-col gap-6">

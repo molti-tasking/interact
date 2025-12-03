@@ -2,6 +2,8 @@
 import { ComponentWrapper } from "@/components/ComponentWrapper";
 import { AICompletionForm } from "@/components/form/AICompletionForm";
 import { AIInteractionForm } from "@/components/form/AIInteractionForm";
+import { ArrowUpRight } from "lucide-react";
+import Link from "next/link";
 
 export default function Page() {
   return (
@@ -32,7 +34,33 @@ export default function Page() {
 
       <ComponentWrapper
         title="AI powered form completion or validation"
-        description="This example shall showcase an autofilling form based on users input. The user can paste any large texts and the corresponding form fields will be autopopulated."
+        description={
+          <div>
+            This example shall showcase an autofilling form based on users
+            input. The user can paste any large texts and the corresponding form
+            fields will be autopopulated. This component is powered by the
+            popular form libraries{" "}
+            <Link
+              className="text-blue-800"
+              target="_blank"
+              href={"https://zod.dev/"}
+            >
+              zod <ArrowUpRight className="inline size-3 -mt-2" />
+            </Link>{" "}
+            and{" "}
+            <Link
+              className="text-blue-800"
+              target="_blank"
+              href={"https://react-hook-form.com/"}
+            >
+              react-hook-form
+              <ArrowUpRight className="inline size-3 -mt-2" />
+            </Link>{" "}
+            of the react ecosystem. It shall leverage their available utilities
+            and ease the integration of advanced ai feature into existing
+            applications.
+          </div>
+        }
       >
         <AICompletionForm />
       </ComponentWrapper>

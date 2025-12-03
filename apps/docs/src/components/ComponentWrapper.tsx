@@ -4,7 +4,7 @@ import { PropsWithChildren } from "react";
 
 type ComponentWrapperProps = PropsWithChildren<{
   title: string;
-  description: string;
+  description: string | React.ReactNode;
   className?: ClassValue;
 }>;
 
