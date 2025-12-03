@@ -22,6 +22,20 @@ const data = {
   versions: ["1.0.1", "1.1.0-alpha", "2.0.0-beta1"],
   navMain: [
     {
+      title: "Concepts",
+      url: "#",
+      items: [
+        {
+          title: "Background",
+          url: "background",
+        },
+        {
+          title: "User Interface Design Considerations",
+          url: "design-considerations",
+        },
+      ],
+    },
+    {
       title: "Components",
       url: "#",
       items: [
