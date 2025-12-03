@@ -30,7 +30,7 @@ const data = {
           url: "background",
         },
         {
-          title: "User Interface Design Considerations",
+          title: "UI Considerations",
           url: "design-considerations",
         },
       ],
