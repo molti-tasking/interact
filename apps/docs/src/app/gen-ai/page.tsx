@@ -2,6 +2,7 @@
 import { ComponentWrapper } from "@/components/ComponentWrapper";
 import { AICompletionForm } from "@/components/form/AICompletionForm";
 import { AIInteractionForm } from "@/components/form/AIInteractionForm";
+import { AIVoiceForm } from "@/components/form/AIVoiceForm";
 import { ArrowUpRight } from "lucide-react";
 import Link from "next/link";
 
@@ -65,6 +66,12 @@ export default function Page() {
         <AICompletionForm />
       </ComponentWrapper>
 
+      <ComponentWrapper
+        title="AI powered Vocie form"
+        description="Form integrates with voice interaction with minimal code efforts. Just pass your zod schema and form hook to the component and it should handle the rest. As of now we just simulate delayed inputs and we only accept input fields of type 'string'."
+      >
+        <AIVoiceForm />
+      </ComponentWrapper>
       <ComponentWrapper
         title="AI powered dynamic form completion"
         description="This example shall showcase an autofilling form based on users input for a dynamic form. The user can define certain depending form fields and the gen AI returns a more or less valid schema for that form component. It uses the zod schema and input texts to generate the values for the fields. After that we might also want to highlight the changes accordingly: We will have 'New content' or even 'Updated content' and the question is also on how to store that information and how to visualize it."

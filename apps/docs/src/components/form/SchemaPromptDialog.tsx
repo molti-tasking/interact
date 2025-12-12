@@ -8,6 +8,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { getSchemaDescription } from "@/lib/form";
 import { cn } from "@/lib/utils";
 import { ArrowUpRight, InfoIcon } from "lucide-react";
 import Link from "next/link";
@@ -54,70 +55,3 @@ export function SchemaPromptDialog({ formSchema }: SchemaPromptDialogProps) {
     </Dialog>
   );
 }
-
-const getSchemaDescription = (schema: ReturnType<typeof z.object>): string => {
-  const globalMeta = schema.def.shape.title.meta()?.description;
-
-  type FieldMeta = {
-    fieldName: string;
-    type: string;
-    description?: string;
-    nestedFields?: FieldMeta[];
-  };
-
-  const generateReturnTypeForObject = (
-    schemaDef: z.ZodObject["def"]["shape"]
-  ): FieldMeta[] =>
-    Object.entries(schemaDef).map(([fieldName, zodField]) => {
-      if (zodField.type === "object") {
-        return {
-          fieldName,
-          type: zodField.type,
-          description: zodField.meta?.()?.description,
-          nestedFields: generateReturnTypeForObject(zodField.def.shape),
-        };
-      }
-      if (zodField.type === "array") {
-        if (zodField.def.element.type === "object") {
-          return {
-            fieldName,
-            type: zodField.type,
-            description: zodField.meta?.()?.description,
-            nestedFields: generateReturnTypeForObject(
-              zodField.def.element.def.shape
-            ),
-          };
-        }
-
-        return {
-          fieldName,
-          type: zodField.type,
-          description: zodField.meta?.()?.description,
-          nestedFields: [
-            {
-              fieldName: "ELEMENT_ NO NAME",
-              type: zodField.def.element.type,
-              description: zodField.def.element.meta?.()?.description,
-            },
-          ],
-        };
-      }
-      return {
-        fieldName,
-        type: zodField.type,
-        description: zodField.meta?.()?.description,
-      };
-    });
-
-  const parsedData = generateReturnTypeForObject(schema.def.shape);
-
-  return `
-  ## ${globalMeta ?? "Form Field Meta Descriptions"}
-
-  The following JSON schema may want to be properly formatted:
-  
-   ${JSON.stringify(parsedData, null, 2)} 
-
-
-  `;
-};

@@ -13,12 +13,13 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { PartyPopperIcon, PlusIcon, TrashIcon } from "lucide-react";
+import { useRef } from "react";
 import { useFieldArray, useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
 import { FormSaveButton } from "../FormSaveButton";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
-import { FormCompleteDialog } from "./FormCompleteDialog";
+import { FormCompleteVoice } from "./FormCompleteVoice";
 import { SchemaPromptDialog } from "./SchemaPromptDialog";
 
 const formSchema = z
@@ -42,7 +43,6 @@ const formSchema = z
       .meta({
         description: "asdasd",
         deprecated: false,
-        id: "asda", // It seems that this one has to be app wide uniquely defined
         title: "Asads",
       }),
     abstract: z.string().min(1, "Abstract is required"),
@@ -63,12 +63,13 @@ const formSchema = z
   })
   .meta({
     description:
-      "This is overall meta descriptino, but we want to have also the single fields metas",
+      "This is overall meta descriptino, but we want to have also the single fields meta descriptions.",
   });
 
 type FormValues = z.infer<typeof formSchema>;
 
-export const AICompletionForm = () => {
+export const AIVoiceForm = () => {
+  const ref = useRef<HTMLFormElement | null>(null);
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -122,7 +123,11 @@ export const AICompletionForm = () => {
             <PartyPopperIcon /> Paper Submission
           </CardTitle>
           <div className="flex flex-row gap-2 items-center">
-            <FormCompleteDialog onConfirm={console.log} />
+            <FormCompleteVoice
+              form={form}
+              formSchema={formSchema}
+              formRef={ref}
+            />
             <SchemaPromptDialog formSchema={formSchema} />
           </div>
         </div>
@@ -130,14 +135,18 @@ export const AICompletionForm = () => {
 
       <CardContent>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+          <form
+            onSubmit={form.handleSubmit(onSubmit)}
+            className="space-y-6"
+            ref={ref}
+          >
             {/* Title */}
             <FormField
               control={form.control}
               name="title"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Title</FormLabel>
+                  <FormLabel htmlFor={field.name}>Title</FormLabel>
                   <FormControl>
                     <Input placeholder="Enter paper title" {...field} />
                   </FormControl>
@@ -148,7 +157,7 @@ export const AICompletionForm = () => {
 
             {/* Authors */}
             <div className="space-y-4">
-              <FormLabel>Authors</FormLabel>
+              <FormLabel htmlFor="authors">Authors</FormLabel>
               {authorFields.map((field, index) => (
                 <div key={field.id} className="space-y-3 rounded-lg border p-4">
                   <FormField
@@ -156,7 +165,7 @@ export const AICompletionForm = () => {
                     name={`authors.${index}.name`}
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Name</FormLabel>
+                        <FormLabel htmlFor={field.name}>Name</FormLabel>
                         <FormControl>
                           <Input placeholder="Author name" {...field} />
                         </FormControl>
@@ -169,7 +178,7 @@ export const AICompletionForm = () => {
                     name={`authors.${index}.affiliation`}
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Affiliation</FormLabel>
+                        <FormLabel htmlFor={field.name}>Affiliation</FormLabel>
                         <FormControl>
                           <Input
                             placeholder="University, City, Country, email"
@@ -185,7 +194,9 @@ export const AICompletionForm = () => {
                     name={`authors.${index}.secondaryAffiliation`}
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Secondary Affiliation (Optional)</FormLabel>
+                        <FormLabel htmlFor={field.name}>
+                          Secondary Affiliation (Optional)
+                        </FormLabel>
                         <FormControl>
                           <Input
                             placeholder="Secondary affiliation if any"
@@ -231,7 +242,7 @@ export const AICompletionForm = () => {
               name="abstract"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Abstract</FormLabel>
+                  <FormLabel htmlFor={field.name}>Abstract</FormLabel>
                   <FormControl>
                     <Textarea
                       placeholder="Enter paper abstract..."
@@ -250,7 +261,7 @@ export const AICompletionForm = () => {
               name="keywords"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Keywords</FormLabel>
+                  <FormLabel htmlFor={field.name}>Keywords</FormLabel>
                   <FormControl>
                     <Input
                       placeholder="Enter keywords separated by commas"
@@ -271,7 +282,7 @@ export const AICompletionForm = () => {
                   name={`paperSubmission.note`}
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Note</FormLabel>
+                      <FormLabel htmlFor={field.name}>Note</FormLabel>
                       <FormControl>
                         <Input placeholder="Add a note" {...field} />
                       </FormControl>
@@ -284,7 +295,7 @@ export const AICompletionForm = () => {
                   name={`paperSubmission.fileName`}
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Your File</FormLabel>
+                      <FormLabel htmlFor={field.name}>Your File</FormLabel>
                       <FormControl>
                         <div className="flex items-center gap-2">
                           <Input
@@ -330,7 +341,7 @@ export const AICompletionForm = () => {
                       name={`supplementalMaterials.${index}.note`}
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Note</FormLabel>
+                          <FormLabel htmlFor={field.name}>Note</FormLabel>
                           <FormControl>
                             <Input placeholder="Add a note" {...field} />
                           </FormControl>
@@ -343,7 +354,7 @@ export const AICompletionForm = () => {
                       name={`supplementalMaterials.${index}.fileName`}
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Your File</FormLabel>
+                          <FormLabel htmlFor={field.name}>Your File</FormLabel>
                           <FormControl>
                             <div className="flex items-center gap-2">
                               <Input
