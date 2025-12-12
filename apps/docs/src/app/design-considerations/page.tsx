@@ -2,8 +2,8 @@ export default function DesignConsiderationsPage() {
   return (
     <div className="flex items-center justify-center ">
       <main className="flex w-full max-w-3xl flex-col gap-8 text-zinc-600">
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="text-3xl font-semibold">
+        <div className="flex flex-col items-center gap-4 text-center sm:items-start sm:text-left">
+          <h1 className="text-3xl font-semibold mb-2">
             User Interface Design Considerations
           </h1>
           <p>
@@ -15,6 +15,14 @@ export default function DesignConsiderationsPage() {
             depending on domain, use case, users needs and many other factors we
             might want to integrate different gen ai capabilities into the
             system.
+          </p>
+
+          <p>
+            There has been scientific work on the affect of timing of user
+            interface interactions on <strong>attention</strong> and{" "}
+            <strong>responsibility</strong> of the users. Therefore, an
+            artificial delay of ai automations might ultimately improve
+            performance.
           </p>
         </div>
       </main>
