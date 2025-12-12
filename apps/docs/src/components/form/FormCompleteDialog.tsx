@@ -12,6 +12,9 @@ import {
 import { INTERACTION_MODE_MAP } from "@/lib/interaction-mode-config";
 import { cn } from "@/lib/utils";
 import { INTERACTION_MODE_META } from "interact";
+import { useState } from "react";
+import { Label } from "../ui/label";
+import { Textarea } from "../ui/textarea";
 
 interface FormCompleteDialogProps {
   onConfirm: () => void;
@@ -20,6 +23,8 @@ interface FormCompleteDialogProps {
 export function FormCompleteDialog({}: FormCompleteDialogProps) {
   const contextMode = INTERACTION_MODE_MAP["context"];
   const { title } = INTERACTION_MODE_META["context"];
+
+  const [prompt, setPrompt] = useState("");
 
   return (
     <Dialog>
@@ -49,6 +54,21 @@ export function FormCompleteDialog({}: FormCompleteDialogProps) {
               It will update the entire form accordingly
             </li>
           </ul>
+        </div>
+        {/* Prompt Input */}
+        <div className="space-y-2">
+          <Label htmlFor="prompt">Input Informarion</Label>
+          <Textarea
+            id="prompt"
+            placeholder={
+              "Insert any information of your choice and it will be filled into the form."
+            }
+            value={prompt}
+            onChange={(e) => setPrompt(e.target.value)}
+            rows={4}
+            className="resize-vertical"
+            autoFocus
+          />
         </div>
         <DialogFooter className="flex flex-row gap-2">
           <Button variant="outline">Cancel</Button>

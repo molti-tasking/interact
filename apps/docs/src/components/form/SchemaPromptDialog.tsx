@@ -9,7 +9,8 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
-import { InfoIcon } from "lucide-react";
+import { ArrowUpRight, InfoIcon } from "lucide-react";
+import Link from "next/link";
 import z from "zod";
 import { ScrollArea } from "../ui/scroll-area";
 
@@ -33,10 +34,18 @@ export function SchemaPromptDialog({ formSchema }: SchemaPromptDialogProps) {
             <span>Schema Prompt</span>
           </DialogTitle>
         </DialogHeader>
-        <p className="italic text-muted-foreground">
-          Below is the auto generated schema prompt based on zod form schema
-          meta information. It shall be usable for additional context about the
-          schema when passing it to LLM completions.
+        <p className="text-muted-foreground">
+          Below is the auto generated schema prompt based on{" "}
+          <Link
+            className="text-blue-800"
+            target="_blank"
+            href={"https://zod.dev/"}
+          >
+            zod form schema meta information
+            <ArrowUpRight className="inline size-3 -mt-2" />
+          </Link>
+          . It shall be usable for additional context about the schema when
+          passing it to LLM completions.
         </p>
         <ScrollArea className="max-h-[70vh] border bg-purple-50 text-purple-900 rounded-md p-4 mt-4 max-w-2xl w-full">
           <pre>{getSchemaDescription(formSchema)}</pre>
