@@ -26,6 +26,11 @@ export function FormCompleteDialog({}: FormCompleteDialogProps) {
 
   const [prompt, setPrompt] = useState("");
 
+  const pasteFromClipboard = async () => {
+    const clipboard = await navigator.clipboard.readText();
+    setPrompt(clipboard);
+  };
+
   return (
     <Dialog>
       <DialogTrigger>
@@ -57,7 +62,12 @@ export function FormCompleteDialog({}: FormCompleteDialogProps) {
         </div>
         {/* Prompt Input */}
         <div className="space-y-2">
-          <Label htmlFor="prompt">Input Informarion</Label>
+          <div className="flex flex-row items-center justify-between">
+            <Label htmlFor="prompt">Input Informarion</Label>
+            <Label className="cursor-pointer" onClick={pasteFromClipboard}>
+              Paste
+            </Label>
+          </div>
           <Textarea
             id="prompt"
             placeholder={
