@@ -19,6 +19,7 @@ import { z } from "zod";
 import { FormSaveButton } from "../FormSaveButton";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import { FormCompleteDialog } from "./FormCompleteDialog";
+import { SchemaPromptDialog } from "./SchemaPromptDialog";
 
 const formSchema = z
   .object({
@@ -66,73 +67,6 @@ const formSchema = z
   });
 
 type FormValues = z.infer<typeof formSchema>;
-
-const getSchemaDescription = (schema: typeof formSchema): string => {
-  const globalMeta = formSchema.def.shape.title.meta()?.description;
-
-  type FieldMeta = {
-    fieldName: string;
-    type: string;
-    description?: string;
-    nestedFields?: FieldMeta[];
-  };
-
-  const generateReturnTypeForObject = (
-    schemaDef: z.ZodObject["def"]["shape"]
-  ): FieldMeta[] =>
-    Object.entries(schemaDef).map(([fieldName, zodField]) => {
-      if (zodField.type === "object") {
-        return {
-          fieldName,
-          type: zodField.type,
-          description: zodField.meta?.()?.description,
-          nestedFields: generateReturnTypeForObject(zodField.def.shape),
-        };
-      }
-      if (zodField.type === "array") {
-        if (zodField.def.element.type === "object") {
-          return {
-            fieldName,
-            type: zodField.type,
-            description: zodField.meta?.()?.description,
-            nestedFields: generateReturnTypeForObject(
-              zodField.def.element.def.shape
-            ),
-          };
-        }
-
-        return {
-          fieldName,
-          type: zodField.type,
-          description: zodField.meta?.()?.description,
-          nestedFields: [
-            {
-              fieldName: "ELEMENT_ NO NAME",
-              type: zodField.def.element.type,
-              description: zodField.def.element.meta?.()?.description,
-            },
-          ],
-        };
-      }
-      return {
-        fieldName,
-        type: zodField.type,
-        description: zodField.meta?.()?.description,
-      };
-    });
-
-  const parsedData = generateReturnTypeForObject(schema.def.shape);
-
-  return `
-  ## ${globalMeta ?? "Form Field Meta Descriptions"}
-
-  The following JSON schema may want to be properly formatted:
-  
-   ${JSON.stringify(parsedData, null, 2)} 
-
-
-  `;
-};
 
 export const AICompletionForm = () => {
   const form = useForm<FormValues>({
@@ -187,8 +121,10 @@ export const AICompletionForm = () => {
           <CardTitle className="flex flex-row gap-2 items-center">
             <PartyPopperIcon /> Paper Submission
           </CardTitle>
-
-          <FormCompleteDialog onConfirm={console.log} />
+          <div className="flex flex-row gap-2 items-center">
+            <FormCompleteDialog onConfirm={console.log} />
+            <SchemaPromptDialog formSchema={formSchema} />
+          </div>
         </div>
       </CardHeader>
 
@@ -461,17 +397,6 @@ export const AICompletionForm = () => {
             </div>
           </form>
         </Form>
-
-        <div className="mt-8">
-          <p className="italic text-muted-foreground">
-            Below is the auto generated schema prompt based on zod form schema
-            meta information. It shall be usable for additional context about
-            the schema when passing it to LLM completions.
-          </p>
-          <div className="bg-purple-50 text-purple-900 rounded-md p-4 mt-4">
-            <pre>{getSchemaDescription(formSchema)}</pre>
-          </div>
-        </div>
       </CardContent>
     </Card>
   );

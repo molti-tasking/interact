@@ -24,7 +24,7 @@ export function FormCompleteDialog({}: FormCompleteDialogProps) {
   return (
     <Dialog>
       <DialogTrigger>
-        <Button>Autofill</Button>
+        <Button>Prompt Fill</Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
