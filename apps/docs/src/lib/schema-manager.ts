@@ -76,7 +76,7 @@ export function loadFormData(): Record<string, unknown> | null {
  * Converts a SerializedSchema to a Zod schema
  */
 export function serializeSchemaToZod(
-  serialized: SerializedSchema
+  serialized: SerializedSchema,
 ): z.ZodObject {
   const shape: Record<string, z.ZodTypeAny> = {};
 
@@ -90,17 +90,17 @@ export function serializeSchemaToZod(
         if (field.validation?.min) {
           fieldSchema = (fieldSchema as z.ZodString).min(
             field.validation.min,
-            `${field.label} must be at least ${field.validation.min} characters`
+            `${field.label} must be at least ${field.validation.min} characters`,
           );
         }
         if (field.type === "email") {
           fieldSchema = (fieldSchema as z.ZodString).email(
-            "Invalid email address"
+            "Invalid email address",
           );
         }
         if (field.validation?.pattern) {
           fieldSchema = (fieldSchema as z.ZodString).regex(
-            new RegExp(field.validation.pattern)
+            new RegExp(field.validation.pattern),
           );
         }
         break;
@@ -110,13 +110,13 @@ export function serializeSchemaToZod(
         if (field.validation?.min !== undefined) {
           fieldSchema = (fieldSchema as z.ZodNumber).min(
             field.validation.min,
-            `${field.label} must be at least ${field.validation.min}`
+            `${field.label} must be at least ${field.validation.min}`,
           );
         }
         if (field.validation?.max !== undefined) {
           fieldSchema = (fieldSchema as z.ZodNumber).max(
             field.validation.max,
-            `${field.label} must be at most ${field.validation.max}`
+            `${field.label} must be at most ${field.validation.max}`,
           );
         }
         break;
@@ -132,7 +132,7 @@ export function serializeSchemaToZod(
       case "select":
         if (field.validation?.options && field.validation.options.length > 0) {
           fieldSchema = z.enum(
-            field.validation.options as [string, ...string[]]
+            field.validation.options as [string, ...string[]],
           );
         } else {
           fieldSchema = z.string();
@@ -168,7 +168,7 @@ export interface SchemaDiff {
 
 export function diffSchemas(
   oldSchema: SerializedSchema,
-  newSchema: SerializedSchema
+  newSchema: SerializedSchema,
 ): SchemaDiff {
   const oldFields = new Map(oldSchema.fields.map((f) => [f.key, f]));
   const newFields = new Map(newSchema.fields.map((f) => [f.key, f]));
@@ -211,7 +211,7 @@ export interface ValidationResult {
 
 export function validateDataAgainstSchema(
   data: Record<string, unknown>,
-  schema: SerializedSchema
+  schema: SerializedSchema,
 ): ValidationResult {
   const zodSchema = serializeSchemaToZod(schema);
   const result = zodSchema.safeParse(data);
@@ -233,7 +233,7 @@ export function validateDataAgainstSchema(
  * Converts initial schema and metadata to SerializedSchema format
  */
 export function initializeSerializedSchema(
-  metadata: SchemaMetadata
+  metadata: SchemaMetadata,
 ): SerializedSchema {
   const fields: SchemaField[] = [];
 
@@ -267,7 +267,7 @@ export interface SubmissionEntry {
  */
 export function saveSubmission(
   data: Record<string, unknown>,
-  schemaVersion: number
+  schemaVersion: number,
 ): SubmissionEntry {
   if (typeof window === "undefined") {
     return {
@@ -318,4 +318,28 @@ export function deleteSubmission(id: string): void {
 export function clearAllSubmissions(): void {
   if (typeof window === "undefined") return;
   localStorage.removeItem(SUBMISSIONS_STORAGE_KEY);
+}
+
+type SubmissionValidationResult = {
+  validation: z.ZodSafeParseResult<Record<string, unknown>>;
+  submission: SubmissionEntry;
+};
+export function validateNewSchemaWithPreviousSubmissions(
+  newSchema: SerializedSchema,
+) {
+  const previousSubmissions = loadSubmissions();
+  const schema = serializeSchemaToZod(newSchema);
+  const results: SubmissionValidationResult[] = [];
+
+  for (
+    let submissionIndex = 0;
+    submissionIndex < previousSubmissions.length;
+    submissionIndex++
+  ) {
+    const submission = previousSubmissions[submissionIndex];
+    const validation = schema.safeParse(submission.data);
+    results.push({ validation, submission: submission });
+  }
+
+  return results;
 }

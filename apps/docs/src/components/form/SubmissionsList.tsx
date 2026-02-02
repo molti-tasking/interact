@@ -8,6 +8,7 @@ import { useSubmissions } from "@/hooks/query/submissions";
 import { clearAllSubmissions, deleteSubmission } from "@/lib/schema-manager";
 import { Trash2Icon } from "lucide-react";
 import { toast } from "sonner";
+import { SchemaSubmissionValidator } from "./SchemaSubmissionValidator";
 
 export function SubmissionsList() {
   const { data: schema } = useSchema();
@@ -110,6 +111,12 @@ export function SubmissionsList() {
           </Card>
         ))}
       </div>
+
+      {schema && (
+        <div>
+          <SchemaSubmissionValidator schema={schema} />
+        </div>
+      )}
     </div>
   );
 }

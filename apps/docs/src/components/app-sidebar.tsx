@@ -47,6 +47,10 @@ const data = {
           title: "Generative Form",
           url: "gen-ai",
         },
+        {
+          title: "Malleable Form",
+          url: "dynamic-form",
+        },
       ],
     },
   ],
