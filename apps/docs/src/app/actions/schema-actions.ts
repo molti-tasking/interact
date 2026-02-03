@@ -17,7 +17,7 @@ export interface SchemaModificationResponse {
 }
 
 export async function regenerateSchemaAction(
-  request: SchemaModificationRequest
+  request: SchemaModificationRequest,
 ): Promise<SchemaModificationResponse> {
   try {
     const { currentSchema, fieldContext, userPrompt } = request;
@@ -78,6 +78,9 @@ Return the complete updated schema in this exact JSON format:
       model: anthropic("claude-haiku-4-5-20251001"),
       prompt: systemPrompt,
       temperature: 0.3,
+      // TODO at this point I would like the llm to check all the existing submissions if a schema is valid. We can just call the validateNewSchemaWithPreviousSubmissions function in order to check that. If there is an invalid entry, we have 2 options:
+      // 1. Create a updated schema version that matches the entries data
+      // 2. Update the mismatching entry (or suggest an edit for all mismatching entries) in a certain standardized format, which shall be suggested to the user, that they can accept those edits.
     });
 
     // Parse the LLM response
@@ -110,10 +113,10 @@ Return the complete updated schema in this exact JSON format:
     const newFieldKeys = new Set(newSchema.fields.map((f) => f.key));
 
     const addedFields = newSchema.fields.filter(
-      (f) => !oldFieldKeys.has(f.key)
+      (f) => !oldFieldKeys.has(f.key),
     );
     const removedFields = currentSchema.fields.filter(
-      (f) => !newFieldKeys.has(f.key)
+      (f) => !newFieldKeys.has(f.key),
     );
     const modifiedFields = newSchema.fields.filter((newField) => {
       const oldField = currentSchema.fields.find((f) => f.key === newField.key);
@@ -157,7 +160,7 @@ export interface MigrationSuggestion {
 }
 
 export async function getMigrationSuggestionAction(
-  request: MigrationRequest
+  request: MigrationRequest,
 ): Promise<MigrationSuggestion | null> {
   try {
     const { oldSchema, newSchema, existingData, affectedField } = request;

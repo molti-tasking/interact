@@ -4,6 +4,7 @@ import {
 } from "@/lib/schema-manager";
 import { cn } from "@/lib/utils";
 import z from "zod";
+import { Button } from "../ui/button";
 
 export const SchemaSubmissionValidator = ({
   schema,
@@ -24,14 +25,18 @@ export const SchemaSubmissionValidator = ({
               key={`${entry.validation.success}-${index}`}
               className={cn(
                 "p-4 rounded-xl my-2 shadow-md",
-                entry.validation.success ? "bg-green-200" : "bg-red-200",
+                entry.validation.success
+                  ? "bg-green-200"
+                  : "border rounded-2xl border-red-200",
               )}
             >
               {entry.validation.success ? (
                 <div>Entry is alright</div>
               ) : (
                 <div>
-                  <p>Entry is not valid against the schema</p>
+                  <p className={cn("font-bold text-red-900")}>
+                    Entry is not valid against the schema
+                  </p>
                   <pre>{JSON.stringify(originalValue, null, 2)}</pre>
                   {(() => {
                     const errorProperties = z.treeifyError(
@@ -54,6 +59,17 @@ export const SchemaSubmissionValidator = ({
                       </div>
                     );
                   })()}
+                  <div className="p-2 border-2 rounded-2xl mt-4">
+                    <p className="mb-2">
+                      At this point you could request to adjust this entry
+                      according to new schema or alternatively to adjust the
+                      schema according to the already existing entry.
+                    </p>
+                    <div className="flex flex-row gap-2">
+                      <Button>Adjust entry</Button>
+                      <Button>Adjust schema</Button>
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
