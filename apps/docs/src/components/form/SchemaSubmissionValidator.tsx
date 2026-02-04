@@ -1,5 +1,5 @@
 import {
-  SerializedSchema,
+  SerializedSchemaEntry,
   validateNewSchemaWithPreviousSubmissions,
 } from "@/lib/schema-manager";
 import { cn } from "@/lib/utils";
@@ -9,7 +9,7 @@ import { Button } from "../ui/button";
 export const SchemaSubmissionValidator = ({
   schema,
 }: {
-  schema: SerializedSchema;
+  schema: SerializedSchemaEntry;
 }) => {
   const submissionValidilidy = validateNewSchemaWithPreviousSubmissions(schema);
 
@@ -42,7 +42,6 @@ export const SchemaSubmissionValidator = ({
                     const errorProperties = z.treeifyError(
                       entry.validation.error,
                     ).properties;
-                    console.log(entry.validation.error);
                     const entries = Object.entries(errorProperties!);
                     return (
                       <div>
@@ -66,8 +65,12 @@ export const SchemaSubmissionValidator = ({
                       schema according to the already existing entry.
                     </p>
                     <div className="flex flex-row gap-2">
-                      <Button>Adjust entry</Button>
-                      <Button>Adjust schema</Button>
+                      <Button onClick={() => alert("Prompt 1")}>
+                        Adjust entry
+                      </Button>
+                      <Button onClick={() => alert("Prompt 2")}>
+                        Adjust schema
+                      </Button>
                     </div>
                   </div>
                 </div>
@@ -75,6 +78,12 @@ export const SchemaSubmissionValidator = ({
             </div>
           );
         })}
+      </div>
+
+      <div>
+        <Button onClick={() => alert("TODO: To be implemented")}>
+          Generate Prompt
+        </Button>
       </div>
     </div>
   );

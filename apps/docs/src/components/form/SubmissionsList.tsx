@@ -10,9 +10,15 @@ import { Trash2Icon } from "lucide-react";
 import { toast } from "sonner";
 import { SchemaSubmissionValidator } from "./SchemaSubmissionValidator";
 
-export function SubmissionsList() {
-  const { data: schema } = useSchema();
-  const { data: submissions, refetch: refetchSubmssions } = useSubmissions();
+interface SubmissionsListProps {
+  slug: string;
+}
+
+export function SubmissionsList({ slug }: SubmissionsListProps) {
+  const { data: schema } = useSchema(slug);
+  const { data: submissions, refetch: refetchSubmssions } =
+    useSubmissions(slug);
+
   const onDelete = (id: string) => {
     deleteSubmission(id);
     refetchSubmssions();
@@ -92,7 +98,7 @@ export function SubmissionsList() {
             </CardHeader>
             <CardContent className="pt-0">
               <dl className="grid grid-cols-1 gap-2 text-sm">
-                {schema?.fields.map((field) => {
+                {schema?.schema.fields.map((field) => {
                   const value = submission.data[field.key];
                   return (
                     <div

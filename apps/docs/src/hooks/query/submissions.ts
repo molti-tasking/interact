@@ -2,11 +2,9 @@
 import { loadSubmissions } from "@/lib/schema-manager";
 import { useQuery } from "@tanstack/react-query";
 
-export const useSubmissions = () => {
+export const useSubmissions = (schemaSlug?: string) => {
   return useQuery({
-    queryKey: ["submissions"],
-    queryFn: () => {
-      return loadSubmissions();
-    },
+    queryKey: ["submissions", schemaSlug],
+    queryFn: () => loadSubmissions(schemaSlug),
   });
 };

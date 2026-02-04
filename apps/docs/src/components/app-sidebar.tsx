@@ -1,3 +1,5 @@
+"use client";
+
 import * as React from "react";
 
 import {
@@ -13,6 +15,7 @@ import {
   SidebarMenuItem,
   SidebarRail,
 } from "@/components/ui/sidebar";
+import { useSchemas } from "@/hooks/query/schemas";
 import { GalleryVerticalEnd } from "lucide-react";
 import Link from "next/link";
 import { NavSecondary } from "./nav-secondary";
@@ -27,11 +30,11 @@ const data = {
       items: [
         {
           title: "Background",
-          url: "background",
+          url: "/background",
         },
         {
           title: "UI Considerations",
-          url: "design-considerations",
+          url: "/design-considerations",
         },
       ],
     },
@@ -41,15 +44,15 @@ const data = {
       items: [
         {
           title: "Hi Mum",
-          url: "hi-mum",
+          url: "/hi-mum",
         },
         {
           title: "Generative Form",
-          url: "gen-ai",
+          url: "/gen-ai",
         },
         {
-          title: "Malleable Form",
-          url: "dynamic-form",
+          title: "Malleable Forms",
+          url: "/malleable-form",
         },
       ],
     },
@@ -65,6 +68,8 @@ const data = {
 };
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
+  const { data: schemas } = useSchemas();
+
   return (
     <Sidebar {...props}>
       <SidebarHeader>
@@ -87,12 +92,33 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             <SidebarGroupLabel>{item.title}</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
-                {item.items.map((item) => (
-                  <SidebarMenuItem key={item.title}>
-                    <SidebarMenuButton asChild>
-                      <a href={item.url}>{item.title}</a>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
+                {item.items.map((navItem) => (
+                  <React.Fragment key={navItem.title}>
+                    <SidebarMenuItem>
+                      <SidebarMenuButton asChild>
+                        <a href={navItem.url}>{navItem.title}</a>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+
+                    {/* Show dynamic forms as children of "Malleable Forms" */}
+                    {navItem.title === "Malleable Forms" &&
+                      schemas &&
+                      schemas.length > 0 && (
+                        <>
+                          {schemas.map((schema) => (
+                            <SidebarMenuItem key={schema.slug} className="ml-4">
+                              <SidebarMenuButton asChild>
+                                <a href={`/malleable-form/${schema.slug}`}>
+                                  <span className="text-sm">
+                                    {schema.title}
+                                  </span>
+                                </a>
+                              </SidebarMenuButton>
+                            </SidebarMenuItem>
+                          ))}
+                        </>
+                      )}
+                  </React.Fragment>
                 ))}
               </SidebarMenu>
             </SidebarGroupContent>

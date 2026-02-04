@@ -1,20 +1,56 @@
 "use client";
-import { initializeSerializedSchema, loadSchema } from "@/lib/schema-manager";
+import {
+  initializeSerializedSchema,
+  loadSchema,
+  loadSchemas,
+  saveSchema,
+} from "@/lib/schema-manager";
 import { eventRegistrationMetadata } from "@/schemas/event-registration";
 import { useQuery } from "@tanstack/react-query";
 
-export const useSchema = () => {
+export const useSchema = (slug?: string) => {
   return useQuery({
-    queryKey: ["schema"],
+    queryKey: ["schema", slug],
     queryFn: () => {
-      const stored = loadSchema();
+      if (!slug) {
+        // Return null if no slug provided
+        return null;
+      }
+
+      const stored = loadSchema(slug);
       if (stored) {
         return stored;
       }
+
+      // Initialize default schema if it doesn't exist
+      if (slug === "event-registration") {
+        const initialSchema = initializeSerializedSchema(
+          eventRegistrationMetadata
+        );
+        saveSchema(initialSchema);
+        return initialSchema;
+      }
+
+      return null;
+    },
+  });
+};
+
+export const useSchemas = () => {
+  return useQuery({
+    queryKey: ["schemas"],
+    queryFn: () => {
+      const schemas = loadSchemas();
+      if (schemas && schemas.length > 0) {
+        return schemas;
+      }
+
+      // Initialize with default event registration schema
       const initialSchema = initializeSerializedSchema(
         eventRegistrationMetadata
       );
-      return initialSchema;
+      saveSchema(initialSchema);
+      return [initialSchema];
     },
   });
 };

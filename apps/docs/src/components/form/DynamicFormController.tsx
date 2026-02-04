@@ -10,14 +10,18 @@ import { DataMigrationDialog } from "./DataMigrationDialog";
 import { DynamicForm } from "./DynamicForm";
 import { SchemaModificationDrawer } from "./SchemaModificationDrawer";
 
-export function DynamicFormController() {
-  const { data: schema, refetch: refetchSchema } = useSchema();
-  const { refetch: refetchSubmssions } = useSubmissions();
+interface DynamicFormControllerProps {
+  slug: string;
+}
+
+export function DynamicFormController({ slug }: DynamicFormControllerProps) {
+  const { data: schema, refetch: refetchSchema } = useSchema(slug);
+  const { refetch: refetchSubmssions } = useSubmissions(slug);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [currentField, setCurrentField] = useState<string>("new");
   const [migrationDialogOpen, setMigrationDialogOpen] = useState(false);
   const [pendingSchema, setPendingSchema] = useState<SerializedSchema | null>(
-    null
+    null,
   );
 
   const handleFieldModify = (fieldKey: string) => {
@@ -29,7 +33,7 @@ export function DynamicFormController() {
     if (!schema) return;
 
     // Check for differences
-    const diff = diffSchemas(schema, newSchema);
+    const diff = diffSchemas(schema.schema, newSchema);
     const hasChanges =
       diff.added.length > 0 ||
       diff.removed.length > 0 ||
@@ -43,8 +47,10 @@ export function DynamicFormController() {
     // TODO: Validate existing data against new schema. As of now we just ignore potential discrepancies and consider the form data purely client side and "droppable"
     // const validation = validateDataAgainstSchema(formData, newSchema);
 
+    // TODO display change suggestions from the LLM to the users of existing data entries. If the user decides to modify existing entries based on the schema, then the users creating those entries, should be modified.
+
     // if (validation.valid) {
-    saveSchema(newSchema);
+    saveSchema({ title: schema.title, slug: schema.slug, schema: newSchema });
     refetchSchema();
     toast.success("Schema updated successfully. Your data is still valid.");
     // } else {
@@ -55,8 +61,8 @@ export function DynamicFormController() {
   };
 
   const handleMigrationAccept = () => {
-    if (pendingSchema) {
-      saveSchema(pendingSchema);
+    if (pendingSchema && schema) {
+      saveSchema({ ...schema, schema: pendingSchema });
       refetchSchema();
       toast.success("Schema updated and data migrated successfully");
     }
@@ -74,7 +80,7 @@ export function DynamicFormController() {
     if (!schema) return;
 
     // Save to submissions array
-    saveSubmission(data, schema.version);
+    saveSubmission(data, schema.schema.version, schema.slug);
     refetchSubmssions();
 
     toast.success("Registration submitted successfully!");
@@ -91,7 +97,7 @@ export function DynamicFormController() {
   return (
     <>
       <DynamicForm
-        schema={schema}
+        schema={schema.schema}
         onFieldModify={handleFieldModify}
         onSubmit={handleFormSubmit}
       />
@@ -99,7 +105,7 @@ export function DynamicFormController() {
       <SchemaModificationDrawer
         open={drawerOpen}
         onOpenChange={setDrawerOpen}
-        currentSchema={schema}
+        currentSchema={schema.schema}
         fieldContext={currentField}
         onSchemaGenerated={handleSchemaGenerated}
       />
@@ -108,8 +114,8 @@ export function DynamicFormController() {
         <DataMigrationDialog
           open={migrationDialogOpen}
           onOpenChange={setMigrationDialogOpen}
-          diff={diffSchemas(schema, pendingSchema)}
-          oldSchema={schema}
+          diff={diffSchemas(schema.schema, pendingSchema)}
+          oldSchema={schema.schema}
           newSchema={pendingSchema}
           existingData={{}}
           onAccept={handleMigrationAccept}

@@ -20,6 +20,7 @@ export async function regenerateSchemaAction(
   request: SchemaModificationRequest,
 ): Promise<SchemaModificationResponse> {
   try {
+    console.log("Schema generatoin.");
     const { currentSchema, fieldContext, userPrompt } = request;
 
     // Build the prompt for the LLM
@@ -74,6 +75,7 @@ Return the complete updated schema in this exact JSON format:
   "updatedAt": "${new Date().toISOString()}"
 }`;
 
+    console.log("Generate text");
     const result = await generateText({
       model: anthropic("claude-haiku-4-5-20251001"),
       prompt: systemPrompt,
@@ -202,6 +204,8 @@ Strategies:
 - "clear": Clear the value (incompatible, user must re-enter)
 - "default": Set a default value for a new field
 - "remove": Field was removed, data will be lost`;
+
+    console.log("Generate MigrationSuggestionAction");
 
     const result = await generateText({
       model: anthropic("claude-haiku-4-5-20251001"),

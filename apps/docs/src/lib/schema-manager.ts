@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-const SCHEMA_STORAGE_KEY = "malleable-form-schema";
+const SCHEMA_STORAGE_KEY = "malleable-form-schema-list";
 const DATA_STORAGE_KEY = "malleable-form-data";
 const SUBMISSIONS_STORAGE_KEY = "malleable-form-submissions";
 
@@ -36,22 +36,55 @@ export interface SerializedSchema {
   updatedAt: string;
 }
 
+export interface SerializedSchemaEntry {
+  slug: string;
+  title: string;
+  schema: SerializedSchema;
+}
+
 /**
- * Saves a serialized schema to localStorage
+ * Saves or updates a serialized schema in localStorage
  */
-export function saveSchema(schema: SerializedSchema): void {
+export function saveSchema(schema: SerializedSchemaEntry): void {
   if (typeof window === "undefined") return;
-  localStorage.setItem(SCHEMA_STORAGE_KEY, JSON.stringify(schema));
+
+  const existing = loadSchemas() ?? [];
+  const index = existing.findIndex((s) => s.slug === schema.slug);
+
+  if (index >= 0) {
+    // Update existing schema
+    existing[index] = schema;
+  } else {
+    // Add new schema
+    existing.push(schema);
+  }
+
+  localStorage.setItem(SCHEMA_STORAGE_KEY, JSON.stringify(existing));
+}
+/**
+ * Loads the serialized schema from localStorage
+ */
+export function loadSchemas(): SerializedSchemaEntry[] | null {
+  if (typeof window === "undefined") return null;
+  const stored = localStorage.getItem(SCHEMA_STORAGE_KEY);
+  if (!stored) return null;
+  return JSON.parse(stored) as SerializedSchemaEntry[];
 }
 
 /**
  * Loads the serialized schema from localStorage
  */
-export function loadSchema(): SerializedSchema | null {
+export function loadSchema(schemaSlug?: string): SerializedSchemaEntry | null {
   if (typeof window === "undefined") return null;
   const stored = localStorage.getItem(SCHEMA_STORAGE_KEY);
   if (!stored) return null;
-  return JSON.parse(stored) as SerializedSchema;
+  const schema = (JSON.parse(stored) as SerializedSchemaEntry[]).find(
+    (schema) => schema.slug === schemaSlug,
+  );
+  if (schema) {
+    return schema;
+  }
+  return null;
 }
 
 /**
@@ -230,11 +263,24 @@ export function validateDataAgainstSchema(
 }
 
 /**
+ * Converts a string to a slug format
+ */
+function toSlug(text: string): string {
+  return text
+    .toLowerCase()
+    .replace(/\s+/g, "-")
+    .replace(/[^\w-]+/g, "")
+    .replace(/--+/g, "-")
+    .replace(/^-+/, "")
+    .replace(/-+$/, "");
+}
+
+/**
  * Converts initial schema and metadata to SerializedSchema format
  */
 export function initializeSerializedSchema(
   metadata: SchemaMetadata,
-): SerializedSchema {
+): SerializedSchemaEntry {
   const fields: SchemaField[] = [];
 
   for (const [key, fieldMeta] of Object.entries(metadata.fields)) {
@@ -245,10 +291,14 @@ export function initializeSerializedSchema(
   }
 
   return {
-    fields,
-    metadata,
-    version: 1,
-    updatedAt: new Date().toISOString(),
+    title: metadata.name,
+    slug: toSlug(metadata.name),
+    schema: {
+      fields,
+      metadata,
+      version: 1,
+      updatedAt: new Date().toISOString(),
+    },
   };
 }
 
@@ -260,6 +310,7 @@ export interface SubmissionEntry {
   data: Record<string, unknown>;
   submittedAt: string;
   schemaVersion: number;
+  schemaSlug: string;
 }
 
 /**
@@ -268,6 +319,7 @@ export interface SubmissionEntry {
 export function saveSubmission(
   data: Record<string, unknown>,
   schemaVersion: number,
+  schemaSlug: string,
 ): SubmissionEntry {
   if (typeof window === "undefined") {
     return {
@@ -275,6 +327,7 @@ export function saveSubmission(
       data,
       submittedAt: new Date().toISOString(),
       schemaVersion,
+      schemaSlug,
     };
   }
 
@@ -283,6 +336,7 @@ export function saveSubmission(
     data,
     submittedAt: new Date().toISOString(),
     schemaVersion,
+    schemaSlug,
   };
 
   const existing = loadSubmissions();
@@ -295,11 +349,15 @@ export function saveSubmission(
 /**
  * Loads all submissions from localStorage
  */
-export function loadSubmissions(): SubmissionEntry[] {
+export function loadSubmissions(schemaSlug?: string): SubmissionEntry[] {
   if (typeof window === "undefined") return [];
   const stored = localStorage.getItem(SUBMISSIONS_STORAGE_KEY);
   if (!stored) return [];
-  return JSON.parse(stored) as SubmissionEntry[];
+  const entries = JSON.parse(stored) as SubmissionEntry[];
+  if (schemaSlug) {
+    return entries.filter((entry) => entry.schemaSlug === schemaSlug);
+  }
+  return entries;
 }
 
 /**
@@ -325,10 +383,10 @@ type SubmissionValidationResult = {
   submission: SubmissionEntry;
 };
 export function validateNewSchemaWithPreviousSubmissions(
-  newSchema: SerializedSchema,
+  newSchema: SerializedSchemaEntry,
 ) {
-  const previousSubmissions = loadSubmissions();
-  const schema = serializeSchemaToZod(newSchema);
+  const previousSubmissions = loadSubmissions(newSchema.slug);
+  const schema = serializeSchemaToZod(newSchema.schema);
   const results: SubmissionValidationResult[] = [];
 
   for (
