@@ -149,6 +149,38 @@ export function DynamicForm({
           >
             Add New Field
           </Button>
+
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() =>
+              alert("TODO: Upload example entry to create initial schema")
+            }
+          >
+            Design
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() =>
+              alert(
+                "TODO: Upload example entry to double check if the schema is still valid",
+              )
+            }
+          >
+            Validate schema
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() =>
+              alert(
+                "TODO: Upload example entry and fill it into the form. Maybe also insert due with audio.",
+              )
+            }
+          >
+            Fill
+          </Button>
         </div>
       </form>
     </Form>

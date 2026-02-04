@@ -78,6 +78,20 @@ export default function Page() {
               The AI will regenerate the schema with your requested changes
             </li>
             <li>Submit the form to save your entry</li>
+            <li className="text-blue-400 font-black">
+              TODO: What is a very impossible goal that we can somehow solve?
+            </li>
+            <li className="text-blue-400 font-black">
+              TODO: What is the malleable intent? Who decides for changes?
+            </li>
+            <li className="text-blue-400 font-black">
+              TODO: What about the end user programmability?
+            </li>
+            <li className="text-blue-400 font-black">
+              TODO: Maybe we can record a meeting taking notes automatically
+              into a form? Listening to a meeting in the team and let it create
+              a list of all the projects we are working on.
+            </li>
           </ul>
         </div>
       </div>
