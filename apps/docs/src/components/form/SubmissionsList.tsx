@@ -2,13 +2,26 @@
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { useSchema } from "@/hooks/query/schemas";
 import { useSubmissions } from "@/hooks/query/submissions";
-import { clearAllSubmissions, deleteSubmission } from "@/lib/schema-manager";
-import { Trash2Icon } from "lucide-react";
+import {
+  clearAllSubmissions,
+  deleteSubmission,
+  serializeSchemaToZod,
+  validateNewSchemaWithPreviousSubmissions,
+} from "@/lib/schema-manager";
+import { AlertCircleIcon, CheckCircle2Icon, Trash2Icon } from "lucide-react";
+import { useMemo } from "react";
 import { toast } from "sonner";
-import { SchemaSubmissionValidator } from "./SchemaSubmissionValidator";
+import z from "zod";
 
 interface SubmissionsListProps {
   slug: string;
@@ -30,6 +43,24 @@ export function SubmissionsList({ slug }: SubmissionsListProps) {
     refetchSubmssions();
     toast.success("All submissions cleared");
   };
+
+  // Validate all submissions against current schema
+  const validationResults = useMemo(() => {
+    if (!schema) return [];
+    return validateNewSchemaWithPreviousSubmissions(schema);
+  }, [schema, submissions]);
+
+  // Create a map for quick validation lookup
+  const validationMap = useMemo(() => {
+    const map = new Map();
+    validationResults.forEach((result) => {
+      map.set(result.submission.id, result.validation);
+    });
+    return map;
+  }, [validationResults]);
+
+  const zodSchema = schema ? serializeSchemaToZod(schema.schema) : null;
+
   if (!submissions?.length) {
     return (
       <div className="text-center py-8 text-muted-foreground">
@@ -57,12 +88,34 @@ export function SubmissionsList({ slug }: SubmissionsListProps) {
     });
   };
 
+  const validCount = validationResults.filter(
+    (r) => r.validation.success,
+  ).length;
+  const invalidCount = validationResults.length - validCount;
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h3 className="text-lg font-semibold">
-          Submitted Registrations ({submissions.length})
-        </h3>
+        <div className="flex items-center gap-3">
+          <h3 className="text-lg font-semibold">
+            Submitted Registrations ({submissions.length})
+          </h3>
+          {invalidCount > 0 && (
+            <Badge variant="destructive" className="gap-1">
+              <AlertCircleIcon className="h-3 w-3" />
+              {invalidCount} Invalid
+            </Badge>
+          )}
+          {validCount > 0 && (
+            <Badge
+              variant="outline"
+              className="gap-1 bg-green-50 text-green-700 border-green-200"
+            >
+              <CheckCircle2Icon className="h-3 w-3" />
+              {validCount} Valid
+            </Badge>
+          )}
+        </div>
         {submissions.length > 0 && (
           <Button variant="outline" size="sm" onClick={onClearAll}>
             Clear All
@@ -70,59 +123,102 @@ export function SubmissionsList({ slug }: SubmissionsListProps) {
         )}
       </div>
 
-      <div className="space-y-3">
-        {submissions.map((submission) => (
-          <Card key={submission.id}>
-            <CardHeader className="pb-3">
-              <div className="flex items-start justify-between">
-                <div className="space-y-1">
-                  <CardTitle className="text-sm font-medium">
-                    {formatDate(submission.submittedAt)}
-                  </CardTitle>
-                  <div className="flex gap-2">
-                    <Badge variant="outline" className="text-xs">
-                      Schema v{submission.schemaVersion}
-                    </Badge>
-                  </div>
-                </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-8 w-8 p-0"
-                  onClick={() => onDelete(submission.id)}
-                >
-                  <Trash2Icon className="h-4 w-4" />
-                  <span className="sr-only">Delete submission</span>
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent className="pt-0">
-              <dl className="grid grid-cols-1 gap-2 text-sm">
-                {schema?.schema.fields.map((field) => {
-                  const value = submission.data[field.key];
-                  return (
-                    <div
-                      key={field.key}
-                      className="flex justify-between py-1 border-b last:border-0"
-                    >
-                      <dt className="font-medium text-muted-foreground">
-                        {field.label}:
-                      </dt>
-                      <dd className="text-right">{formatValue(value)}</dd>
-                    </div>
-                  );
-                })}
-              </dl>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+      <div className="rounded-md border">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="w-[50px]">Status</TableHead>
+              <TableHead>Submitted</TableHead>
+              <TableHead>Schema</TableHead>
+              {schema?.schema.fields.map((field) => (
+                <TableHead key={field.key}>{field.label}</TableHead>
+              ))}
+              <TableHead className="w-[100px]">Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {submissions.map((submission) => {
+              const validation = zodSchema?.safeParse(submission.data);
+              const isValid = validation?.success;
 
-      {schema && (
-        <div>
-          <SchemaSubmissionValidator schema={schema} />
-        </div>
-      )}
+              return (
+                <TableRow
+                  key={submission.id}
+                  className={!isValid ? "bg-red-50/50 dark:bg-red-950/10" : ""}
+                >
+                  <TableCell>
+                    {isValid ? (
+                      <CheckCircle2Icon className="h-5 w-5 text-green-600" />
+                    ) : (
+                      <div className="relative group">
+                        <AlertCircleIcon className="h-5 w-5 text-red-600" />
+                        {!isValid && validation && "error" in validation && (
+                          <div className="absolute left-0 top-6 z-10 hidden group-hover:block min-w-[200px] p-2 bg-popover text-popover-foreground border rounded-md shadow-md text-xs">
+                            <div className="font-semibold mb-1">
+                              Validation Errors:
+                            </div>
+
+                            {(() => {
+                              const errorProperties = z.treeifyError(
+                                validation.error,
+                              ).properties;
+                              const entries = Object.entries(errorProperties!);
+                              return (
+                                <div>
+                                  {entries.map(([key, value]) => (
+                                    <div key={key}>
+                                      <span>{key}:</span>
+                                      {value?.errors.map((error) => (
+                                        <span
+                                          key={error}
+                                          className="italic block"
+                                        >
+                                          {error}
+                                        </span>
+                                      ))}
+                                    </div>
+                                  ))}
+                                </div>
+                              );
+                            })()}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </TableCell>
+                  <TableCell className="font-medium">
+                    {formatDate(submission.submittedAt)}
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant="outline" className="text-xs">
+                      v{submission.schemaVersion}
+                    </Badge>
+                  </TableCell>
+                  {schema?.schema.fields.map((field) => {
+                    const value = submission.data[field.key];
+                    return (
+                      <TableCell key={field.key}>
+                        {formatValue(value)}
+                      </TableCell>
+                    );
+                  })}
+                  <TableCell>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 w-8 p-0"
+                      onClick={() => onDelete(submission.id)}
+                    >
+                      <Trash2Icon className="h-4 w-4" />
+                      <span className="sr-only">Delete submission</span>
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
+      </div>
     </div>
   );
 }

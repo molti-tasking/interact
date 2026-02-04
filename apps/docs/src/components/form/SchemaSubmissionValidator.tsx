@@ -6,6 +6,11 @@ import { cn } from "@/lib/utils";
 import z from "zod";
 import { Button } from "../ui/button";
 
+/**
+ * This component renders the validation of all entries for the latest schema.
+ *
+ * @returns
+ */
 export const SchemaSubmissionValidator = ({
   schema,
 }: {
