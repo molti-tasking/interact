@@ -25,7 +25,7 @@ export const ReactQueryDevTools = () => {
 
   return (
     <>
-      <ReactQueryDevtools initialIsOpen />
+      <ReactQueryDevtools />
       {showDevtools && (
         <React.Suspense fallback={null}>
           <ReactQueryDevtoolsProduction />
