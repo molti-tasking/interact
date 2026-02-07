@@ -147,6 +147,153 @@ Return the complete updated schema in this exact JSON format:
   }
 }
 
+export interface SchemaGenerationFromRawDataRequest {
+  formName: string;
+  formDescription: string;
+  rawData: string;
+}
+
+export interface SchemaGenerationFromRawDataResponse {
+  success: boolean;
+  schema?: SerializedSchema;
+  error?: string;
+}
+
+export async function generateSchemaFromRawDataAction(
+  request: SchemaGenerationFromRawDataRequest,
+): Promise<SchemaGenerationFromRawDataResponse> {
+  try {
+    const { formName, formDescription, rawData } = request;
+
+    if (!rawData.trim()) {
+      return {
+        success: false,
+        error: "Raw data is required",
+      };
+    }
+
+    // Build the prompt for the LLM
+    const systemPrompt = `You are a form schema generator. Your task is to analyze raw data and generate an appropriate form schema.
+
+IMPORTANT RULES:
+1. Analyze the raw data to identify distinct data fields
+2. Infer appropriate field types: "string", "number", "boolean", "date", "email", "select"
+3. For repeating patterns or categorical data, use select fields with options
+4. All field keys must be camelCase and descriptive
+5. Mark fields as required if they appear consistently in the data
+6. Include helpful descriptions based on the data patterns
+7. Create at least 3-5 meaningful fields from the data
+8. Return ONLY valid JSON, no markdown or explanation
+
+Raw Data to Analyze:
+${rawData}
+
+Form Context:
+Name: ${formName}
+Description: ${formDescription}
+
+Based on this raw data, generate a schema that would collect similar information. Identify patterns, field types, and structure from the provided data.
+
+Return the complete schema in this exact JSON format:
+{
+  "fields": [
+    {
+      "key": "fieldName",
+      "type": "string|number|boolean|date|email|select",
+      "label": "Display Label",
+      "description": "Optional description",
+      "required": true,
+      "validation": {
+        "min": 1,
+        "max": 100,
+        "options": ["option1", "option2"]
+      }
+    }
+  ],
+  "metadata": {
+    "name": "${formName}",
+    "description": "${formDescription}",
+    "fields": {
+      "fieldName": {
+        "label": "Display Label",
+        "description": "Description",
+        "type": "string",
+        "required": true
+      }
+    }
+  },
+  "version": 1,
+  "updatedAt": "${new Date().toISOString()}"
+}`;
+
+    console.log("Generating schema from raw data");
+    const result = await generateText({
+      model: anthropic("claude-haiku-4-5-20251001"),
+      prompt: systemPrompt,
+      temperature: 0.3,
+    });
+
+    // Parse the LLM response
+    let schema: SerializedSchema;
+    try {
+      // Extract JSON from the response (in case there's markdown)
+      const jsonMatch = result.text.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) {
+        throw new Error("No valid JSON found in response");
+      }
+      schema = JSON.parse(jsonMatch[0]) as SerializedSchema;
+    } catch {
+      console.error("Failed to parse LLM response:", result.text);
+      return {
+        success: false,
+        error: "Failed to parse schema from LLM response",
+      };
+    }
+
+    // Validate the generated schema
+    if (!schema.fields || !Array.isArray(schema.fields)) {
+      return {
+        success: false,
+        error: "Invalid schema: missing or invalid fields array",
+      };
+    }
+
+    if (schema.fields.length === 0) {
+      return {
+        success: false,
+        error: "Generated schema has no fields",
+      };
+    }
+
+    // Ensure metadata matches the request
+    if (!schema.metadata) {
+      schema.metadata = {
+        name: formName,
+        description: formDescription,
+        fields: {},
+      };
+    }
+
+    // Ensure version is set
+    if (!schema.version) {
+      schema.version = 1;
+    }
+
+    // Ensure updatedAt is set
+    if (!schema.updatedAt) {
+      schema.updatedAt = new Date().toISOString();
+    }
+
+    return { success: true, schema };
+  } catch (error) {
+    console.error("Schema generation from raw data error:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Unknown error",
+    };
+  }
+}
+
 export interface MigrationRequest {
   oldSchema: SerializedSchema;
   newSchema: SerializedSchema;
