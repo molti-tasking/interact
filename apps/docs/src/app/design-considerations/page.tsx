@@ -1,7 +1,7 @@
 export default function DesignConsiderationsPage() {
   return (
     <div className="flex items-center justify-center ">
-      <main className="flex w-full max-w-3xl flex-col gap-8 text-zinc-600">
+      <main className="flex w-full flex-col gap-8 ">
         <div className="flex flex-col items-center gap-4 text-center sm:items-start sm:text-left">
           <h1 className="text-3xl font-semibold mb-2">
             User Interface Design Considerations

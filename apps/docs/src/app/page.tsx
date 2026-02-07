@@ -3,7 +3,7 @@
 export default function Home() {
   return (
     <div className="flex items-center justify-center ">
-      <main className="flex w-full max-w-3xl flex-col gap-8 text-zinc-600">
+      <main className="flex w-full flex-col gap-8 ">
         <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
           <h1 className="text-3xl font-semibold">Interact</h1>
           <p>
@@ -33,6 +33,37 @@ export default function Home() {
             generative ai and it should just work even without any ai.
             Nevertheless, we want to empower system builders to implement
             thoughtful ai interactions into their systems that are opinionated.
+          </p>
+        </div>
+
+        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
+          <h2 className="text-2xl font-semibold">Think about the Motivation</h2>
+          <p className="font-black">
+            What is a very impossible goal that we can somehow solve?
+          </p>
+          <p>
+            Option A: In companies we may have very many different deparments or
+            needs and then there are high paid intermediary managers in charge
+            of understanding all their problems, needs and businesses in order
+            to come up with a standardized solution aiming to cover all of them.
+            This process takes time and normally the different departments are a
+            little bit unhappy with the solution.
+          </p>
+          <p className="font-black">
+            Regarding the malleable forms? What is the malleable intent? Who
+            decides for changes?
+          </p>
+          <p>
+            Maybe the form creator can decide what to allow for changes or
+            something like that...
+          </p>
+          <p className="font-black">What about the end user programmability?</p>
+          <p>...</p>
+          <p className="font-black">How can we demo this project?</p>
+          <p>
+            Maybe we can voice record and transcribe a meeting taking notes
+            automatically into a form? Listening to a meeting in the team and
+            let it create a list of all the projects we are working on.
           </p>
         </div>
       </main>

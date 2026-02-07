@@ -27,6 +27,8 @@ interface CreateFormDialogProps {
   onFormCreated: () => void;
 }
 
+// TODO: We want to always have forms using react-hook-form and zod for validation. Add this as coding instructions to the CLAUDE.md file or somehow that the claude code will always be aware of this pattern. Then I want to add another field "Example Raw Data" that shall be extracted and used for a llm completion generating an example schema. E.g. consider a form for job applications, then if you paste in your cv data, it should create a schema for that data.
+
 export function CreateFormDialog({
   open,
   onOpenChange,
