@@ -35,20 +35,6 @@ const data = {
       ],
     },
     {
-      title: "Concepts",
-      url: "#",
-      items: [
-        {
-          title: "Background",
-          url: "/background",
-        },
-        {
-          title: "UI Considerations",
-          url: "/design-considerations",
-        },
-      ],
-    },
-    {
       title: "Components",
       url: "#",
       items: [
@@ -68,13 +54,7 @@ const data = {
     },
   ],
 
-  navSecondary: [
-    // {
-    //   title: "Background",
-    //   url: "/background",
-    //   icon: BookIcon,
-    // },
-  ],
+  navSecondary: [],
 };
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
