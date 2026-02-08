@@ -1,5 +1,6 @@
 "use client";
 
+import type { ParseRawDataResponse } from "@/app/actions/schema-actions";
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -22,20 +23,31 @@ import type { SerializedSchema } from "@/lib/schema-manager";
 import { serializeSchemaToZod } from "@/lib/schema-manager";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Settings2Icon } from "lucide-react";
+import { useState } from "react";
 import { useForm } from "react-hook-form";
+import { toast } from "sonner";
+import { FillFormDialog } from "./FillFormDialog";
+import { FormFillReviewDialog } from "./FormFillReviewDialog";
 
 interface DynamicFormProps {
   schema: SerializedSchema;
   onFieldModify: (fieldKey: string) => void;
   onSubmit: (data: Record<string, unknown>) => void;
+  onSchemaUpdate?: (newSchema: SerializedSchema) => void;
 }
 
 export function DynamicForm({
   schema,
   onFieldModify,
   onSubmit,
+  onSchemaUpdate,
 }: DynamicFormProps) {
   const zodSchema = serializeSchemaToZod(schema);
+  const [fillDialogOpen, setFillDialogOpen] = useState(false);
+  const [reviewDialogOpen, setReviewDialogOpen] = useState(false);
+  const [parseResult, setParseResult] = useState<ParseRawDataResponse | null>(
+    null,
+  );
 
   const form = useForm({
     resolver: zodResolver(zodSchema),
@@ -45,6 +57,55 @@ export function DynamicForm({
   const handleSubmit = (data: Record<string, unknown>) => {
     onSubmit(data);
     form.reset();
+  };
+
+  const handleDataParsed = (result: ParseRawDataResponse) => {
+    setParseResult(result);
+    setReviewDialogOpen(true);
+  };
+
+  const handleFillFormOnly = () => {
+    if (!parseResult) return;
+
+    // Pre-fill form with matched data
+    Object.entries(parseResult.parsedData).forEach(([key, value]) => {
+      // Check if field exists in schema
+      const fieldExists = schema.fields.some((f) => f.key === key);
+      if (fieldExists) {
+        form.setValue(key, value);
+      }
+    });
+
+    setReviewDialogOpen(false);
+    setParseResult(null);
+    toast.success(
+      `Form filled with ${Object.keys(parseResult.parsedData).length} fields`,
+    );
+  };
+
+  const handleUpdateSchemaAndFill = () => {
+    if (!parseResult?.schemaSuggestion || !onSchemaUpdate) return;
+
+    // Update schema
+    onSchemaUpdate(parseResult.schemaSuggestion);
+
+    // Pre-fill form with all data (matched + extra)
+    // Note: We need to wait for schema to update before filling extra fields
+    // For now, just fill the matched data immediately
+    Object.entries(parseResult.parsedData).forEach(([key, value]) => {
+      form.setValue(key, value);
+    });
+
+    // Fill extra fields (they'll be available after schema update)
+    setTimeout(() => {
+      parseResult.extraFields.forEach((field) => {
+        form.setValue(field.key, field.value);
+      });
+    }, 100);
+
+    setReviewDialogOpen(false);
+    setParseResult(null);
+    toast.success("Schema updated and form filled successfully");
   };
 
   return (
@@ -149,40 +210,30 @@ export function DynamicForm({
           >
             Add New Field
           </Button>
-
           <Button
             type="button"
             variant="outline"
-            onClick={() =>
-              alert("TODO: Upload example entry to create initial schema")
-            }
+            onClick={() => setFillDialogOpen(true)}
           >
-            Design
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() =>
-              alert(
-                "TODO: Upload example entry to double check if the schema is still valid",
-              )
-            }
-          >
-            Validate schema
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() =>
-              alert(
-                "TODO: Upload example entry and fill it into the form. Maybe also insert due with audio.",
-              )
-            }
-          >
-            Fill
+            Fill from Data
           </Button>
         </div>
       </form>
+
+      <FillFormDialog
+        open={fillDialogOpen}
+        onOpenChange={setFillDialogOpen}
+        currentSchema={schema}
+        onDataParsed={handleDataParsed}
+      />
+
+      <FormFillReviewDialog
+        open={reviewDialogOpen}
+        onOpenChange={setReviewDialogOpen}
+        parseResult={parseResult}
+        onFillFormOnly={handleFillFormOnly}
+        onUpdateSchemaAndFill={handleUpdateSchemaAndFill}
+      />
     </Form>
   );
 }

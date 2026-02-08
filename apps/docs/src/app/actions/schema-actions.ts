@@ -379,3 +379,155 @@ Strategies:
     return null;
   }
 }
+
+export interface ParseRawDataRequest {
+  currentSchema: SerializedSchema;
+  rawData: string;
+  dataSource: "text" | "audio" | "file";
+}
+
+export interface ExtraField {
+  key: string;
+  value: unknown;
+  suggestedType: string;
+  label: string;
+  description?: string;
+}
+
+export interface FieldMismatch {
+  field: string;
+  expectedType: string;
+  receivedValue: unknown;
+  suggestion: string;
+}
+
+export interface ParseRawDataResponse {
+  success: boolean;
+  parsedData: Record<string, unknown>;
+  extraFields: ExtraField[];
+  mismatches: FieldMismatch[];
+  schemaSuggestion?: SerializedSchema;
+  error?: string;
+}
+
+export async function parseRawDataForFormAction(
+  request: ParseRawDataRequest,
+): Promise<ParseRawDataResponse> {
+  try {
+    const { currentSchema, rawData, dataSource } = request;
+
+    if (!rawData.trim()) {
+      return {
+        success: false,
+        parsedData: {},
+        extraFields: [],
+        mismatches: [],
+        error: "Raw data is required",
+      };
+    }
+
+    // Build the prompt for the LLM
+    const systemPrompt = `You are a data parsing assistant. Your task is to parse raw data and match it to an existing form schema.
+
+Current Form Schema:
+${JSON.stringify(currentSchema, null, 2)}
+
+Raw Data to Parse (source: ${dataSource}):
+${rawData}
+
+IMPORTANT INSTRUCTIONS:
+1. Extract values from the raw data that match the existing schema fields
+2. Identify any extra information in the raw data that doesn't match existing fields
+3. Detect type mismatches where the data doesn't fit the expected field type
+4. For extra fields, suggest appropriate field types and labels
+5. If extra fields are found, generate an updated schema that includes them
+
+Return ONLY valid JSON in this exact format:
+{
+  "parsedData": {
+    "existingFieldKey1": "extracted value",
+    "existingFieldKey2": "extracted value"
+  },
+  "extraFields": [
+    {
+      "key": "newFieldKey",
+      "value": "extracted value",
+      "suggestedType": "string|number|boolean|date|email|select",
+      "label": "Display Label",
+      "description": "Optional description"
+    }
+  ],
+  "mismatches": [
+    {
+      "field": "fieldKey",
+      "expectedType": "number",
+      "receivedValue": "not a number",
+      "suggestion": "Convert to number or change field type to string"
+    }
+  ],
+  "schemaSuggestion": {
+    "fields": [...],
+    "metadata": {...},
+    "version": ${currentSchema.version + 1},
+    "updatedAt": "${new Date().toISOString()}"
+  }
+}
+
+RULES:
+- Only include fields in parsedData that exist in the current schema
+- Use camelCase for extra field keys
+- If no extra fields found, return empty array for extraFields
+- If no mismatches found, return empty array for mismatches
+- Only include schemaSuggestion if extraFields exist
+- The schemaSuggestion should be the complete updated schema with all fields (existing + new)`;
+
+    console.log("Parsing raw data for form filling");
+    const result = await generateText({
+      model: anthropic("claude-haiku-4-5-20251001"),
+      prompt: systemPrompt,
+      temperature: 0.3,
+    });
+
+    // Parse the LLM response
+    let response: {
+      parsedData: Record<string, unknown>;
+      extraFields: ExtraField[];
+      mismatches: FieldMismatch[];
+      schemaSuggestion?: SerializedSchema;
+    };
+
+    try {
+      const jsonMatch = result.text.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) {
+        throw new Error("No valid JSON found in response");
+      }
+      response = JSON.parse(jsonMatch[0]) as typeof response;
+    } catch {
+      console.error("Failed to parse LLM response:", result.text);
+      return {
+        success: false,
+        parsedData: {},
+        extraFields: [],
+        mismatches: [],
+        error: "Failed to parse AI response",
+      };
+    }
+
+    return {
+      success: true,
+      parsedData: response.parsedData || {},
+      extraFields: response.extraFields || [],
+      mismatches: response.mismatches || [],
+      schemaSuggestion: response.schemaSuggestion,
+    };
+  } catch (error) {
+    console.error("Parse raw data error:", error);
+    return {
+      success: false,
+      parsedData: {},
+      extraFields: [],
+      mismatches: [],
+      error: error instanceof Error ? error.message : "Unknown error",
+    };
+  }
+}

@@ -100,6 +100,7 @@ export function DynamicFormController({ slug }: DynamicFormControllerProps) {
         schema={schema.schema}
         onFieldModify={handleFieldModify}
         onSubmit={handleFormSubmit}
+        onSchemaUpdate={handleSchemaGenerated}
       />
 
       <SchemaModificationDrawer
