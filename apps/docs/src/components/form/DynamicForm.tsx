@@ -43,6 +43,7 @@ export function DynamicForm({
   onSchemaUpdate,
 }: DynamicFormProps) {
   const zodSchema = serializeSchemaToZod(schema);
+  // TODO: let's continue playing around with the interactions but at some point, I want to condense these dialogs into a single one instead.
   const [fillDialogOpen, setFillDialogOpen] = useState(false);
   const [reviewDialogOpen, setReviewDialogOpen] = useState(false);
   const [parseResult, setParseResult] = useState<ParseRawDataResponse | null>(
