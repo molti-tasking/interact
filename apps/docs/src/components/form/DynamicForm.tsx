@@ -220,6 +220,9 @@ export function DynamicForm({
         </div>
       </form>
 
+      {/* TODO In the next step, I want to make a "Drag and Drop" interaction into the full form for a file that would be extraced and filled into the form. So, we would remove the dialog but instead the user can directly just "throw" the file there. */}
+      {/* TODO In another next step, I want to artificially delay the form inserts and add a sublte animation to it to show to the user what came up. Maybe we highlight the text in another color for a certain period of time, in order to assume that the user automatically approves it. Or, alternatively provide an easy interaction when the user clicks on it: Open a dialog showing the previous and new value. Also showing WHY the gen AI suggests this value for the field. Then the user will have the option to decline or reiterate with a short prompt to be given into the conversation for the recreation. */}
+
       <FillFormDialog
         open={fillDialogOpen}
         onOpenChange={setFillDialogOpen}
