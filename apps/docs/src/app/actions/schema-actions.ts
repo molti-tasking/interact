@@ -406,6 +406,7 @@ export interface ParseRawDataResponse {
   parsedData: Record<string, unknown>;
   extraFields: ExtraField[];
   mismatches: FieldMismatch[];
+  fieldExplanations: Record<string, string>;
   schemaSuggestion?: SerializedSchema;
   error?: string;
 }
@@ -422,6 +423,7 @@ export async function parseRawDataForFormAction(
         parsedData: {},
         extraFields: [],
         mismatches: [],
+        fieldExplanations: {},
         error: "Raw data is required",
       };
     }
@@ -441,12 +443,17 @@ IMPORTANT INSTRUCTIONS:
 3. Detect type mismatches where the data doesn't fit the expected field type
 4. For extra fields, suggest appropriate field types and labels
 5. If extra fields are found, generate an updated schema that includes them
+6. For EACH field in parsedData, provide a brief explanation of why this value was chosen
 
 Return ONLY valid JSON in this exact format:
 {
   "parsedData": {
     "existingFieldKey1": "extracted value",
     "existingFieldKey2": "extracted value"
+  },
+  "fieldExplanations": {
+    "existingFieldKey1": "Brief explanation of why this value was chosen from the raw data",
+    "existingFieldKey2": "Another explanation"
   },
   "extraFields": [
     {
@@ -479,7 +486,8 @@ RULES:
 - If no extra fields found, return empty array for extraFields
 - If no mismatches found, return empty array for mismatches
 - Only include schemaSuggestion if extraFields exist
-- The schemaSuggestion should be the complete updated schema with all fields (existing + new)`;
+- The schemaSuggestion should be the complete updated schema with all fields (existing + new)
+- Include fieldExplanations for every field in parsedData`;
 
     console.log("Parsing raw data for form filling");
     const result = await generateText({
@@ -491,6 +499,7 @@ RULES:
     // Parse the LLM response
     let response: {
       parsedData: Record<string, unknown>;
+      fieldExplanations?: Record<string, string>;
       extraFields: ExtraField[];
       mismatches: FieldMismatch[];
       schemaSuggestion?: SerializedSchema;
@@ -509,6 +518,7 @@ RULES:
         parsedData: {},
         extraFields: [],
         mismatches: [],
+        fieldExplanations: {},
         error: "Failed to parse AI response",
       };
     }
@@ -518,6 +528,7 @@ RULES:
       parsedData: response.parsedData || {},
       extraFields: response.extraFields || [],
       mismatches: response.mismatches || [],
+      fieldExplanations: response.fieldExplanations || {},
       schemaSuggestion: response.schemaSuggestion,
     };
   } catch (error) {
@@ -527,6 +538,7 @@ RULES:
       parsedData: {},
       extraFields: [],
       mismatches: [],
+      fieldExplanations: {},
       error: error instanceof Error ? error.message : "Unknown error",
     };
   }

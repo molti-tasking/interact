@@ -19,13 +19,18 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useFillingQueue } from "@/hooks/form/use-filling-queue";
+import { useFormFilling } from "@/hooks/form/use-form-filling";
+import { getFieldAIClassesByFlags } from "@/lib/ai-form-styles";
+import type { FillingQueueItem } from "@/lib/form-filling-types";
 import type { SerializedSchema } from "@/lib/schema-manager";
 import { serializeSchemaToZod } from "@/lib/schema-manager";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Settings2Icon } from "lucide-react";
-import { useState } from "react";
+import { SaveIcon, Settings2Icon } from "lucide-react";
+import { useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
+import { FieldValueReviewDialog } from "./FieldValueReviewDialog";
 import { FillFormDialog } from "./FillFormDialog";
 import { FormFillReviewDialog } from "./FormFillReviewDialog";
 
@@ -43,21 +48,118 @@ export function DynamicForm({
   onSchemaUpdate,
 }: DynamicFormProps) {
   const zodSchema = serializeSchemaToZod(schema);
-  // TODO: let's continue playing around with the interactions but at some point, I want to condense these dialogs into a single one instead.
-  const [fillDialogOpen, setFillDialogOpen] = useState(false);
-  const [reviewDialogOpen, setReviewDialogOpen] = useState(false);
-  const [parseResult, setParseResult] = useState<ParseRawDataResponse | null>(
-    null,
-  );
 
   const form = useForm({
     resolver: zodResolver(zodSchema),
     defaultValues: {},
   });
 
+  // Dialog states
+  // TODO: let's continue playing around with the interactions but at some point, I want to condense these dialogs into a single one instead.
+  const [fillDialogOpen, setFillDialogOpen] = useState(false);
+  const [reviewDialogOpen, setReviewDialogOpen] = useState(false);
+  const [parseResult, setParseResult] = useState<ParseRawDataResponse | null>(
+    null,
+  );
+  const [fieldReviewDialogOpen, setFieldReviewDialogOpen] = useState(false);
+  const [selectedFieldForReview, setSelectedFieldForReview] =
+    useState<FillingQueueItem | null>(null);
+
+  // Store the current filling queue for field review
+  const [currentQueue, setCurrentQueue] = useState<FillingQueueItem[]>([]);
+
+  // Memoize config to prevent re-creating on every render
+  const fillingConfig = useMemo(
+    () => ({
+      highlightDuration: 2000,
+      fieldDelay: 600,
+    }),
+    [],
+  );
+
+  // Use custom hooks for form filling
+  const { buildQueue } = useFillingQueue({ schema, form });
+  const filling = useFormFilling({
+    form,
+    config: fillingConfig,
+  });
+
   const handleSubmit = (data: Record<string, unknown>) => {
     onSubmit(data);
     form.reset();
+  };
+
+  // Handle field click to review
+  const handleFieldClick = (fieldKey: string) => {
+    // Check if field is clickable using hook utility
+    if (!filling.isFieldClickable(fieldKey)) {
+      return;
+    }
+
+    // Find the item in the queue
+    const item = currentQueue.find((item) => item.key === fieldKey);
+    if (!item) return;
+
+    // Pause filling if active
+    if (filling.fillingStatus === "filling") {
+      filling.pauseFilling();
+    }
+
+    // Show review dialog
+    setSelectedFieldForReview(item);
+    setFieldReviewDialogOpen(true);
+  };
+
+  const handleFieldReviewAccept = (
+    editedValue: unknown,
+    userNotes?: string,
+  ) => {
+    if (!selectedFieldForReview) return;
+
+    // Update the value
+    form.setValue(selectedFieldForReview.key, editedValue);
+
+    // Log user notes if provided
+    if (userNotes) {
+      console.log(`User notes for ${selectedFieldForReview.key}:`, userNotes);
+    }
+
+    // Close dialog
+    setFieldReviewDialogOpen(false);
+    setSelectedFieldForReview(null);
+
+    // Resume filling if it was paused
+    if (filling.fillingStatus === "paused") {
+      filling.resumeFilling();
+    }
+
+    toast.success(`Field "${selectedFieldForReview.key}" updated`);
+  };
+
+  const handleFieldReviewDecline = () => {
+    if (!selectedFieldForReview) return;
+
+    // Revert to previous value if it existed
+    if (selectedFieldForReview.previousValue !== undefined) {
+      form.setValue(
+        selectedFieldForReview.key,
+        selectedFieldForReview.previousValue,
+      );
+    } else {
+      // Clear the field
+      form.resetField(selectedFieldForReview.key);
+    }
+
+    // Close dialog
+    setFieldReviewDialogOpen(false);
+    setSelectedFieldForReview(null);
+
+    // Resume filling if it was paused
+    if (filling.fillingStatus === "paused") {
+      filling.resumeFilling();
+    }
+
+    toast.info(`Field "${selectedFieldForReview.key}" declined`);
   };
 
   const handleDataParsed = (result: ParseRawDataResponse) => {
@@ -68,142 +170,169 @@ export function DynamicForm({
   const handleFillFormOnly = () => {
     if (!parseResult) return;
 
-    // Pre-fill form with matched data
-    Object.entries(parseResult.parsedData).forEach(([key, value]) => {
-      // Check if field exists in schema
-      const fieldExists = schema.fields.some((f) => f.key === key);
-      if (fieldExists) {
-        form.setValue(key, value);
-      }
-    });
+    const queue = buildQueue(
+      parseResult.parsedData,
+      [],
+      parseResult.fieldExplanations,
+    );
 
     setReviewDialogOpen(false);
     setParseResult(null);
-    toast.success(
-      `Form filled with ${Object.keys(parseResult.parsedData).length} fields`,
-    );
+
+    // Store queue for field review
+    setCurrentQueue(queue);
+
+    // Start filling using hook
+    filling.startFilling(queue);
+    toast.info(`Filling ${queue.length} fields...`);
   };
 
   const handleUpdateSchemaAndFill = () => {
     if (!parseResult?.schemaSuggestion || !onSchemaUpdate) return;
 
-    // Update schema
+    // Update schema first
     onSchemaUpdate(parseResult.schemaSuggestion);
 
-    // Pre-fill form with all data (matched + extra)
-    // Note: We need to wait for schema to update before filling extra fields
-    // For now, just fill the matched data immediately
-    Object.entries(parseResult.parsedData).forEach(([key, value]) => {
-      form.setValue(key, value);
-    });
-
-    // Fill extra fields (they'll be available after schema update)
-    setTimeout(() => {
-      parseResult.extraFields.forEach((field) => {
-        form.setValue(field.key, field.value);
-      });
-    }, 100);
+    const queue = buildQueue(
+      parseResult.parsedData,
+      parseResult.extraFields,
+      parseResult.fieldExplanations,
+    );
 
     setReviewDialogOpen(false);
     setParseResult(null);
-    toast.success("Schema updated and form filled successfully");
+
+    // Store queue for field review
+    setCurrentQueue(queue);
+
+    // Delay to allow schema to update
+    setTimeout(() => {
+      filling.startFilling(queue);
+      toast.info(`Filling ${queue.length} fields with updated schema...`);
+    }, 200);
   };
 
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
-        {schema.fields.map((field) => (
-          <FormField
-            key={field.key}
-            control={form.control}
-            name={field.key}
-            render={({ field: formField }) => (
-              <FormItem>
-                <div className="flex items-center gap-2">
-                  <FormLabel>
-                    {field.label}
-                    {field.required && (
-                      <span className="text-destructive ml-1">*</span>
-                    )}
-                  </FormLabel>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="h-6 w-6 p-0"
-                    onClick={() => onFieldModify(field.key)}
-                  >
-                    <Settings2Icon className="h-3 w-3" />
-                    <span className="sr-only">Modify {field.label}</span>
-                  </Button>
-                </div>
-                <FormControl>
-                  {field.type === "select" && field.validation?.options ? (
-                    <Select
-                      onValueChange={formField.onChange}
-                      defaultValue={formField.value as string}
+        {schema.fields.map((field) => {
+          const isHighlighted = filling.highlightedField === field.key;
+          const isFilled = filling.filledFields.has(field.key);
+          const isClickable = filling.isFieldClickable(field.key);
+
+          return (
+            <FormField
+              key={field.key}
+              control={form.control}
+              name={field.key}
+              render={({ field: formField }) => (
+                <FormItem
+                  data-field-key={field.key}
+                  data-field-ai-state={filling.getFieldState(field.key)}
+                  className={getFieldAIClassesByFlags({
+                    isHighlighted,
+                    isFilled,
+                    isClickable,
+                  })}
+                  onClick={() => isClickable && handleFieldClick(field.key)}
+                >
+                  <div className="flex items-center gap-2">
+                    <FormLabel>
+                      {field.label}
+                      {field.required && (
+                        <span className="text-destructive ml-1">*</span>
+                      )}
+                      {isFilled && (
+                        <span className="ml-2 text-xs text-blue-600 dark:text-blue-400">
+                          ✓
+                        </span>
+                      )}
+                    </FormLabel>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 w-6 p-0"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onFieldModify(field.key);
+                      }}
                     >
-                      <SelectTrigger>
-                        <SelectValue placeholder={`Select ${field.label}`} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {field.validation.options.map((option) => (
-                          <SelectItem key={option} value={option}>
-                            {option}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  ) : field.type === "number" ? (
-                    <Input
-                      type="number"
-                      placeholder={field.description}
-                      {...formField}
-                      value={formField.value as number}
-                    />
-                  ) : field.type === "date" ? (
-                    <Input
-                      type="date"
-                      placeholder={field.description}
-                      {...formField}
-                      value={formField.value as string}
-                    />
-                  ) : field.type === "email" ? (
-                    <Input
-                      type="email"
-                      placeholder={field.description}
-                      {...formField}
-                      value={formField.value as string}
-                    />
-                  ) : field.type === "boolean" ? (
-                    <div className="flex items-center gap-2">
+                      <Settings2Icon className="h-3 w-3" />
+                      <span className="sr-only">Modify {field.label}</span>
+                    </Button>
+                  </div>
+                  <FormControl>
+                    {field.type === "select" && field.validation?.options ? (
+                      <Select
+                        onValueChange={formField.onChange}
+                        defaultValue={formField.value as string}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder={`Select ${field.label}`} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {field.validation.options.map((option) => (
+                            <SelectItem key={option} value={option}>
+                              {option}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    ) : field.type === "number" ? (
                       <Input
-                        type="checkbox"
-                        className="h-4 w-4"
-                        checked={formField.value as boolean}
-                        onChange={(e) => formField.onChange(e.target.checked)}
+                        type="number"
+                        placeholder={field.description}
+                        {...formField}
+                        value={formField.value as number}
                       />
-                    </div>
-                  ) : (
-                    <Input
-                      type="text"
-                      placeholder={field.description}
-                      {...formField}
-                      value={formField.value as string}
-                    />
+                    ) : field.type === "date" ? (
+                      <Input
+                        type="date"
+                        placeholder={field.description}
+                        {...formField}
+                        value={formField.value as string}
+                      />
+                    ) : field.type === "email" ? (
+                      <Input
+                        type="email"
+                        placeholder={field.description}
+                        {...formField}
+                        value={formField.value as string}
+                      />
+                    ) : field.type === "boolean" ? (
+                      <div className="flex items-center gap-2">
+                        <Input
+                          type="checkbox"
+                          className="h-4 w-4"
+                          checked={formField.value as boolean}
+                          onChange={(e) => formField.onChange(e.target.checked)}
+                        />
+                      </div>
+                    ) : (
+                      <Input
+                        type="text"
+                        placeholder={field.description}
+                        {...formField}
+                        value={formField.value as string}
+                      />
+                    )}
+                  </FormControl>
+                  {field.description && (
+                    <FormDescription>{field.description}</FormDescription>
                   )}
-                </FormControl>
-                {field.description && (
-                  <FormDescription>{field.description}</FormDescription>
-                )}
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        ))}
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          );
+        })}
 
         <div className="flex gap-2">
-          <Button type="submit">Save Registration</Button>
+          <Button type="submit">
+            <SaveIcon />
+            Save
+          </Button>
           <Button
             type="button"
             variant="outline"
@@ -222,7 +351,6 @@ export function DynamicForm({
       </form>
 
       {/* TODO In the next step, I want to make a "Drag and Drop" interaction into the full form for a file that would be extraced and filled into the form. So, we would remove the dialog but instead the user can directly just "throw" the file there. */}
-      {/* TODO In another next step, I want to artificially delay the form inserts and add a sublte animation to it to show to the user what came up. Maybe we highlight the text in another color for a certain period of time, in order to assume that the user automatically approves it. Or, alternatively provide an easy interaction when the user clicks on it: Open a dialog showing the previous and new value. Also showing WHY the gen AI suggests this value for the field. Then the user will have the option to decline or reiterate with a short prompt to be given into the conversation for the recreation. */}
 
       <FillFormDialog
         open={fillDialogOpen}
@@ -238,6 +366,23 @@ export function DynamicForm({
         onFillFormOnly={handleFillFormOnly}
         onUpdateSchemaAndFill={handleUpdateSchemaAndFill}
       />
+
+      {selectedFieldForReview && (
+        <FieldValueReviewDialog
+          open={fieldReviewDialogOpen}
+          onOpenChange={setFieldReviewDialogOpen}
+          fieldKey={selectedFieldForReview.key}
+          fieldLabel={
+            schema.fields.find((f) => f.key === selectedFieldForReview.key)
+              ?.label || selectedFieldForReview.key
+          }
+          previousValue={selectedFieldForReview.previousValue}
+          newValue={selectedFieldForReview.value}
+          aiExplanation={selectedFieldForReview.explanation}
+          onAccept={handleFieldReviewAccept}
+          onDecline={handleFieldReviewDecline}
+        />
+      )}
     </Form>
   );
 }

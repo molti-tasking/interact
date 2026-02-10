@@ -1,15 +1,17 @@
 "use client";
 
+import type { ParseRawDataResponse } from "@/app/actions/schema-actions";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
 } from "@/components/ui/dialog";
-import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
 import {
   Table,
   TableBody,
@@ -18,11 +20,9 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Separator } from "@/components/ui/separator";
-import type { ParseRawDataResponse } from "@/app/actions/schema-actions";
 import {
-  CheckCircle2Icon,
   AlertCircleIcon,
+  CheckCircle2Icon,
   PlusCircleIcon,
 } from "lucide-react";
 
@@ -50,7 +50,7 @@ export function FormFillReviewDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+      <DialogContent className="max-h-[80vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Review Parsed Data</DialogTitle>
           <DialogDescription>
@@ -69,13 +69,15 @@ export function FormFillReviewDialog({
             {hasMismatches && (
               <Badge variant="destructive" className="gap-1">
                 <AlertCircleIcon className="h-3 w-3" />
-                {mismatches.length} Mismatch{mismatches.length !== 1 ? "es" : ""}
+                {mismatches.length} Mismatch
+                {mismatches.length !== 1 ? "es" : ""}
               </Badge>
             )}
             {hasExtraFields && (
               <Badge variant="secondary" className="gap-1">
                 <PlusCircleIcon className="h-3 w-3" />
-                {extraFields.length} New Field{extraFields.length !== 1 ? "s" : ""}
+                {extraFields.length} New Field
+                {extraFields.length !== 1 ? "s" : ""}
               </Badge>
             )}
           </div>
@@ -118,7 +120,8 @@ export function FormFillReviewDialog({
                   Type Mismatches
                 </h3>
                 <p className="text-sm text-muted-foreground">
-                  These fields have values that don&apos;t match the expected type:
+                  These fields have values that don&apos;t match the expected
+                  type:
                 </p>
                 <Table>
                   <TableHeader>
@@ -136,7 +139,9 @@ export function FormFillReviewDialog({
                           {mismatch.field}
                         </TableCell>
                         <TableCell>
-                          <Badge variant="outline">{mismatch.expectedType}</Badge>
+                          <Badge variant="outline">
+                            {mismatch.expectedType}
+                          </Badge>
                         </TableCell>
                         <TableCell className="font-mono text-sm">
                           {JSON.stringify(mismatch.receivedValue)}
@@ -162,8 +167,8 @@ export function FormFillReviewDialog({
                   New Fields Detected
                 </h3>
                 <p className="text-sm text-muted-foreground">
-                  These fields were found in your data but don&apos;t exist in the current
-                  schema:
+                  These fields were found in your data but don&apos;t exist in
+                  the current schema:
                 </p>
                 <Table>
                   <TableHeader>
@@ -177,9 +182,13 @@ export function FormFillReviewDialog({
                   <TableBody>
                     {extraFields.map((field, idx) => (
                       <TableRow key={idx}>
-                        <TableCell className="font-medium">{field.key}</TableCell>
+                        <TableCell className="font-medium">
+                          {field.key}
+                        </TableCell>
                         <TableCell>
-                          <Badge variant="secondary">{field.suggestedType}</Badge>
+                          <Badge variant="secondary">
+                            {field.suggestedType}
+                          </Badge>
                         </TableCell>
                         <TableCell>{field.label}</TableCell>
                         <TableCell className="font-mono text-sm">
