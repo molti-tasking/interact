@@ -132,6 +132,8 @@ export default function Home() {
           </div>
         </div>
 
+        {/* TODO at this point we also want to implement data retrieval. We want to let the user create custom queries filtering the data based on the fields of the schema. We want all the queries to be persisted as well and displayed to the user so he can run them again. Whenever the underlying schema changes, we also want to update the queries accordingly. */}
+
         {/* Design Principles */}
         <div className="flex flex-col gap-4">
           <h2 className="text-2xl font-semibold">Design Principles</h2>
