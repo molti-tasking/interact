@@ -1,7 +1,6 @@
 "use client";
 
 import { ComponentWrapper } from "@/components/ComponentWrapper";
-import { CreateFormDialog } from "@/components/form/CreateFormDialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -14,11 +13,9 @@ import {
 import { useSchemas } from "@/hooks/query/schemas";
 import { FileTextIcon, PlusIcon } from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
 
 export default function Page() {
-  const { data: schemas, refetch: refetchSchemas } = useSchemas();
-  const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const { data: schemas } = useSchemas();
 
   return (
     <div className="space-y-12">
@@ -55,9 +52,11 @@ export default function Page() {
             <div className="text-sm text-muted-foreground">
               {schemas?.length || 0} form{schemas?.length === 1 ? "" : "s"}
             </div>
-            <Button size="sm" onClick={() => setCreateDialogOpen(true)}>
-              <PlusIcon className="h-4 w-4 mr-2" />
-              Create New Form
+            <Button size="sm" asChild>
+              <Link href={"/malleable-form/create"}>
+                <PlusIcon className="h-4 w-4 mr-2" />
+                Create New Form
+              </Link>
             </Button>
           </div>
 
@@ -98,12 +97,6 @@ export default function Page() {
           )}
         </div>
       </ComponentWrapper>
-
-      <CreateFormDialog
-        open={createDialogOpen}
-        onOpenChange={setCreateDialogOpen}
-        onFormCreated={() => refetchSchemas()}
-      />
     </div>
   );
 }
