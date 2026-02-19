@@ -1,6 +1,7 @@
 "use client";
 
-import { FormCreateForm } from "@/components/form/FormCreateForm";
+import { FormCreateForm } from "@/components/form/configurator/FormCreateForm";
+import { FormSchemaEditView } from "@/components/form/configurator/FormSchemaEditView";
 
 export default function Page() {
   return (
@@ -12,7 +13,9 @@ export default function Page() {
           throw new Error("Function not implemented.");
         }}
       />
-      <div>Here we gonna put interactive preview of form</div>
+      <div>
+        <FormSchemaEditView />
+      </div>
     </div>
   );
 }

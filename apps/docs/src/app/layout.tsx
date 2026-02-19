@@ -13,6 +13,7 @@ import { Crown, Github } from "lucide-react";
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import Link from "next/link";
+import { Toaster } from "sonner";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -42,6 +43,8 @@ export default function RootLayout({
           className={`${geistSans.variable} ${geistMono.variable} antialiased`}
         >
           <ReactQueryDevTools />
+          <Toaster position="bottom-right" />
+
           <SidebarProvider>
             <AppSidebar />
             <SidebarInset>
