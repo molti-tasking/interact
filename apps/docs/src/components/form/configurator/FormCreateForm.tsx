@@ -4,6 +4,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { useConfiguratorStore } from "@/stores/useFormConfiguratorStore";
+import { DynamicFormRenderer } from "../DynamicFormRenderer";
+import { ErrorBoundary } from "../ErrorBoundary";
 
 export const FormCreateForm = ({}: { onFormCreated: () => void }) => {
   const store = useConfiguratorStore();
@@ -42,19 +44,19 @@ export const FormCreateForm = ({}: { onFormCreated: () => void }) => {
 const ConfiguratorForm = () => {
   const store = useConfiguratorStore();
 
-  if (!store.configuratorFormSchema?.fields) {
-    return null;
-  }
-
-  const fields = Object.values(store.configuratorFormSchema.fields);
-  if (!fields?.length) {
+  // Check if configurator form has fields
+  if (!store.configuratorFormSchema?.fields?.length) {
     return null;
   }
 
   return (
     <div>
-      <p>Render individual configuration form</p>
-      <pre>{JSON.stringify(fields, null, 2)}</pre>
+      <ErrorBoundary boundaryName="configurator-form">
+        <DynamicFormRenderer
+          schema={store.configuratorFormSchema}
+          onSubmit={console.log}
+        />
+      </ErrorBoundary>
     </div>
   );
 };

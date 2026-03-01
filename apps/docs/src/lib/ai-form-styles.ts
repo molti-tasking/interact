@@ -25,7 +25,10 @@ export const AI_FIELD_CLASSES = {
 /**
  * Get computed CSS classes for a form field based on its AI state
  */
-export function getFieldAIClasses(state: FieldAIState, isClickable: boolean = false): string {
+export function getFieldAIClasses(
+  state: FieldAIState,
+  isClickable: boolean = false,
+): string {
   return cn(
     AI_FIELD_CLASSES.base,
     state === "filling" && AI_FIELD_CLASSES.filling,

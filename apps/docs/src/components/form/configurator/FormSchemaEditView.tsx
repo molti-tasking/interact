@@ -1,23 +1,25 @@
 "use client";
 
 import { useConfiguratorStore } from "@/stores/useFormConfiguratorStore";
+import { DynamicFormRenderer } from "../DynamicFormRenderer";
+import { ErrorBoundary } from "../ErrorBoundary";
 
 export const FormSchemaEditView = () => {
   const store = useConfiguratorStore();
 
-  if (!store.artifactFormSchema?.fields) {
-    return null;
-  }
-
-  const fields = Object.values(store.artifactFormSchema.fields);
-  if (!fields?.length) {
+  // Check if artifact form has fields
+  if (!store.artifactFormSchema?.fields?.length) {
     return null;
   }
 
   return (
-    <div>
-      <p>Render form artifact</p>
-      <pre>{JSON.stringify(fields, null, 2)}</pre>
+    <div className="bg-gray-100 rounded-xl p-4">
+      <ErrorBoundary boundaryName="form-schema-edit-view">
+        <DynamicFormRenderer
+          schema={store.artifactFormSchema}
+          onSubmit={console.log}
+        />
+      </ErrorBoundary>
     </div>
   );
 };

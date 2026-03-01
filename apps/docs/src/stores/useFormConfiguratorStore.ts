@@ -1,6 +1,6 @@
 "use client";
-import { generateSchemaFromRawDataAction } from "@/app/actions/schema-actions";
-import { SchemaMetadata } from "@/lib/schema-manager";
+import { regenerateFormSchemaAction } from "@/app/actions/schema-actions-v2";
+import { SerializedSchema } from "@/lib/schema-manager";
 import { debounce } from "@tanstack/pacer/debouncer";
 import { create } from "zustand";
 import { devtools, persist } from "zustand/middleware";
@@ -10,9 +10,9 @@ import { devtools, persist } from "zustand/middleware";
  */
 interface ConfiguratorState {
   basePrompt: string;
-  configuratorFormSchema: SchemaMetadata;
+  configuratorFormSchema: SerializedSchema;
   configuratorFormValues: object;
-  artifactFormSchema: SchemaMetadata;
+  artifactFormSchema: SerializedSchema;
 
   // UI state
   basePromptActive: boolean;
@@ -32,15 +32,25 @@ interface ConfiguratorState {
 const initialState = {
   basePrompt: "",
   configuratorFormSchema: {
-    name: "",
-    description: "",
-    fields: {},
+    fields: [],
+    metadata: {
+      name: "",
+      description: "",
+      fields: {},
+    },
+    version: 1,
+    updatedAt: new Date().toISOString(),
   },
   configuratorFormValues: {},
   artifactFormSchema: {
-    name: "",
-    description: "",
-    fields: {},
+    fields: [],
+    metadata: {
+      name: "",
+      description: "",
+      fields: {},
+    },
+    version: 1,
+    updatedAt: new Date().toISOString(),
   },
 
   // initial UI states
@@ -56,21 +66,45 @@ export const useConfiguratorStore = create<ConfiguratorState>()(
       (set) => ({
         ...initialState,
 
-        onChangeBasePrompt: (newText) => {
-          // set({basePrompt: newText})
+        onChangeBasePrompt: (userPrompt) => {
           console.log("Base prompt changed");
-          set(() => ({ basePrompt: newText }));
+          set(
+            () => ({ basePrompt: userPrompt }),
+            undefined,
+            "configurator/setBasePrompt",
+          );
           onPromptInserted({
-            text: newText,
+            userPrompt,
             onStart() {
-              console.log("on Start");
-              set(() => ({ basePromptActive: true }));
+              console.log("Schema generation started");
+              set(
+                () => ({ basePromptActive: true, error: null }),
+                undefined,
+                "configurator/startSchemaGeneration",
+              );
             },
-            callback(metadata) {
-              set(() => ({
-                basePromptActive: false,
-                artifactFormSchema: metadata,
-              }));
+            onSuccess(result) {
+              set(
+                () => ({
+                  basePromptActive: false,
+                  artifactFormSchema: result.artifactFormSchema,
+                  configuratorFormSchema: result.configuratorFormSchema,
+                  configuratorFormValues: result.configuratorFormValues,
+                  error: null,
+                }),
+                undefined,
+                "configurator/updateGeneratedSchemas",
+              );
+            },
+            onError(errorMessage) {
+              set(
+                () => ({
+                  basePromptActive: false,
+                  error: errorMessage,
+                }),
+                undefined,
+                "configurator/schemaGenerationError",
+              );
             },
           });
         },
@@ -99,26 +133,34 @@ export const useConfiguratorStore = create<ConfiguratorState>()(
 
 const onPromptInserted = debounce(
   async ({
-    text,
+    userPrompt,
     onStart,
-    callback,
+    onSuccess,
+    onError,
   }: {
-    text: string;
+    userPrompt: string;
     onStart: () => void;
-    callback: (metadata: SchemaMetadata | undefined) => void;
+    onSuccess: (result: {
+      artifactFormSchema: SerializedSchema;
+      configuratorFormSchema: SerializedSchema;
+      configuratorFormValues: object;
+    }) => void;
+    onError: (errorMessage: string) => void;
   }) => {
-    console.log("Going through base prompt...");
+    console.log("Generating schemas from prompt...");
     onStart();
     await sleep(100); // Add delay for better animation
-    const res = await generateSchemaFromRawDataAction({
-      formDescription: text,
-      formName: `Random name ${Date.now()}`,
-      rawData: "Title, Description, Age, Date, Notes",
-    });
-    callback(res?.schema?.metadata);
+
+    const response = await regenerateFormSchemaAction({ userPrompt });
+
+    if (response.success && response.result) {
+      onSuccess(response.result);
+    } else {
+      onError(response.error || "Failed to generate schema");
+    }
   },
   {
-    wait: 500,
+    wait: 1000,
   },
 );
 
