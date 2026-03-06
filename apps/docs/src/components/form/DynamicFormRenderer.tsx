@@ -24,23 +24,38 @@ import type { SerializedSchema } from "@/lib/schema-manager";
 import { serializeSchemaToZod } from "@/lib/schema-manager";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { SaveIcon } from "lucide-react";
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { useForm } from "react-hook-form";
 
 interface DynamicFormRendererProps {
   schema: SerializedSchema;
-  onSubmit: (data: Record<string, unknown>) => void;
+  defaultValues?: object;
+  onSubmit?: (data: Record<string, unknown>) => void;
+  onChange?: (data: Record<string, unknown>) => void;
 }
 
 export function DynamicFormRenderer({
   schema,
+  defaultValues,
   onSubmit,
+  onChange,
 }: DynamicFormRendererProps) {
   const zodSchema = serializeSchemaToZod(schema);
 
   const form = useForm({
     resolver: zodResolver(zodSchema),
-    defaultValues: {},
+    defaultValues: { ...defaultValues },
+  });
+
+  useEffect(() => {
+    if (onChange) {
+      const sub = form.subscribe({
+        callback: onChange,
+      });
+      console.log("Sub scribed: ", sub);
+      const res = sub();
+      console.log("Res: ", res);
+    }
   });
 
   // Memoize config to prevent re-creating on every render
@@ -59,8 +74,14 @@ export function DynamicFormRenderer({
   });
 
   const handleSubmit = (data: Record<string, unknown>) => {
-    onSubmit(data);
-    form.reset();
+    if (onSubmit) {
+      onSubmit(data);
+      form.reset();
+    } else {
+      console.error(
+        "Handle submit was clicked but no on submit function present",
+      );
+    }
   };
 
   return (
@@ -179,13 +200,14 @@ export function DynamicFormRenderer({
             />
           );
         })}
-
-        <div className="flex gap-2">
-          <Button type="submit">
-            <SaveIcon />
-            Save
-          </Button>
-        </div>
+        {onSubmit && (
+          <div className="flex gap-2">
+            <Button type="submit">
+              <SaveIcon />
+              Save
+            </Button>
+          </div>
+        )}
       </form>
     </Form>
   );

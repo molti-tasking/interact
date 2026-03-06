@@ -32,6 +32,11 @@ const data = {
           title: "HOME",
           url: "/",
         },
+        {
+          title: "Just in time data space discovery",
+          // Maybe we can also build some kind of "chat interface" but not for the user to insert text, but just for the ai to have different verbal suggestions, maybe with image. Then the user can accept or decline them or "go more into depth"
+          url: "/",
+        },
       ],
     },
     {
