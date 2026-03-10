@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import type { DimensionObject, DimensionType } from "@/lib/dimension-types";
 import { dimensionTypeColors } from "@/lib/dimension-types";
 import { cn } from "@/lib/utils";
-import { Check, Pencil, X } from "lucide-react";
+import { Pencil, X } from "lucide-react";
 import { useState } from "react";
 
 const typeLabels: Record<DimensionType, string> = {
@@ -146,15 +146,21 @@ export function DimensionCard({
         </div>
       ) : (
         <>
-          <div className="flex items-start justify-between gap-2">
-            <div className="min-w-0 flex-1">
+          <div className={"flex items-start justify-between gap-2"}>
+            <div
+              className="min-w-0 flex-1 cursor-pointer"
+              onClick={() => onAccept()}
+            >
               <div className="flex items-center gap-2">
                 <span className="text-sm font-medium leading-tight">
                   {dimension.name}
                 </span>
                 <Badge
                   variant="outline"
-                  className={cn("text-[10px] px-1.5 py-0", dimensionTypeColors[dimension.type])}
+                  className={cn(
+                    "text-[10px] px-1.5 py-0",
+                    dimensionTypeColors[dimension.type],
+                  )}
                 >
                   {typeLabels[dimension.type]}
                 </Badge>
@@ -170,18 +176,6 @@ export function DimensionCard({
                 <>
                   <Button
                     size="icon"
-                    variant={dimension.status === "accepted" || dimension.status === "edited" ? "default" : "ghost"}
-                    className={cn(
-                      "h-6 w-6",
-                      (dimension.status === "accepted" || dimension.status === "edited") && "bg-green-600 hover:bg-green-700",
-                    )}
-                    onClick={onAccept}
-                    title="Accept"
-                  >
-                    <Check className="h-3 w-3" />
-                  </Button>
-                  <Button
-                    size="icon"
                     variant="ghost"
                     className="h-6 w-6"
                     onClick={startEdit}
@@ -194,10 +188,7 @@ export function DimensionCard({
               <Button
                 size="icon"
                 variant="ghost"
-                className={cn(
-                  "h-6 w-6",
-                  isRejected && "text-red-500",
-                )}
+                className={cn("h-6 w-6", isRejected && "text-red-500")}
                 onClick={isRejected ? onAccept : onReject}
                 title={isRejected ? "Restore" : "Reject"}
               >
@@ -208,7 +199,11 @@ export function DimensionCard({
           {dimension.values.length > 0 && !isRejected && (
             <div className="mt-2 flex flex-wrap gap-1">
               {dimension.values.map((v, i) => (
-                <Badge key={i} variant="secondary" className="text-[10px] px-1.5 py-0">
+                <Badge
+                  key={i}
+                  variant="secondary"
+                  className="text-[10px] px-1.5 py-0"
+                >
                   {v}
                 </Badge>
               ))}

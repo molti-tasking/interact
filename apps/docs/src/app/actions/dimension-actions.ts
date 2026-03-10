@@ -1,8 +1,8 @@
 "use server";
 
+import type { DimensionObject, DimensionType } from "@/lib/dimension-types";
 import type { SchemaMetadata, SerializedSchema } from "@/lib/schema-manager";
 import { initializeSerializedSchema } from "@/lib/schema-manager";
-import type { DimensionObject, DimensionType } from "@/lib/dimension-types";
 import { anthropic } from "@ai-sdk/anthropic";
 import { generateText } from "ai";
 
@@ -17,7 +17,7 @@ export interface GenerateDimensionsResponse {
 
 export async function generateDimensionsAction(
   prompt: string,
-  maxDimensions: number = 8,
+  maxDimensions: number = 5,
 ): Promise<GenerateDimensionsResponse> {
   if (!prompt || prompt.trim().length < 3) {
     return { success: true, dimensions: [], reasoning: "" };
