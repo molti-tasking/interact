@@ -6,9 +6,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { useConfiguratorStore } from "@/stores/useFormConfiguratorStore";
 import { useState } from "react";
-import { DynamicFormRenderer } from "../DynamicFormRenderer";
-import { ErrorBoundary } from "../ErrorBoundary";
-import { PaperForm } from "./PaperForm";
 import { PromptDiff } from "./PromptDiff";
 import { SpeechForm } from "./SpeechForm";
 
@@ -85,45 +82,12 @@ export const FormCreateForm = ({}: { onFormCreated: () => void }) => {
       <div className="pt-4">
         <SpeechForm />
       </div>
-      <div className="pt-4">
+      {/* <div className="pt-4">
         <PaperForm />
       </div>
       <div className="pt-4">
         <ConfiguratorForm />
-      </div>
-    </div>
-  );
-};
-
-const ConfiguratorForm = () => {
-  const store = useConfiguratorStore();
-
-  // Check if configurator form has fields
-  if (!store.configuratorFormSchema?.fields?.length) {
-    return null;
-  }
-
-  const onChangeForm = (data: Record<string, unknown>) => {
-    console.log(data);
-  };
-
-  return (
-    <div>
-      <ErrorBoundary boundaryName="configurator-form">
-        <DynamicFormRenderer
-          schema={store.configuratorFormSchema}
-          defaultValues={store.configuratorFormValues}
-          onChange={onChangeForm}
-        />
-      </ErrorBoundary>
-      <p>THIS FORM IS TO TECHNICAL, MAKE IT LOOK NICE</p>
-      <p>
-        Small clouds that represent different aspects: If you do not like it you
-        can kick it out.
-      </p>
-      <p>have all suggestions and cluster them bottom up to ask about themes</p>
-      <p>Based on what has been suggested in a query </p>
-      {/* <pre>{JSON.stringify(store.configuratorFormValues, null, 2)}</pre> */}
+      </div> */}
     </div>
   );
 };
