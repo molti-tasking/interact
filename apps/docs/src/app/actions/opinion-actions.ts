@@ -11,7 +11,7 @@ export interface OpinionInteraction {
   source: string;
   options: { value: string; label: string }[];
   selectedOption: string | null;
-  status: "pending" | "loading" | "resolved";
+  status: "pending" | "loading" | "resolved" | "dismissed";
 }
 
 export interface GenerateOpinionResponse {
@@ -22,9 +22,12 @@ export interface GenerateOpinionResponse {
 
 export async function generateOpinionInteractionsAction(
   basePrompt: string,
+  maxOpinions: number = 5,
 ): Promise<GenerateOpinionResponse> {
+  if (maxOpinions <= 0) return { success: true, interactions: [] };
+
   try {
-    const prompt = `You are a form design assistant. Given a user's description of a form they want to create, generate 3-5 opinion questions that would help refine the form design. Each question should have 2-4 options.
+    const prompt = `You are a form design assistant. Given a user's description of a form they want to create, generate ${Math.min(maxOpinions, 3)}-${maxOpinions} opinion questions that would help refine the form design. Each question should have 2-4 options.
 
 User's form description: ${basePrompt}
 
@@ -55,7 +58,10 @@ Rules:
     });
 
     let parsedResult: {
-      interactions: { text: string; options: { value: string; label: string }[] }[];
+      interactions: {
+        text: string;
+        options: { value: string; label: string }[];
+      }[];
     };
 
     try {
@@ -65,18 +71,27 @@ Rules:
       }
       parsedResult = JSON.parse(jsonMatch[0]);
     } catch {
-      console.error("Failed to parse opinion interactions response:", result.text);
+      console.error(
+        "Failed to parse opinion interactions response:",
+        result.text,
+      );
       return {
         success: false,
         error: "Failed to parse opinion interactions from LLM response",
       };
     }
 
-    if (!parsedResult.interactions || !Array.isArray(parsedResult.interactions)) {
-      return { success: false, error: "Invalid response: missing interactions array" };
+    if (
+      !parsedResult.interactions ||
+      !Array.isArray(parsedResult.interactions)
+    ) {
+      return {
+        success: false,
+        error: "Invalid response: missing interactions array",
+      };
     }
 
-    const interactions: OpinionInteraction[] = parsedResult.interactions.map(
+    const interactions: OpinionInteraction[] = parsedResult.interactions.slice(0, maxOpinions).map(
       (interaction, index) => ({
         id: `opinion-${Date.now()}-${index}`,
         text: interaction.text,
@@ -102,6 +117,7 @@ export interface ResolveOpinionRequest {
   currentSchema: SerializedSchema;
   interactionText: string;
   selectedOptionLabel: string;
+  maxFollowUps?: number;
 }
 
 export interface ResolveOpinionResponse {
@@ -120,7 +136,8 @@ export async function resolveOpinionInteractionAction(
   request: ResolveOpinionRequest,
 ): Promise<ResolveOpinionResponse> {
   try {
-    const { basePrompt, currentSchema, interactionText, selectedOptionLabel } = request;
+    const { basePrompt, currentSchema, interactionText, selectedOptionLabel, maxFollowUps = 3 } =
+      request;
 
     const prompt = `You are a form design assistant. The user is refining a form through interactive opinion choices.
 
@@ -135,7 +152,7 @@ They chose: "${selectedOptionLabel}"
 Based on this choice, you must:
 1. Update the base prompt to concisely incorporate this design decision (rewrite, don't append)
 2. Update the form schemas to reflect this choice
-3. Optionally generate 0-3 follow-up opinion questions if the choice opens up new design decisions
+3. Optionally generate 0-${maxFollowUps} follow-up opinion questions if the choice opens up new design decisions${maxFollowUps === 0 ? ". Do NOT generate any follow-up questions, return an empty followUpInteractions array." : ""}
 
 IMPORTANT RULES:
 - Use valid field types: "string", "number", "boolean", "date", "email", "select"
@@ -195,7 +212,10 @@ Return ONLY valid JSON in this exact format:
       artifactFormSchema: SchemaMetadata;
       configuratorFormSchema: SchemaMetadata;
       configuratorFormValues: Record<string, string | number | boolean>;
-      followUpInteractions?: { text: string; options: { value: string; label: string }[] }[];
+      followUpInteractions?: {
+        text: string;
+        options: { value: string; label: string }[];
+      }[];
     };
 
     try {
@@ -212,16 +232,27 @@ Return ONLY valid JSON in this exact format:
       };
     }
 
-    if (!parsedResult.basePrompt || !parsedResult.artifactFormSchema || !parsedResult.configuratorFormSchema) {
-      return { success: false, error: "Invalid response: missing required fields" };
+    if (
+      !parsedResult.basePrompt ||
+      !parsedResult.artifactFormSchema ||
+      !parsedResult.configuratorFormSchema
+    ) {
+      return {
+        success: false,
+        error: "Invalid response: missing required fields",
+      };
     }
 
-    const artifactSchema = initializeSerializedSchema(parsedResult.artifactFormSchema);
-    const configuratorSchema = initializeSerializedSchema(parsedResult.configuratorFormSchema);
+    const artifactSchema = initializeSerializedSchema(
+      parsedResult.artifactFormSchema,
+    );
+    const configuratorSchema = initializeSerializedSchema(
+      parsedResult.configuratorFormSchema,
+    );
 
     const followUpInteractions: OpinionInteraction[] = (
       parsedResult.followUpInteractions || []
-    ).map((interaction, index) => ({
+    ).slice(0, maxFollowUps).map((interaction, index) => ({
       id: `opinion-${Date.now()}-followup-${index}`,
       text: interaction.text,
       source: "llm",

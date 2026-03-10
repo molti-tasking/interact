@@ -17,7 +17,6 @@ interface ConfiguratorState {
   basePrompt: string;
   basePromptElement: HTMLTextAreaElement | null;
   setBasePromptElement: (ref: HTMLTextAreaElement | null) => void;
-  // TODO I think we should also have a base prompt ref for the field in order to pass that ref to other parts of the application to build nice animations. I am thinking right now about a loading animation when a "opinion interaction" is being invoked, that we show some kind of particle flow to the original prompt and once it is finished loading, we just fade away that "opinion interaction" element as if it's content was now being absorbed by the base prompt. In a second iteration I was thinking if we can use some kind of streaming API in order to update the basePrompt field "streamingly" or partially instead of just replacing the text at once.
 
   artifactFormSchema: SerializedSchema;
 
@@ -41,12 +40,19 @@ interface ConfiguratorState {
     selectedValue: string,
   ) => Promise<void>;
 
+  dismissOpinionInteraction: (interactionIndex: number) => void;
+
   onEditArtifactFormSchema: (
     field: string,
     action: "remove" | "add-option" | "change-label",
     options: object | undefined,
   ) => Promise<void>;
 }
+
+const MAX_ACTIVE_OPINIONS = 5;
+
+const countActiveOpinions = (interactions: OpinionInteraction[]) =>
+  interactions.filter((i) => i.status !== "resolved" && i.status !== "dismissed").length;
 
 const initialState = {
   basePrompt: "",
@@ -127,33 +133,44 @@ export const useConfiguratorStore = create<ConfiguratorState>()(
 
           try {
             const currentState = get();
+            // After resolving this one, count remaining active opinions to determine follow-up capacity
+            const activeAfterResolve =
+              countActiveOpinions(currentState.opinionInteractions) - 1;
+            const followUpCapacity = Math.max(
+              0,
+              MAX_ACTIVE_OPINIONS - activeAfterResolve,
+            );
+
             const response = await resolveOpinionInteractionAction({
               basePrompt: currentState.basePrompt,
               currentSchema: currentState.artifactFormSchema,
               interactionText: interaction.text,
               selectedOptionLabel: selectedOption.label,
+              maxFollowUps: followUpCapacity,
             });
 
             if (response.success && response.result) {
               set(
-                (prev) => ({
-                  previousBasePrompt: prev.basePrompt,
-                  basePrompt: response.result!.basePrompt,
-                  basePromptActive: false,
-                  artifactFormSchema: response.result!.artifactFormSchema,
-                  configuratorFormSchema:
-                    response.result!.configuratorFormSchema,
-                  configuratorFormValues:
-                    response.result!.configuratorFormValues,
-                  opinionInteractions: [
-                    ...prev.opinionInteractions.map((item, i) =>
-                      i === interactionIndex
-                        ? { ...item, status: "resolved" as const }
-                        : item,
-                    ),
-                    ...response.result!.followUpInteractions,
-                  ],
-                }),
+                (prev) => {
+                  const updated = prev.opinionInteractions.map((item, i) =>
+                    i === interactionIndex
+                      ? { ...item, status: "resolved" as const }
+                      : item,
+                  );
+                  const followUps = response.result!.followUpInteractions;
+
+                  return {
+                    previousBasePrompt: prev.basePrompt,
+                    basePrompt: response.result!.basePrompt,
+                    basePromptActive: false,
+                    artifactFormSchema: response.result!.artifactFormSchema,
+                    configuratorFormSchema:
+                      response.result!.configuratorFormSchema,
+                    configuratorFormValues:
+                      response.result!.configuratorFormValues,
+                    opinionInteractions: [...updated, ...followUps],
+                  };
+                },
                 undefined,
                 "configurator/opinionResolved",
               );
@@ -210,8 +227,12 @@ export const useConfiguratorStore = create<ConfiguratorState>()(
             undefined,
             "configurator/setBasePrompt",
           );
+          const activeCount = countActiveOpinions(get().opinionInteractions);
+          const capacity = Math.max(0, MAX_ACTIVE_OPINIONS - activeCount);
+
           onPromptInserted({
             userPrompt,
+            maxOpinions: capacity,
             onStart() {
               console.log("Schema generation started");
               set(
@@ -235,7 +256,21 @@ export const useConfiguratorStore = create<ConfiguratorState>()(
             },
             onOpinionSuccess(interactions) {
               set(
-                () => ({ opinionInteractions: interactions }),
+                (prev) => {
+                  const activeCount = countActiveOpinions(
+                    prev.opinionInteractions,
+                  );
+                  const capacity = Math.max(
+                    0,
+                    MAX_ACTIVE_OPINIONS - activeCount,
+                  );
+                  return {
+                    opinionInteractions: [
+                      ...prev.opinionInteractions,
+                      ...interactions.slice(0, capacity),
+                    ],
+                  };
+                },
                 undefined,
                 "configurator/updateOpinionInteractions",
               );
@@ -251,6 +286,20 @@ export const useConfiguratorStore = create<ConfiguratorState>()(
               );
             },
           });
+        },
+
+        dismissOpinionInteraction: (interactionIndex) => {
+          set(
+            (prev) => ({
+              opinionInteractions: prev.opinionInteractions.map((item, i) =>
+                i === interactionIndex
+                  ? { ...item, status: "dismissed" as const }
+                  : item,
+              ),
+            }),
+            undefined,
+            "configurator/opinionDismissed",
+          );
         },
 
         onEditArtifactFormSchema: async (field, action, options) => {
@@ -279,12 +328,14 @@ export const useConfiguratorStore = create<ConfiguratorState>()(
 const onPromptInserted = debounce(
   async ({
     userPrompt,
+    maxOpinions,
     onStart,
     onSuccess,
     onOpinionSuccess,
     onError,
   }: {
     userPrompt: string;
+    maxOpinions: number;
     onStart: () => void;
     onSuccess: (result: {
       artifactFormSchema: SerializedSchema;
@@ -300,7 +351,7 @@ const onPromptInserted = debounce(
 
     const [schemaResponse, opinionResponse] = await Promise.all([
       regenerateFormSchemaAction({ userPrompt }),
-      generateOpinionInteractionsAction(userPrompt),
+      generateOpinionInteractionsAction(userPrompt, maxOpinions),
     ]);
 
     if (schemaResponse.success && schemaResponse.result) {

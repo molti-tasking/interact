@@ -4,7 +4,6 @@ const SCHEMA_STORAGE_KEY = "malleable-form-schema-list";
 const DATA_STORAGE_KEY = "malleable-form-data";
 const SUBMISSIONS_STORAGE_KEY = "malleable-form-submissions";
 
-// TODO: Refactor this by using the zod native type definitions
 export interface SchemaField {
   key: string;
   type: "string" | "number" | "boolean" | "date" | "email" | "select";
@@ -19,15 +18,11 @@ export interface SchemaField {
   };
 }
 
-// TODO: Refactor this by using the zod native type definitions
-
 export interface SchemaMetadata {
   name: string;
   description: string;
   fields: Record<string, Omit<SchemaField, "key">>;
 }
-
-// TODO: Refactor this by using the zod native type definitions
 
 export interface SerializedSchema {
   fields: SchemaField[];
