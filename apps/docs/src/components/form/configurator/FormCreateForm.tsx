@@ -3,6 +3,7 @@
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { DimensionPanel } from "@/components/dimensions/DimensionPanel";
 import { cn } from "@/lib/utils";
 import { useConfiguratorStore } from "@/stores/useFormConfiguratorStore";
 import { useCallback, useState } from "react";
@@ -25,6 +26,7 @@ export const FormCreateForm = ({}: { onFormCreated: () => void }) => {
 
   return (
     <div>
+      {/* Prompt textarea */}
       <div className="space-y-2">
         <div className="flex items-center justify-between">
           <Label htmlFor="basePrompt">What you want?</Label>
@@ -79,15 +81,13 @@ export const FormCreateForm = ({}: { onFormCreated: () => void }) => {
         </div>
       </div>
 
-      <div className="pt-4">
+      {/* Layer 1: Dimensions — always visible as summary, expandable to edit */}
+      <DimensionPanel />
+
+      {/* Layer 2: Opinions — scoped to dimensions when available */}
+      <div className="pt-3">
         <SpeechForm />
       </div>
-      {/* <div className="pt-4">
-        <PaperForm />
-      </div>
-      <div className="pt-4">
-        <ConfiguratorForm />
-      </div> */}
     </div>
   );
 };

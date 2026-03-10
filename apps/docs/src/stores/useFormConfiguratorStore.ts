@@ -4,11 +4,26 @@ import {
   generateOpinionInteractionsAction,
   resolveOpinionInteractionAction,
 } from "@/app/actions/opinion-actions";
-import { regenerateFormSchemaAction } from "@/app/actions/schema-actions-v2";
+import {
+  generateDimensionsAction,
+  dimensionsToSchemaAction,
+} from "@/app/actions/dimension-actions";
+import type { DimensionObject } from "@/lib/dimension-types";
+import { createDimensionObject } from "@/lib/dimension-types";
 import { SerializedSchema } from "@/lib/schema-manager";
+import { studyLogger } from "@/lib/study-logger";
 import { debounce } from "@tanstack/pacer/debouncer";
 import { create } from "zustand";
 import { devtools, persist } from "zustand/middleware";
+
+/**
+ * Discovery phase tracks where we are in the dimension-first flow
+ */
+type DiscoveryPhase =
+  | "idle"
+  | "generating-dimensions"
+  | "reviewing-dimensions"
+  | "generating-schema";
 
 /**
  * Configurator state interface
@@ -26,6 +41,11 @@ interface ConfiguratorState {
   configuratorFormValues: object;
   // Another edit modality is speech interactive scroll view, these are LLM-generated suggestion cards where users pick options to iteratively refine the form
   opinionInteractions: OpinionInteraction[];
+
+  // Dimension discovery state
+  dimensions: DimensionObject[];
+  discoveryPhase: DiscoveryPhase;
+  dimensionReasoning: string;
 
   // UI state
   basePromptActive: boolean;
@@ -47,38 +67,49 @@ interface ConfiguratorState {
     action: "remove" | "add-option" | "change-label",
     options: object | undefined,
   ) => Promise<void>;
+
+  // Dimension actions
+  onDimensionAccept: (dimensionId: string) => void;
+  onDimensionReject: (dimensionId: string) => void;
+  onDimensionEdit: (
+    dimensionId: string,
+    updates: Partial<DimensionObject>,
+  ) => void;
+  onDimensionAdd: (name: string) => void;
+  onConfirmDimensions: () => Promise<void>;
+  onRegenerateDimensions: () => Promise<void>;
 }
 
 const MAX_ACTIVE_OPINIONS = 5;
 
 const countActiveOpinions = (interactions: OpinionInteraction[]) =>
-  interactions.filter((i) => i.status !== "resolved" && i.status !== "dismissed").length;
+  interactions.filter(
+    (i) => i.status !== "resolved" && i.status !== "dismissed",
+  ).length;
+
+const emptySchema: SerializedSchema = {
+  fields: [],
+  metadata: {
+    name: "",
+    description: "",
+    fields: {},
+  },
+  version: 1,
+  updatedAt: new Date().toISOString(),
+};
 
 const initialState = {
   basePrompt: "",
   basePromptElement: null,
-  configuratorFormSchema: {
-    fields: [],
-    metadata: {
-      name: "",
-      description: "",
-      fields: {},
-    },
-    version: 1,
-    updatedAt: new Date().toISOString(),
-  },
+  configuratorFormSchema: { ...emptySchema },
   configuratorFormValues: {},
-  artifactFormSchema: {
-    fields: [],
-    metadata: {
-      name: "",
-      description: "",
-      fields: {},
-    },
-    version: 1,
-    updatedAt: new Date().toISOString(),
-  },
+  artifactFormSchema: { ...emptySchema },
   opinionInteractions: [] as OpinionInteraction[],
+
+  // Dimension discovery
+  dimensions: [] as DimensionObject[],
+  discoveryPhase: "idle" as DiscoveryPhase,
+  dimensionReasoning: "",
 
   // initial UI states
   basePromptActive: false,
@@ -109,6 +140,8 @@ export const useConfiguratorStore = create<ConfiguratorState>()(
             (o) => o.value === selectedValue,
           );
           if (!selectedOption) return;
+
+          const startTime = Date.now();
 
           // Mark as loading, activate gradient animation, snapshot current prompt
           set(
@@ -147,6 +180,12 @@ export const useConfiguratorStore = create<ConfiguratorState>()(
             });
 
             if (response.success && response.result) {
+              studyLogger.log("schema.opinion.selected", {
+                interactionText: interaction.text,
+                selectedOption: selectedOption.label,
+                timeToDecisionMs: Date.now() - startTime,
+              });
+
               set(
                 (prev) => {
                   const updated = prev.opinionInteractions.map((item, i) =>
@@ -224,62 +263,47 @@ export const useConfiguratorStore = create<ConfiguratorState>()(
             undefined,
             "configurator/setBasePrompt",
           );
-          const activeCount = countActiveOpinions(get().opinionInteractions);
-          const capacity = Math.max(0, MAX_ACTIVE_OPINIONS - activeCount);
 
-          onPromptInserted({
+          studyLogger.log("prompt.entered", { prompt: userPrompt });
+
+          // Dimension-first flow: generate dimensions instead of schema directly
+          onPromptInsertedDimensions({
             userPrompt,
-            maxOpinions: capacity,
             onStart() {
-              console.log("Schema generation started");
-              set(
-                () => ({ basePromptActive: true, error: null }),
-                undefined,
-                "configurator/startSchemaGeneration",
-              );
-            },
-            onSuccess(result) {
               set(
                 () => ({
-                  basePromptActive: false,
-                  artifactFormSchema: result.artifactFormSchema,
-                  configuratorFormSchema: result.configuratorFormSchema,
-                  configuratorFormValues: result.configuratorFormValues,
+                  discoveryPhase: "generating-dimensions" as const,
                   error: null,
                 }),
                 undefined,
-                "configurator/updateGeneratedSchemas",
+                "configurator/startDimensionGeneration",
               );
             },
-            onOpinionSuccess(interactions) {
+            onSuccess(dimensions, reasoning) {
+              studyLogger.log("dimensions.generated", {
+                count: dimensions.length,
+                names: dimensions.map((d) => d.name),
+              });
+
               set(
-                (prev) => {
-                  const activeCount = countActiveOpinions(
-                    prev.opinionInteractions,
-                  );
-                  const capacity = Math.max(
-                    0,
-                    MAX_ACTIVE_OPINIONS - activeCount,
-                  );
-                  return {
-                    opinionInteractions: [
-                      ...prev.opinionInteractions,
-                      ...interactions.slice(0, capacity),
-                    ],
-                  };
-                },
+                () => ({
+                  discoveryPhase: "reviewing-dimensions" as const,
+                  dimensions,
+                  dimensionReasoning: reasoning,
+                  error: null,
+                }),
                 undefined,
-                "configurator/updateOpinionInteractions",
+                "configurator/dimensionsGenerated",
               );
             },
             onError(errorMessage) {
               set(
                 () => ({
-                  basePromptActive: false,
+                  discoveryPhase: "idle" as const,
                   error: errorMessage,
                 }),
                 undefined,
-                "configurator/schemaGenerationError",
+                "configurator/dimensionGenerationError",
               );
             },
           });
@@ -303,6 +327,247 @@ export const useConfiguratorStore = create<ConfiguratorState>()(
           console.log(field, action, options);
           return;
         },
+
+        // ---------- Dimension actions ----------
+
+        onDimensionAccept: (dimensionId) => {
+          const startTime = Date.now();
+          set(
+            (prev) => ({
+              dimensions: prev.dimensions.map((d) =>
+                d.id === dimensionId
+                  ? {
+                      ...d,
+                      status:
+                        d.status === "rejected"
+                          ? ("suggested" as const)
+                          : ("accepted" as const),
+                      isActive: true,
+                    }
+                  : d,
+              ),
+            }),
+            undefined,
+            "configurator/dimensionAccepted",
+          );
+          studyLogger.log("dimension.accepted", {
+            dimensionId,
+            timeToDecisionMs: Date.now() - startTime,
+          });
+        },
+
+        onDimensionReject: (dimensionId) => {
+          set(
+            (prev) => ({
+              dimensions: prev.dimensions.map((d) =>
+                d.id === dimensionId
+                  ? { ...d, status: "rejected" as const, isActive: false }
+                  : d,
+              ),
+            }),
+            undefined,
+            "configurator/dimensionRejected",
+          );
+          studyLogger.log("dimension.rejected", { dimensionId });
+        },
+
+        onDimensionEdit: (dimensionId, updates) => {
+          set(
+            (prev) => ({
+              dimensions: prev.dimensions.map((d) =>
+                d.id === dimensionId
+                  ? {
+                      ...d,
+                      ...updates,
+                      editHistory: [
+                        ...d.editHistory,
+                        {
+                          timestamp: new Date().toISOString(),
+                          field: "values" as const,
+                          oldValue: d.values,
+                          newValue: updates.values ?? d.values,
+                        },
+                      ],
+                    }
+                  : d,
+              ),
+            }),
+            undefined,
+            "configurator/dimensionEdited",
+          );
+          studyLogger.log("dimension.edited", { dimensionId, updates });
+        },
+
+        onDimensionAdd: (name) => {
+          const newDimension = createDimensionObject({
+            name,
+            source: "user",
+            status: "accepted",
+          });
+          set(
+            (prev) => ({
+              dimensions: [...prev.dimensions, newDimension],
+            }),
+            undefined,
+            "configurator/dimensionAdded",
+          );
+          studyLogger.log("dimension.added", {
+            dimensionId: newDimension.id,
+            name,
+          });
+        },
+
+        onConfirmDimensions: async () => {
+          const state = get();
+          const acceptedDimensions = state.dimensions.filter(
+            (d) =>
+              (d.status === "accepted" || d.status === "edited") && d.isActive,
+          );
+
+          if (acceptedDimensions.length === 0) return;
+
+          studyLogger.log("dimensions.confirmed", {
+            count: acceptedDimensions.length,
+            names: acceptedDimensions.map((d) => d.name),
+          });
+
+          set(
+            () => ({
+              discoveryPhase: "generating-schema" as const,
+              basePromptActive: true,
+              error: null,
+            }),
+            undefined,
+            "configurator/startSchemaFromDimensions",
+          );
+
+          try {
+            // Generate schema first — it rewrites the prompt to incorporate dimensions.
+            // Then use that enriched prompt for opinion generation so opinions
+            // are contextually aware of what dimensions were confirmed.
+            const schemaResponse = await dimensionsToSchemaAction(
+              acceptedDimensions,
+              state.basePrompt,
+            );
+
+            const enrichedPrompt =
+              schemaResponse.success && schemaResponse.result
+                ? schemaResponse.result.basePrompt
+                : state.basePrompt;
+
+            const opinionResponse = await generateOpinionInteractionsAction(
+              enrichedPrompt,
+              MAX_ACTIVE_OPINIONS,
+              acceptedDimensions,
+            );
+
+            if (schemaResponse.success && schemaResponse.result) {
+              studyLogger.log("schema.generated", {
+                fieldCount:
+                  schemaResponse.result.artifactFormSchema.fields.length,
+                fromDimensions: true,
+              });
+
+              set(
+                (prev) => ({
+                  discoveryPhase: "idle" as const,
+                  basePromptActive: false,
+                  previousBasePrompt: prev.basePrompt,
+                  basePrompt: schemaResponse.result!.basePrompt,
+                  artifactFormSchema: schemaResponse.result!.artifactFormSchema,
+                  configuratorFormSchema:
+                    schemaResponse.result!.configuratorFormSchema,
+                  configuratorFormValues:
+                    schemaResponse.result!.configuratorFormValues,
+                  opinionInteractions: [
+                    ...prev.opinionInteractions,
+                    ...(opinionResponse.success
+                      ? (opinionResponse.interactions ?? [])
+                      : []),
+                  ],
+                }),
+                undefined,
+                "configurator/schemaFromDimensionsComplete",
+              );
+            } else {
+              set(
+                () => ({
+                  discoveryPhase: "reviewing-dimensions" as const,
+                  basePromptActive: false,
+                  error:
+                    schemaResponse.error ||
+                    "Failed to generate schema from dimensions",
+                }),
+                undefined,
+                "configurator/schemaFromDimensionsError",
+              );
+            }
+          } catch (error) {
+            set(
+              () => ({
+                discoveryPhase: "reviewing-dimensions" as const,
+                basePromptActive: false,
+                error:
+                  error instanceof Error
+                    ? error.message
+                    : "Failed to generate schema",
+              }),
+              undefined,
+              "configurator/schemaFromDimensionsError",
+            );
+          }
+        },
+
+        onRegenerateDimensions: async () => {
+          const state = get();
+          set(
+            () => ({
+              discoveryPhase: "generating-dimensions" as const,
+              dimensions: [],
+              dimensionReasoning: "",
+              error: null,
+            }),
+            undefined,
+            "configurator/regenerateDimensions",
+          );
+
+          try {
+            const response = await generateDimensionsAction(state.basePrompt);
+            if (response.success && response.dimensions) {
+              set(
+                () => ({
+                  discoveryPhase: "reviewing-dimensions" as const,
+                  dimensions: response.dimensions!,
+                  dimensionReasoning: response.reasoning || "",
+                }),
+                undefined,
+                "configurator/dimensionsRegenerated",
+              );
+            } else {
+              set(
+                () => ({
+                  discoveryPhase: "idle" as const,
+                  error: response.error || "Failed to regenerate dimensions",
+                }),
+                undefined,
+                "configurator/dimensionRegenerationError",
+              );
+            }
+          } catch (error) {
+            set(
+              () => ({
+                discoveryPhase: "idle" as const,
+                error:
+                  error instanceof Error
+                    ? error.message
+                    : "Failed to regenerate dimensions",
+              }),
+              undefined,
+              "configurator/dimensionRegenerationError",
+            );
+          }
+        },
+
       }),
       {
         name: "configurator-storage",
@@ -313,6 +578,9 @@ export const useConfiguratorStore = create<ConfiguratorState>()(
           configuratorFormValues: state.configuratorFormValues,
           artifactFormSchema: state.artifactFormSchema,
           opinionInteractions: state.opinionInteractions,
+          dimensions: state.dimensions,
+          discoveryPhase: state.discoveryPhase,
+          dimensionReasoning: state.dimensionReasoning,
         }),
       },
     ),
@@ -322,43 +590,28 @@ export const useConfiguratorStore = create<ConfiguratorState>()(
   ),
 );
 
-const onPromptInserted = debounce(
+const onPromptInsertedDimensions = debounce(
   async ({
     userPrompt,
-    maxOpinions,
     onStart,
     onSuccess,
-    onOpinionSuccess,
     onError,
   }: {
     userPrompt: string;
-    maxOpinions: number;
     onStart: () => void;
-    onSuccess: (result: {
-      artifactFormSchema: SerializedSchema;
-      configuratorFormSchema: SerializedSchema;
-      configuratorFormValues: object;
-    }) => void;
-    onOpinionSuccess: (interactions: OpinionInteraction[]) => void;
+    onSuccess: (dimensions: DimensionObject[], reasoning: string) => void;
     onError: (errorMessage: string) => void;
   }) => {
-    console.log("Generating schemas from prompt...");
+    console.log("Generating dimensions from prompt...");
     onStart();
-    await sleep(100); // Add delay for better animation
+    await sleep(100);
 
-    const [schemaResponse, opinionResponse] = await Promise.all([
-      regenerateFormSchemaAction({ userPrompt }),
-      generateOpinionInteractionsAction(userPrompt, maxOpinions),
-    ]);
+    const response = await generateDimensionsAction(userPrompt);
 
-    if (schemaResponse.success && schemaResponse.result) {
-      onSuccess(schemaResponse.result);
+    if (response.success && response.dimensions) {
+      onSuccess(response.dimensions, response.reasoning || "");
     } else {
-      onError(schemaResponse.error || "Failed to generate schema");
-    }
-
-    if (opinionResponse.success && opinionResponse.interactions) {
-      onOpinionSuccess(opinionResponse.interactions);
+      onError(response.error || "Failed to generate dimensions");
     }
   },
   {

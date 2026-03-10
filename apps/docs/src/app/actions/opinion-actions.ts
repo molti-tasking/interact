@@ -1,5 +1,6 @@
 "use server";
 
+import type { DimensionObject } from "@/lib/dimension-types";
 import type { SchemaMetadata, SerializedSchema } from "@/lib/schema-manager";
 import { initializeSerializedSchema } from "@/lib/schema-manager";
 import { anthropic } from "@ai-sdk/anthropic";
@@ -12,6 +13,8 @@ export interface OpinionInteraction {
   options: { value: string; label: string }[];
   selectedOption: string | null;
   status: "pending" | "loading" | "resolved" | "dismissed";
+  dimensionId?: string | null;
+  dimensionName?: string | null;
 }
 
 export interface GenerateOpinionResponse {
@@ -23,19 +26,29 @@ export interface GenerateOpinionResponse {
 export async function generateOpinionInteractionsAction(
   basePrompt: string,
   maxOpinions: number = 5,
+  dimensions?: DimensionObject[],
 ): Promise<GenerateOpinionResponse> {
   if (maxOpinions <= 0) return { success: true, interactions: [] };
 
   try {
+    const acceptedDims = dimensions?.filter(
+      (d) => (d.status === "accepted" || d.status === "edited") && d.isActive,
+    );
+
+    const dimensionContext =
+      acceptedDims && acceptedDims.length > 0
+        ? `\n\nThe form is structured around these confirmed data dimensions:\n${acceptedDims.map((d) => `- "${d.name}" (${d.type}): ${d.description}. Values: [${d.values.join(", ")}]`).join("\n")}\n\nEach opinion question should refine a SPECIFIC dimension. Include a "dimensionName" field that exactly matches one of the dimension names above. Questions should ask about the values, granularity, validation, or presentation of that particular dimension.`
+        : "";
+
     const prompt = `You are a form design assistant. Given a user's description of a form they want to create, generate ${Math.min(maxOpinions, 3)}-${maxOpinions} opinion questions that would help refine the form design. Each question should have 2-4 options.
 
-User's form description: ${basePrompt}
+User's form description: ${basePrompt}${dimensionContext}
 
 Return ONLY valid JSON in this exact format:
 {
   "interactions": [
     {
-      "text": "What level of detail should the form collect?",
+      "text": "What level of detail should the form collect?",${acceptedDims && acceptedDims.length > 0 ? '\n      "dimensionName": "Exact Dimension Name",' : ""}
       "options": [
         { "value": "minimal", "label": "Minimal - only essential fields" },
         { "value": "moderate", "label": "Moderate - common fields included" },
@@ -60,6 +73,7 @@ Rules:
     let parsedResult: {
       interactions: {
         text: string;
+        dimensionName?: string;
         options: { value: string; label: string }[];
       }[];
     };
@@ -91,16 +105,29 @@ Rules:
       };
     }
 
-    const interactions: OpinionInteraction[] = parsedResult.interactions.slice(0, maxOpinions).map(
-      (interaction, index) => ({
-        id: `opinion-${Date.now()}-${index}`,
-        text: interaction.text,
-        source: "llm",
-        options: interaction.options,
-        selectedOption: null,
-        status: "pending" as const,
-      }),
+    // Build a name→id lookup for dimension matching
+    const dimLookup = new Map(
+      (acceptedDims ?? []).map((d) => [d.name.toLowerCase(), d]),
     );
+
+    const interactions: OpinionInteraction[] = parsedResult.interactions
+      .slice(0, maxOpinions)
+      .map((interaction, index) => {
+        const matchedDim = interaction.dimensionName
+          ? dimLookup.get(interaction.dimensionName.toLowerCase())
+          : undefined;
+
+        return {
+          id: `opinion-${Date.now()}-${index}`,
+          text: interaction.text,
+          source: "llm",
+          options: interaction.options,
+          selectedOption: null,
+          status: "pending" as const,
+          dimensionId: matchedDim?.id ?? null,
+          dimensionName: matchedDim?.name ?? interaction.dimensionName ?? null,
+        };
+      });
 
     return { success: true, interactions };
   } catch (error) {
@@ -259,6 +286,8 @@ Return ONLY valid JSON in this exact format:
       options: interaction.options,
       selectedOption: null,
       status: "pending" as const,
+      dimensionId: null,
+      dimensionName: null,
     }));
 
     return {
