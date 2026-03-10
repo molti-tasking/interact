@@ -94,13 +94,10 @@ export const useConfiguratorStore = create<ConfiguratorState>()(
       (set, get) => ({
         ...initialState,
         setBasePromptElement(ref) {
-          if (get().basePromptElement) {
-            return;
-          }
           set(
             { basePromptElement: ref },
             undefined,
-            "configurator/opinionLoading",
+            "configurator/setBasePromptElement",
           );
         },
         onOpinionInteraction: async (interactionIndex, selectedValue) => {

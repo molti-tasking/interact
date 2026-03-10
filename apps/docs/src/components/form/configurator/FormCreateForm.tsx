@@ -5,15 +5,20 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { useConfiguratorStore } from "@/stores/useFormConfiguratorStore";
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { PromptDiff } from "./PromptDiff";
 import { SpeechForm } from "./SpeechForm";
 
 export const FormCreateForm = ({}: { onFormCreated: () => void }) => {
   const store = useConfiguratorStore();
-  const basePromptElement = useConfiguratorStore((s) => s.basePromptElement);
   const setBasePromptElement = useConfiguratorStore(
     (s) => s.setBasePromptElement,
+  );
+  const textareaRef = useCallback(
+    (node: HTMLTextAreaElement | null) => {
+      setBasePromptElement(node);
+    },
+    [setBasePromptElement],
   );
 
   const [showingChanges, setShowingChanges] = useState(false);
@@ -60,12 +65,7 @@ export const FormCreateForm = ({}: { onFormCreated: () => void }) => {
           ) : (
             <Textarea
               id="basePrompt"
-              ref={(ref) => {
-                console.log("Set base prompt element");
-                if (!basePromptElement) {
-                  setBasePromptElement(ref);
-                }
-              }}
+              ref={textareaRef}
               placeholder="Describe what this form is for..."
               value={store.basePrompt}
               className={cn(
