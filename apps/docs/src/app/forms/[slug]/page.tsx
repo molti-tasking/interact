@@ -32,7 +32,7 @@ export default function Page() {
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="text-center space-y-4">
           <div className="text-muted-foreground">Form not found</div>
-          <Link href="/malleable-form">
+          <Link href="/forms">
             <Button variant="outline">
               <ArrowLeftIcon className="h-4 w-4 mr-2" />
               Back to Forms
@@ -47,7 +47,7 @@ export default function Page() {
     <div className="space-y-12">
       <div className="space-y-4">
         <div>
-          <Link href="/malleable-form">
+          <Link href="/forms">
             <Button variant="ghost" size="sm">
               <ArrowLeftIcon className="h-4 w-4 mr-2" />
               Back to Forms

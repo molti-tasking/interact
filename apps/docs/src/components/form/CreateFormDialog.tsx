@@ -51,8 +51,8 @@ export function CreateFormDialog({
         <DialogHeader>
           <DialogTitle>Create New Form</DialogTitle>
           <DialogDescription>
-            Create a new malleable form. You can add and modify fields after
-            creation using AI.
+            Create a new form. You can add and modify fields after creation
+            using AI.
           </DialogDescription>
         </DialogHeader>
         <div className="no-scrollbar -mx-4 max-h-[80vh] overflow-y-auto px-4">
@@ -144,7 +144,7 @@ const CreateFormForm = ({
       onClose();
 
       // Navigate to the new form
-      router.push(`/malleable-form/${newSchema.slug}`);
+      router.push(`/forms/${newSchema.slug}`);
     } catch (error) {
       toast.error("Failed to create form");
       console.error(error);

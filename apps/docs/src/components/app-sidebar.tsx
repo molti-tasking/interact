@@ -33,8 +33,12 @@ const data = {
           url: "/",
         },
         {
-          title: "Just in time data space discovery",
-          url: "/jitdc",
+          title: "Create Form",
+          url: "/create",
+        },
+        {
+          title: "Forms",
+          url: "/forms",
         },
       ],
     },
@@ -49,10 +53,6 @@ const data = {
         {
           title: "Generative Form",
           url: "/gen-ai",
-        },
-        {
-          title: "Malleable Forms",
-          url: "/malleable-form",
         },
       ],
     },
@@ -94,15 +94,15 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                       </SidebarMenuButton>
                     </SidebarMenuItem>
 
-                    {/* Show dynamic forms as children of "Malleable Forms" */}
-                    {navItem.title === "Malleable Forms" &&
+                    {/* Show dynamic forms as children of "Forms" */}
+                    {navItem.title === "Forms" &&
                       schemas &&
                       schemas.length > 0 && (
                         <>
                           {schemas.map((schema) => (
                             <SidebarMenuItem key={schema.slug} className="ml-4">
                               <SidebarMenuButton asChild>
-                                <a href={`/malleable-form/${schema.slug}`}>
+                                <a href={`/forms/${schema.slug}`}>
                                   <span className="text-sm">
                                     {schema.title}
                                   </span>

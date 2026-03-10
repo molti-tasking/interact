@@ -21,7 +21,7 @@ export default function Page() {
     <div className="space-y-12">
       <div className="space-y-4">
         <div className="flex items-center gap-3">
-          <h1 className="text-4xl font-bold tracking-tight">Malleable Forms</h1>
+          <h1 className="text-4xl font-bold tracking-tight">Forms</h1>
         </div>
         <p className="text-lg text-muted-foreground max-w-3xl">
           Dynamic forms that adapt to your needs. Create forms that evolve based
@@ -53,7 +53,7 @@ export default function Page() {
               {schemas?.length || 0} form{schemas?.length === 1 ? "" : "s"}
             </div>
             <Button size="sm" asChild>
-              <Link href={"/malleable-form/create"}>
+              <Link href={"/create"}>
                 <PlusIcon className="h-4 w-4 mr-2" />
                 Create New Form
               </Link>
@@ -63,7 +63,7 @@ export default function Page() {
           {schemas && schemas.length > 0 ? (
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
               {schemas.map((schema) => (
-                <Link key={schema.slug} href={`/malleable-form/${schema.slug}`}>
+                <Link key={schema.slug} href={`/forms/${schema.slug}`}>
                   <Card className="cursor-pointer hover:border-primary transition-colors">
                     <CardHeader>
                       <div className="flex items-start justify-between">

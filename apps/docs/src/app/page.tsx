@@ -79,9 +79,9 @@ export default function Home() {
           </p>
         </div>
 
-        {/* Malleable Forms Concept */}
+        {/* Dynamic Forms Concept */}
         <div className="flex flex-col gap-4">
-          <h2 className="text-2xl font-semibold">Malleable Forms</h2>
+          <h2 className="text-2xl font-semibold">Just in Time Data Space Discovery</h2>
 
           <div className="bg-primary/5 border-l-4 border-primary p-6 rounded-r-lg space-y-3">
             <div className="flex items-start gap-3">
@@ -89,21 +89,20 @@ export default function Home() {
               <div>
                 <h3 className="font-semibold mb-2">Core Concept</h3>
                 <p className="text-sm">
-                  <strong>Malleable forms</strong> are web forms that can adapt
-                  their structure dynamically based on user needs and AI
-                  suggestions, while preserving data integrity and validation
-                  rules. Users can request schema modifications through natural
-                  language, and the system manages version control, data
-                  migration, and validation.
+                  Web forms that can adapt their structure dynamically based on
+                  user needs and AI suggestions, while preserving data integrity
+                  and validation rules. Users can request schema modifications
+                  through natural language, and the system manages version
+                  control, data migration, and validation.
                 </p>
               </div>
             </div>
           </div>
 
           <p>
-            Unlike traditional static forms or purely AI-generated forms,
-            malleable forms maintain explicit schemas, support incremental
-            modification, and provide transparent change management. The form
+            Unlike traditional static forms or purely AI-generated forms, our
+            approach maintains explicit schemas, supports incremental
+            modification, and provides transparent change management. The form
             creator can define what types of changes are permissible, balancing
             flexibility with governance.
           </p>
@@ -120,7 +119,7 @@ export default function Home() {
             <div className="border rounded-lg p-4 space-y-2 bg-primary/5">
               <h3 className="font-semibold text-sm flex items-center gap-2">
                 <Sparkles className="h-4 w-4" />
-                Malleable Forms
+                Dynamic Forms
               </h3>
               <ul className="text-sm space-y-1">
                 <li>• Dynamic structure</li>
