@@ -3,7 +3,7 @@
 import type { OpinionInteraction } from "@/app/actions/opinion-actions";
 import { OpinionSurfaceRenderer } from "@/components/a2ui/OpinionSurfaceRenderer";
 import { Badge } from "@/components/ui/badge";
-import { dimensionTypeColors } from "@/lib/dimension-types";
+import { dimensionScopeColors } from "@/lib/dimension-types";
 import { cn } from "@/lib/utils";
 import { useConfiguratorStore } from "@/stores/useFormConfiguratorStore";
 import { useMemo } from "react";
@@ -19,7 +19,7 @@ export const SpeechForm = () => {
   const dimColorByName = useMemo(() => {
     const map = new Map<string, string>();
     for (const d of dimensions) {
-      map.set(d.name.toLowerCase(), dimensionTypeColors[d.type]);
+      map.set(d.name.toLowerCase(), dimensionScopeColors[d.scope]);
     }
     return map;
   }, [dimensions]);

@@ -3,18 +3,11 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import type { DimensionObject, DimensionType } from "@/lib/dimension-types";
-import { dimensionTypeColors } from "@/lib/dimension-types";
+import type { DimensionObject, DimensionScope } from "@/lib/dimension-types";
+import { dimensionScopeColors, dimensionScopeLabels } from "@/lib/dimension-types";
 import { cn } from "@/lib/utils";
 import { Pencil, X } from "lucide-react";
 import { useState } from "react";
-
-const typeLabels: Record<DimensionType, string> = {
-  categorical: "Categorical",
-  ordinal: "Ordinal",
-  numerical: "Numerical",
-  boolean: "Boolean",
-};
 
 const statusStyles: Record<string, string> = {
   suggested: "border-border",
@@ -38,24 +31,27 @@ export function DimensionCard({
 }: DimensionCardProps) {
   const [editing, setEditing] = useState(false);
   const [editName, setEditName] = useState(dimension.name);
-  const [editType, setEditType] = useState(dimension.type);
-  const [editValues, setEditValues] = useState(dimension.values);
-  const [newValue, setNewValue] = useState("");
+  const [editScope, setEditScope] = useState(dimension.scope);
+  const [editImportance, setEditImportance] = useState(dimension.importance);
+  const [editQuestions, setEditQuestions] = useState(dimension.openQuestions);
+  const [newQuestion, setNewQuestion] = useState("");
 
   const isRejected = dimension.status === "rejected";
 
   function startEdit() {
     setEditName(dimension.name);
-    setEditType(dimension.type);
-    setEditValues([...dimension.values]);
+    setEditScope(dimension.scope);
+    setEditImportance(dimension.importance);
+    setEditQuestions([...dimension.openQuestions]);
     setEditing(true);
   }
 
   function saveEdit() {
     onEdit({
       name: editName,
-      type: editType,
-      values: editValues,
+      scope: editScope,
+      importance: editImportance,
+      openQuestions: editQuestions,
       status: "edited",
     });
     setEditing(false);
@@ -65,16 +61,16 @@ export function DimensionCard({
     setEditing(false);
   }
 
-  function addValue() {
-    const trimmed = newValue.trim();
-    if (trimmed && !editValues.includes(trimmed)) {
-      setEditValues([...editValues, trimmed]);
-      setNewValue("");
+  function addQuestion() {
+    const trimmed = newQuestion.trim();
+    if (trimmed && !editQuestions.includes(trimmed)) {
+      setEditQuestions([...editQuestions, trimmed]);
+      setNewQuestion("");
     }
   }
 
-  function removeValue(index: number) {
-    setEditValues(editValues.filter((_, i) => i !== index));
+  function removeQuestion(index: number) {
+    setEditQuestions(editQuestions.filter((_, i) => i !== index));
   }
 
   return (
@@ -93,40 +89,49 @@ export function DimensionCard({
             placeholder="Dimension name"
           />
           <select
-            value={editType}
-            onChange={(e) => setEditType(e.target.value as DimensionType)}
+            value={editScope}
+            onChange={(e) => setEditScope(e.target.value as DimensionScope)}
             className="h-7 w-full rounded border px-2 text-xs"
           >
-            {Object.entries(typeLabels).map(([value, label]) => (
+            {Object.entries(dimensionScopeLabels).map(([value, label]) => (
               <option key={value} value={value}>
                 {label}
               </option>
             ))}
           </select>
-          <div className="flex flex-wrap gap-1">
-            {editValues.map((v, i) => (
-              <Badge
-                key={i}
-                variant="secondary"
-                className="cursor-pointer gap-1 text-xs"
-                onClick={() => removeValue(i)}
-              >
-                {v}
-                <X className="h-2.5 w-2.5" />
-              </Badge>
+          <Input
+            value={editImportance}
+            onChange={(e) => setEditImportance(e.target.value)}
+            className="h-7 text-xs"
+            placeholder="Why does this matter?"
+          />
+          <div className="space-y-1">
+            <span className="text-[10px] text-muted-foreground uppercase tracking-wide">
+              Open questions
+            </span>
+            {editQuestions.map((q, i) => (
+              <div key={i} className="flex items-start gap-1">
+                <span className="flex-1 text-xs text-muted-foreground">{q}</span>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="h-4 w-4 shrink-0"
+                  onClick={() => removeQuestion(i)}
+                >
+                  <X className="h-2.5 w-2.5" />
+                </Button>
+              </div>
             ))}
-          </div>
-          <div className="flex gap-1">
             <Input
-              value={newValue}
-              onChange={(e) => setNewValue(e.target.value)}
+              value={newQuestion}
+              onChange={(e) => setNewQuestion(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === "Enter") {
                   e.preventDefault();
-                  addValue();
+                  addQuestion();
                 }
               }}
-              placeholder="Add value..."
+              placeholder="Add question..."
               className="h-6 text-xs"
             />
           </div>
@@ -159,10 +164,10 @@ export function DimensionCard({
                   variant="outline"
                   className={cn(
                     "text-[10px] px-1.5 py-0",
-                    dimensionTypeColors[dimension.type],
+                    dimensionScopeColors[dimension.scope],
                   )}
                 >
-                  {typeLabels[dimension.type]}
+                  {dimensionScopeLabels[dimension.scope]}
                 </Badge>
               </div>
               {dimension.description && (
@@ -173,17 +178,15 @@ export function DimensionCard({
             </div>
             <div className="flex shrink-0 gap-0.5">
               {!isRejected && (
-                <>
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    className="h-6 w-6"
-                    onClick={startEdit}
-                    title="Edit"
-                  >
-                    <Pencil className="h-3 w-3" />
-                  </Button>
-                </>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="h-6 w-6"
+                  onClick={startEdit}
+                  title="Edit"
+                >
+                  <Pencil className="h-3 w-3" />
+                </Button>
               )}
               <Button
                 size="icon"
@@ -196,18 +199,22 @@ export function DimensionCard({
               </Button>
             </div>
           </div>
-          {dimension.values.length > 0 && !isRejected && (
-            <div className="mt-2 flex flex-wrap gap-1">
-              {dimension.values.map((v, i) => (
-                <Badge
+          {dimension.importance && !isRejected && (
+            <p className="mt-1 text-xs text-muted-foreground/80 italic">
+              {dimension.importance}
+            </p>
+          )}
+          {dimension.openQuestions.length > 0 && !isRejected && (
+            <ul className="mt-2 space-y-0.5">
+              {dimension.openQuestions.map((q, i) => (
+                <li
                   key={i}
-                  variant="secondary"
-                  className="text-[10px] px-1.5 py-0"
+                  className="text-xs text-muted-foreground pl-3 relative before:absolute before:left-0 before:content-['?'] before:text-muted-foreground/50 before:font-medium"
                 >
-                  {v}
-                </Badge>
+                  {q}
+                </li>
               ))}
-            </div>
+            </ul>
           )}
           {dimension.source === "user" && (
             <Badge variant="outline" className="mt-1 text-[10px]">

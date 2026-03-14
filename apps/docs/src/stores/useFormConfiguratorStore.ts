@@ -412,9 +412,9 @@ export const useConfiguratorStore = create<ConfiguratorState>()(
                         ...d.editHistory,
                         {
                           timestamp: new Date().toISOString(),
-                          field: "values" as const,
-                          oldValue: d.values,
-                          newValue: updates.values ?? d.values,
+                          field: "name" as const,
+                          oldValue: d.name,
+                          newValue: updates.name ?? d.name,
                         },
                       ],
                     }

@@ -1,6 +1,6 @@
 "use server";
 
-import type { DimensionObject, DimensionType } from "@/lib/dimension-types";
+import type { DimensionObject, DimensionScope } from "@/lib/dimension-types";
 import type { SchemaMetadata, SerializedSchema } from "@/lib/schema-manager";
 import { initializeSerializedSchema } from "@/lib/schema-manager";
 import { anthropic } from "@ai-sdk/anthropic";
@@ -24,35 +24,39 @@ export async function generateDimensionsAction(
   }
 
   try {
-    const systemPrompt = `You are a data-space analyst. Given a user's description of a form or data collection task, identify the key DIMENSIONS of the data space that the form should capture.
+    const systemPrompt = `You are a domain analyst helping a user design a form. Given a description of a form or data collection task, identify the key DIMENSIONS of the problem domain — abstract conceptual facets that need to be understood before concrete form fields can be designed.
 
-A dimension is a conceptual axis of variation in the data — not a specific form field, but a category of information. For each dimension, specify:
+A dimension is NOT a form field. It is a domain facet — a category of ambiguity or variation that affects how the form should be structured. The goal is to surface what's unclear or assumed so the user can make informed decisions before committing to specific fields.
+
+For each dimension, provide:
 - name: short label (2-4 words)
-- description: one sentence explaining what this dimension captures
-- type: one of "categorical" (unordered options), "ordinal" (ordered options), "numerical" (continuous/discrete numbers), "boolean" (yes/no)
-- values: 3-6 candidate values that represent the range of this dimension. For numerical, give representative sample values as strings (e.g. "0", "50", "100"). For boolean, give ["Yes", "No"].
+- description: one sentence explaining what this facet of the domain covers
+- importance: why this matters for the form's design — what decisions depend on it
+- scope: one of "context" (who/where/when — situational factors), "measurement" (what to capture and how), "preference" (subjective choices, priorities), "constraint" (rules, limits, compliance)
+- openQuestions: 2-3 specific questions the user should consider. These should surface ambiguity — things the user might not have thought about yet. Frame as questions, not suggestions.
 
 User's description: ${prompt}
 
 Return ONLY valid JSON in this exact format:
 {
-  "reasoning": "Brief explanation of why these dimensions were chosen and how they span the data space",
+  "reasoning": "Brief explanation of why these dimensions were chosen and how they map the domain",
   "dimensions": [
     {
       "name": "Dimension Name",
-      "description": "What this dimension captures",
-      "type": "categorical",
-      "values": ["Value A", "Value B", "Value C"]
+      "description": "What this facet of the domain covers",
+      "importance": "Why this matters for the form design",
+      "scope": "context",
+      "openQuestions": ["Question 1?", "Question 2?"]
     }
   ]
 }
 
 Rules:
-- Generate ${Math.min(4, maxDimensions)}-${maxDimensions} dimensions
-- Dimensions should be orthogonal — each captures a distinct aspect
-- Include both obvious dimensions and non-obvious ones the user might not have considered
-- Values should be concrete and representative, not generic
-- Prefer categorical/ordinal types for richer exploration`;
+- Generate ${Math.min(3, maxDimensions)}-${maxDimensions} dimensions
+- Dimensions should be orthogonal — each covers a distinct facet of the domain
+- Include non-obvious dimensions the user might not have considered
+- Open questions should reveal genuine ambiguity, not ask the obvious
+- Do NOT suggest specific form fields, input types, or values — that comes later`;
 
     const result = await generateText({
       model: anthropic("claude-haiku-4-5-20251001"),
@@ -65,8 +69,9 @@ Rules:
       dimensions: {
         name: string;
         description: string;
-        type: DimensionType;
-        values: string[];
+        importance: string;
+        scope: DimensionScope;
+        openQuestions: string[];
       }[];
     };
 
@@ -89,14 +94,24 @@ Rules:
       };
     }
 
+    const validScopes: DimensionScope[] = [
+      "context",
+      "measurement",
+      "preference",
+      "constraint",
+    ];
+
     const dimensions: DimensionObject[] = parsedResult.dimensions
       .slice(0, maxDimensions)
       .map((dim, index) => ({
         id: `dim-${Date.now()}-${index}`,
         name: dim.name,
         description: dim.description,
-        type: dim.type,
-        values: dim.values,
+        importance: dim.importance || "",
+        scope: validScopes.includes(dim.scope) ? dim.scope : "context",
+        openQuestions: Array.isArray(dim.openQuestions)
+          ? dim.openQuestions
+          : [],
         status: "suggested" as const,
         source: "system" as const,
         isActive: true,
@@ -133,15 +148,16 @@ export async function refineDimensionAction(
   userFeedback: string,
 ): Promise<RefineDimensionResponse> {
   try {
-    const prompt = `You are refining a data dimension for a form.
+    const prompt = `You are refining a domain dimension for a form design process.
 
 Base context: ${basePrompt}
 
 Current dimension:
 - Name: ${dimension.name}
 - Description: ${dimension.description}
-- Type: ${dimension.type}
-- Values: ${JSON.stringify(dimension.values)}
+- Importance: ${dimension.importance}
+- Scope: ${dimension.scope}
+- Open questions: ${JSON.stringify(dimension.openQuestions)}
 
 User feedback: ${userFeedback}
 
@@ -149,8 +165,9 @@ Based on the feedback, return an updated dimension. Return ONLY valid JSON:
 {
   "name": "Updated Name",
   "description": "Updated description",
-  "type": "categorical",
-  "values": ["Updated", "Values"]
+  "importance": "Updated importance",
+  "scope": "context",
+  "openQuestions": ["Updated question 1?", "Updated question 2?"]
 }`;
 
     const result = await generateText({
@@ -196,27 +213,30 @@ export async function dimensionsToSchemaAction(
     const dimensionSummary = dimensions
       .map(
         (d) =>
-          `- ${d.name} (${d.type}): ${d.description}. Values: [${d.values.join(", ")}]`,
+          `- ${d.name} [${d.scope}]: ${d.description}\n  Why it matters: ${d.importance}\n  Open questions: ${d.openQuestions.join("; ")}`,
       )
       .join("\n");
 
-    const prompt = `You are a form schema generator. Convert these confirmed data dimensions into a concrete form schema.
+    const prompt = `You are a form schema generator. The user has confirmed these domain dimensions — abstract facets of their problem space. Your job is to translate them into a concrete form schema.
 
 User's original form description: ${basePrompt}
 
-Confirmed dimensions (the user accepted these from a larger set of suggestions):
+Confirmed domain dimensions (the user reviewed and accepted these):
 ${dimensionSummary}
+
+Use the dimensions as context to decide WHAT fields the form needs, what types they should be, and what options to offer. Each dimension may map to zero, one, or multiple fields depending on the domain. The open questions should inform your field design choices.
 
 You must return:
 
-1. **basePrompt**: Rewrite the user's original description to concisely incorporate the confirmed dimension decisions. This becomes the new canonical description of the form. Do NOT just list dimensions — write a natural, coherent description that a human would write if they had these dimensions in mind from the start.
+1. **basePrompt**: Rewrite the user's original description to incorporate the confirmed dimension decisions. Write a natural, coherent description — don't just list dimensions.
 
-2. **artifactFormSchema**: The actual form. Map each dimension to appropriate form field(s):
-   - categorical → select field with options from values
-   - ordinal → select field with ordered options
-   - numerical → number field with appropriate min/max
-   - boolean → boolean field
-   Some dimensions may map to multiple fields if they represent compound concepts.
+2. **artifactFormSchema**: The actual form fields. Choose appropriate field types:
+   - Use "select" for choices with defined options (include options in validation.options)
+   - Use "string" for free text
+   - Use "number" for quantities
+   - Use "boolean" for yes/no
+   - Use "date" for dates
+   - Use "email" for email addresses
 
 3. **configuratorFormSchema**: 2-4 meta-questions about form behavior (e.g., required fields, validation strictness)
 

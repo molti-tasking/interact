@@ -37,7 +37,7 @@ export async function generateOpinionInteractionsAction(
 
     const dimensionContext =
       acceptedDims && acceptedDims.length > 0
-        ? `\n\nThe form is structured around these confirmed data dimensions:\n${acceptedDims.map((d) => `- "${d.name}" (${d.type}): ${d.description}. Values: [${d.values.join(", ")}]`).join("\n")}\n\nEach opinion question should refine a SPECIFIC dimension. Include a "dimensionName" field that exactly matches one of the dimension names above. Questions should ask about the values, granularity, validation, or presentation of that particular dimension.`
+        ? `\n\nThe form is structured around these confirmed domain dimensions:\n${acceptedDims.map((d) => `- "${d.name}" [${d.scope}]: ${d.description}. Why it matters: ${d.importance}`).join("\n")}\n\nEach opinion question should refine a SPECIFIC dimension — making concrete field-level decisions (what fields, what options, what validation). Include a "dimensionName" field that exactly matches one of the dimension names above.`
         : "";
 
     const prompt = `You are a form design assistant. Given a user's description of a form they want to create, generate ${Math.min(maxOpinions, 3)}-${maxOpinions} opinion questions that would help refine the form design. Each question should have 2-4 options.

@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { DimensionObject } from "@/lib/dimension-types";
-import { dimensionTypeColors } from "@/lib/dimension-types";
+import { dimensionScopeColors } from "@/lib/dimension-types";
 import { cn } from "@/lib/utils";
 import { useConfiguratorStore } from "@/stores/useFormConfiguratorStore";
 import {
@@ -109,7 +109,7 @@ export function DimensionPanel() {
                   variant="outline"
                   className={cn(
                     "text-[10px] px-1.5 py-0",
-                    dimensionTypeColors[d.type],
+                    dimensionScopeColors[d.scope],
                   )}
                 >
                   {d.name}

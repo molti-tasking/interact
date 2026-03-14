@@ -29,7 +29,7 @@ export async function streamOpinionSurfacesAction(
 
   const dimensionContext =
     acceptedDims && acceptedDims.length > 0
-      ? `\n\nConfirmed data dimensions:\n${acceptedDims.map((d) => `- "${d.name}" (${d.type}): ${d.description}. Values: [${d.values.join(", ")}]`).join("\n")}\n\nScope each question to a specific dimension. Include "dimensionName" in the resolve action context matching a dimension name above.`
+      ? `\n\nConfirmed domain dimensions:\n${acceptedDims.map((d) => `- "${d.name}" [${d.scope}]: ${d.description}. Why it matters: ${d.importance}`).join("\n")}\n\nScope each question to a specific dimension — make concrete field-level decisions. Include "dimensionName" in the resolve action context matching a dimension name above.`
       : "";
 
   const prompt = `You are an AI agent that designs interactive opinion cards using the A2UI protocol. Your goal is to create VISUALLY DISTINCT, rich UIs — not generic card+button layouts.
