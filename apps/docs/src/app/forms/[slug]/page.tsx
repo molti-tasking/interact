@@ -1,5 +1,6 @@
 "use client";
 
+import { A2UISurface } from "@/components/a2ui/A2UISurface";
 import { ComponentWrapper } from "@/components/ComponentWrapper";
 import { DynamicFormController } from "@/components/form/DynamicFormController";
 import { SubmissionsList } from "@/components/form/SubmissionsList";
@@ -43,6 +44,9 @@ export default function Page() {
     );
   }
 
+  const hasA2UIMessages =
+    schema.a2uiMessages && schema.a2uiMessages.length > 0;
+
   return (
     <div className="space-y-12">
       <div className="space-y-4">
@@ -61,32 +65,20 @@ export default function Page() {
         <p className="text-lg text-muted-foreground max-w-3xl">
           {schema.schema.metadata.description}
         </p>
-        <div className="text-sm text-muted-foreground space-y-1">
-          <div>
-            <strong>How to use this form:</strong>
-          </div>
-          <ul className="list-disc list-inside space-y-1 ml-2">
-            <li>Fill out the form fields below</li>
-            <li>
-              Click the gear icon next to any field to modify its structure
-            </li>
-            <li>
-              Use natural language to describe changes (e.g., &quot;add a
-              dietary restrictions field&quot;)
-            </li>
-            <li>
-              The AI will regenerate the schema with your requested changes
-            </li>
-            <li>Submit the form to save your entry</li>
-          </ul>
-        </div>
       </div>
 
       <ComponentWrapper
         title={schema.title}
         description="Fill out and submit this form, or modify its structure"
       >
-        <DynamicFormController slug={slug} />
+        {hasA2UIMessages ? (
+          <A2UISurface
+            messages={schema.a2uiMessages!}
+            className="rounded-lg border p-4"
+          />
+        ) : (
+          <DynamicFormController slug={slug} />
+        )}
       </ComponentWrapper>
 
       <ComponentWrapper

@@ -1,6 +1,7 @@
 "use client";
 
 import type { ParseRawDataResponse } from "@/app/actions/schema-actions";
+import { A2UIFormFiller } from "@/components/a2ui/A2UIFormFiller";
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -67,6 +68,13 @@ export function DynamicForm({
 
   // Store the current filling queue for field review
   const [currentQueue, setCurrentQueue] = useState<FillingQueueItem[]>([]);
+
+  // A2UI filling state — always used for fill animations
+  const [a2uiFillValues, setA2uiFillValues] = useState<Record<
+    string,
+    unknown
+  > | null>(null);
+  const [isA2UIFilling, setIsA2UIFilling] = useState(false);
 
   // Memoize config to prevent re-creating on every render
   const fillingConfig = useMemo(
@@ -170,21 +178,14 @@ export function DynamicForm({
   const handleFillFormOnly = () => {
     if (!parseResult) return;
 
-    const queue = buildQueue(
-      parseResult.parsedData,
-      [],
-      parseResult.fieldExplanations,
-    );
-
+    // Use A2UI form filler for progressive animation
+    setA2uiFillValues(parseResult.parsedData);
+    setIsA2UIFilling(true);
     setReviewDialogOpen(false);
     setParseResult(null);
-
-    // Store queue for field review
-    setCurrentQueue(queue);
-
-    // Start filling using hook
-    filling.startFilling(queue);
-    toast.info(`Filling ${queue.length} fields...`);
+    toast.info(
+      `Filling ${Object.keys(parseResult.parsedData).length} fields...`,
+    );
   };
 
   const handleUpdateSchemaAndFill = () => {
@@ -211,6 +212,27 @@ export function DynamicForm({
       toast.info(`Filling ${queue.length} fields with updated schema...`);
     }, 200);
   };
+
+  // Show A2UI form filler during fill animation
+  if (isA2UIFilling && a2uiFillValues) {
+    return (
+      <A2UIFormFiller
+        schema={schema}
+        fillValues={a2uiFillValues}
+        fieldDelay={600}
+        onFillComplete={() => {
+          // Transfer A2UI values back to the RHF form for submission
+          for (const [key, value] of Object.entries(a2uiFillValues)) {
+            form.setValue(key, value);
+          }
+          setIsA2UIFilling(false);
+          setA2uiFillValues(null);
+          toast.success("Fields filled successfully");
+        }}
+        className="rounded-lg border p-4"
+      />
+    );
+  }
 
   return (
     <Form {...form}>

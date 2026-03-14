@@ -1,3 +1,4 @@
+import { A2UIProviderWrapper } from "@/components/a2ui/A2UIProvider";
 import { AppSidebar } from "@/components/app-sidebar";
 import { ReactQueryClientProvider } from "@/components/tools/ReactQueryClientProvider";
 import { ReactQueryDevTools } from "@/components/tools/ReactQueryDevTools";
@@ -45,6 +46,7 @@ export default function RootLayout({
           <ReactQueryDevTools />
           <Toaster position="bottom-right" />
 
+          <A2UIProviderWrapper>
           <SidebarProvider>
             <AppSidebar />
             <SidebarInset>
@@ -81,6 +83,7 @@ export default function RootLayout({
               </main>
             </SidebarInset>
           </SidebarProvider>
+          </A2UIProviderWrapper>
         </body>
       </html>
     </ReactQueryClientProvider>

@@ -79,6 +79,9 @@ export const FormCreateForm = ({}: { onFormCreated: () => void }) => {
             />
           )}
         </div>
+        {store.error && (
+          <p className="text-xs text-destructive mt-1">{store.error}</p>
+        )}
       </div>
 
       {/* Layer 1: Dimensions — always visible as summary, expandable to edit */}

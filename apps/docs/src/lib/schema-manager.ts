@@ -1,3 +1,4 @@
+import type { A2UIMessage } from "@a2ui-sdk/types/0.9";
 import { z } from "zod";
 
 const SCHEMA_STORAGE_KEY = "malleable-form-schema-list";
@@ -35,23 +36,43 @@ export interface SerializedSchemaEntry {
   slug: string;
   title: string;
   schema: SerializedSchema;
+  /** Optional A2UI message sequence for native A2UI rendering */
+  a2uiMessages?: A2UIMessage[];
 }
 
 /**
- * Saves or updates a serialized schema in localStorage
+ * A2UI-native form schema storage format.
+ * Stores the A2UI message sequence alongside the SerializedSchema
+ * for bidirectional conversion.
  */
-export function saveSchema(schema: SerializedSchemaEntry): void {
+export interface A2UIFormSchema {
+  surfaceId: string;
+  messages: A2UIMessage[];
+  version: number;
+  updatedAt: string;
+}
+
+/**
+ * Saves or updates a serialized schema in localStorage.
+ * Optionally includes A2UI messages for native A2UI rendering.
+ */
+export function saveSchema(
+  schema: SerializedSchemaEntry,
+  a2uiMessages?: A2UIMessage[],
+): void {
   if (typeof window === "undefined") return;
 
+  const entry: SerializedSchemaEntry = a2uiMessages
+    ? { ...schema, a2uiMessages }
+    : schema;
+
   const existing = loadSchemas() ?? [];
-  const index = existing.findIndex((s) => s.slug === schema.slug);
+  const index = existing.findIndex((s) => s.slug === entry.slug);
 
   if (index >= 0) {
-    // Update existing schema
-    existing[index] = schema;
+    existing[index] = entry;
   } else {
-    // Add new schema
-    existing.push(schema);
+    existing.push(entry);
   }
 
   localStorage.setItem(SCHEMA_STORAGE_KEY, JSON.stringify(existing));

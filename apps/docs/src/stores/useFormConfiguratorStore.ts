@@ -1,18 +1,21 @@
 "use client";
+import { streamOpinionSurfacesAction } from "@/app/actions/a2ui-opinion-actions";
+import { streamFormPreviewAction } from "@/app/actions/a2ui-schema-stream-actions";
+import {
+  dimensionsToSchemaAction,
+  generateDimensionsAction,
+} from "@/app/actions/dimension-actions";
 import type { OpinionInteraction } from "@/app/actions/opinion-actions";
 import {
   generateOpinionInteractionsAction,
   resolveOpinionInteractionAction,
 } from "@/app/actions/opinion-actions";
-import {
-  generateDimensionsAction,
-  dimensionsToSchemaAction,
-} from "@/app/actions/dimension-actions";
 import type { DimensionObject } from "@/lib/dimension-types";
 import { createDimensionObject } from "@/lib/dimension-types";
 import { SerializedSchema } from "@/lib/schema-manager";
 import { studyLogger } from "@/lib/study-logger";
 import { debounce } from "@tanstack/pacer/debouncer";
+import type { StreamableValue } from "ai/rsc";
 import { create } from "zustand";
 import { devtools, persist } from "zustand/middleware";
 
@@ -46,6 +49,12 @@ interface ConfiguratorState {
   dimensions: DimensionObject[];
   discoveryPhase: DiscoveryPhase;
   dimensionReasoning: string;
+
+  // A2UI state
+  a2uiOpinionStream: StreamableValue<string> | null;
+  a2uiFormStream: StreamableValue<string> | null;
+  /** Completed A2UI messages for the form preview (persisted) */
+  a2uiFormMessages: unknown[] | null;
 
   // UI state
   basePromptActive: boolean;
@@ -110,6 +119,11 @@ const initialState = {
   dimensions: [] as DimensionObject[],
   discoveryPhase: "idle" as DiscoveryPhase,
   dimensionReasoning: "",
+
+  // A2UI state
+  a2uiOpinionStream: null,
+  a2uiFormStream: null,
+  a2uiFormMessages: null,
 
   // initial UI states
   basePromptActive: false,
@@ -259,7 +273,7 @@ export const useConfiguratorStore = create<ConfiguratorState>()(
         onChangeBasePrompt: (userPrompt) => {
           console.log("Base prompt changed");
           set(
-            () => ({ basePrompt: userPrompt }),
+            () => ({ basePrompt: userPrompt, error: null }),
             undefined,
             "configurator/setBasePrompt",
           );
@@ -273,6 +287,8 @@ export const useConfiguratorStore = create<ConfiguratorState>()(
               set(
                 () => ({
                   discoveryPhase: "generating-dimensions" as const,
+                  dimensions: [],
+                  dimensionReasoning: "",
                   error: null,
                 }),
                 undefined,
@@ -284,6 +300,19 @@ export const useConfiguratorStore = create<ConfiguratorState>()(
                 count: dimensions.length,
                 names: dimensions.map((d) => d.name),
               });
+
+              if (dimensions.length === 0) {
+                set(
+                  () => ({
+                    discoveryPhase: "idle" as const,
+                    dimensions: [],
+                    dimensionReasoning: "",
+                  }),
+                  undefined,
+                  "configurator/dimensionsEmpty",
+                );
+                return;
+              }
 
               set(
                 () => ({
@@ -455,6 +484,28 @@ export const useConfiguratorStore = create<ConfiguratorState>()(
                 ? schemaResponse.result.basePrompt
                 : state.basePrompt;
 
+            // Start A2UI opinion stream in parallel with classic generation
+            let a2uiStream: StreamableValue<string> | null = null;
+            try {
+              const { stream } = await streamOpinionSurfacesAction(
+                enrichedPrompt,
+                MAX_ACTIVE_OPINIONS,
+                acceptedDimensions,
+              );
+              a2uiStream = stream;
+            } catch {
+              // A2UI stream is optional, fall back to classic
+            }
+
+            // Also start form preview stream
+            let formStream: StreamableValue<string> | null = null;
+            try {
+              const { stream } = await streamFormPreviewAction(enrichedPrompt);
+              formStream = stream;
+            } catch {
+              // Form stream is optional
+            }
+
             const opinionResponse = await generateOpinionInteractionsAction(
               enrichedPrompt,
               MAX_ACTIVE_OPINIONS,
@@ -485,6 +536,8 @@ export const useConfiguratorStore = create<ConfiguratorState>()(
                       ? (opinionResponse.interactions ?? [])
                       : []),
                   ],
+                  a2uiOpinionStream: a2uiStream,
+                  a2uiFormStream: formStream,
                 }),
                 undefined,
                 "configurator/schemaFromDimensionsComplete",
@@ -567,7 +620,6 @@ export const useConfiguratorStore = create<ConfiguratorState>()(
             );
           }
         },
-
       }),
       {
         name: "configurator-storage",
@@ -581,6 +633,7 @@ export const useConfiguratorStore = create<ConfiguratorState>()(
           dimensions: state.dimensions,
           discoveryPhase: state.discoveryPhase,
           dimensionReasoning: state.dimensionReasoning,
+          a2uiFormMessages: state.a2uiFormMessages,
         }),
       },
     ),

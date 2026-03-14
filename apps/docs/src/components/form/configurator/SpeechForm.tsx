@@ -1,24 +1,21 @@
 "use client";
 
+import type { OpinionInteraction } from "@/app/actions/opinion-actions";
+import { OpinionSurfaceRenderer } from "@/components/a2ui/OpinionSurfaceRenderer";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { dimensionTypeColors } from "@/lib/dimension-types";
 import { cn } from "@/lib/utils";
 import { useConfiguratorStore } from "@/stores/useFormConfiguratorStore";
-import { LayoutGrid, List } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { SpeechFormEntry } from "./SpeechFormEntry";
-
-type ViewMode = "list" | "grid";
 
 export const SpeechForm = () => {
   const opinionInteractions = useConfiguratorStore(
     (s) => s.opinionInteractions,
   );
   const dimensions = useConfiguratorStore((s) => s.dimensions);
-  const [viewMode, setViewMode] = useState<ViewMode>("list");
+  const a2uiOpinionStream = useConfiguratorStore((s) => s.a2uiOpinionStream);
 
-  // Build a lookup from dimension name → type color
   const dimColorByName = useMemo(() => {
     const map = new Map<string, string>();
     for (const d of dimensions) {
@@ -27,18 +24,59 @@ export const SpeechForm = () => {
     return map;
   }, [dimensions]);
 
-  if (!opinionInteractions || opinionInteractions.length === 0) {
-    return null;
+  const hasA2UIStream = !!a2uiOpinionStream;
+
+  // A2UI is the primary rendering path
+  if (hasA2UIStream) {
+    return (
+      <div className="flex flex-col gap-3">
+        <OpinionSurfaceRenderer streamValue={a2uiOpinionStream} />
+        {/* Show classic fallback cards below for any interactions not covered by the stream */}
+        <ClassicOpinionCards
+          interactions={opinionInteractions}
+          dimColorByName={dimColorByName}
+        />
+      </div>
+    );
   }
 
-  const visibleInteractions = opinionInteractions.filter(
+  // Fallback: classic rendering when no A2UI stream available
+  return (
+    <ClassicOpinionCards
+      interactions={opinionInteractions}
+      dimColorByName={dimColorByName}
+    />
+  );
+};
+
+/**
+ * Classic SpeechFormEntry cards — used as fallback when no A2UI stream,
+ * or for follow-up interactions that come from resolveOpinionInteractionAction.
+ */
+function ClassicOpinionCards({
+  interactions,
+  dimColorByName,
+}: {
+  interactions: OpinionInteraction[];
+  dimColorByName: Map<string, string>;
+}) {
+  const opinionInteractions = useConfiguratorStore(
+    (s) => s.opinionInteractions,
+  );
+
+  if (!interactions || interactions.length === 0) return null;
+
+  const visibleInteractions = interactions.filter(
     (i) => i.status !== "resolved" && i.status !== "dismissed",
   );
 
   if (visibleInteractions.length === 0) return null;
 
   // Group by dimension
-  const grouped = new Map<string | null, typeof visibleInteractions>();
+  const grouped = new Map<
+    string | null,
+    typeof visibleInteractions
+  >();
   for (const interaction of visibleInteractions) {
     const key = interaction.dimensionName ?? null;
     const group = grouped.get(key) ?? [];
@@ -46,41 +84,14 @@ export const SpeechForm = () => {
     grouped.set(key, group);
   }
 
-  // Dimension-linked groups first, then ungrouped
   const dimensionGroups = Array.from(grouped.entries())
     .filter(([key]) => key !== null)
     .sort(([a], [b]) => (a ?? "").localeCompare(b ?? ""));
   const ungrouped = grouped.get(null) ?? [];
 
   return (
-    <div className="flex flex-col gap-3">
-      <div className="flex items-center justify-between">
-        <p className="text-sm text-muted-foreground">
-          {visibleInteractions.length} interaction
-          {visibleInteractions.length !== 1 ? "s" : ""}
-        </p>
-        <div className="flex gap-1">
-          <Button
-            variant={viewMode === "list" ? "secondary" : "ghost"}
-            size="icon"
-            className="h-7 w-7"
-            onClick={() => setViewMode("list")}
-          >
-            <List className="h-4 w-4" />
-          </Button>
-          <Button
-            variant={viewMode === "grid" ? "secondary" : "ghost"}
-            size="icon"
-            className="h-7 w-7"
-            onClick={() => setViewMode("grid")}
-          >
-            <LayoutGrid className="h-4 w-4" />
-          </Button>
-        </div>
-      </div>
-
-      {/* Dimension-grouped opinions */}
-      {dimensionGroups.map(([dimensionName, interactions]) => (
+    <>
+      {dimensionGroups.map(([dimensionName, ints]) => (
         <div key={dimensionName} className="space-y-2">
           <Badge
             variant="outline"
@@ -92,26 +103,18 @@ export const SpeechForm = () => {
           >
             {dimensionName}
           </Badge>
-          <div
-            className={
-              viewMode === "grid"
-                ? "grid grid-cols-2 gap-3"
-                : "flex flex-col gap-3"
-            }
-          >
-            {interactions.map((interaction) => (
+          <div className="flex flex-col gap-3">
+            {ints.map((interaction) => (
               <SpeechFormEntry
                 interaction={interaction}
                 key={interaction.id}
                 index={opinionInteractions.indexOf(interaction)}
-                compact={viewMode === "grid"}
               />
             ))}
           </div>
         </div>
       ))}
 
-      {/* Ungrouped (general) opinions */}
       {ungrouped.length > 0 && (
         <div className="space-y-2">
           {dimensionGroups.length > 0 && (
@@ -122,24 +125,17 @@ export const SpeechForm = () => {
               General
             </Badge>
           )}
-          <div
-            className={
-              viewMode === "grid"
-                ? "grid grid-cols-2 gap-3"
-                : "flex flex-col gap-3"
-            }
-          >
+          <div className="flex flex-col gap-3">
             {ungrouped.map((interaction) => (
               <SpeechFormEntry
                 interaction={interaction}
                 key={interaction.id}
                 index={opinionInteractions.indexOf(interaction)}
-                compact={viewMode === "grid"}
               />
             ))}
           </div>
         </div>
       )}
-    </div>
+    </>
   );
-};
+}
