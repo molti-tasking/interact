@@ -2,7 +2,7 @@
 
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
+import { MarkdownEditor } from "@/components/ui/markdown-editor";
 import { DimensionPanel } from "@/components/dimensions/DimensionPanel";
 import { cn } from "@/lib/utils";
 import { useConfiguratorStore } from "@/stores/useFormConfiguratorStore";
@@ -15,8 +15,8 @@ export const FormCreateForm = ({}: { onFormCreated: () => void }) => {
   const setBasePromptElement = useConfiguratorStore(
     (s) => s.setBasePromptElement,
   );
-  const textareaRef = useCallback(
-    (node: HTMLTextAreaElement | null) => {
+  const editorRef = useCallback(
+    (node: HTMLDivElement | null) => {
       setBasePromptElement(node);
     },
     [setBasePromptElement],
@@ -65,17 +65,15 @@ export const FormCreateForm = ({}: { onFormCreated: () => void }) => {
               />
             </div>
           ) : (
-            <Textarea
-              id="basePrompt"
-              ref={textareaRef}
+            <MarkdownEditor
+              ref={editorRef}
               placeholder="Describe what this form is for..."
               value={store.basePrompt}
               className={cn(
                 "rounded-2xl relative",
                 store.basePromptActive ? "bg-transparent" : "",
               )}
-              onChange={(e) => store.onChangeBasePrompt(e.target.value)}
-              rows={3}
+              onChange={(val) => store.onChangeBasePrompt(val)}
             />
           )}
         </div>

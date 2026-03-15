@@ -39,7 +39,7 @@ export const ParticleOverlay = ({
   targetRef,
 }: {
   cardRef: React.RefObject<HTMLDivElement | null>;
-  targetRef: HTMLTextAreaElement | null;
+  targetRef: HTMLElement | null;
 }) => {
   const [state, setState] = useState<{
     originRect: DOMRect;

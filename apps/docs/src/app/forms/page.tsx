@@ -39,6 +39,16 @@ export default function Page() {
             <li>Add new fields or change existing ones with AI assistance</li>
             <li>Each form stores its own submissions independently</li>
             <li>All data is stored in localStorage for this demo</li>
+            <li>TODO: User stories: edit form, recreate form</li>
+            <li>
+              TODO: User stories: I created an initial form for event
+              participation but on the day itself I want to note, who actually
+              showed up
+            </li>
+
+            {/* Wenn wir mehre team letue haben, wollen wir gemeinsame wissensdatenbank haben mit allen skills um alle bots des teams zu empowern */}
+            {/* Wie können die bots miteinander kommunizieren */}
+            {/* Sollte man pro Projekt/Kunde einen bot haben oder pro Mitarbeiter. */}
           </ul>
         </div>
       </div>

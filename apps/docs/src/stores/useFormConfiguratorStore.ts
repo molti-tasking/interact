@@ -33,8 +33,8 @@ type DiscoveryPhase =
  */
 interface ConfiguratorState {
   basePrompt: string;
-  basePromptElement: HTMLTextAreaElement | null;
-  setBasePromptElement: (ref: HTMLTextAreaElement | null) => void;
+  basePromptElement: HTMLElement | null;
+  setBasePromptElement: (ref: HTMLElement | null) => void;
 
   artifactFormSchema: SerializedSchema;
 

@@ -134,7 +134,7 @@ The user was asked: "${questionText}"
 They chose: "${selectedLabel}"
 
 Based on this choice:
-1. Rewrite the base prompt to incorporate this decision
+1. Rewrite the base prompt to incorporate this decision. The basePrompt uses markdown formatting — preserve and use markdown (headings, lists, bold, etc.) in the rewritten version.
 2. Update the form schemas
 3. Generate 0-${maxFollowUps} follow-up questions${maxFollowUps === 0 ? " (none)" : ""}
 

@@ -228,7 +228,7 @@ Use the dimensions as context to decide WHAT fields the form needs, what types t
 
 You must return:
 
-1. **basePrompt**: Rewrite the user's original description to incorporate the confirmed dimension decisions. Write a natural, coherent description — don't just list dimensions.
+1. **basePrompt**: Rewrite the user's original description to incorporate the confirmed dimension decisions. Write a natural, coherent description — don't just list dimensions. The basePrompt uses markdown formatting — preserve and use markdown (headings, lists, bold, etc.) in the rewritten version.
 
 2. **artifactFormSchema**: The actual form fields. Choose appropriate field types:
    - Use "select" for choices with defined options (include options in validation.options)

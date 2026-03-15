@@ -177,7 +177,7 @@ The user was asked: "${interactionText}"
 They chose: "${selectedOptionLabel}"
 
 Based on this choice, you must:
-1. Update the base prompt to concisely incorporate this design decision (rewrite, don't append)
+1. Update the base prompt to concisely incorporate this design decision (rewrite, don't append). The basePrompt uses markdown formatting — preserve and use markdown (headings, lists, bold, etc.) in the rewritten version.
 2. Update the form schemas to reflect this choice
 3. Optionally generate 0-${maxFollowUps} follow-up opinion questions if the choice opens up new design decisions${maxFollowUps === 0 ? ". Do NOT generate any follow-up questions, return an empty followUpInteractions array." : ""}
 
