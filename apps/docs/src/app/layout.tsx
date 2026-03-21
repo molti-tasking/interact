@@ -9,10 +9,11 @@ import {
   SidebarProvider,
   SidebarTrigger,
 } from "@/components/ui/sidebar";
+import { cn } from "@/lib/utils";
 import "interact/styles.css";
 import { Crown, Github } from "lucide-react";
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Delius, Geist, Geist_Mono } from "next/font/google";
 import Link from "next/link";
 import { Toaster } from "sonner";
 import "./globals.css";
@@ -25,6 +26,13 @@ const geistSans = Geist({
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
+});
+
+const delius = Delius({
+  subsets: ["latin"],
+  display: "auto",
+  variable: "--font-delius",
+  weight: "400",
 });
 
 export const metadata: Metadata = {
@@ -41,48 +49,57 @@ export default function RootLayout({
     <ReactQueryClientProvider>
       <html lang="en">
         <body
-          className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+          className={cn(
+            geistSans.variable,
+            geistMono.variable,
+            "antialiased",
+
+            delius.className,
+          )}
         >
           <ReactQueryDevTools />
           <Toaster position="bottom-right" />
 
           <A2UIProviderWrapper>
-          <SidebarProvider>
-            <AppSidebar />
-            <SidebarInset>
-              <header className="flex h-16 items-center gap-2 border-b px-6 bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/60 sticky top-0 z-50">
-                <div className="flex flex-row justify-between w-full items-center">
-                  <div className="flex flex-row items-center gap-4">
-                    <SidebarTrigger className="-ml-1" />
-                    <h2 className="text-lg font-semibold tracking-tight">
-                      Interact Gen AI
-                    </h2>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <Badge variant="default" className="hidden md:inline-flex">
-                      <Crown className="h-3 w-3" />
-                      Human Coded
-                    </Badge>
-                    <Button variant={"ghost"} size="sm" asChild>
-                      <Link
-                        href={"https://github.com/molti-tasking/interact"}
-                        target="_blank"
-                        className="gap-2"
+            <SidebarProvider>
+              <AppSidebar />
+              <SidebarInset>
+                <header className="flex h-16 items-center gap-2 border-b px-6 bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/60 sticky top-0 z-50">
+                  <div className="flex flex-row justify-between w-full items-center">
+                    <div className="flex flex-row items-center gap-4">
+                      <SidebarTrigger className="-ml-1" />
+                      <h2 className="text-lg font-semibold tracking-tight">
+                        Interact Gen AI
+                      </h2>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <Badge
+                        variant="default"
+                        className="hidden md:inline-flex"
                       >
-                        <Github className="h-4 w-4" />
-                        <span className="hidden sm:inline">Github</span>
-                      </Link>
-                    </Button>
+                        <Crown className="h-3 w-3" />
+                        Human Coded
+                      </Badge>
+                      <Button variant={"ghost"} size="sm" asChild>
+                        <Link
+                          href={"https://github.com/molti-tasking/interact"}
+                          target="_blank"
+                          className="gap-2"
+                        >
+                          <Github className="h-4 w-4" />
+                          <span className="hidden sm:inline">Github</span>
+                        </Link>
+                      </Button>
+                    </div>
                   </div>
-                </div>
-              </header>
-              <main className="flex-1">
-                <div className="container max-w-7xl mx-auto px-6 py-8">
-                  {children}
-                </div>
-              </main>
-            </SidebarInset>
-          </SidebarProvider>
+                </header>
+                <main className="flex-1">
+                  <div className="container max-w-7xl mx-auto px-6 py-8">
+                    {children}
+                  </div>
+                </main>
+              </SidebarInset>
+            </SidebarProvider>
           </A2UIProviderWrapper>
         </body>
       </html>
