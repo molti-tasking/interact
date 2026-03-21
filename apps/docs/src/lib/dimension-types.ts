@@ -13,7 +13,7 @@ export type DimensionScope =
   | "constraint";
 
 export type DimensionStatus = "suggested" | "accepted" | "rejected" | "edited";
-export type DimensionSource = "system" | "user" | "opinion";
+export type DimensionSource = "system" | "user" | "opinion" | "standard";
 
 export interface DimensionObject {
   id: string;
@@ -31,6 +31,8 @@ export interface DimensionObject {
   parentDimensionId: string | null;
   createdAt: string;
   editHistory: DimensionEdit[];
+  /** ID of the domain standard this dimension originated from, if any */
+  standardId?: string;
 }
 
 export interface DimensionEdit {

@@ -7,8 +7,13 @@ import { SubmissionsList } from "@/components/form/SubmissionsList";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useSchema } from "@/hooks/query/schemas";
-import { ArrowLeftIcon, Loader } from "lucide-react";
+import {
+  exportSchema,
+  getAvailableExportFormats,
+} from "@/lib/schema-exporters";
+import { ArrowLeftIcon, DownloadIcon, Loader } from "lucide-react";
 import Link from "next/link";
+import { useCallback } from "react";
 import { useParams } from "next/navigation";
 
 export default function Page() {
@@ -47,20 +52,61 @@ export default function Page() {
   const hasA2UIMessages =
     schema.a2uiMessages && schema.a2uiMessages.length > 0;
 
+  const exportFormats = getAvailableExportFormats(schema.schema);
+
+  const handleExport = useCallback(
+    (formatId: string) => {
+      const exported = exportSchema(schema.schema, formatId);
+      const blob = new Blob([exported], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${slug}-${formatId}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    },
+    [schema.schema, slug],
+  );
+
   return (
     <div className="space-y-12">
       <div className="space-y-4">
-        <div>
+        <div className="flex items-center justify-between">
           <Link href="/forms">
             <Button variant="ghost" size="sm">
               <ArrowLeftIcon className="h-4 w-4 mr-2" />
               Back to Forms
             </Button>
           </Link>
+          {exportFormats.length > 0 && (
+            <div className="flex items-center gap-2">
+              {exportFormats.map((format) => (
+                <Button
+                  key={format.id}
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleExport(format.id)}
+                >
+                  <DownloadIcon className="h-4 w-4 mr-2" />
+                  {format.label}
+                </Button>
+              ))}
+            </div>
+          )}
         </div>
         <div className="flex items-center gap-3">
           <h1 className="text-4xl font-bold tracking-tight">{schema.title}</h1>
           <Badge variant="outline">v{schema.schema.version}</Badge>
+          {schema.schema.metadata.appliedStandards &&
+            schema.schema.metadata.appliedStandards.length > 0 && (
+              <Badge variant="secondary">
+                {schema.schema.metadata.appliedStandards.length} standard
+                {schema.schema.metadata.appliedStandards.length > 1
+                  ? "s"
+                  : ""}{" "}
+                applied
+              </Badge>
+            )}
         </div>
         <p className="text-lg text-muted-foreground max-w-3xl">
           {schema.schema.metadata.description}

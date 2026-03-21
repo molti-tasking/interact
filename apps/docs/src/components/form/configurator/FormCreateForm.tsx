@@ -1,9 +1,9 @@
 "use client";
 
+import { DimensionPanel } from "@/components/dimensions/DimensionPanel";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { MarkdownEditor } from "@/components/ui/markdown-editor";
-import { DimensionPanel } from "@/components/dimensions/DimensionPanel";
 import { cn } from "@/lib/utils";
 import { useConfiguratorStore } from "@/stores/useFormConfiguratorStore";
 import { useCallback, useState } from "react";
@@ -70,7 +70,7 @@ export const FormCreateForm = ({}: { onFormCreated: () => void }) => {
               placeholder="Describe what this form is for..."
               value={store.basePrompt}
               className={cn(
-                "rounded-2xl relative",
+                "rounded-2xl relative border",
                 store.basePromptActive ? "bg-transparent" : "",
               )}
               onChange={(val) => store.onChangeBasePrompt(val)}

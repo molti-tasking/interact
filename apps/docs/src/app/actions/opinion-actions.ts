@@ -1,6 +1,7 @@
 "use server";
 
 import type { DimensionObject } from "@/lib/dimension-types";
+import type { DetectedStandard } from "@/lib/domain-standards";
 import type { SchemaMetadata, SerializedSchema } from "@/lib/schema-manager";
 import { initializeSerializedSchema } from "@/lib/schema-manager";
 import { anthropic } from "@ai-sdk/anthropic";
@@ -27,6 +28,7 @@ export async function generateOpinionInteractionsAction(
   basePrompt: string,
   maxOpinions: number = 5,
   dimensions?: DimensionObject[],
+  acceptedStandards?: DetectedStandard[],
 ): Promise<GenerateOpinionResponse> {
   if (maxOpinions <= 0) return { success: true, interactions: [] };
 
@@ -40,9 +42,25 @@ export async function generateOpinionInteractionsAction(
         ? `\n\nThe form is structured around these confirmed domain dimensions:\n${acceptedDims.map((d) => `- "${d.name}" [${d.scope}]: ${d.description}. Why it matters: ${d.importance}`).join("\n")}\n\nEach opinion question should refine a SPECIFIC dimension — making concrete field-level decisions (what fields, what options, what validation). Include a "dimensionName" field that exactly matches one of the dimension names above.`
         : "";
 
+    // Build standard-aware context for optional/recommended fields
+    let standardsContext = "";
+    if (acceptedStandards && acceptedStandards.length > 0) {
+      const optionalFields = acceptedStandards.flatMap((detected) =>
+        detected.relevantConstraints
+          .filter((c) => c.required === "recommended" || c.required === "optional")
+          .map(
+            (c) =>
+              `- ${c.label} (${c.required}): ${c.description} [${detected.standard.name}: ${c.standardReference}]`,
+          ),
+      );
+      if (optionalFields.length > 0) {
+        standardsContext = `\n\nDOMAIN STANDARD CONTEXT:\nThe form is being built to comply with: ${acceptedStandards.map((s) => s.standard.name).join(", ")}.\nThe following optional/recommended fields from the standard(s) could be included. Generate opinion questions that ask the user whether to include these:\n${optionalFields.join("\n")}\n\nFor standard-related opinions, frame them as "The [Standard Name] standard recommends including [field]. Should this form include it?" with options like "Yes, include it" / "No, not needed for this form".`;
+      }
+    }
+
     const prompt = `You are a form design assistant. Given a user's description of a form they want to create, generate ${Math.min(maxOpinions, 3)}-${maxOpinions} opinion questions that would help refine the form design. Each question should have 2-4 options.
 
-User's form description: ${basePrompt}${dimensionContext}
+User's form description: ${basePrompt}${dimensionContext}${standardsContext}
 
 Return ONLY valid JSON in this exact format:
 {

@@ -1,6 +1,7 @@
 "use server";
 
 import type { DimensionObject, DimensionScope } from "@/lib/dimension-types";
+import type { DetectedStandard } from "@/lib/domain-standards";
 import type { SchemaMetadata, SerializedSchema } from "@/lib/schema-manager";
 import { initializeSerializedSchema } from "@/lib/schema-manager";
 import { anthropic } from "@ai-sdk/anthropic";
@@ -208,6 +209,7 @@ export interface DimensionsToSchemaResponse {
 export async function dimensionsToSchemaAction(
   dimensions: DimensionObject[],
   basePrompt: string,
+  acceptedStandards?: DetectedStandard[],
 ): Promise<DimensionsToSchemaResponse> {
   try {
     const dimensionSummary = dimensions
@@ -217,13 +219,47 @@ export async function dimensionsToSchemaAction(
       )
       .join("\n");
 
+    // Build standard constraints section if standards were accepted
+    let standardsSection = "";
+    const appliedStandardIds: string[] = [];
+    if (acceptedStandards && acceptedStandards.length > 0) {
+      const constraintLines = acceptedStandards.flatMap((detected) => {
+        appliedStandardIds.push(detected.standard.id);
+        return detected.relevantConstraints.map((c) => {
+          const reqLabel =
+            c.required === "mandatory"
+              ? "MANDATORY"
+              : c.required === "recommended"
+                ? "RECOMMENDED"
+                : "OPTIONAL";
+          const optionsNote =
+            c.validationRules?.options
+              ? ` Options: [${c.validationRules.options.join(", ")}]`
+              : "";
+          return `  - [${reqLabel}] ${c.label} (key: ${c.fieldKey}, type: ${c.type}): ${c.description} Ref: ${c.standardReference}${optionsNote}`;
+        });
+      });
+
+      standardsSection = `
+
+DOMAIN STANDARD COMPLIANCE:
+The user has accepted compliance with the following standard(s): ${acceptedStandards.map((s) => s.standard.name).join(", ")}.
+You MUST include all MANDATORY fields listed below in the artifact form schema. RECOMMENDED fields should be included unless they conflict with the form's purpose. OPTIONAL fields may be included if relevant.
+
+For each standard-sourced field, include "standardReference" in the field definition (e.g., "standardReference": "FHIR Patient.birthDate").
+
+Standard field constraints:
+${constraintLines.join("\n")}
+`;
+    }
+
     const prompt = `You are a form schema generator. The user has confirmed these domain dimensions — abstract facets of their problem space. Your job is to translate them into a concrete form schema.
 
 User's original form description: ${basePrompt}
 
 Confirmed domain dimensions (the user reviewed and accepted these):
 ${dimensionSummary}
-
+${standardsSection}
 Use the dimensions as context to decide WHAT fields the form needs, what types they should be, and what options to offer. Each dimension may map to zero, one, or multiple fields depending on the domain. The open questions should inform your field design choices.
 
 You must return:
@@ -245,7 +281,7 @@ You must return:
 IMPORTANT RULES:
 - Use valid field types: "string", "number", "boolean", "date", "email", "select"
 - For select fields, ALWAYS include options in validation.options array
-- Field keys MUST be camelCase and descriptive
+- Field keys MUST be camelCase and descriptive${acceptedStandards && acceptedStandards.length > 0 ? '\n- For standard-sourced fields, include "standardReference" as a string property' : ""}
 - Return ONLY valid JSON, no markdown
 
 Return in this exact format:
@@ -253,7 +289,7 @@ Return in this exact format:
   "basePrompt": "Rewritten form description incorporating dimension decisions",
   "artifactFormSchema": {
     "name": "Form Name",
-    "description": "Form description",
+    "description": "Form description",${appliedStandardIds.length > 0 ? `\n    "appliedStandards": ${JSON.stringify(appliedStandardIds)},` : ""}
     "fields": {
       "fieldKey": {
         "label": "Field Label",
@@ -289,7 +325,7 @@ Return in this exact format:
 
     let parsedResult: {
       basePrompt: string;
-      artifactFormSchema: SchemaMetadata;
+      artifactFormSchema: SchemaMetadata & { appliedStandards?: string[] };
       configuratorFormSchema: SchemaMetadata;
       configuratorFormValues: Record<string, string | number | boolean>;
     };
@@ -316,12 +352,44 @@ Return in this exact format:
       };
     }
 
-    const artifactSchema = initializeSerializedSchema(
-      parsedResult.artifactFormSchema,
-    );
+    // Carry appliedStandards into metadata
+    const artifactMeta: SchemaMetadata = {
+      ...parsedResult.artifactFormSchema,
+      appliedStandards:
+        parsedResult.artifactFormSchema.appliedStandards ?? appliedStandardIds,
+    };
+
+    const artifactSchema = initializeSerializedSchema(artifactMeta);
     const configuratorSchema = initializeSerializedSchema(
       parsedResult.configuratorFormSchema,
     );
+
+    // Compliance validation: check mandatory standard fields are present
+    if (acceptedStandards && acceptedStandards.length > 0) {
+      const generatedKeys = new Set(
+        artifactSchema.schema.fields.map((f) => f.key),
+      );
+      const missingMandatory: string[] = [];
+
+      for (const detected of acceptedStandards) {
+        for (const constraint of detected.relevantConstraints) {
+          if (
+            constraint.required === "mandatory" &&
+            !generatedKeys.has(constraint.fieldKey)
+          ) {
+            missingMandatory.push(
+              `${constraint.label} (${constraint.standardReference})`,
+            );
+          }
+        }
+      }
+
+      if (missingMandatory.length > 0) {
+        console.warn(
+          `Compliance warning: ${missingMandatory.length} mandatory standard field(s) missing from generated schema: ${missingMandatory.join(", ")}`,
+        );
+      }
+    }
 
     return {
       success: true,

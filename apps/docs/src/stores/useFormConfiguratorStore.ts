@@ -6,6 +6,8 @@ import {
   generateDimensionsAction,
 } from "@/app/actions/dimension-actions";
 import type { OpinionInteraction } from "@/app/actions/opinion-actions";
+import { detectDomainStandardsAction } from "@/app/actions/standards-actions";
+import type { DetectedStandard } from "@/lib/domain-standards";
 import {
   generateOpinionInteractionsAction,
   resolveOpinionInteractionAction,
@@ -49,6 +51,10 @@ interface ConfiguratorState {
   dimensions: DimensionObject[];
   discoveryPhase: DiscoveryPhase;
   dimensionReasoning: string;
+
+  // Domain standards state
+  detectedStandards: DetectedStandard[];
+  selectedStandards: DetectedStandard[];
 
   // A2UI state
   a2uiOpinionStream: StreamableValue<string> | null;
@@ -119,6 +125,10 @@ const initialState = {
   dimensions: [] as DimensionObject[],
   discoveryPhase: "idle" as DiscoveryPhase,
   dimensionReasoning: "",
+
+  // Domain standards
+  detectedStandards: [] as DetectedStandard[],
+  selectedStandards: [] as DetectedStandard[],
 
   // A2UI state
   a2uiOpinionStream: null,
@@ -289,11 +299,33 @@ export const useConfiguratorStore = create<ConfiguratorState>()(
                   discoveryPhase: "generating-dimensions" as const,
                   dimensions: [],
                   dimensionReasoning: "",
+                  detectedStandards: [],
+                  selectedStandards: [],
                   error: null,
                 }),
                 undefined,
                 "configurator/startDimensionGeneration",
               );
+            },
+            onStandardsDetected(standards) {
+              // Auto-select all detected standards (user can reject
+              // the standard-sourced dimensions individually)
+              set(
+                () => ({
+                  detectedStandards: standards,
+                  selectedStandards: standards,
+                }),
+                undefined,
+                "configurator/standardsDetected",
+              );
+
+              if (standards.length > 0) {
+                studyLogger.log("standards.detected", {
+                  count: standards.length,
+                  ids: standards.map((s) => s.standard.id),
+                  confidences: standards.map((s) => s.confidence),
+                });
+              }
             },
             onSuccess(dimensions, reasoning) {
               studyLogger.log("dimensions.generated", {
@@ -314,10 +346,16 @@ export const useConfiguratorStore = create<ConfiguratorState>()(
                 return;
               }
 
+              // Merge standard-sourced constraint dimensions with LLM dimensions
+              const state = get();
+              const standardDimensions = buildStandardDimensions(
+                state.selectedStandards,
+              );
+
               set(
                 () => ({
                   discoveryPhase: "reviewing-dimensions" as const,
-                  dimensions,
+                  dimensions: [...dimensions, ...standardDimensions],
                   dimensionReasoning: reasoning,
                   error: null,
                 }),
@@ -474,9 +512,20 @@ export const useConfiguratorStore = create<ConfiguratorState>()(
             // Generate schema first — it rewrites the prompt to incorporate dimensions.
             // Then use that enriched prompt for opinion generation so opinions
             // are contextually aware of what dimensions were confirmed.
+            // Collect accepted standard constraints from standard-sourced dimensions
+            const acceptedStandardIds = new Set(
+              acceptedDimensions
+                .filter((d) => d.standardId)
+                .map((d) => d.standardId!),
+            );
+            const acceptedStandards = state.selectedStandards.filter((s) =>
+              acceptedStandardIds.has(s.standard.id),
+            );
+
             const schemaResponse = await dimensionsToSchemaAction(
               acceptedDimensions,
               state.basePrompt,
+              acceptedStandards,
             );
 
             const enrichedPrompt =
@@ -510,6 +559,7 @@ export const useConfiguratorStore = create<ConfiguratorState>()(
               enrichedPrompt,
               MAX_ACTIVE_OPINIONS,
               acceptedDimensions,
+              acceptedStandards,
             );
 
             if (schemaResponse.success && schemaResponse.result) {
@@ -578,6 +628,8 @@ export const useConfiguratorStore = create<ConfiguratorState>()(
               discoveryPhase: "generating-dimensions" as const,
               dimensions: [],
               dimensionReasoning: "",
+              detectedStandards: [],
+              selectedStandards: [],
               error: null,
             }),
             undefined,
@@ -585,13 +637,30 @@ export const useConfiguratorStore = create<ConfiguratorState>()(
           );
 
           try {
-            const response = await generateDimensionsAction(state.basePrompt);
+            const [standardsResponse, response] = await Promise.all([
+              detectDomainStandardsAction(state.basePrompt),
+              generateDimensionsAction(state.basePrompt),
+            ]);
+
+            const detected =
+              standardsResponse.success &&
+              standardsResponse.detectedStandards
+                ? standardsResponse.detectedStandards
+                : [];
+
             if (response.success && response.dimensions) {
+              const standardDimensions = buildStandardDimensions(detected);
+
               set(
                 () => ({
                   discoveryPhase: "reviewing-dimensions" as const,
-                  dimensions: response.dimensions!,
+                  dimensions: [
+                    ...response.dimensions!,
+                    ...standardDimensions,
+                  ],
                   dimensionReasoning: response.reasoning || "",
+                  detectedStandards: detected,
+                  selectedStandards: detected,
                 }),
                 undefined,
                 "configurator/dimensionsRegenerated",
@@ -633,6 +702,8 @@ export const useConfiguratorStore = create<ConfiguratorState>()(
           dimensions: state.dimensions,
           discoveryPhase: state.discoveryPhase,
           dimensionReasoning: state.dimensionReasoning,
+          detectedStandards: state.detectedStandards,
+          selectedStandards: state.selectedStandards,
           a2uiFormMessages: state.a2uiFormMessages,
         }),
       },
@@ -648,23 +719,36 @@ const onPromptInsertedDimensions = debounce(
     userPrompt,
     onStart,
     onSuccess,
+    onStandardsDetected,
     onError,
   }: {
     userPrompt: string;
     onStart: () => void;
     onSuccess: (dimensions: DimensionObject[], reasoning: string) => void;
+    onStandardsDetected: (standards: DetectedStandard[]) => void;
     onError: (errorMessage: string) => void;
   }) => {
     console.log("Generating dimensions from prompt...");
     onStart();
     await sleep(100);
 
-    const response = await generateDimensionsAction(userPrompt);
+    // Run standard detection and dimension generation in parallel
+    const [standardsResponse, dimensionsResponse] = await Promise.all([
+      detectDomainStandardsAction(userPrompt),
+      generateDimensionsAction(userPrompt),
+    ]);
 
-    if (response.success && response.dimensions) {
-      onSuccess(response.dimensions, response.reasoning || "");
+    // Process detected standards
+    const detected =
+      standardsResponse.success && standardsResponse.detectedStandards
+        ? standardsResponse.detectedStandards
+        : [];
+    onStandardsDetected(detected);
+
+    if (dimensionsResponse.success && dimensionsResponse.dimensions) {
+      onSuccess(dimensionsResponse.dimensions, dimensionsResponse.reasoning || "");
     } else {
-      onError(response.error || "Failed to generate dimensions");
+      onError(dimensionsResponse.error || "Failed to generate dimensions");
     }
   },
   {
@@ -674,4 +758,37 @@ const onPromptInsertedDimensions = debounce(
 
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Converts detected standards into constraint-scoped DimensionObjects.
+ * One dimension per detected standard, so the user can accept/reject
+ * standard compliance at the standard level (not per-field).
+ */
+function buildStandardDimensions(
+  detectedStandards: DetectedStandard[],
+): DimensionObject[] {
+  return detectedStandards.map((detected, index) => {
+    const mandatoryCount = detected.relevantConstraints.filter(
+      (c) => c.required === "mandatory",
+    ).length;
+    const recommendedCount = detected.relevantConstraints.filter(
+      (c) => c.required === "recommended",
+    ).length;
+
+    return createDimensionObject({
+      id: `dim-standard-${detected.standard.id}-${Date.now()}-${index}`,
+      name: `${detected.standard.name} Compliance`,
+      description: `${detected.standard.description} Accepting this dimension will inject ${mandatoryCount} mandatory and ${recommendedCount} recommended fields defined by the standard.`,
+      importance: `Ensures the form is interoperable with ${detected.standard.domain} systems that expect ${detected.standard.name}-compliant data structures.`,
+      scope: "constraint",
+      source: "standard",
+      status: "suggested",
+      standardId: detected.standard.id,
+      openQuestions: [
+        `Should this form fully comply with ${detected.standard.name}, or only adopt select fields?`,
+        `Are there downstream systems that will consume this form data in ${detected.standard.name} format?`,
+      ],
+    });
+  });
 }

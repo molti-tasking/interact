@@ -17,12 +17,16 @@ export interface SchemaField {
     pattern?: string;
     options?: string[];
   };
+  /** Provenance reference to a domain standard, e.g. "FHIR Patient.birthDate" */
+  standardReference?: string;
 }
 
 export interface SchemaMetadata {
   name: string;
   description: string;
   fields: Record<string, Omit<SchemaField, "key">>;
+  /** IDs of domain standards applied during schema generation */
+  appliedStandards?: string[];
 }
 
 export interface SerializedSchema {
