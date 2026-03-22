@@ -191,16 +191,22 @@ Each test runs the full flow; the only mock is the LLM response layer.
 
 ---
 
-## Phase 6: Test Data & Database Seeding
+## Phase 6: Test Database Lifecycle
 
-- [ ] **6.1** Create a Supabase **test project** or use local Supabase (`supabase start`) for test isolation
-- [ ] **6.2** Write seed scripts for each scenario:
-  - Pre-populated portfolios (for derivation/response tests that skip creation flow)
-  - Pre-populated responses (for column action tests)
-- [ ] **6.3** Add `beforeEach` / `afterEach` hooks to reset DB state between tests:
-  - Option: Truncate tables between tests
-  - Option: Use Supabase transactions with rollback
-- [ ] **6.4** Create `.env.test` with test Supabase credentials + `USE_FIXTURES=true`
+No seed data — Playwright creates all DB state by driving the UI.
+We only need isolation (clean DB per test) and a test environment config.
+
+- [ ] **6.1** Use local Supabase (`supabase start`) for test isolation — runs against the same migrations as prod
+- [ ] **6.2** Add `beforeEach` cleanup hook that truncates all tables in dependency order:
+  ```typescript
+  // tests/e2e/global-setup.ts
+  async function resetDb() {
+    const pg = new Client(process.env.TEST_DATABASE_URL); // direct pg to local supabase
+    await pg.query("TRUNCATE responses, provenance_log, portfolios CASCADE");
+  }
+  ```
+- [ ] **6.3** Create `.env.test` pointing to local Supabase + `USE_FIXTURES=true` + `FIXTURE_SCENARIO=<set per test>`
+- [ ] **6.4** Add Playwright `globalSetup` that verifies local Supabase is running and DB is migrated before tests start
 
 ---
 
@@ -236,11 +242,12 @@ Each test runs the full flow; the only mock is the LLM response layer.
 
 ## Decision Log
 
-| Decision           | Choice                                                       | Rationale                                                                           |
-| ------------------ | ------------------------------------------------------------ | ----------------------------------------------------------------------------------- |
-| Interception point | Inside server actions (env-gated)                            | Avoids fragile Next.js internal route matching; server actions are the natural seam |
-| Fixture format     | One JSON file per action call per scenario                   | Easy to inspect, version, and diff in PRs                                           |
-| Fixture matching   | By action name + call sequence index + request body matching | Handles repeated calls (multiple opinion resolutions)                               |
-| Test DB            | Local Supabase (`supabase start`)                            | Free, isolated, matches prod schema via migrations                                  |
-| E2E framework      | Playwright                                                   | Best Next.js support, built-in route interception if needed later                   |
-| Unit framework     | Vitest                                                       | Fast, native ESM, compatible with Next.js + TypeScript                              |
+| Decision           | Choice                                                       | Rationale                                                                                           |
+| ------------------ | ------------------------------------------------------------ | --------------------------------------------------------------------------------------------------- |
+| Interception point | Inside server actions (env-gated)                            | Avoids fragile Next.js internal route matching; server actions are the natural seam                 |
+| Fixture format     | One JSON file per action call per scenario                   | Easy to inspect, version, and diff in PRs                                                           |
+| Fixture matching   | By action name + call sequence index + request body matching | Handles repeated calls (multiple opinion resolutions)                                               |
+| DB seeding         | None — Playwright drives UI, UI writes to DB naturally       | Fewer moving parts; tests exercise the real write path; no fixture/DB drift                         |
+| Test DB            | Local Supabase (`supabase start`) with truncate between runs | Free, isolated, matches prod schema via migrations                                                  |
+| E2E framework      | Playwright                                                   | Best Next.js support, built-in route interception if needed later                                   |
+| Unit framework     | Vitest                                                       | Fast, native ESM, compatible with Next.js + TypeScript                                              |
