@@ -33,15 +33,15 @@ Each returns `{ success: boolean; <payload>?; error?: string }`.
 
 - [ ] **1.1** Document the **input → output contract** for each server action:
 
-  | # | Action | File | Inputs | Output shape |
-  |---|--------|------|--------|-------------|
-  | 1 | `generateDimensionsAction` | `dimension-actions.ts` | `(prompt, maxDimensions?)` | `{ success, dimensions?: DimensionObject[], reasoning? }` |
-  | 2 | `refineDimensionAction` | `dimension-actions.ts` | `(dimension, basePrompt, userFeedback)` | `{ success, dimension?: Partial<DimensionObject> }` |
-  | 3 | `dimensionsToSchemaAction` | `dimension-actions.ts` | `(dimensions, basePrompt, acceptedStandards?)` | `{ success, result?: { basePrompt, artifactFormSchema, configuratorFormValues } }` |
-  | 4 | `generateOpinionInteractionsAction` | `opinion-actions.ts` | `(basePrompt, maxOpinions?, dimensions?, acceptedStandards?)` | `{ success, interactions?: OpinionInteraction[] }` |
-  | 5 | `resolveOpinionInteractionAction` | `opinion-actions.ts` | `({ basePrompt, currentSchema, interactionText, selectedOptionLabel, maxFollowUps? })` | `{ success, result?: { basePrompt, artifactFormSchema, followUpInteractions } }` |
-  | 6 | `processColumnPromptAction` | `column-actions.ts` | `(field, prompt, responseData)` | `{ success, results?: Record<string, unknown> }` |
-  | 7 | `deriveFieldsFromPromptAction` | `column-actions.ts` | `(field, prompt, existingFieldNames)` | `{ success, newFields?: Field[], label? }` |
+  | #   | Action                              | File                   | Inputs                                                                                 | Output shape                                                                       |
+  | --- | ----------------------------------- | ---------------------- | -------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+  | 1   | `generateDimensionsAction`          | `dimension-actions.ts` | `(prompt, maxDimensions?)`                                                             | `{ success, dimensions?: DimensionObject[], reasoning? }`                          |
+  | 2   | `refineDimensionAction`             | `dimension-actions.ts` | `(dimension, basePrompt, userFeedback)`                                                | `{ success, dimension?: Partial<DimensionObject> }`                                |
+  | 3   | `dimensionsToSchemaAction`          | `dimension-actions.ts` | `(dimensions, basePrompt, acceptedStandards?)`                                         | `{ success, result?: { basePrompt, artifactFormSchema, configuratorFormValues } }` |
+  | 4   | `generateOpinionInteractionsAction` | `opinion-actions.ts`   | `(basePrompt, maxOpinions?, dimensions?, acceptedStandards?)`                          | `{ success, interactions?: OpinionInteraction[] }`                                 |
+  | 5   | `resolveOpinionInteractionAction`   | `opinion-actions.ts`   | `({ basePrompt, currentSchema, interactionText, selectedOptionLabel, maxFollowUps? })` | `{ success, result?: { basePrompt, artifactFormSchema, followUpInteractions } }`   |
+  | 6   | `processColumnPromptAction`         | `column-actions.ts`    | `(field, prompt, responseData)`                                                        | `{ success, results?: Record<string, unknown> }`                                   |
+  | 7   | `deriveFieldsFromPromptAction`      | `column-actions.ts`    | `(field, prompt, existingFieldNames)`                                                  | `{ success, newFields?: Field[], label? }`                                         |
 
 - [ ] **1.2** Verify that `standards-actions.ts` (`detectDomainStandardsAction`) has **no LLM dependency** — it uses keyword matching only and needs no mocking
 
@@ -92,7 +92,11 @@ Goal: During Playwright tests, intercept server action calls and return recorded
 - [ ] **3.2** Implement `tests/fixtures/loader.ts`:
   ```typescript
   // Loads fixture by scenario + step, returns the recorded server action output
-  function loadFixture(scenario: string, actionName: string, stepIndex: number): ActionOutput
+  function loadFixture(
+    scenario: string,
+    actionName: string,
+    stepIndex: number,
+  ): ActionOutput;
   ```
 - [ ] **3.3** Add fixture-loading guard to each server action:
   ```typescript
@@ -112,6 +116,9 @@ Goal: During Playwright tests, intercept server action calls and return recorded
 
 ## Phase 4: Write Playwright E2E Tests (Recorded Scenarios)
 
+All DB state is created naturally by Playwright driving the UI — no DB seeding needed.
+Each test runs the full flow; the only mock is the LLM response layer.
+
 - [ ] **4.1** Create test helper: `tests/e2e/helpers.ts`
   - `createPortfolio(page, title, intent)` — navigates to `/portfolios/new`, fills form, submits
   - `waitForDimensions(page)` — waits for dimension cards to appear
@@ -119,8 +126,10 @@ Goal: During Playwright tests, intercept server action calls and return recorded
   - `waitForSchema(page)` — waits for form preview to render fields
   - `resolveOpinion(page, optionLabel)` — clicks an opinion option by label
   - `waitForOpinions(page)` — waits for opinion cards to appear
+  - `fillAndSubmitForm(page, data)` — fills form fields and submits (for response collection tests)
 
 - [ ] **4.2** **Scenario 1: Fitness Coaching (simplest, single-role)**
+
   ```
   1. Create portfolio: "Fitness Coaching Client Intake"
   2. Wait for dimensions → verify dimension cards rendered
@@ -136,6 +145,7 @@ Goal: During Playwright tests, intercept server action calls and return recorded
   ```
 
 - [ ] **4.3** **Scenario 2: Construction Machine Rental (multi-role + derivation)**
+
   ```
   1. Create base portfolio as Owner role
   2. Generate dimensions + schema
@@ -147,6 +157,7 @@ Goal: During Playwright tests, intercept server action calls and return recorded
   ```
 
 - [ ] **4.4** **Scenario 3: Orthopedic Patient Records (derivation focus)**
+
   ```
   1. Create base patient schema
   2. Derive surgeon view (sub-schema)
@@ -157,13 +168,15 @@ Goal: During Playwright tests, intercept server action calls and return recorded
   ```
 
 - [ ] **4.5** **Scenario 4: Column Actions (response table)**
+      Column actions require an existing portfolio with responses — earlier test steps
+      in this scenario create that state through the UI before testing column features.
   ```
-  1. Use an existing portfolio with responses (seed via Supabase fixture)
-  2. Navigate to /responses/[portfolioId]
-  3. Apply column prompt (processColumnPromptAction)
-  4. Verify enriched column values appear
-  5. Derive new fields from column (deriveFieldsFromPromptAction)
-  6. Verify new columns appear in table
+  1. Create portfolio + generate schema (reuses fitness-coaching LLM fixtures)
+  2. Publish form
+  3. Fill and submit 3 responses via /forms/[id]
+  4. Navigate to /responses/[portfolioId]
+  5. Apply column prompt (processColumnPromptAction) → verify enriched values appear
+  6. Derive new fields from column (deriveFieldsFromPromptAction) → verify new columns appear
   ```
 
 ---
@@ -223,11 +236,11 @@ Goal: During Playwright tests, intercept server action calls and return recorded
 
 ## Decision Log
 
-| Decision | Choice | Rationale |
-|----------|--------|-----------|
-| Interception point | Inside server actions (env-gated) | Avoids fragile Next.js internal route matching; server actions are the natural seam |
-| Fixture format | One JSON file per action call per scenario | Easy to inspect, version, and diff in PRs |
-| Fixture matching | By action name + call sequence index + request body matching | Handles repeated calls (multiple opinion resolutions) |
-| Test DB | Local Supabase (`supabase start`) | Free, isolated, matches prod schema via migrations |
-| E2E framework | Playwright | Best Next.js support, built-in route interception if needed later |
-| Unit framework | Vitest | Fast, native ESM, compatible with Next.js + TypeScript |
+| Decision           | Choice                                                       | Rationale                                                                           |
+| ------------------ | ------------------------------------------------------------ | ----------------------------------------------------------------------------------- |
+| Interception point | Inside server actions (env-gated)                            | Avoids fragile Next.js internal route matching; server actions are the natural seam |
+| Fixture format     | One JSON file per action call per scenario                   | Easy to inspect, version, and diff in PRs                                           |
+| Fixture matching   | By action name + call sequence index + request body matching | Handles repeated calls (multiple opinion resolutions)                               |
+| Test DB            | Local Supabase (`supabase start`)                            | Free, isolated, matches prod schema via migrations                                  |
+| E2E framework      | Playwright                                                   | Best Next.js support, built-in route interception if needed later                   |
+| Unit framework     | Vitest                                                       | Fast, native ESM, compatible with Next.js + TypeScript                              |
