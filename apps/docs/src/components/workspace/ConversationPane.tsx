@@ -223,7 +223,6 @@ export function ConversationPane({ portfolio }: ConversationPaneProps) {
       // Show prompt diff if intent was refined by LLM
       if (newIntent !== intent.trim()) {
         setIntent(newIntent);
-        setShowDiff(true);
       }
 
       setDiscoveryPhase("idle");
@@ -291,7 +290,6 @@ export function ConversationPane({ portfolio }: ConversationPaneProps) {
         // Update prompt with backpropagated changes
 
         setIntent(response.result.basePrompt);
-        setShowDiff(true);
 
         // Compute schema diff for provenance
         const opinionDiff = diffSchemas(
@@ -389,7 +387,6 @@ export function ConversationPane({ portfolio }: ConversationPaneProps) {
         );
 
         setIntent(response.result.basePrompt);
-        setShowDiff(true);
 
         const updated = await updatePortfolio.mutateAsync({
           id: portfolio.id,
