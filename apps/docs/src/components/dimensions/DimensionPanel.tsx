@@ -6,7 +6,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 import type { DimensionObject } from "@/lib/dimension-types";
 import { dimensionScopeColors } from "@/lib/dimension-types";
 import { cn } from "@/lib/utils";
-import { useConfiguratorStore } from "@/stores/useFormConfiguratorStore";
 import {
   ChevronDown,
   ChevronUp,
@@ -17,23 +16,35 @@ import { useState } from "react";
 import { AddDimensionInput } from "./AddDimensionInput";
 import { DimensionCard } from "./DimensionCard";
 
-export function DimensionPanel() {
-  const dimensions = useConfiguratorStore((s) => s.dimensions);
-  const discoveryPhase = useConfiguratorStore((s) => s.discoveryPhase);
-  const dimensionReasoning = useConfiguratorStore(
-    (s) => s.dimensionReasoning,
-  );
-  const onDimensionAccept = useConfiguratorStore((s) => s.onDimensionAccept);
-  const onDimensionReject = useConfiguratorStore((s) => s.onDimensionReject);
-  const onDimensionEdit = useConfiguratorStore((s) => s.onDimensionEdit);
-  const onDimensionAdd = useConfiguratorStore((s) => s.onDimensionAdd);
-  const onConfirmDimensions = useConfiguratorStore(
-    (s) => s.onConfirmDimensions,
-  );
-  const onRegenerateDimensions = useConfiguratorStore(
-    (s) => s.onRegenerateDimensions,
-  );
+type DiscoveryPhase =
+  | "idle"
+  | "generating-dimensions"
+  | "reviewing-dimensions"
+  | "generating-schema";
 
+interface DimensionPanelProps {
+  dimensions: DimensionObject[];
+  discoveryPhase: DiscoveryPhase;
+  dimensionReasoning: string;
+  onDimensionAccept: (id: string) => void;
+  onDimensionReject: (id: string) => void;
+  onDimensionEdit: (id: string, updates: Partial<DimensionObject>) => void;
+  onDimensionAdd: (name: string) => void;
+  onConfirmDimensions: () => Promise<void>;
+  onRegenerateDimensions: () => Promise<void>;
+}
+
+export function DimensionPanel({
+  dimensions,
+  discoveryPhase,
+  dimensionReasoning,
+  onDimensionAccept,
+  onDimensionReject,
+  onDimensionEdit,
+  onDimensionAdd,
+  onConfirmDimensions,
+  onRegenerateDimensions,
+}: DimensionPanelProps) {
   // Initial review starts expanded; after confirming, collapsed
   const isInitialReview = discoveryPhase === "reviewing-dimensions";
   const [expanded, setExpanded] = useState(isInitialReview);
@@ -133,7 +144,7 @@ export function DimensionPanel() {
               size="sm"
               variant="ghost"
               className="h-6 gap-1 text-xs"
-              onClick={onRegenerateDimensions}
+              onClick={() => onRegenerateDimensions()}
             >
               <RefreshCw className="h-3 w-3" />
               Rediscover

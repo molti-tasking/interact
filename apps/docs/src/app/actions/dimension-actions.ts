@@ -2,8 +2,8 @@
 
 import type { DimensionObject, DimensionScope } from "@/lib/dimension-types";
 import type { DetectedStandard } from "@/lib/domain-standards";
-import type { SchemaMetadata, SerializedSchema } from "@/lib/schema-manager";
-import { initializeSerializedSchema } from "@/lib/schema-manager";
+import { withTracing } from "@/lib/telemetry";
+import type { Field, PortfolioSchema } from "@/lib/types";
 import { anthropic } from "@ai-sdk/anthropic";
 import { generateText } from "ai";
 
@@ -59,11 +59,14 @@ Rules:
 - Open questions should reveal genuine ambiguity, not ask the obvious
 - Do NOT suggest specific form fields, input types, or values — that comes later`;
 
-    const result = await generateText({
-      model: anthropic("claude-haiku-4-5-20251001"),
-      prompt: systemPrompt,
-      temperature: 0.3,
-    });
+    const result = await withTracing({ tags: ["dimensions", "generate"] }, () =>
+      generateText({
+        model: anthropic("claude-haiku-4-5-20251001"),
+        prompt: systemPrompt,
+        temperature: 0.3,
+        experimental_telemetry: { isEnabled: true },
+      }),
+    );
 
     let parsedResult: {
       reasoning: string;
@@ -171,11 +174,14 @@ Based on the feedback, return an updated dimension. Return ONLY valid JSON:
   "openQuestions": ["Updated question 1?", "Updated question 2?"]
 }`;
 
-    const result = await generateText({
-      model: anthropic("claude-haiku-4-5-20251001"),
-      prompt,
-      temperature: 0.3,
-    });
+    const result = await withTracing({ tags: ["dimensions", "refine"] }, () =>
+      generateText({
+        model: anthropic("claude-haiku-4-5-20251001"),
+        prompt,
+        temperature: 0.3,
+        experimental_telemetry: { isEnabled: true },
+      }),
+    );
 
     const jsonMatch = result.text.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
@@ -199,8 +205,7 @@ export interface DimensionsToSchemaResponse {
   success: boolean;
   result?: {
     basePrompt: string;
-    artifactFormSchema: SerializedSchema;
-    configuratorFormSchema: SerializedSchema;
+    artifactFormSchema: PortfolioSchema;
     configuratorFormValues: Record<string, string | number | boolean>;
   };
   error?: string;
@@ -232,10 +237,9 @@ export async function dimensionsToSchemaAction(
               : c.required === "recommended"
                 ? "RECOMMENDED"
                 : "OPTIONAL";
-          const optionsNote =
-            c.validationRules?.options
-              ? ` Options: [${c.validationRules.options.join(", ")}]`
-              : "";
+          const optionsNote = c.validationRules?.options
+            ? ` Options: [${c.validationRules.options.join(", ")}]`
+            : "";
           return `  - [${reqLabel}] ${c.label} (key: ${c.fieldKey}, type: ${c.type}): ${c.description} Ref: ${c.standardReference}${optionsNote}`;
         });
       });
@@ -267,7 +271,7 @@ You must return:
 1. **basePrompt**: Rewrite the user's original description to incorporate the confirmed dimension decisions. Write a natural, coherent description — don't just list dimensions. The basePrompt uses markdown formatting — preserve and use markdown (headings, lists, bold, etc.) in the rewritten version.
 
 2. **artifactFormSchema**: The actual form fields. Choose appropriate field types:
-   - Use "select" for choices with defined options (include options in validation.options)
+   - Use "select" for choices with defined options (include options in validation.options as [{label, value}] objects)
    - Use "string" for free text
    - Use "number" for quantities
    - Use "boolean" for yes/no
@@ -280,7 +284,7 @@ You must return:
 
 IMPORTANT RULES:
 - Use valid field types: "string", "number", "boolean", "date", "email", "select"
-- For select fields, ALWAYS include options in validation.options array
+- For select fields, ALWAYS include options in validation.options as [{label, value}] objects
 - Field keys MUST be camelCase and descriptive${acceptedStandards && acceptedStandards.length > 0 ? '\n- For standard-sourced fields, include "standardReference" as a string property' : ""}
 - Return ONLY valid JSON, no markdown
 
@@ -296,7 +300,7 @@ Return in this exact format:
         "description": "Field description",
         "type": "select",
         "required": true,
-        "validation": { "options": ["Option A", "Option B"] }
+        "validation": { "options": [{"label": "Option A", "value": "option_a"}, {"label": "Option B", "value": "option_b"}] }
       }
     }
   },
@@ -317,16 +321,35 @@ Return in this exact format:
   }
 }`;
 
-    const result = await generateText({
-      model: anthropic("claude-haiku-4-5-20251001"),
-      prompt,
-      temperature: 0.3,
-    });
+    const result = await withTracing(
+      { tags: ["dimensions", "to-schema"] },
+      () =>
+        generateText({
+          model: anthropic("claude-haiku-4-5-20251001"),
+          prompt,
+          temperature: 0.3,
+          experimental_telemetry: { isEnabled: true },
+        }),
+    );
 
     let parsedResult: {
       basePrompt: string;
-      artifactFormSchema: SchemaMetadata & { appliedStandards?: string[] };
-      configuratorFormSchema: SchemaMetadata;
+      artifactFormSchema: {
+        name: string;
+        description: string;
+        fields: Record<
+          string,
+          {
+            label: string;
+            description?: string;
+            type: string;
+            required: boolean;
+            validation?: { options?: string[] };
+            standardReference?: string;
+          }
+        >;
+        appliedStandards?: string[];
+      };
       configuratorFormValues: Record<string, string | number | boolean>;
     };
 
@@ -342,33 +365,40 @@ Return in this exact format:
       };
     }
 
-    if (
-      !parsedResult.artifactFormSchema ||
-      !parsedResult.configuratorFormSchema
-    ) {
+    if (!parsedResult.artifactFormSchema) {
       return {
         success: false,
         error: "Invalid response: missing required schemas",
       };
     }
 
-    // Carry appliedStandards into metadata
-    const artifactMeta: SchemaMetadata = {
-      ...parsedResult.artifactFormSchema,
-      appliedStandards:
-        parsedResult.artifactFormSchema.appliedStandards ?? appliedStandardIds,
-    };
+    // Convert old field format to new Field format
+    const fields: Field[] = Object.entries(
+      parsedResult.artifactFormSchema.fields,
+    ).map(([key, f], index) => {
+      const fieldType = convertFieldType(f.type, f.validation);
+      return {
+        id: `field-${Date.now()}-${index}`,
+        name: key,
+        label: f.label,
+        type: fieldType,
+        required: f.required,
+        constraints: [],
+        description: f.description,
+        origin: "system" as const,
+        tags: [],
+      };
+    });
 
-    const artifactSchema = initializeSerializedSchema(artifactMeta);
-    const configuratorSchema = initializeSerializedSchema(
-      parsedResult.configuratorFormSchema,
-    );
+    const artifactFormSchema: PortfolioSchema = {
+      fields,
+      groups: [],
+      version: 1,
+    };
 
     // Compliance validation: check mandatory standard fields are present
     if (acceptedStandards && acceptedStandards.length > 0) {
-      const generatedKeys = new Set(
-        artifactSchema.schema.fields.map((f) => f.key),
-      );
+      const generatedKeys = new Set(fields.map((f) => f.name));
       const missingMandatory: string[] = [];
 
       for (const detected of acceptedStandards) {
@@ -395,8 +425,7 @@ Return in this exact format:
       success: true,
       result: {
         basePrompt: parsedResult.basePrompt || basePrompt,
-        artifactFormSchema: artifactSchema.schema,
-        configuratorFormSchema: configuratorSchema.schema,
+        artifactFormSchema,
         configuratorFormValues: parsedResult.configuratorFormValues || {},
       },
     };
@@ -407,4 +436,45 @@ Return in this exact format:
       error: error instanceof Error ? error.message : "Unknown error",
     };
   }
+}
+
+// Helper to convert old field type string to new FieldType
+function convertFieldType(
+  type: string,
+  validation?: { options?: string[] },
+): Field["type"] {
+  switch (type) {
+    case "select":
+      return {
+        kind: "select",
+        options: normalizeOptions(validation?.options),
+        multiple: false,
+      };
+    case "number":
+      return { kind: "number" };
+    case "boolean":
+      return { kind: "boolean" };
+    case "date":
+      return { kind: "date" };
+    case "email":
+      return { kind: "text" };
+    default:
+      return { kind: "text" };
+  }
+}
+
+/** Coerce options to {label, value}[] — handles both string and object inputs. */
+function normalizeOptions(raw: unknown): Array<{ label: string; value: string }> {
+  if (!Array.isArray(raw)) return [];
+  return raw.map((o) => {
+    if (typeof o === "string") return { label: o, value: o };
+    if (o && typeof o === "object" && "value" in o && "label" in o)
+      return { label: String(o.label), value: String(o.value) };
+    if (o && typeof o === "object" && "value" in o)
+      return { label: String(o.value), value: String(o.value) };
+    if (o && typeof o === "object" && "label" in o)
+      return { label: String(o.label), value: String(o.label) };
+    const s = String(o);
+    return { label: s, value: s };
+  });
 }

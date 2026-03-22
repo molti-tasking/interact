@@ -1,4 +1,17 @@
-import type { SchemaField } from "./schema-manager";
+// Field type from the old schema format, kept for domain standard definitions
+type LegacyFieldType =
+  | "string"
+  | "number"
+  | "boolean"
+  | "date"
+  | "email"
+  | "select";
+type LegacyValidation = {
+  min?: number;
+  max?: number;
+  pattern?: string;
+  options?: string[];
+};
 
 /**
  * A domain standard profile containing field constraints, code systems,
@@ -32,13 +45,13 @@ export interface DomainStandard {
  * A single field constraint defined by a standard.
  * Maps to a concrete form field requirement.
  */
-export interface StandardFieldConstraint {
+interface StandardFieldConstraint {
   /** Unique key for this field within the standard */
   fieldKey: string;
   /** Human-readable label */
   label: string;
   /** Form field type */
-  type: SchemaField["type"];
+  type: LegacyFieldType;
   /** How strongly the standard requires this field */
   required: "mandatory" | "recommended" | "optional";
   /** What this field captures and why */
@@ -46,7 +59,7 @@ export interface StandardFieldConstraint {
   /** Reference to a code system for controlled values */
   codeSystemId?: string;
   /** Validation rules (mirrors SchemaField.validation) */
-  validationRules?: SchemaField["validation"];
+  validationRules?: LegacyValidation;
   /** Formal reference in the standard, e.g. "FHIR Patient.birthDate" */
   standardReference: string;
 }
@@ -54,7 +67,7 @@ export interface StandardFieldConstraint {
 /**
  * A controlled vocabulary or code system referenced by field constraints.
  */
-export interface CodeSystem {
+interface CodeSystem {
   id: string;
   name: string;
   values: { code: string; display: string }[];

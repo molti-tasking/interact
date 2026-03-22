@@ -15,54 +15,24 @@ import {
   SidebarMenuItem,
   SidebarRail,
 } from "@/components/ui/sidebar";
-import { useSchemas } from "@/hooks/query/schemas";
-import { GalleryVerticalEnd } from "lucide-react";
+import { usePortfolios } from "@/hooks/query/portfolios";
+import {
+  BarChart3,
+  ClipboardList,
+  FileText,
+  FormInput,
+  GalleryVerticalEnd,
+  HeartIcon,
+  History,
+  Home,
+  Pencil,
+  Plus,
+} from "lucide-react";
 import Link from "next/link";
 import { NavSecondary } from "./nav-secondary";
 
-// This is sample data.
-const data = {
-  versions: ["1.0.1", "1.1.0-alpha", "2.0.0-beta1"],
-  navMain: [
-    {
-      title: "",
-      url: "/",
-      items: [
-        {
-          title: "HOME",
-          url: "/",
-        },
-        {
-          title: "Create Form",
-          url: "/create",
-        },
-        {
-          title: "Forms",
-          url: "/forms",
-        },
-      ],
-    },
-    {
-      title: "Components",
-      url: "#",
-      items: [
-        {
-          title: "Hi Mum",
-          url: "/hi-mum",
-        },
-        {
-          title: "Generative Form",
-          url: "/gen-ai",
-        },
-      ],
-    },
-  ],
-
-  navSecondary: [],
-};
-
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
-  const { data: schemas } = useSchemas();
+  const { data: portfolios } = usePortfolios();
 
   return (
     <Sidebar {...props}>
@@ -74,54 +44,109 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             </div>
             <div className="flex flex-col gap-0.5 leading-none">
               <span className="font-semibold">Interact</span>
-              <span className="font-sm">Documentation</span>
+              <span className="font-sm">Malleable Forms</span>
             </div>
           </div>
         </Link>
       </SidebarHeader>
       <SidebarContent>
-        {/* We create a SidebarGroup for each parent. */}
-        {data.navMain.map((item) => (
-          <SidebarGroup key={item.title}>
-            <SidebarGroupLabel>{item.title}</SidebarGroupLabel>
+        <SidebarGroup>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild>
+                  <Link href="/portfolios">
+                    <Home className="h-4 w-4" />
+                    <span>Home</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild>
+                  <Link href="/portfolios/new">
+                    <Plus className="h-4 w-4" />
+                    <span>New Portfolio</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild>
+                  <Link href="/hi-mum">
+                    <HeartIcon className="h-4 w-4" />
+                    <span>Hi Mum</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        {portfolios && portfolios.length > 0 && (
+          <SidebarGroup>
+            <SidebarGroupLabel>Portfolios</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
-                {item.items.map((navItem) => (
-                  <React.Fragment key={navItem.title}>
+                {portfolios.map((portfolio) => (
+                  <React.Fragment key={portfolio.id}>
                     <SidebarMenuItem>
                       <SidebarMenuButton asChild>
-                        <a href={navItem.url}>{navItem.title}</a>
+                        <Link href={`/portfolios/${portfolio.id}`}>
+                          <FileText className="h-4 w-4" />
+                          <span className="truncate">{portfolio.title}</span>
+                        </Link>
                       </SidebarMenuButton>
                     </SidebarMenuItem>
-
-                    {/* Show dynamic forms as children of "Forms" */}
-                    {navItem.title === "Forms" &&
-                      schemas &&
-                      schemas.length > 0 && (
-                        <>
-                          {schemas.map((schema) => (
-                            <SidebarMenuItem key={schema.slug} className="ml-4">
-                              <SidebarMenuButton asChild>
-                                <a href={`/forms/${schema.slug}`}>
-                                  <span className="text-sm">
-                                    {schema.title}
-                                  </span>
-                                </a>
-                              </SidebarMenuButton>
-                            </SidebarMenuItem>
-                          ))}
-                        </>
-                      )}
+                    {/* Sub-links */}
+                    <SidebarMenuItem className="ml-4">
+                      <SidebarMenuButton asChild className="h-7">
+                        <Link href={`/portfolios/${portfolio.id}`}>
+                          <Pencil className="h-3 w-3" />
+                          <span className="text-xs">Design</span>
+                        </Link>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                    <SidebarMenuItem className="ml-4">
+                      <SidebarMenuButton asChild className="h-7">
+                        <Link href={`/portfolios/${portfolio.id}/dashboard`}>
+                          <BarChart3 className="h-3 w-3" />
+                          <span className="text-xs">Dashboard</span>
+                        </Link>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                    <SidebarMenuItem className="ml-4">
+                      <SidebarMenuButton asChild className="h-7">
+                        <Link href={`/forms/${portfolio.id}`}>
+                          <FormInput className="h-3 w-3" />
+                          <span className="text-xs">Form</span>
+                        </Link>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                    <SidebarMenuItem className="ml-4">
+                      <SidebarMenuButton asChild className="h-7">
+                        <Link href={`/responses/${portfolio.id}`}>
+                          <ClipboardList className="h-3 w-3" />
+                          <span className="text-xs">Responses</span>
+                        </Link>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                    <SidebarMenuItem className="ml-4">
+                      <SidebarMenuButton asChild className="h-7">
+                        <Link href={`/portfolios/${portfolio.id}/provenance`}>
+                          <History className="h-3 w-3" />
+                          <span className="text-xs">History</span>
+                        </Link>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
                   </React.Fragment>
                 ))}
               </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>
-        ))}
+        )}
       </SidebarContent>
 
       <SidebarFooter>
-        <NavSecondary items={data.navSecondary} className="mt-auto" />
+        <NavSecondary items={[]} className="mt-auto" />
       </SidebarFooter>
 
       <SidebarRail />
