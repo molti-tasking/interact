@@ -11,6 +11,7 @@ export type { Database } from "./database.types";
 import type {
   DerivationSpec,
   FormResponse,
+  OpinionInteraction,
   Portfolio,
   PortfolioSchema,
   ProvenanceEntry,
@@ -25,6 +26,7 @@ import type { Tables } from "./database.types";
 export type PortfolioRow = Tables<"portfolios">;
 export type ProvenanceRow = Tables<"provenance_log">;
 export type ResponseRow = Tables<"responses">;
+export type OpinionRow = Tables<"opinion_interactions">;
 
 // ---------------------------------------------------------------------------
 // Domain-typed insert/update helpers
@@ -77,5 +79,22 @@ export function rowToResponse(row: ResponseRow): FormResponse {
     portfolioId: row.portfolio_id,
     data: row.data as unknown as Record<string, unknown>,
     submittedAt: row.submitted_at ?? new Date().toISOString(),
+  };
+}
+
+export function rowToOpinion(row: OpinionRow): OpinionInteraction {
+  return {
+    id: row.id,
+    portfolioId: row.portfolio_id,
+    text: row.text,
+    explanation: row.explanation ?? undefined,
+    layer: row.layer as "intent" | "dimensions" | "both",
+    source: row.source,
+    options: row.options as unknown as { value: string; label: string }[],
+    selectedOption: row.selected_option,
+    status: row.status as OpinionInteraction["status"],
+    dimensionId: row.dimension_id,
+    dimensionName: row.dimension_name,
+    createdAt: row.created_at ?? new Date().toISOString(),
   };
 }

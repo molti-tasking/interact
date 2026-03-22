@@ -34,6 +34,59 @@ export type Database = {
   }
   public: {
     Tables: {
+      opinion_interactions: {
+        Row: {
+          created_at: string | null
+          dimension_id: string | null
+          dimension_name: string | null
+          explanation: string | null
+          id: string
+          layer: string
+          options: Json
+          portfolio_id: string
+          selected_option: string | null
+          source: string
+          status: string
+          text: string
+        }
+        Insert: {
+          created_at?: string | null
+          dimension_id?: string | null
+          dimension_name?: string | null
+          explanation?: string | null
+          id?: string
+          layer?: string
+          options?: Json
+          portfolio_id: string
+          selected_option?: string | null
+          source?: string
+          status?: string
+          text: string
+        }
+        Update: {
+          created_at?: string | null
+          dimension_id?: string | null
+          dimension_name?: string | null
+          explanation?: string | null
+          id?: string
+          layer?: string
+          options?: Json
+          portfolio_id?: string
+          selected_option?: string | null
+          source?: string
+          status?: string
+          text?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "opinion_interactions_portfolio_id_fkey"
+            columns: ["portfolio_id"]
+            isOneToOne: false
+            referencedRelation: "portfolios"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       portfolios: {
         Row: {
           base_id: string | null

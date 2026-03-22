@@ -173,11 +173,24 @@ export interface SavedColumnAction {
   createdAt: string;
 }
 
+export const acceptedStandardRefZ = z.object({
+  standardId: z.string(),
+  standardName: z.string(),
+  domain: z.string(),
+});
+
+export interface AcceptedStandardRef {
+  standardId: string;
+  standardName: string;
+  domain: string;
+}
+
 export const portfolioSchemaZ = z.object({
   fields: z.array(fieldZ),
   groups: z.array(fieldGroupZ),
   version: z.number(),
   columnActions: z.array(savedColumnActionZ).optional(),
+  acceptedStandards: z.array(acceptedStandardRefZ).optional(),
 });
 
 export interface PortfolioSchema {
@@ -185,6 +198,7 @@ export interface PortfolioSchema {
   groups: FieldGroup[];
   version: number;
   columnActions?: SavedColumnAction[];
+  acceptedStandards?: AcceptedStandardRef[];
 }
 
 // ---------------------------------------------------------------------------
@@ -237,6 +251,25 @@ export interface FormResponse {
   portfolioId: string;
   data: Record<string, unknown>;
   submittedAt: string;
+}
+
+// ---------------------------------------------------------------------------
+// Opinion Interaction (maps to `opinion_interactions` table row)
+// ---------------------------------------------------------------------------
+
+export interface OpinionInteraction {
+  id: string;
+  portfolioId: string;
+  text: string;
+  explanation?: string;
+  layer: "intent" | "dimensions" | "both";
+  source: string;
+  options: { value: string; label: string }[];
+  selectedOption: string | null;
+  status: "pending" | "loading" | "resolved" | "dismissed";
+  dimensionId?: string | null;
+  dimensionName?: string | null;
+  createdAt: string;
 }
 
 // ---------------------------------------------------------------------------

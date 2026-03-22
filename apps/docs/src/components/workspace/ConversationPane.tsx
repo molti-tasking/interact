@@ -1,29 +1,33 @@
 "use client";
 
-import {
-  dimensionsToSchemaAction,
-  generateDimensionsAction,
-} from "@/app/actions/dimension-actions";
-import type { OpinionInteraction } from "@/app/actions/opinion-actions";
-import {
-  generateOpinionInteractionsAction,
-  resolveOpinionInteractionAction,
-} from "@/app/actions/opinion-actions";
-import { detectDomainStandardsAction } from "@/app/actions/standards-actions";
+import { resolveOpinionInteractionAction } from "@/app/actions/opinion-actions";
 import { PromptDiff } from "@/components/form/configurator/PromptDiff";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { MarkdownEditor } from "@/components/ui/markdown-editor";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { StandardCard } from "@/components/workspace/StandardCard";
+import { useDimensions, useGenerateDimensions } from "@/hooks/query/dimensions";
+import {
+  useDismissOpinion,
+  useGenerateOpinions,
+  useOpinions,
+  useResolveOpinion,
+} from "@/hooks/query/opinions";
 import { useUpdatePortfolio } from "@/hooks/query/portfolios";
 import { useProvenance } from "@/hooks/query/provenance";
-import type { DimensionObject } from "@/lib/dimension-types";
+import { useGenerateSchema } from "@/hooks/query/schema-generation";
+import {
+  useAcceptStandard,
+  useDetectedStandards,
+  useDetectStandards,
+  useSkippedStandards,
+  useSkipStandard,
+} from "@/hooks/query/standards";
 import type { DetectedStandard } from "@/lib/domain-standards";
 import { logProvenance } from "@/lib/engine/provenance";
 import { diffSchemas } from "@/lib/engine/schema-ops";
 import type { Portfolio, PortfolioSchema } from "@/lib/types";
-import { emptyPortfolioSchema } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { useQueryClient } from "@tanstack/react-query";
 import { Loader2, Shield, Sparkles, XIcon } from "lucide-react";
@@ -35,14 +39,10 @@ interface ConversationPaneProps {
   portfolio: Portfolio;
 }
 
-type DiscoveryPhase =
-  | "idle"
-  | "generating-dimensions"
-  | "reviewing-dimensions"
-  | "generating-schema";
+type DiscoveryPhase = "idle" | "generating-dimensions" | "generating-schema";
 
 export function ConversationPane({ portfolio }: ConversationPaneProps) {
-  const portfolioSchema = portfolio?.schema as unknown as PortfolioSchema;
+  const portfolioSchema = portfolio.schema as unknown as PortfolioSchema;
 
   const editorRef = useRef<HTMLDivElement>(null);
   const [intent, setIntent] = useState(portfolio.intent);
@@ -50,6 +50,23 @@ export function ConversationPane({ portfolio }: ConversationPaneProps) {
   const updatePortfolio = useUpdatePortfolio();
   const queryClient = useQueryClient();
   const { data: provenanceEntries } = useProvenance(portfolio.id);
+
+  // --- React Query hooks for each subprocess ---
+  const { data: dimensions } = useDimensions(portfolio.id);
+  const generateDimensions = useGenerateDimensions(portfolio.id);
+
+  const { data: detectedStandards } = useDetectedStandards(portfolio.id);
+  const detectStandards = useDetectStandards(portfolio.id);
+  const acceptStandard = useAcceptStandard(portfolio.id);
+  const skipStandard = useSkipStandard(portfolio.id);
+  const { data: skippedStandardIds } = useSkippedStandards(portfolio.id);
+
+  const { data: opinions } = useOpinions(portfolio.id);
+  const generateOpinions = useGenerateOpinions(portfolio.id);
+  const resolveOpinion = useResolveOpinion(portfolio.id);
+  const dismissOpinion = useDismissOpinion(portfolio.id);
+
+  const generateSchema = useGenerateSchema(portfolio.id);
 
   /** Log provenance with snapshot of current state, then invalidate cache */
   const logWithSnapshot = useCallback(
@@ -68,31 +85,13 @@ export function ConversationPane({ portfolio }: ConversationPaneProps) {
     },
     [queryClient, portfolio, portfolioSchema],
   );
-
-  // Dimension discovery state
-  const [dimensions, setDimensions] = useState<DimensionObject[]>([]);
   const [discoveryPhase, setDiscoveryPhase] = useState<DiscoveryPhase>("idle");
-
-  // Opinion / refinement question state
-  const [opinions, setOpinions] = useState<OpinionInteraction[]>([]);
   const [activeAnimation, setActiveAnimation] = useState<number | null>(null);
 
   // Prompt-based edit state
   const [promptEditOpen, setPromptEditOpen] = useState(false);
   const [promptEditText, setPromptEditText] = useState("");
-
-  // Standards state
-  const [detectedStandards, setDetectedStandards] = useState<
-    DetectedStandard[]
-  >([]);
-  const [acceptedStandardIds, setAcceptedStandardIds] = useState<Set<string>>(
-    new Set(),
-  );
-  const [skippedStandardIds, setSkippedStandardIds] = useState<Set<string>>(
-    new Set(),
-  );
-
-  const [isProcessing, setIsProcessing] = useState<boolean>(false);
+  const [isPromptEditing, setIsPromptEditing] = useState(false);
   const [error, setError] = useState<string | null | undefined>();
 
   // Derive previousIntent from the latest provenance entry
@@ -104,28 +103,26 @@ export function ConversationPane({ portfolio }: ConversationPaneProps) {
     setIntent(portfolio.intent);
   }, [portfolio.intent]);
 
-  // Clear animation when processing ends
+  // Clear animation when no opinion is resolving
+  const isOpinionResolving = resolveOpinion.isPending;
   useEffect(() => {
-    if (!isProcessing && activeAnimation !== null) {
+    if (!isOpinionResolving && activeAnimation !== null) {
       const timer = setTimeout(() => setActiveAnimation(null), 1200);
       return () => clearTimeout(timer);
     }
-  }, [isProcessing, activeAnimation]);
+  }, [isOpinionResolving, activeAnimation]);
 
   const handleIntentChange = useCallback((value: string) => {
     setIntent(value);
   }, []);
 
   // -------------------------------------------------------------------
-  // Button: Generate dimensions + schema
+  // Button: Generate dimensions + schema (now using independent hooks)
   // -------------------------------------------------------------------
   const handleGenerate = async () => {
-    if (!intent.trim() || isProcessing) return;
+    if (!intent.trim() || isGenerating) return;
 
-    setIsProcessing(true);
     setError(null);
-
-    console.log("[ConversationPane] Generate triggered");
 
     try {
       // Save intent + log provenance if intent changed
@@ -145,109 +142,49 @@ export function ConversationPane({ portfolio }: ConversationPaneProps) {
         );
       }
 
-      // Step 1: Generate dimensions + detect standards in parallel
+      // Step 1: Generate dimensions + detect standards IN PARALLEL
       setDiscoveryPhase("generating-dimensions");
-      const [standardsResponse, dimensionsResponse] = await Promise.all([
-        detectDomainStandardsAction(intent.trim()),
-        generateDimensionsAction(intent.trim()),
+
+      const [dimensionsResult, standardsResult] = await Promise.all([
+        generateDimensions.mutateAsync(intent.trim()),
+        detectStandards.mutateAsync(intent.trim()),
       ]);
 
-      // Store detected standards for user to accept/skip
-      const detected =
-        standardsResponse.success && standardsResponse.detectedStandards
-          ? standardsResponse.detectedStandards
-          : [];
-      setDetectedStandards(detected);
-      console.log(`[ConversationPane] Standards detected: ${detected.length}`);
-
-      if (!dimensionsResponse.success || !dimensionsResponse.dimensions) {
-        setError(dimensionsResponse.error || "Failed to generate dimensions");
-        setDiscoveryPhase("idle");
-        setIsProcessing(false);
-        return;
-      }
-
-      console.log(
-        `[ConversationPane] Dimensions: ${dimensionsResponse.dimensions.length}`,
-      );
-      setDimensions(dimensionsResponse.dimensions);
-
-      // Step 2: Generate schema from dimensions (only accepted standards)
+      // Step 2: Generate schema from dimensions
       setDiscoveryPhase("generating-schema");
-      const acceptedStandards = detected.filter((s) =>
-        acceptedStandardIds.has(s.standard.id),
-      );
-      const schemaResult = await dimensionsToSchemaAction(
-        dimensionsResponse.dimensions,
-        intent.trim(),
-        acceptedStandards.length > 0 ? acceptedStandards : undefined,
+
+      // Get currently accepted standards from portfolio schema
+      const acceptedStandardRefs = portfolioSchema.acceptedStandards ?? [];
+      const acceptedStandards = (standardsResult ?? []).filter((s) =>
+        acceptedStandardRefs.some((ref) => ref.standardId === s.standard.id),
       );
 
-      if (!schemaResult.success || !schemaResult.result) {
-        setError(schemaResult.error || "Failed to generate schema");
-        setDiscoveryPhase("reviewing-dimensions");
-        setIsProcessing(false);
-        return;
-      }
-
-      console.log(
-        `[ConversationPane] Schema: ${schemaResult.result.artifactFormSchema.fields.length} fields`,
-      );
-
-      const newIntent = schemaResult.result.basePrompt || intent.trim();
-      const newSchema = schemaResult.result.artifactFormSchema;
-      const schemaDiff = diffSchemas(
-        portfolioSchema.fields.length > 0
-          ? portfolioSchema
-          : emptyPortfolioSchema(),
-        newSchema,
-      );
-
-      const updated = await updatePortfolio.mutateAsync({
-        id: portfolio.id,
-        intent: newIntent,
-        schema: newSchema,
+      const schemaResult = await generateSchema.mutateAsync({
+        dimensions: dimensionsResult,
+        intent: intent.trim(),
+        currentSchema: portfolioSchema,
+        acceptedStandards:
+          acceptedStandards.length > 0 ? acceptedStandards : undefined,
       });
 
-      console.log("Updated: ", updated.id);
-
-      // Log schema generation provenance
-      await logWithSnapshot(
-        "dimensions",
-        "schema_generated",
-        "system",
-        schemaDiff,
-        `Generated ${newSchema.fields.length} fields from ${dimensionsResponse.dimensions.length} dimensions`,
-      );
-
-      // Show prompt diff if intent was refined by LLM
-      if (newIntent !== intent.trim()) {
-        setIntent(newIntent);
+      // Update local intent if LLM refined it
+      if (schemaResult.intent !== intent.trim()) {
+        setIntent(schemaResult.intent);
       }
 
       setDiscoveryPhase("idle");
 
-      // Step 3: Generate refinement questions
-      console.log("[ConversationPane] Generating refinement questions...");
-      const opinionsResult = await generateOpinionInteractionsAction(
-        newIntent,
-        5,
-        dimensionsResponse.dimensions,
-        acceptedStandards.length > 0 ? acceptedStandards : undefined,
-      );
-
-      if (opinionsResult.success && opinionsResult.interactions) {
-        console.log(
-          `[ConversationPane] Opinions: ${opinionsResult.interactions.length}`,
-        );
-        setOpinions(opinionsResult.interactions);
-      }
+      // Step 3: Generate refinement questions (fire-and-forget, runs independently)
+      generateOpinions.mutate({
+        intent: schemaResult.intent,
+        dimensions: dimensionsResult,
+        acceptedStandards:
+          acceptedStandards.length > 0 ? acceptedStandards : undefined,
+      });
     } catch (err) {
       console.error("[ConversationPane] Generation error:", err);
       setError(err instanceof Error ? err.message : "Generation failed");
       setDiscoveryPhase("idle");
-    } finally {
-      setIsProcessing(false);
     }
   };
 
@@ -258,120 +195,49 @@ export function ConversationPane({ portfolio }: ConversationPaneProps) {
     opinionIndex: number,
     selectedValue: string,
   ) => {
-    const interaction = opinions[opinionIndex];
+    const visibleList = (opinions ?? []).filter(
+      (o) => o.status !== "resolved" && o.status !== "dismissed",
+    );
+    const interaction = visibleList[opinionIndex];
     if (!interaction || interaction.status !== "pending") return;
 
-    const selectedOption = interaction.options.find(
-      (o) => o.value === selectedValue,
-    );
-    if (!selectedOption) return;
-
-    // Mark as loading + start particle animation
-    setOpinions((prev) =>
-      prev.map((o, i) =>
-        i === opinionIndex
-          ? { ...o, status: "loading" as const, selectedOption: selectedValue }
-          : o,
-      ),
-    );
     setActiveAnimation(opinionIndex);
-    setIsProcessing(true);
 
     try {
-      const response = await resolveOpinionInteractionAction({
-        basePrompt: intent,
+      const result = await resolveOpinion.mutateAsync({
+        opinion: interaction,
+        selectedValue,
+        currentIntent: intent,
         currentSchema: portfolioSchema,
-        interactionText: interaction.text,
-        selectedOptionLabel: selectedOption.label,
-        maxFollowUps: 3,
       });
 
-      if (response.success && response.result) {
-        // Update prompt with backpropagated changes
-
-        setIntent(response.result.basePrompt);
-
-        // Compute schema diff for provenance
-        const opinionDiff = diffSchemas(
-          portfolioSchema,
-          response.result.artifactFormSchema,
-        );
-
-        // Update schema
-        const updated = await updatePortfolio.mutateAsync({
-          id: portfolio.id,
-          intent: response.result.basePrompt,
-          schema: response.result.artifactFormSchema,
-        });
-        console.log("Updated: ", updated.id);
-
-        // Log provenance for the opinion resolution
-        await logWithSnapshot(
-          "dimensions",
-          "opinion_resolved",
-          "creator",
-          opinionDiff,
-          `"${interaction.text}" → "${selectedOption.label}"`,
-        );
-
-        // Resolve this opinion and add follow-ups
-        setOpinions((prev) => {
-          const resolved = prev.map((o, i) =>
-            i === opinionIndex ? { ...o, status: "resolved" as const } : o,
-          );
-          return [
-            ...resolved,
-            ...(response.result!.followUpInteractions ?? []),
-          ];
-        });
-      } else {
-        // Revert to pending
-        setOpinions((prev) =>
-          prev.map((o, i) =>
-            i === opinionIndex
-              ? { ...o, status: "pending" as const, selectedOption: null }
-              : o,
-          ),
-        );
-        setError(response.error || "Failed to apply opinion");
-      }
+      setIntent(result.newIntent);
     } catch (err) {
       console.error("[ConversationPane] Opinion error:", err);
-      setOpinions((prev) =>
-        prev.map((o, i) =>
-          i === opinionIndex
-            ? { ...o, status: "pending" as const, selectedOption: null }
-            : o,
-        ),
-      );
       setError(err instanceof Error ? err.message : "Opinion failed");
-    } finally {
-      setIsProcessing(false);
     }
   };
 
   const handleDismissOpinion = (index: number) => {
-    setOpinions((prev) =>
-      prev.map((o, i) =>
-        i === index ? { ...o, status: "dismissed" as const } : o,
-      ),
+    const visibleList = (opinions ?? []).filter(
+      (o) => o.status !== "resolved" && o.status !== "dismissed",
     );
+    const interaction = visibleList[index];
+    if (interaction) {
+      dismissOpinion.mutate(interaction.id);
+    }
   };
 
   // -------------------------------------------------------------------
   // Prompt-based edit: user describes a change in natural language
   // -------------------------------------------------------------------
   const handlePromptEdit = async () => {
-    if (!promptEditText.trim() || isProcessing || !portfolio) return;
+    if (!promptEditText.trim() || isGenerating || !portfolio) return;
 
-    setIsProcessing(true);
+    setIsPromptEditing(true);
     setError(null);
 
-    console.log("[ConversationPane] Prompt edit:", promptEditText.trim());
-
     try {
-      // Use resolveOpinionInteraction as an edit mechanism — treat the
-      // user's edit prompt as an "opinion" that modifies the schema
       const response = await resolveOpinionInteractionAction({
         basePrompt: intent,
         currentSchema: portfolioSchema,
@@ -388,12 +254,11 @@ export function ConversationPane({ portfolio }: ConversationPaneProps) {
 
         setIntent(response.result.basePrompt);
 
-        const updated = await updatePortfolio.mutateAsync({
+        await updatePortfolio.mutateAsync({
           id: portfolio.id,
           intent: response.result.basePrompt,
           schema: response.result.artifactFormSchema,
         });
-        console.log("Updated: ", updated.id);
 
         await logWithSnapshot(
           "configuration",
@@ -412,55 +277,49 @@ export function ConversationPane({ portfolio }: ConversationPaneProps) {
       console.error("[ConversationPane] Prompt edit error:", err);
       setError(err instanceof Error ? err.message : "Edit failed");
     } finally {
-      setIsProcessing(false);
+      setIsPromptEditing(false);
     }
   };
 
   // -------------------------------------------------------------------
-  // Standard accept/skip
+  // Standard accept/skip (now using react-query hooks)
   // -------------------------------------------------------------------
   const handleAcceptStandard = async (standardId: string) => {
-    setAcceptedStandardIds((prev) => new Set([...prev, standardId]));
-    setSkippedStandardIds((prev) => {
-      const next = new Set(prev);
-      next.delete(standardId);
-      return next;
-    });
-
-    const standard = detectedStandards.find(
+    const detected = (detectedStandards ?? []).find(
       (s) => s.standard.id === standardId,
     );
-    if (standard && portfolio) {
-      await logWithSnapshot(
-        "dimensions",
-        "standard_accepted",
-        "creator",
-        { added: [], removed: [], modified: [] },
-        `Applied standard: ${standard.standard.name}`,
-      );
-    }
+    if (!detected) return;
+
+    acceptStandard.mutate({
+      detected,
+      portfolio: {
+        id: portfolio.id,
+        intent: portfolio.intent,
+        schema: portfolioSchema,
+      },
+    });
   };
 
   const handleSkipStandard = (standardId: string) => {
-    setSkippedStandardIds((prev) => new Set([...prev, standardId]));
-    setAcceptedStandardIds((prev) => {
-      const next = new Set(prev);
-      next.delete(standardId);
-      return next;
-    });
+    skipStandard.mutate(standardId);
   };
 
-  const isGenerating =
-    discoveryPhase === "generating-dimensions" ||
-    discoveryPhase === "generating-schema" ||
-    isProcessing;
+  // -------------------------------------------------------------------
+  // Derived state
+  // -------------------------------------------------------------------
+  const isGenerating = discoveryPhase !== "idle" || isPromptEditing;
 
-  const visibleOpinions = opinions.filter(
+  const visibleOpinions = (opinions ?? []).filter(
     (o) => o.status !== "resolved" && o.status !== "dismissed",
   );
 
-  const visibleStandards = detectedStandards.filter(
-    (s) => !skippedStandardIds.has(s.standard.id),
+  const skippedIds = skippedStandardIds ?? new Set<string>();
+  const visibleStandards = (detectedStandards ?? []).filter(
+    (s: DetectedStandard) => !skippedIds.has(s.standard.id),
+  );
+
+  const acceptedStandardIds = new Set(
+    (portfolioSchema.acceptedStandards ?? []).map((s) => s.standardId),
   );
 
   return (
@@ -544,7 +403,6 @@ export function ConversationPane({ portfolio }: ConversationPaneProps) {
               </div>
             ) : (
               <Button
-                /* TODO: This "Refine Form" button should always be disabled when the prompt text area is unchanged. */
                 onClick={handleGenerate}
                 disabled={!intent.trim() || isGenerating}
                 className="flex-1"
@@ -599,7 +457,7 @@ export function ConversationPane({ portfolio }: ConversationPaneProps) {
                   <Shield className="h-3.5 w-3.5 text-blue-500" />
                   Suggested Standards
                 </h3>
-                {visibleStandards.map((detected) => (
+                {visibleStandards.map((detected: DetectedStandard) => (
                   <StandardCard
                     key={detected.standard.id}
                     detected={detected}
@@ -616,33 +474,33 @@ export function ConversationPane({ portfolio }: ConversationPaneProps) {
               <h3 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
                 <Sparkles className="h-3.5 w-3.5 text-violet-500" />
                 Refinement Questions
+                {generateOpinions.isPending && (
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                )}
               </h3>
             )}
 
-            {visibleOpinions.map((interaction) => {
-              const globalIndex = opinions.indexOf(interaction);
-              return (
-                <OpinionCard
-                  key={interaction.id}
-                  interaction={interaction}
-                  index={globalIndex}
-                  isAnimating={activeAnimation === globalIndex}
-                  editorRef={editorRef}
-                  anyLoading={opinions.some((o) => o.status === "loading")}
-                  onSelect={handleOpinionSelect}
-                  onDismiss={handleDismissOpinion}
-                />
-              );
-            })}
+            {visibleOpinions.map((interaction, visibleIndex) => (
+              <OpinionCard
+                key={interaction.id}
+                interaction={interaction}
+                index={visibleIndex}
+                isAnimating={activeAnimation === visibleIndex}
+                editorRef={editorRef}
+                anyLoading={resolveOpinion.isPending}
+                onSelect={handleOpinionSelect}
+                onDismiss={handleDismissOpinion}
+              />
+            ))}
           </div>
         </ScrollArea>
       )}
 
       {/* Dimensions (collapsed summary when available) */}
-      {dimensions.length > 0 && visibleOpinions.length === 0 && (
+      {(dimensions ?? []).length > 0 && visibleOpinions.length === 0 && (
         <div className="px-4 pb-4">
           <div className="flex flex-wrap gap-1.5">
-            {dimensions
+            {(dimensions ?? [])
               .filter((d) => d.status !== "rejected")
               .map((d) => (
                 <Badge key={d.id} variant="outline" className="text-xs">

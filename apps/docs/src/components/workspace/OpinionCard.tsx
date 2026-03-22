@@ -1,6 +1,6 @@
 "use client";
 
-import type { OpinionInteraction } from "@/app/actions/opinion-actions";
+import type { OpinionInteraction } from "@/lib/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";

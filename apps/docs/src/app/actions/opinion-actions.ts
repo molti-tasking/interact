@@ -7,7 +7,8 @@ import type { PortfolioSchema } from "@/lib/types";
 import { anthropic } from "@ai-sdk/anthropic";
 import { generateText } from "ai";
 
-export interface OpinionInteraction {
+/** Shape returned by the LLM / server action (no portfolioId or createdAt — those are added by the DB). */
+export interface OpinionInteractionRaw {
   id: string;
   text: string;
   explanation?: string;
@@ -22,7 +23,7 @@ export interface OpinionInteraction {
 
 export interface GenerateOpinionResponse {
   success: boolean;
-  interactions?: OpinionInteraction[];
+  interactions?: OpinionInteractionRaw[];
   error?: string;
 }
 
@@ -144,7 +145,7 @@ Rules:
       (acceptedDims ?? []).map((d) => [d.name.toLowerCase(), d]),
     );
 
-    const interactions: OpinionInteraction[] = parsedResult.interactions
+    const interactions: OpinionInteractionRaw[] = parsedResult.interactions
       .slice(0, maxOpinions)
       .map((interaction, index) => {
         const matchedDim = interaction.dimensionName
@@ -193,7 +194,7 @@ export interface ResolveOpinionResponse {
   result?: {
     basePrompt: string;
     artifactFormSchema: PortfolioSchema;
-    followUpInteractions: OpinionInteraction[];
+    followUpInteractions: OpinionInteractionRaw[];
   };
   error?: string;
 }
@@ -346,7 +347,7 @@ Return ONLY valid JSON in this exact format:
       version: 1,
     };
 
-    const followUpInteractions: OpinionInteraction[] = (
+    const followUpInteractions: OpinionInteractionRaw[] = (
       parsedResult.followUpInteractions || []
     )
       .slice(0, maxFollowUps)
