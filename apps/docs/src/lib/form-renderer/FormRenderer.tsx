@@ -1,21 +1,21 @@
 "use client";
 
-import { Button } from "@/components/ui/button";
 import { Form, FormField } from "@/components/ui/form";
 import { schemaToZod } from "@/lib/engine/schema-ops";
 import type { Field, PortfolioSchema } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Pencil, SaveIcon } from "lucide-react";
+import { Pencil } from "lucide-react";
 import { useMemo } from "react";
 import { useForm } from "react-hook-form";
 import { renderFieldComponent } from "./field-components";
+import { FormSaveButton } from "./FormSaveButton";
 
 interface FormRendererProps {
   schema: PortfolioSchema;
   mode: "preview" | "live";
   defaultValues?: Record<string, unknown>;
-  onSubmit?: (data: Record<string, unknown>) => void;
+  onSubmit?: (data: Record<string, unknown>) => Promise<void>;
   onFieldClick?: (field: Field) => void;
   className?: string;
 }
@@ -35,9 +35,12 @@ export function FormRenderer({
     defaultValues: defaultValues ?? {},
   });
 
-  const handleSubmit = (data: Record<string, unknown>) => {
-    onSubmit?.(data);
-    if (mode === "live") {
+  const handleSubmit = async (data: Record<string, unknown>) => {
+    await onSubmit?.(data);
+    if (defaultValues) {
+      form.reset(data);
+    }
+    if (mode === "live" && !defaultValues) {
       form.reset();
     }
   };
@@ -85,10 +88,7 @@ export function FormRenderer({
 
         {mode === "live" && onSubmit && (
           <div className="flex gap-2 pt-4">
-            <Button type="submit">
-              <SaveIcon className="h-4 w-4 mr-2" />
-              Submit
-            </Button>
+            <FormSaveButton />
           </div>
         )}
       </form>

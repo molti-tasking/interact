@@ -1,11 +1,20 @@
 "use client";
 
+import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { usePortfolio } from "@/hooks/query/portfolios";
 import { useCreateResponse } from "@/hooks/query/responses-new";
 import { FormRenderer } from "@/lib/form-renderer/FormRenderer";
 import { PortfolioSchema } from "@/lib/types";
-import { Loader2 } from "lucide-react";
+import { Info, Loader2 } from "lucide-react";
 import { useParams } from "next/navigation";
 import { toast } from "sonner";
 
@@ -46,10 +55,22 @@ export default function PublishedFormPage() {
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
-      <div>
+      <div className="flex items-center gap-2">
         <h1 className="text-2xl font-bold tracking-tight">{portfolio.title}</h1>
         {portfolio.intent && (
-          <p className="text-muted-foreground mt-1">{portfolio.intent}</p>
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button variant="ghost" size="sm" className="h-7 w-7 p-0">
+                <Info className="h-4 w-4 text-muted-foreground" />
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>About this form</DialogTitle>
+                <DialogDescription>{portfolio.intent}</DialogDescription>
+              </DialogHeader>
+            </DialogContent>
+          </Dialog>
         )}
       </div>
 

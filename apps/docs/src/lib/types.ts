@@ -155,16 +155,36 @@ export interface FieldGroup {
 // Portfolio Schema (stored in portfolios.schema JSONB)
 // ---------------------------------------------------------------------------
 
+export const savedColumnActionZ = z.object({
+  id: z.string(),
+  fieldId: z.string(),
+  prompt: z.string(),
+  label: z.string(),
+  addedFields: z.array(fieldZ),
+  createdAt: z.string(),
+});
+
+export interface SavedColumnAction {
+  id: string;
+  fieldId: string;
+  prompt: string;
+  label: string;
+  addedFields: Field[];
+  createdAt: string;
+}
+
 export const portfolioSchemaZ = z.object({
   fields: z.array(fieldZ),
   groups: z.array(fieldGroupZ),
   version: z.number(),
+  columnActions: z.array(savedColumnActionZ).optional(),
 });
 
 export interface PortfolioSchema {
   fields: Field[];
   groups: FieldGroup[];
   version: number;
+  columnActions?: SavedColumnAction[];
 }
 
 // ---------------------------------------------------------------------------

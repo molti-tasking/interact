@@ -52,7 +52,7 @@ export function StandardCard({
               {standard.domain}
             </Badge>
             <Badge variant="secondary" className="text-[10px]">
-              {Math.round(confidence * 100)}%
+              Conf. {Math.round(confidence * 100)}%
             </Badge>
           </div>
         </div>
