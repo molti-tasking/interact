@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Natural Language Form Filling</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #f5f7fa 0%, #e8ecf1 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            width: 1200px;
+            height: 800px;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            overflow: hidden;
+        }
+        .left-panel {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 40px;
+            color: white;
+            display: flex;
+            flex-direction: column;
+        }
+        .left-panel h2 {
+            font-size: 24px;
+            margin-bottom: 24px;
+            opacity: 0.95;
+        }
+        .input-box {
+            background: rgba(255, 255, 255, 0.15);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 12px;
+            padding: 20px;
+            color: white;
+            font-size: 16px;
+            line-height: 1.6;
+            backdrop-filter: blur(10px);
+            flex-grow: 1;
+            resize: none;
+            font-family: inherit;
+        }
+        .input-box::placeholder {
+            color: rgba(255, 255, 255, 0.6);
+        }
+        .right-panel {
+            padding: 40px;
+            background: white;
+            overflow-y: auto;
+        }
+        .right-panel h2 {
+            font-size: 24px;
+            margin-bottom: 32px;
+            color: #1a202c;
+        }
+        .form-field {
+            margin-bottom: 24px;
+            animation: slideIn 0.4s ease-out;
+        }
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateX(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+        .field-label {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            color: #4a5568;
+        }
+        .confidence-badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        .confidence-high {
+            background: #d4edda;
+            color: #155724;
+        }
+        .confidence-medium {
+            background: #fff3cd;
+            color: #856404;
+        }
+        .field-input {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 15px;
+            font-family: inherit;
+            transition: all 0.2s;
+            background: #f8fafc;
+        }
+        .field-input:focus {
+            outline: none;
+            border-color: #667eea;
+            background: white;
+        }
+        .helper-text {
+            margin-top: 24px;
+            padding: 16px;
+            background: #f0f4f8;
+            border-radius: 8px;
+            font-size: 13px;
+            color: #64748b;
+            line-height: 1.5;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="left-panel">
+            <h2>Tell us about yourself</h2>
+            <textarea class="input-box" readonly>I'm 28, been training 3 years, mainly hypertrophy.</textarea>
+        </div>
+        <div class="right-panel">
+            <h2>Auto-populated Fields</h2>
+            
+            <div class="form-field">
+                <div class="field-label">
+                    <span>Age</span>
+                    <span class="confidence-badge confidence-high">98%</span>
+                </div>
+                <input type="text" class="field-input" value="28" />
+            </div>
+
+            <div class="form-field">
+                <div class="field-label">
+                    <span>Training Experience (years)</span>
+                    <span class="confidence-badge confidence-high">95%</span>
+                </div>
+                <input type="text" class="field-input" value="3" />
+            </div>
+
+            <div class="form-field">
+                <div class="field-label">
+                    <span>Primary Goal</span>
+                    <span class="confidence-badge confidence-medium">72%</span>
+                </div>
+                <input type="text" class="field-input" value="Hypertrophy" />
+            </div>
+
+            <div class="form-field">
+                <div class="field-label">
+                    <span>Training Status</span>
+                    <span class="confidence-badge confidence-high">89%</span>
+                </div>
+                <input type="text" class="field-input" value="Currently Training" />
+            </div>
+
+            <div class="helper-text">
+                💡 Fields were automatically extracted from your description. Review and adjust as needed.
+            </div>
+        </div>
+    </div>
+</body>
+</html>

@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Collaborative Portfolio Elicitation</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #f5f7fa 0%, #e8ecf1 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            width: 1200px;
+            height: 800px;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        .header {
+            background: white;
+            border-bottom: 2px solid #e2e8f0;
+            padding: 20px 32px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .header h1 {
+            font-size: 20px;
+            color: #1a202c;
+        }
+        .collaborators {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+        .avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 600;
+            font-size: 13px;
+            border: 3px solid white;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+            position: relative;
+        }
+        .avatar-blue {
+            background: linear-gradient(135deg, #4299e1 0%, #3182ce 100%);
+        }
+        .avatar-purple {
+            background: linear-gradient(135deg, #9f7aea 0%, #805ad5 100%);
+        }
+        .avatar-green {
+            background: linear-gradient(135deg, #48bb78 0%, #38a169 100%);
+        }
+        .avatar::after {
+            content: '';
+            position: absolute;
+            bottom: -1px;
+            right: -1px;
+            width: 12px;
+            height: 12px;
+            background: #48bb78;
+            border: 2px solid white;
+            border-radius: 50%;
+        }
+        .workspace {
+            flex: 1;
+            padding: 32px;
+            overflow-y: auto;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 24px;
+            align-content: start;
+        }
+        .opinion-card {
+            background: white;
+            border: 2px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 24px;
+            position: relative;
+            transition: all 0.3s;
+        }
+        .opinion-card:hover {
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+            transform: translateY(-2px);
+        }
+        .card-header-bar {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            border-radius: 12px 12px 0 0;
+        }
+        .bar-blue { background: #4299e1; }
+        .bar-purple { background: #9f7aea; }
+        .bar-green { background: #48bb78; }
+        .card-meta {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 16px;
+            font-size: 13px;
+            color: #718096;
+        }
+        .card-meta .avatar {
+            width: 24px;
+            height: 24px;
+            font-size: 10px;
+            border-width: 2px;
+        }
+        .card-meta .avatar::after {
+            width: 8px;
+            height: 8px;
+        }
+        .card-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: #2d3748;
+            margin-bottom: 12px;
+        }
+        .card-content {
+            font-size: 14px;
+            color: #4a5568;
+            line-height: 1.6;
+            margin-bottom: 16px;
+        }
+        .tag-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+        .tag {
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 500;
+            background: #f0f4f8;
+            color: #4a5568;
+        }
+        .editing-indicator {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            width: 8px;
+            height: 8px;
+            background: #48bb78;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.4; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Equipment Portfolio · Concurrent Editing</h1>
+            <div class="collaborators">
+                <div class="avatar avatar-blue">KM</div>
+                <div class="avatar avatar-purple">LS</div>
+                <div class="avatar avatar-green">SO</div>
+            </div>
+        </div>
+
+        <div class="workspace">
+            <div class="opinion-card">
+                <div class="card-header-bar bar-blue"></div>
+                <div class="editing-indicator"></div>
+                <div class="card-meta">
+                    <div class="avatar avatar-blue">KM</div>
+                    <span>Kevin M. · Owner · 2 min ago</span>
+                </div>
+                <div class="card-title">Essential Safety Equipment</div>
+                <div class="card-content">
+                    All machines must have emergency stop buttons, weight pin guards, and clear usage instructions.
+                </div>
+                <div class="tag-list">
+                    <div class="tag">Safety</div>
+                    <div class="tag">Compliance</div>
+                    <div class="tag">Required</div>
+                </div>
+            </div>
+
+            <div class="opinion-card">
+                <div class="card-header-bar bar-purple"></div>
+                <div class="editing-indicator"></div>
+                <div class="card-meta">
+                    <div class="avatar avatar-purple">LS</div>
+                    <span>Lisa S. · Manager · Just now</span>
+                </div>
+                <div class="card-title">Member Experience Features</div>
+                <div class="card-content">
+                    Priority on equipment with digital tracking, adjustable seats, and intuitive controls for better member satisfaction.
+                </div>
+                <div class="tag-list">
+                    <div class="tag">UX</div>
+                    <div class="tag">Technology</div>
+                    <div class="tag">Nice-to-have</div>
+                </div>
+            </div>
+
+            <div class="opinion-card">
+                <div class="card-header-bar bar-green"></div>
+                <div class="editing-indicator"></div>
+                <div class="card-meta">
+                    <div class="avatar avatar-green">SO</div>
+                    <span>Sam O. · Safety · 1 min ago</span>
+                </div>
+                <div class="card-title">Maintenance & Durability</div>
+                <div class="card-content">
+                    Focus on commercial-grade equipment with accessible service points, common replacement parts, and proven reliability.
+                </div>
+                <div class="tag-list">
+                    <div class="tag">Maintenance</div>
+                    <div class="tag">Cost</div>
+                    <div class="tag">Long-term</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

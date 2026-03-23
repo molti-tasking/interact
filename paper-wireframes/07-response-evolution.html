@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Response Evolution Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #f5f7fa 0%, #e8ecf1 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            width: 1200px;
+            height: 800px;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
+            padding: 48px;
+            overflow-y: auto;
+        }
+        .header {
+            margin-bottom: 40px;
+        }
+        .header h1 {
+            font-size: 32px;
+            color: #1a202c;
+            margin-bottom: 8px;
+        }
+        .header p {
+            font-size: 16px;
+            color: #718096;
+        }
+        .cards-grid {
+            display: grid;
+            gap: 24px;
+        }
+        .suggestion-card {
+            background: white;
+            border: 2px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 28px;
+            transition: all 0.3s;
+            position: relative;
+            overflow: hidden;
+        }
+        .suggestion-card:hover {
+            border-color: #cbd5e0;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+            transform: translateY(-2px);
+        }
+        .card-header {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            margin-bottom: 16px;
+        }
+        .card-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            flex-shrink: 0;
+        }
+        .icon-remove {
+            background: linear-gradient(135deg, #fee 0%, #fcc 100%);
+        }
+        .icon-convert {
+            background: linear-gradient(135deg, #ddf 0%, #bbf 100%);
+        }
+        .icon-optional {
+            background: linear-gradient(135deg, #ffe 0%, #ffc 100%);
+        }
+        .card-content {
+            flex: 1;
+            margin-left: 20px;
+        }
+        .card-stat {
+            font-size: 28px;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+        .stat-remove { color: #e53e3e; }
+        .stat-convert { color: #5a67d8; }
+        .stat-optional { color: #d69e2e; }
+        .card-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #2d3748;
+            margin-bottom: 8px;
+        }
+        .card-description {
+            font-size: 14px;
+            color: #718096;
+            line-height: 1.6;
+        }
+        .card-actions {
+            display: flex;
+            gap: 12px;
+            margin-top: 20px;
+        }
+        .btn {
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: none;
+            font-family: inherit;
+        }
+        .btn-primary {
+            background: #4c51bf;
+            color: white;
+        }
+        .btn-primary:hover {
+            background: #434190;
+        }
+        .btn-secondary {
+            background: #edf2f7;
+            color: #4a5568;
+        }
+        .btn-secondary:hover {
+            background: #e2e8f0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Schema Evolution Suggestions</h1>
+            <p>Based on 1,247 responses collected over the past 30 days</p>
+        </div>
+
+        <div class="cards-grid">
+            <div class="suggestion-card">
+                <div class="card-header">
+                    <div class="card-icon icon-remove">🗑️</div>
+                    <div class="card-content">
+                        <div class="card-stat stat-remove">87%</div>
+                        <div class="card-title">Remove "Fax Number" field</div>
+                        <div class="card-description">
+                            Most respondents write "N/A" or leave it blank. Only 13% provide a valid fax number. Consider removing this field to reduce form friction.
+                        </div>
+                        <div class="card-actions">
+                            <button class="btn btn-primary">Remove Field</button>
+                            <button class="btn btn-secondary">Keep Field</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="suggestion-card">
+                <div class="card-header">
+                    <div class="card-icon icon-convert">🔄</div>
+                    <div class="card-content">
+                        <div class="card-stat stat-convert">89%</div>
+                        <div class="card-title">Convert "Training Focus" to select menu</div>
+                        <div class="card-description">
+                            Free-text responses cluster into 5 distinct categories: Strength (34%), Hypertrophy (28%), Endurance (18%), General Fitness (12%), Sport-Specific (8%). Convert to dropdown for consistency.
+                        </div>
+                        <div class="card-actions">
+                            <button class="btn btn-primary">Convert to Select</button>
+                            <button class="btn btn-secondary">Keep Free Text</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="suggestion-card">
+                <div class="card-header">
+                    <div class="card-icon icon-optional">⚠️</div>
+                    <div class="card-content">
+                        <div class="card-stat stat-optional">12%</div>
+                        <div class="card-title">Make "Instagram Handle" optional</div>
+                        <div class="card-description">
+                            12% of respondents abandon the form at this field. Making it optional could improve completion rate. Current validation requires a value.
+                        </div>
+                        <div class="card-actions">
+                            <button class="btn btn-primary">Make Optional</button>
+                            <button class="btn btn-secondary">Keep Required</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
