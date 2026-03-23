@@ -3,218 +3,197 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Standards + Derivation — Malleable Forms</title>
+<title>Standards Derivation — Malleable Forms</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f8f9fa; color: #1a1a2e; }
   .app-container { width: 1200px; height: 800px; margin: 20px auto; background: #fff; border-radius: 12px; box-shadow: 0 2px 20px rgba(0,0,0,0.08); display: flex; flex-direction: column; overflow: hidden; }
   
-  .topbar { padding: 16px 24px; border-bottom: 1px solid #eee; display: flex; align-items: center; justify-content: space-between; }
-  .topbar h1 { font-size: 18px; font-weight: 600; }
-  .topbar-badge { font-size: 12px; background: #d1fae5; color: #059669; padding: 4px 10px; border-radius: 12px; font-weight: 500; }
+  .main-content { flex: 1; padding: 32px; overflow-y: auto; display: flex; flex-direction: column; gap: 32px; }
   
-  .content { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+  /* Base Schema */
+  .schema-box { background: #fff; border: 2px solid #e0e0e0; border-radius: 12px; padding: 20px; position: relative; }
+  .schema-box.base { border-color: #7c3aed; box-shadow: 0 4px 16px rgba(124,58,237,0.12); }
   
-  /* Top: Base Schema */
-  .base-section { padding: 20px 24px; border-bottom: 2px solid #e5e7eb; background: #fafbfc; }
-  .section-header { font-size: 13px; color: #888; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
-  .fhir-badge { font-size: 10px; background: #d1fae5; color: #059669; padding: 2px 8px; border-radius: 8px; font-weight: 600; }
+  .schema-header { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+  .schema-title { font-size: 16px; font-weight: 700; color: #1a1a2e; }
+  .schema-label { font-size: 10px; color: #888; background: #f0f0f0; padding: 4px 10px; border-radius: 6px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; }
+  .schema-label.base { background: #ede9fe; color: #7c3aed; }
+  .schema-label.super { background: #dbeafe; color: #2563eb; }
+  .schema-label.sub { background: #d1fae5; color: #16a34a; }
   
-  .schema-fields { display: flex; flex-wrap: wrap; gap: 10px; }
-  .field-chip { display: inline-flex; align-items: center; gap: 6px; padding: 8px 12px; background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; font-size: 12px; color: #444; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
-  .field-chip .compliance-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
-  .field-chip .compliance-dot.full { background: #10b981; }
-  .field-chip .compliance-dot.partial { background: #fbbf24; }
+  .field-list { display: flex; flex-direction: column; gap: 8px; }
+  .field-item { display: flex; align-items: center; gap: 10px; padding: 10px 14px; background: #fafafa; border: 1px solid #e8e8e8; border-radius: 8px; font-size: 13px; }
+  .field-name { flex: 1; color: #333; font-weight: 500; }
   
-  /* Bottom: Derived Schemas */
-  .derived-section { flex: 1; display: flex; overflow: hidden; }
-  .derived-panel { flex: 1; padding: 20px; display: flex; flex-direction: column; position: relative; }
-  .derived-panel:first-child { border-right: 1px solid #eee; }
+  .compliance-dot { width: 12px; height: 12px; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.2); }
+  .compliance-dot.full { background: #4ade80; }
+  .compliance-dot.partial { background: #fbbf24; }
   
-  .derived-header { font-size: 13px; color: #888; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
-  .derived-type { font-size: 10px; background: #e0e7ff; color: #4f46e5; padding: 2px 8px; border-radius: 8px; font-weight: 600; }
-  .derived-type.sub { background: #fef3c7; color: #d97706; }
+  .field-badge { font-size: 10px; padding: 3px 8px; border-radius: 5px; font-weight: 600; }
+  .field-badge.added { background: #dbeafe; color: #2563eb; }
+  .field-badge.simplified { background: #d1fae5; color: #16a34a; }
   
-  .derived-fields { display: flex; flex-direction: column; gap: 8px; }
-  .derived-field { display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: #fafafa; border: 1px solid #e5e7eb; border-radius: 8px; font-size: 12px; color: #444; }
-  .derived-field.new { background: #dbeafe; border-color: #60a5fa; color: #1e40af; }
-  .derived-field.inherited { background: #fff; }
-  .derived-field .field-name { flex: 1; }
-  .derived-field .badge { font-size: 9px; padding: 2px 6px; border-radius: 6px; font-weight: 600; }
-  .derived-field .badge.new { background: #3b82f6; color: #fff; }
-  .derived-field .badge.inherited { background: #e5e7eb; color: #666; }
+  /* Derived Schemas Grid */
+  .derived-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; position: relative; }
   
   /* Connection Lines */
-  .connection-svg { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 0; }
-  .connection-line { stroke: #94a3b8; stroke-width: 1.5; fill: none; stroke-dasharray: 4 3; }
+  .connection-indicator { position: absolute; top: -20px; left: 50%; transform: translateX(-50%); font-size: 24px; color: #d0d0d0; }
   
-  .annotation-bar { padding: 12px 24px; background: #f8f9fa; border-top: 1px solid #eee; font-size: 12px; color: #666; }
+  .derived-arrow { position: absolute; left: 0; right: 0; top: -32px; height: 32px; display: flex; align-items: center; justify-content: center; }
+  .derived-arrow::before { content: ''; position: absolute; top: 0; left: 50%; width: 2px; height: 16px; background: linear-gradient(180deg, #7c3aed 0%, #d0d0d0 100%); }
+  .derived-arrow::after { content: '▼'; position: absolute; bottom: 4px; color: #d0d0d0; font-size: 14px; }
+  
+  .split-arrows { display: flex; justify-content: space-around; margin-bottom: 8px; }
+  .split-arrow { width: 2px; height: 20px; background: linear-gradient(180deg, #7c3aed 0%, #d0d0d0 100%); position: relative; }
+  .split-arrow::after { content: '▼'; position: absolute; bottom: -6px; left: 50%; transform: translateX(-50%); color: #d0d0d0; font-size: 12px; }
+  
+  /* Bottom Annotation */
+  .annotation-bar { background: linear-gradient(90deg, #4338ca 0%, #7c3aed 100%); color: #fff; padding: 12px 24px; display: flex; align-items: center; gap: 12px; font-size: 13px; }
+  .annotation-bar .icon { font-size: 16px; }
+  .annotation-bar .label { font-weight: 500; }
+  .annotation-bar .principle { opacity: 0.9; }
 </style>
 </head>
 <body>
   <div class="app-container">
-    <div class="topbar">
-      <h1>Orthopedic Patient Records</h1>
-      <span class="topbar-badge">FHIR Compliant</span>
-    </div>
-    
-    <div class="content">
-      <!-- Top: Base Schema -->
-      <div class="base-section">
-        <div class="section-header">
-          <span>Base Schema</span>
-          <span class="fhir-badge">FHIR HL7</span>
+    <div class="main-content">
+      <!-- Base Schema -->
+      <div class="schema-box base">
+        <div class="schema-header">
+          <div class="schema-title">Orthopedic Patient Records</div>
+          <div class="schema-label base">Base Schema</div>
         </div>
-        <div class="schema-fields">
-          <div class="field-chip">
-            <span class="compliance-dot full"></span>
-            <span>Patient Name</span>
+        
+        <div class="field-list">
+          <div class="field-item">
+            <div class="field-name">Patient ID</div>
+            <div class="compliance-dot full" title="FHIR: Full compliance"></div>
           </div>
-          <div class="field-chip">
-            <span class="compliance-dot full"></span>
-            <span>Date of Birth</span>
+          <div class="field-item">
+            <div class="field-name">Full Name</div>
+            <div class="compliance-dot full" title="FHIR: Full compliance"></div>
           </div>
-          <div class="field-chip">
-            <span class="compliance-dot full"></span>
-            <span>Medical Record Number</span>
+          <div class="field-item">
+            <div class="field-name">Date of Birth</div>
+            <div class="compliance-dot full" title="FHIR: Full compliance"></div>
           </div>
-          <div class="field-chip">
-            <span class="compliance-dot full"></span>
-            <span>Diagnosis Code (ICD-10)</span>
+          <div class="field-item">
+            <div class="field-name">Primary Diagnosis</div>
+            <div class="compliance-dot partial" title="FHIR: Partial compliance"></div>
           </div>
-          <div class="field-chip">
-            <span class="compliance-dot full"></span>
-            <span>Treatment Plan</span>
+          <div class="field-item">
+            <div class="field-name">Treatment Plan</div>
+            <div class="compliance-dot partial" title="FHIR: Partial compliance"></div>
           </div>
-          <div class="field-chip">
-            <span class="compliance-dot partial"></span>
-            <span>Allergies</span>
-          </div>
-          <div class="field-chip">
-            <span class="compliance-dot full"></span>
-            <span>Medications</span>
-          </div>
-          <div class="field-chip">
-            <span class="compliance-dot partial"></span>
-            <span>Visit Date</span>
+          <div class="field-item">
+            <div class="field-name">Medications</div>
+            <div class="compliance-dot full" title="FHIR: Full compliance"></div>
           </div>
         </div>
       </div>
       
-      <!-- Bottom: Derived Schemas -->
-      <div class="derived-section">
-        <svg class="connection-svg">
-          <!-- Lines connecting inherited fields -->
-          <line class="connection-line" x1="25%" y1="0" x2="25%" y2="80" />
-          <line class="connection-line" x1="25%" y1="0" x2="75%" y2="80" />
-          <line class="connection-line" x1="25%" y1="120" x2="75%" y2="120" />
-          <line class="connection-line" x1="25%" y1="160" x2="75%" y2="160" />
-        </svg>
-        
-        <!-- Left: Surgeon View (Super-schema) -->
-        <div class="derived-panel">
-          <div class="derived-header">
-            <span>Surgeon View</span>
-            <span class="derived-type">Super-schema</span>
+      <!-- Split Arrows -->
+      <div class="split-arrows">
+        <div class="split-arrow"></div>
+        <div class="split-arrow"></div>
+      </div>
+      
+      <!-- Derived Schemas -->
+      <div class="derived-grid">
+        <!-- Surgeon View (Super-Schema) -->
+        <div class="schema-box">
+          <div class="schema-header">
+            <div class="schema-title">Surgeon View</div>
+            <div class="schema-label super">Super-Schema</div>
           </div>
-          <div class="derived-fields">
-            <div class="derived-field inherited">
-              <span class="compliance-dot full"></span>
-              <span class="field-name">Patient Name</span>
-              <span class="badge inherited">inherited</span>
+          
+          <div class="field-list">
+            <div class="field-item">
+              <div class="field-name">Patient ID</div>
+              <div class="compliance-dot full"></div>
             </div>
-            <div class="derived-field inherited">
-              <span class="compliance-dot full"></span>
-              <span class="field-name">Medical Record Number</span>
-              <span class="badge inherited">inherited</span>
+            <div class="field-item">
+              <div class="field-name">Full Name</div>
+              <div class="compliance-dot full"></div>
             </div>
-            <div class="derived-field inherited">
-              <span class="compliance-dot full"></span>
-              <span class="field-name">Diagnosis Code (ICD-10)</span>
-              <span class="badge inherited">inherited</span>
+            <div class="field-item">
+              <div class="field-name">Date of Birth</div>
+              <div class="compliance-dot full"></div>
             </div>
-            <div class="derived-field new">
-              <span class="compliance-dot full"></span>
-              <span class="field-name">Surgical Procedure Code</span>
-              <span class="badge new">new</span>
+            <div class="field-item">
+              <div class="field-name">Primary Diagnosis</div>
+              <div class="compliance-dot partial"></div>
             </div>
-            <div class="derived-field new">
-              <span class="compliance-dot full"></span>
-              <span class="field-name">Anesthesia Type</span>
-              <span class="badge new">new</span>
+            <div class="field-item">
+              <div class="field-name">Treatment Plan</div>
+              <div class="compliance-dot partial"></div>
             </div>
-            <div class="derived-field new">
-              <span class="compliance-dot partial"></span>
-              <span class="field-name">Implant Serial Numbers</span>
-              <span class="badge new">new</span>
+            <div class="field-item">
+              <div class="field-name">Medications</div>
+              <div class="compliance-dot full"></div>
             </div>
-            <div class="derived-field inherited">
-              <span class="compliance-dot full"></span>
-              <span class="field-name">Treatment Plan</span>
-              <span class="badge inherited">inherited</span>
+            <div class="field-item" style="border-left: 3px solid #2563eb; background: #eff6ff;">
+              <div class="field-name">Surgical History</div>
+              <div class="field-badge added">ADDED</div>
             </div>
-            <div class="derived-field new">
-              <span class="compliance-dot full"></span>
-              <span class="field-name">Post-Op Instructions</span>
-              <span class="badge new">new</span>
+            <div class="field-item" style="border-left: 3px solid #2563eb; background: #eff6ff;">
+              <div class="field-name">Imaging Results (X-ray, MRI)</div>
+              <div class="field-badge added">ADDED</div>
             </div>
-            <div class="derived-field inherited">
-              <span class="compliance-dot full"></span>
-              <span class="field-name">Medications</span>
-              <span class="badge inherited">inherited</span>
+            <div class="field-item" style="border-left: 3px solid #2563eb; background: #eff6ff;">
+              <div class="field-name">Post-Op Notes</div>
+              <div class="field-badge added">ADDED</div>
             </div>
           </div>
         </div>
         
-        <!-- Right: Patient Portal (Sub-schema) -->
-        <div class="derived-panel">
-          <div class="derived-header">
-            <span>Patient Portal</span>
-            <span class="derived-type sub">Sub-schema</span>
+        <!-- Patient Portal (Sub-Schema) -->
+        <div class="schema-box">
+          <div class="schema-header">
+            <div class="schema-title">Patient Portal</div>
+            <div class="schema-label sub">Sub-Schema</div>
           </div>
-          <div class="derived-fields">
-            <div class="derived-field inherited">
-              <span class="compliance-dot full"></span>
-              <span class="field-name">Patient Name</span>
-              <span class="badge inherited">inherited</span>
+          
+          <div class="field-list">
+            <div class="field-item">
+              <div class="field-name">Name</div>
+              <div class="compliance-dot full"></div>
+              <div class="field-badge simplified">Simplified</div>
             </div>
-            <div class="derived-field inherited">
-              <span class="compliance-dot full"></span>
-              <span class="field-name">Date of Birth</span>
-              <span class="badge inherited">inherited</span>
+            <div class="field-item">
+              <div class="field-name">Birth Date</div>
+              <div class="compliance-dot full"></div>
+              <div class="field-badge simplified">Simplified</div>
             </div>
-            <div class="derived-field inherited">
-              <span class="compliance-dot full"></span>
-              <span class="field-name">Diagnosis (Simplified)</span>
-              <span class="badge inherited">inherited</span>
+            <div class="field-item">
+              <div class="field-name">Condition</div>
+              <div class="compliance-dot partial"></div>
+              <div class="field-badge simplified">Simplified</div>
             </div>
-            <div class="derived-field inherited">
-              <span class="compliance-dot full"></span>
-              <span class="field-name">Treatment Plan Summary</span>
-              <span class="badge inherited">inherited</span>
+            <div class="field-item">
+              <div class="field-name">Care Plan</div>
+              <div class="compliance-dot partial"></div>
+              <div class="field-badge simplified">Simplified</div>
             </div>
-            <div class="derived-field inherited">
-              <span class="compliance-dot partial"></span>
-              <span class="field-name">Allergies</span>
-              <span class="badge inherited">inherited</span>
+            <div class="field-item">
+              <div class="field-name">Current Medications</div>
+              <div class="compliance-dot full"></div>
             </div>
-            <div class="derived-field inherited">
-              <span class="compliance-dot full"></span>
-              <span class="field-name">Medications</span>
-              <span class="badge inherited">inherited</span>
-            </div>
-            <div class="derived-field inherited">
-              <span class="compliance-dot partial"></span>
-              <span class="field-name">Next Appointment</span>
-              <span class="badge inherited">inherited</span>
-            </div>
+          </div>
+          
+          <div style="margin-top: 12px; padding: 12px; background: #fef3c7; border-radius: 8px; font-size: 11px; color: #92400e; line-height: 1.5;">
+            <strong>Note:</strong> Patient ID hidden for privacy. Technical terminology simplified for patient-facing interface.
           </div>
         </div>
       </div>
     </div>
     
+    <!-- Bottom Annotation -->
     <div class="annotation-bar">
-      <strong>Teaser Figure 3:</strong> Standards compliance (FHIR) propagates automatically through derivation—extending the base schema for surgeons or simplifying it for patients maintains compliance for all shared fields.
+      <span class="icon">🔗</span>
+      <span class="label">Active Principle:</span>
+      <span class="principle">Standards-Aware Derivation — FHIR compliance inherited and preserved across schema extensions</span>
     </div>
   </div>
 </body>
