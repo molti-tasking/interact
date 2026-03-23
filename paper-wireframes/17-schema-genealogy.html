@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Schema Genealogy Graph — Malleable Forms</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f8f9fa; color: #1a1a2e; }
+  .app-container { width: 1200px; height: 800px; margin: 20px auto; background: #fff; border-radius: 12px; box-shadow: 0 2px 20px rgba(0,0,0,0.08); display: flex; flex-direction: column; overflow: hidden; }
+  
+  /* Topbar */
+  .topbar { padding: 16px 24px; border-bottom: 1px solid #eee; display: flex; align-items: center; justify-content: space-between; }
+  .topbar h1 { font-size: 18px; font-weight: 600; }
+  .graph-controls { display: flex; gap: 8px; }
+  .control-btn { padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: 500; cursor: pointer; border: 1px solid #e8e8e8; background: #fff; }
+  .control-btn.active { border-color: #4338ca; background: #eef2ff; color: #4338ca; }
+  
+  /* Graph container */
+  .graph-container { flex: 1; position: relative; background: linear-gradient(#f8f9fa 1px, transparent 1px), linear-gradient(90deg, #f8f9fa 1px, transparent 1px); background-size: 40px 40px; overflow: hidden; }
+  
+  /* Nodes */
+  .node { position: absolute; background: #fff; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); padding: 14px 16px; min-width: 180px; cursor: pointer; transition: all 0.2s; }
+  .node:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.15); transform: translateY(-2px); }
+  .node.base { border: 2px solid #4338ca; }
+  .node.derived { border: 2px solid #7c3aed; }
+  .node.shared { border: 2px solid #059669; }
+  .node-icon { font-size: 20px; margin-bottom: 6px; }
+  .node-title { font-size: 14px; font-weight: 600; color: #333; margin-bottom: 4px; }
+  .node-type { font-size: 11px; color: #888; text-transform: uppercase; letter-spacing: 0.5px; }
+  .node-stats { font-size: 11px; color: #666; margin-top: 6px; padding-top: 6px; border-top: 1px solid #f0f0f0; }
+  
+  /* Edges/Connections */
+  .edge { position: absolute; pointer-events: none; }
+  .edge-line { stroke-width: 2; fill: none; }
+  .edge-line.derives { stroke: #7c3aed; stroke-dasharray: 5, 3; }
+  .edge-line.shares { stroke: #059669; }
+  .edge-line.extends { stroke: #4338ca; }
+  .edge-label { font-size: 10px; fill: #888; font-weight: 600; }
+  
+  /* Legend */
+  .legend { position: absolute; bottom: 20px; left: 20px; background: #fff; border-radius: 10px; box-shadow: 0 2px 12px rgba(0,0,0,0.1); padding: 14px 16px; }
+  .legend-title { font-size: 12px; font-weight: 600; color: #333; margin-bottom: 10px; }
+  .legend-item { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; font-size: 12px; color: #666; }
+  .legend-line { width: 24px; height: 2px; }
+  .legend-box { width: 16px; height: 16px; border-radius: 4px; border: 2px solid; }
+</style>
+</head>
+<body>
+<div class="app-container">
+  <div class="topbar">
+    <h1>Schema Genealogy · Organization View</h1>
+    <div class="graph-controls">
+      <button class="control-btn active">All Portfolios</button>
+      <button class="control-btn">Base Only</button>
+      <button class="control-btn">Derived Only</button>
+      <button class="control-btn">Shared Dimensions</button>
+    </div>
+  </div>
+  
+  <div class="graph-container">
+    <!-- SVG for edges -->
+    <svg style="position:absolute; width:100%; height:100%; pointer-events:none;">
+      <!-- Base to Derived edges -->
+      <path class="edge-line extends" d="M 240 140 L 460 220" />
+      <path class="edge-line extends" d="M 240 140 L 460 340" />
+      <path class="edge-line derives" d="M 640 240 L 860 180" />
+      <path class="edge-line derives" d="M 640 360 L 860 300" />
+      
+      <!-- Shared dimension edges -->
+      <path class="edge-line shares" d="M 440 480 L 640 240" />
+      <path class="edge-line shares" d="M 440 480 L 640 360" />
+      <path class="edge-line shares" d="M 440 480 L 860 300" />
+      
+      <!-- Edge labels -->
+      <text class="edge-label" x="350" y="175">extends</text>
+      <text class="edge-label" x="350" y="235">extends</text>
+      <text class="edge-label" x="750" y="205">derives</text>
+      <text class="edge-label" x="750" y="325">derives</text>
+      <text class="edge-label" x="530" y="355">uses</text>
+      <text class="edge-label" x="530" y="415">uses</text>
+      <text class="edge-label" x="640" y="395">uses</text>
+    </svg>
+    
+    <!-- Base Schema Node -->
+    <div class="node base" style="left:120px; top:100px;">
+      <div class="node-icon">🏗️</div>
+      <div class="node-title">Equipment Rental Base</div>
+      <div class="node-type">Base Schema</div>
+      <div class="node-stats">14 fields · 2 derivatives</div>
+    </div>
+    
+    <!-- Derived Nodes from Base -->
+    <div class="node derived" style="left:340px; top:180px;">
+      <div class="node-icon">🚜</div>
+      <div class="node-title">Construction Rental</div>
+      <div class="node-type">Derived View</div>
+      <div class="node-stats">14 base + 8 custom</div>
+    </div>
+    
+    <div class="node derived" style="left:340px; top:300px;">
+      <div class="node-icon">⚡</div>
+      <div class="node-title">Generator Rental</div>
+      <div class="node-type">Derived View</div>
+      <div class="node-stats">14 base + 5 custom</div>
+    </div>
+    
+    <!-- Another Base -->
+    <div class="node base" style="left:120px; top:340px;">
+      <div class="node-icon">🏋️</div>
+      <div class="node-title">Client Intake Base</div>
+      <div class="node-type">Base Schema</div>
+      <div class="node-stats">10 fields · 0 derivatives</div>
+    </div>
+    
+    <!-- Shared Dimension Node -->
+    <div class="node shared" style="left:340px; top:440px;">
+      <div class="node-icon">📦</div>
+      <div class="node-title">Customer Information</div>
+      <div class="node-type">Shared Dimension</div>
+      <div class="node-stats">Used in 5 portfolios</div>
+    </div>
+    
+    <!-- More Derived Nodes -->
+    <div class="node derived" style="left:740px; top:140px;">
+      <div class="node-icon">📊</div>
+      <div class="node-title">Utilization Report</div>
+      <div class="node-type">Derived View</div>
+      <div class="node-stats">From Construction + Analytics</div>
+    </div>
+    
+    <div class="node derived" style="left:740px; top:260px;">
+      <div class="node-icon">💰</div>
+      <div class="node-title">Billing Summary</div>
+      <div class="node-type">Derived View</div>
+      <div class="node-stats">From Generator + Finance</div>
+    </div>
+    
+    <!-- Medical Base -->
+    <div class="node base" style="left:120px; top:560px;">
+      <div class="node-icon">🦴</div>
+      <div class="node-title">Orthopedic Records</div>
+      <div class="node-type">Base Schema</div>
+      <div class="node-stats">18 fields · 1 derivative</div>
+    </div>
+    
+    <!-- Derived from Medical -->
+    <div class="node derived" style="left:340px; top:580px;">
+      <div class="node-icon">📋</div>
+      <div class="node-title">Surgery Planning</div>
+      <div class="node-type">Derived View</div>
+      <div class="node-stats">18 base + 12 custom</div>
+    </div>
+    
+    <!-- Another Shared -->
+    <div class="node shared" style="left:740px; top:480px;">
+      <div class="node-icon">🔒</div>
+      <div class="node-title">Compliance Fields</div>
+      <div class="node-type">Shared Dimension</div>
+      <div class="node-stats">Used in 8 portfolios</div>
+    </div>
+    
+    <!-- Legend -->
+    <div class="legend">
+      <div class="legend-title">Schema Types</div>
+      <div class="legend-item">
+        <div class="legend-box" style="border-color:#4338ca"></div>
+        Base Schema
+      </div>
+      <div class="legend-item">
+        <div class="legend-box" style="border-color:#7c3aed"></div>
+        Derived View
+      </div>
+      <div class="legend-item">
+        <div class="legend-box" style="border-color:#059669"></div>
+        Shared Dimension
+      </div>
+      <div style="margin-top:10px; margin-bottom:6px; font-size:12px; font-weight:600; color:#333;">Relationships</div>
+      <div class="legend-item">
+        <div class="legend-line" style="background:#4338ca"></div>
+        Extends
+      </div>
+      <div class="legend-item">
+        <div class="legend-line" style="background:#7c3aed; height:2px; background-image:repeating-linear-gradient(90deg, #7c3aed 0, #7c3aed 5px, transparent 5px, transparent 8px)"></div>
+        Derives
+      </div>
+      <div class="legend-item">
+        <div class="legend-line" style="background:#059669"></div>
+        Shares
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

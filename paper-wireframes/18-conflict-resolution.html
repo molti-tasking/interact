@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Conflict Resolution Workspace — Malleable Forms</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f8f9fa; color: #1a1a2e; }
+  .app-container { width: 1200px; height: 800px; margin: 20px auto; background: #fff; border-radius: 12px; box-shadow: 0 2px 20px rgba(0,0,0,0.08); display: flex; flex-direction: column; overflow: hidden; }
+  
+  /* Topbar */
+  .topbar { padding: 16px 24px; border-bottom: 1px solid #eee; background: #fffbeb; display: flex; align-items: center; gap: 12px; }
+  .conflict-icon { width: 36px; height: 36px; background: #d97706; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 18px; }
+  .conflict-info { flex: 1; }
+  .conflict-title { font-size: 16px; font-weight: 700; color: #92400e; }
+  .conflict-subtitle { font-size: 12px; color: #78350f; margin-top: 2px; }
+  
+  /* Content */
+  .content { flex: 1; display: flex; overflow: hidden; }
+  
+  /* Left: Base Schema Changes */
+  .left-panel { flex: 1; padding: 24px; border-right: 1px solid #eee; overflow-y: auto; }
+  .left-panel h3 { font-size: 14px; color: #888; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 16px; }
+  .schema-version { background: #f0f0f0; padding: 8px 12px; border-radius: 6px; font-size: 12px; color: #555; margin-bottom: 16px; display: inline-block; }
+  
+  /* Right: Derived View Impact */
+  .right-panel { flex: 1; padding: 24px; overflow-y: auto; }
+  .right-panel h3 { font-size: 14px; color: #888; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 16px; }
+  
+  /* Change items */
+  .change-card { background: #fff; border: 1px solid #e2e2e2; border-radius: 10px; padding: 14px; margin-bottom: 12px; }
+  .change-card.conflict { border-color: #d97706; background: #fffbeb; }
+  .change-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+  .change-type-badge { font-size: 11px; padding: 4px 10px; border-radius: 6px; font-weight: 600; text-transform: uppercase; }
+  .change-type-badge.modified { background: #fef3c7; color: #d97706; }
+  .change-type-badge.removed { background: #fee2e2; color: #dc2626; }
+  .change-type-badge.added { background: #d1fae5; color: #059669; }
+  .field-name-code { font-family: 'Monaco', monospace; font-size: 13px; color: #4338ca; font-weight: 600; }
+  .change-desc { font-size: 13px; color: #666; line-height: 1.5; margin-bottom: 8px; }
+  .conflict-marker { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #d97706; font-weight: 600; margin-top: 8px; padding: 8px; background: #fef3c7; border-radius: 6px; }
+  
+  /* Side-by-side diff */
+  .diff-container { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 12px 0; }
+  .diff-side { padding: 10px 12px; border-radius: 8px; font-size: 12px; }
+  .diff-side.old { background: #fee2e2; border-left: 3px solid #dc2626; }
+  .diff-side.new { background: #d1fae5; border-left: 3px solid #059669; }
+  .diff-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 700; color: #888; margin-bottom: 6px; }
+  .diff-value { font-family: 'Monaco', monospace; color: #333; }
+  
+  /* Resolution Actions */
+  .resolution-panel { border-top: 1px solid #eee; padding: 20px 24px; background: #fafafa; }
+  .resolution-panel h3 { font-size: 14px; color: #888; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 14px; }
+  .resolution-options { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+  .resolution-btn { padding: 12px 16px; border-radius: 8px; font-size: 13px; font-weight: 600; text-align: center; cursor: pointer; border: 2px solid; transition: all 0.2s; }
+  .resolution-btn:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+  .btn-keep-base { background: #eef2ff; color: #4338ca; border-color: #4338ca; }
+  .btn-keep-derived { background: #faf5ff; color: #7c3aed; border-color: #7c3aed; }
+  .btn-merge { background: #d1fae5; color: #059669; border-color: #059669; }
+  .btn-fork { background: #fef3c7; color: #d97706; border-color: #d97706; }
+  .btn-desc { font-size: 11px; font-weight: 400; color: #666; margin-top: 4px; }
+</style>
+</head>
+<body>
+<div class="app-container">
+  <div class="topbar">
+    <div class="conflict-icon">⚠️</div>
+    <div class="conflict-info">
+      <div class="conflict-title">Schema Conflict Detected</div>
+      <div class="conflict-subtitle">Base schema "Equipment Rental" changed · Derived view "Construction Rental" may break</div>
+    </div>
+  </div>
+  
+  <div class="content">
+    <!-- Left: Base Schema -->
+    <div class="left-panel">
+      <h3>Base Schema Changes</h3>
+      <div class="schema-version">Equipment Rental v2.3 → v2.4</div>
+      
+      <div class="change-card">
+        <div class="change-header">
+          <span class="field-name-code">rentalPeriod</span>
+          <span class="change-type-badge modified">Modified</span>
+        </div>
+        <div class="change-desc">
+          Field type changed from single date range to multi-period array to support interrupted rentals.
+        </div>
+        <div class="diff-container">
+          <div class="diff-side old">
+            <div class="diff-label">Before (v2.3)</div>
+            <div class="diff-value">
+              rentalPeriod: {<br>
+              &nbsp;&nbsp;start: Date,<br>
+              &nbsp;&nbsp;end: Date<br>
+              }
+            </div>
+          </div>
+          <div class="diff-side new">
+            <div class="diff-label">After (v2.4)</div>
+            <div class="diff-value">
+              rentalPeriods: [{<br>
+              &nbsp;&nbsp;start: Date,<br>
+              &nbsp;&nbsp;end: Date<br>
+              }]
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <div class="change-card">
+        <div class="change-header">
+          <span class="field-name-code">deliveryFee</span>
+          <span class="change-type-badge removed">Removed</span>
+        </div>
+        <div class="change-desc">
+          Field removed from base schema. Delivery pricing now handled by separate pricing module.
+        </div>
+      </div>
+      
+      <div class="change-card">
+        <div class="change-header">
+          <span class="field-name-code">insuranceTier</span>
+          <span class="change-type-badge added">Added</span>
+        </div>
+        <div class="change-desc">
+          New required field for standardized insurance coverage levels across all rental types.
+        </div>
+      </div>
+    </div>
+    
+    <!-- Right: Derived View Impact -->
+    <div class="right-panel">
+      <h3>Impact on "Construction Rental"</h3>
+      <div class="schema-version">Construction Rental v1.8 (derived from Equipment Rental v2.3)</div>
+      
+      <div class="change-card conflict">
+        <div class="change-header">
+          <span class="field-name-code">rentalPeriod</span>
+          <span class="change-type-badge modified">Conflict</span>
+        </div>
+        <div class="change-desc">
+          Derived view adds custom validation: "Construction rentals must be minimum 7 days". This constraint is incompatible with multi-period array structure.
+        </div>
+        <div class="conflict-marker">
+          💥 Breaking change: Custom validation logic will fail with array structure
+        </div>
+      </div>
+      
+      <div class="change-card conflict">
+        <div class="change-header">
+          <span class="field-name-code">deliveryFee</span>
+          <span class="change-type-badge removed">Conflict</span>
+        </div>
+        <div class="change-desc">
+          Derived view has calculated field: "totalCost = baseFee + deliveryFee + fuelSurcharge". Removing deliveryFee breaks this calculation.
+        </div>
+        <div class="conflict-marker">
+          💥 Breaking change: totalCost calculation references removed field
+        </div>
+      </div>
+      
+      <div class="change-card">
+        <div class="change-header">
+          <span class="field-name-code">insuranceTier</span>
+          <span class="change-type-badge added">Compatible</span>
+        </div>
+        <div class="change-desc">
+          New field can be added to derived view without conflicts. Construction rentals can inherit or override default tiers.
+        </div>
+      </div>
+      
+      <div class="change-card conflict">
+        <div class="change-header">
+          <span class="field-name-code">machineWeight</span>
+          <span class="change-type-badge modified">Conflict</span>
+        </div>
+        <div class="change-desc">
+          Derived view overrides field with enum: ["Light", "Medium", "Heavy"]. Base now uses precise numeric weight in tons. Type mismatch.
+        </div>
+        <div class="conflict-marker">
+          💥 Breaking change: Type incompatibility between base and derived
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Resolution Panel -->
+  <div class="resolution-panel">
+    <h3>Choose Resolution Strategy</h3>
+    <div class="resolution-options">
+      <div class="resolution-btn btn-keep-base">
+        <div>Keep Base Changes</div>
+        <div class="btn-desc">Update derived to match</div>
+      </div>
+      <div class="resolution-btn btn-keep-derived">
+        <div>Keep Derived</div>
+        <div class="btn-desc">Revert base changes</div>
+      </div>
+      <div class="resolution-btn btn-merge">
+        <div>Merge</div>
+        <div class="btn-desc">Manually reconcile</div>
+      </div>
+      <div class="resolution-btn btn-fork">
+        <div>Fork Schema</div>
+        <div class="btn-desc">Create independent copy</div>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

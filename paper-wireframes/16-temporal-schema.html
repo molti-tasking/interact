@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Temporal / Conditional Schema — Malleable Forms</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f8f9fa; color: #1a1a2e; }
+  .app-container { width: 1200px; height: 800px; margin: 20px auto; background: #fff; border-radius: 12px; box-shadow: 0 2px 20px rgba(0,0,0,0.08); display: flex; overflow: hidden; }
+  
+  /* Sidebar */
+  .sidebar { width: 240px; background: #fafafa; border-right: 1px solid #e8e8e8; padding: 20px 16px; }
+  .sidebar h2 { font-size: 13px; color: #888; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 16px; }
+  .portfolio-item { padding: 10px 12px; border-radius: 8px; margin-bottom: 4px; font-size: 14px; cursor: pointer; }
+  .portfolio-item.active { background: #eef2ff; color: #4338ca; font-weight: 600; }
+  .portfolio-item:not(.active) { color: #555; }
+  
+  /* Main content */
+  .main { flex: 1; display: flex; flex-direction: column; }
+  .topbar { padding: 16px 24px; border-bottom: 1px solid #eee; }
+  .topbar h1 { font-size: 18px; font-weight: 600; margin-bottom: 8px; }
+  .timeline-controls { display: flex; gap: 8px; align-items: center; }
+  .view-toggle { padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: 500; cursor: pointer; border: 1px solid #e8e8e8; background: #fff; }
+  .view-toggle.active { border-color: #4338ca; background: #eef2ff; color: #4338ca; }
+  
+  /* Timeline */
+  .timeline-container { flex: 1; padding: 24px; overflow-y: auto; }
+  .timeline-header { display: flex; justify-content: space-between; margin-bottom: 20px; padding: 0 40px; }
+  .timeline-week { font-size: 12px; font-weight: 600; color: #888; text-align: center; }
+  .timeline-week.active { color: #4338ca; }
+  
+  /* Phase rows */
+  .phase-row { margin-bottom: 24px; }
+  .phase-label { font-size: 13px; font-weight: 600; color: #555; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }
+  .phase-duration { font-size: 11px; color: #888; font-weight: 400; background: #f0f0f0; padding: 3px 8px; border-radius: 6px; }
+  .phase-bar-container { position: relative; height: 60px; background: #fafafa; border-radius: 8px; border: 1px solid #e8e8e8; }
+  .phase-bar { position: absolute; top: 8px; bottom: 8px; background: #4338ca; border-radius: 6px; display: flex; align-items: center; padding: 0 12px; color: #fff; font-size: 12px; font-weight: 600; transition: all 0.3s; }
+  .phase-bar.phase1 { left: 0; width: 40%; background: linear-gradient(90deg, #4338ca, #7c3aed); }
+  .phase-bar.phase2 { left: 40%; width: 60%; background: linear-gradient(90deg, #059669, #10b981); }
+  .phase-bar.conditional { background: linear-gradient(90deg, #d97706, #f59e0b); opacity: 0.7; border: 2px dashed #fff; }
+  
+  /* Field groups in timeline */
+  .field-group-timeline { margin-bottom: 16px; }
+  .field-group-header { font-size: 12px; font-weight: 600; color: #333; margin-bottom: 8px; }
+  .field-timeline-row { display: grid; grid-template-columns: 200px 1fr; gap: 16px; margin-bottom: 8px; }
+  .field-name-timeline { font-size: 13px; color: #555; }
+  .field-activation-bar { position: relative; height: 32px; background: #f0f0f0; border-radius: 6px; overflow: hidden; }
+  .activation-segment { position: absolute; top: 0; bottom: 0; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 600; }
+  .segment-active { background: #d1fae5; color: #059669; }
+  .segment-inactive { background: #fee2e2; color: #dc2626; }
+  .segment-conditional { background: #fef3c7; color: #d97706; border: 1px dashed #d97706; }
+  
+  /* Legend */
+  .legend { display: flex; gap: 16px; padding: 16px 24px; border-top: 1px solid #eee; background: #fafafa; }
+  .legend-item { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #666; }
+  .legend-color { width: 20px; height: 12px; border-radius: 4px; }
+</style>
+</head>
+<body>
+<div class="app-container">
+  <!-- Sidebar -->
+  <div class="sidebar">
+    <h2>Portfolios</h2>
+    <div class="portfolio-item">🏗️ Machine Rental Contract</div>
+    <div class="portfolio-item active">🏋️ Fitness Client Intake</div>
+    <div class="portfolio-item">🦴 Orthopedic Records</div>
+  </div>
+
+  <!-- Main -->
+  <div class="main">
+    <div class="topbar">
+      <h1>Fitness Client Intake · Temporal Schema</h1>
+      <div class="timeline-controls">
+        <button class="view-toggle active">Timeline View</button>
+        <button class="view-toggle">Gantt Chart</button>
+        <button class="view-toggle">Condition Tree</button>
+      </div>
+    </div>
+    
+    <div class="timeline-container">
+      <div class="timeline-header">
+        <div class="timeline-week">Week 1-2</div>
+        <div class="timeline-week active">Week 3-4</div>
+        <div class="timeline-week">Week 5-8</div>
+        <div class="timeline-week">Week 9-12</div>
+        <div class="timeline-week">Week 13+</div>
+      </div>
+      
+      <!-- Phase 1: Baseline -->
+      <div class="phase-row">
+        <div class="phase-label">
+          Phase 1: Baseline Assessment
+          <span class="phase-duration">Week 1-4</span>
+        </div>
+        <div class="phase-bar-container">
+          <div class="phase-bar phase1">Baseline Fields Active</div>
+        </div>
+      </div>
+      
+      <div class="field-group-timeline">
+        <div class="field-group-header">Baseline Fields (Always Active)</div>
+        
+        <div class="field-timeline-row">
+          <div class="field-name-timeline">Client Name & Age</div>
+          <div class="field-activation-bar">
+            <div class="activation-segment segment-active" style="left:0; width:100%">Active</div>
+          </div>
+        </div>
+        
+        <div class="field-timeline-row">
+          <div class="field-name-timeline">Training Experience</div>
+          <div class="field-activation-bar">
+            <div class="activation-segment segment-active" style="left:0; width:100%">Active</div>
+          </div>
+        </div>
+        
+        <div class="field-timeline-row">
+          <div class="field-name-timeline">Initial Body Composition</div>
+          <div class="field-activation-bar">
+            <div class="activation-segment segment-active" style="left:0; width:40%">Week 1-4</div>
+            <div class="activation-segment segment-inactive" style="left:40%; width:60%">Inactive</div>
+          </div>
+        </div>
+        
+        <div class="field-timeline-row">
+          <div class="field-name-timeline">Primary Goal</div>
+          <div class="field-activation-bar">
+            <div class="activation-segment segment-active" style="left:0; width:100%">Active</div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Phase 2: Progress Tracking -->
+      <div class="phase-row">
+        <div class="phase-label">
+          Phase 2: Progress Tracking
+          <span class="phase-duration">Week 5+</span>
+        </div>
+        <div class="phase-bar-container">
+          <div class="phase-bar phase2" style="left:40%">Progress Fields Activate</div>
+        </div>
+      </div>
+      
+      <div class="field-group-timeline">
+        <div class="field-group-header">Progress Fields (Activate Week 5)</div>
+        
+        <div class="field-timeline-row">
+          <div class="field-name-timeline">Weekly Weight Change</div>
+          <div class="field-activation-bar">
+            <div class="activation-segment segment-inactive" style="left:0; width:40%">Not Active</div>
+            <div class="activation-segment segment-active" style="left:40%; width:60%">Active Week 5+</div>
+          </div>
+        </div>
+        
+        <div class="field-timeline-row">
+          <div class="field-name-timeline">Strength Progression</div>
+          <div class="field-activation-bar">
+            <div class="activation-segment segment-inactive" style="left:0; width:40%">Not Active</div>
+            <div class="activation-segment segment-active" style="left:40%; width:60%">Active Week 5+</div>
+          </div>
+        </div>
+        
+        <div class="field-timeline-row">
+          <div class="field-name-timeline">Progress Photos</div>
+          <div class="field-activation-bar">
+            <div class="activation-segment segment-inactive" style="left:0; width:40%"></div>
+            <div class="activation-segment segment-active" style="left:40%; width:20%">Week 5-8</div>
+            <div class="activation-segment segment-active" style="left:70%; width:30%">Week 9+</div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Conditional Fields -->
+      <div class="phase-row">
+        <div class="phase-label">
+          Conditional: Competition Prep
+          <span class="phase-duration" style="background:#fef3c7;color:#d97706">If goal = "Competition"</span>
+        </div>
+        <div class="phase-bar-container">
+          <div class="phase-bar conditional" style="left:60%; width:40%">Conditional Fields</div>
+        </div>
+      </div>
+      
+      <div class="field-group-timeline">
+        <div class="field-group-header">Competition-Only Fields</div>
+        
+        <div class="field-timeline-row">
+          <div class="field-name-timeline">Peak Week Protocol</div>
+          <div class="field-activation-bar">
+            <div class="activation-segment segment-inactive" style="left:0; width:80%">Not Active</div>
+            <div class="activation-segment segment-conditional" style="left:80%; width:20%">If competing</div>
+          </div>
+        </div>
+        
+        <div class="field-timeline-row">
+          <div class="field-name-timeline">Stage Weight Target</div>
+          <div class="field-activation-bar">
+            <div class="activation-segment segment-inactive" style="left:0; width:60%">Not Active</div>
+            <div class="activation-segment segment-conditional" style="left:60%; width:40%">If competing</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Legend -->
+    <div class="legend">
+      <div class="legend-item">
+        <div class="legend-color" style="background:#d1fae5"></div>
+        Active
+      </div>
+      <div class="legend-item">
+        <div class="legend-color" style="background:#fee2e2"></div>
+        Inactive
+      </div>
+      <div class="legend-item">
+        <div class="legend-color" style="background:#fef3c7; border:1px dashed #d97706"></div>
+        Conditional
+      </div>
+      <div class="legend-item">
+        <div class="legend-color" style="background:linear-gradient(90deg, #4338ca, #7c3aed)"></div>
+        Phase 1
+      </div>
+      <div class="legend-item">
+        <div class="legend-color" style="background:linear-gradient(90deg, #059669, #10b981)"></div>
+        Phase 2
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>
