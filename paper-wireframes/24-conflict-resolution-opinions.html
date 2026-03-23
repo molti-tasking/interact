@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Opinion-Driven Conflict Resolution — Malleable Forms</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f8f9fa; color: #1a1a2e; }
+  .app-container { width: 1200px; height: 800px; margin: 20px auto; background: #fff; border-radius: 12px; box-shadow: 0 2px 20px rgba(0,0,0,0.08); display: flex; flex-direction: column; overflow: hidden; }
+  
+  /* Alert Banner */
+  .alert-banner { background: linear-gradient(90deg, #fef3c7 0%, #fde68a 100%); border-bottom: 1px solid #fbbf24; padding: 14px 24px; display: flex; align-items: center; gap: 12px; }
+  .alert-icon { font-size: 20px; }
+  .alert-text { flex: 1; }
+  .alert-title { font-size: 15px; font-weight: 600; color: #92400e; }
+  .alert-subtitle { font-size: 13px; color: #78350f; margin-top: 2px; }
+  .alert-action { padding: 8px 16px; background: #fff; border: 1px solid #f59e0b; border-radius: 8px; font-size: 13px; font-weight: 500; color: #92400e; cursor: pointer; }
+  .alert-action:hover { background: #fffbeb; }
+  
+  /* Main Content */
+  .content { flex: 1; padding: 24px; overflow-y: auto; }
+  
+  .conflict-header { margin-bottom: 24px; }
+  .conflict-header h1 { font-size: 20px; font-weight: 600; margin-bottom: 8px; }
+  .conflict-header p { font-size: 14px; color: #666; }
+  
+  /* Conflict Cards */
+  .conflict-card { background: #fff; border: 2px solid #f59e0b; border-radius: 12px; padding: 20px; margin-bottom: 20px; box-shadow: 0 4px 16px rgba(245,158,11,0.1); }
+  
+  .conflict-number { display: inline-block; background: #f59e0b; color: #fff; font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 6px; margin-bottom: 12px; }
+  
+  .conflict-description { font-size: 15px; color: #333; line-height: 1.6; margin-bottom: 16px; }
+  .conflict-description .field-name { font-weight: 600; color: #4338ca; }
+  .conflict-description .change { background: #fef3c7; padding: 2px 6px; border-radius: 4px; }
+  
+  .conflict-options { display: flex; flex-direction: column; gap: 10px; }
+  
+  .option-card { background: #fff; border: 1.5px solid #e0e0e0; border-radius: 10px; padding: 14px 16px; cursor: pointer; transition: all 0.2s; display: flex; align-items: flex-start; gap: 12px; }
+  .option-card:hover { border-color: #7c3aed; background: #faf8ff; }
+  .option-card.recommended { border-color: #059669; background: linear-gradient(135deg, #d1fae5 0%, #ffffff 100%); position: relative; }
+  .option-card.recommended::before { content: 'RECOMMENDED'; position: absolute; top: -8px; right: 16px; background: #059669; color: #fff; font-size: 10px; font-weight: 700; padding: 4px 8px; border-radius: 4px; letter-spacing: 0.5px; }
+  
+  .option-radio { width: 20px; height: 20px; border-radius: 50%; border: 2px solid #ccc; flex-shrink: 0; margin-top: 2px; position: relative; }
+  .option-card:hover .option-radio { border-color: #7c3aed; }
+  .option-card.recommended .option-radio { border-color: #059669; background: #059669; }
+  .option-card.recommended .option-radio::after { content: '✓'; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #fff; font-size: 12px; font-weight: bold; }
+  
+  .option-content { flex: 1; }
+  .option-title { font-size: 14px; font-weight: 600; margin-bottom: 4px; color: #1a1a2e; }
+  .option-card.recommended .option-title { color: #059669; }
+  .option-description { font-size: 12px; color: #666; line-height: 1.4; }
+  
+  .option-impact { font-size: 11px; color: #7c3aed; margin-top: 6px; font-weight: 500; }
+  
+  /* Context Panel */
+  .context-panel { background: #fafafa; border-radius: 10px; padding: 16px; margin-top: 20px; }
+  .context-header { font-size: 12px; color: #888; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px; font-weight: 600; }
+  .context-item { font-size: 13px; color: #555; margin-bottom: 6px; display: flex; align-items: center; gap: 8px; }
+  .context-icon { font-size: 14px; }
+</style>
+</head>
+<body>
+  <div class="app-container">
+    <!-- Alert Banner -->
+    <div class="alert-banner">
+      <div class="alert-icon">⚠️</div>
+      <div class="alert-text">
+        <div class="alert-title">Base schema updated — 2 conflicts in Dispatcher View</div>
+        <div class="alert-subtitle">Resolve conflicts to keep your view synchronized with the base schema</div>
+      </div>
+      <button class="alert-action">Resolve All</button>
+    </div>
+    
+    <!-- Main Content -->
+    <div class="content">
+      <div class="conflict-header">
+        <h1>Conflict Resolution</h1>
+        <p>The base schema has been updated. Review the changes below and choose how to handle conflicts in your view.</p>
+      </div>
+      
+      <!-- Conflict 1 -->
+      <div class="conflict-card">
+        <div class="conflict-number">CONFLICT 1</div>
+        <div class="conflict-description">
+          Base schema added <span class="field-name">'Weight Class'</span> with <span class="change">3 tiers (Light, Medium, Heavy)</span>. Your <strong>Dispatcher View</strong> doesn't include this field yet.
+        </div>
+        
+        <div class="conflict-options">
+          <div class="option-card recommended">
+            <div class="option-radio"></div>
+            <div class="option-content">
+              <div class="option-title">Add simplified version (Light/Heavy only)</div>
+              <div class="option-description">
+                Import the field but simplify to 2 tiers for dispatcher context. This reduces cognitive load while maintaining essential information.
+              </div>
+              <div class="option-impact">✓ Maintains sync • Simplifies for dispatcher workflow</div>
+            </div>
+          </div>
+          
+          <div class="option-card">
+            <div class="option-radio"></div>
+            <div class="option-content">
+              <div class="option-title">Add to Dispatcher view (all 3 tiers)</div>
+              <div class="option-description">
+                Add the complete 'Weight Class' field with all three tiers as defined in the base schema.
+              </div>
+              <div class="option-impact">Full sync with base schema</div>
+            </div>
+          </div>
+          
+          <div class="option-card">
+            <div class="option-radio"></div>
+            <div class="option-content">
+              <div class="option-title">Keep Dispatcher unchanged</div>
+              <div class="option-description">
+                Don't add this field to the Dispatcher view. Your view will remain out of sync with the base.
+              </div>
+              <div class="option-impact">⚠️ View will be out of sync</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Conflict 2 -->
+      <div class="conflict-card">
+        <div class="conflict-number">CONFLICT 2</div>
+        <div class="conflict-description">
+          Base schema renamed <span class="field-name">'Delivery Date'</span> to <span class="change">'Scheduled Delivery'</span>. Your <strong>Dispatcher View</strong> still uses the old name.
+        </div>
+        
+        <div class="conflict-options">
+          <div class="option-card recommended">
+            <div class="option-radio"></div>
+            <div class="option-content">
+              <div class="option-title">Update automatically</div>
+              <div class="option-description">
+                Rename the field to 'Scheduled Delivery' in your view to match the base schema. No data will be lost.
+              </div>
+              <div class="option-impact">✓ Maintains sync • No impact on data</div>
+            </div>
+          </div>
+          
+          <div class="option-card">
+            <div class="option-radio"></div>
+            <div class="option-content">
+              <div class="option-title">Keep old name ('Delivery Date')</div>
+              <div class="option-description">
+                Maintain 'Delivery Date' in your view. The field will map to the base but display with your preferred label.
+              </div>
+              <div class="option-impact">Custom label for your view</div>
+            </div>
+          </div>
+          
+          <div class="option-card">
+            <div class="option-radio"></div>
+            <div class="option-content">
+              <div class="option-title">Review manually</div>
+              <div class="option-description">
+                Open the field editor to review the change and make custom adjustments before deciding.
+              </div>
+              <div class="option-impact">Manual intervention required</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Context Panel -->
+      <div class="context-panel">
+        <div class="context-header">Resolution Context</div>
+        <div class="context-item">
+          <span class="context-icon">📋</span>
+          <span>Base schema last updated: 2 hours ago by Sarah Chen</span>
+        </div>
+        <div class="context-item">
+          <span class="context-icon">👁️</span>
+          <span>Dispatcher View has 3 other users actively using it</span>
+        </div>
+        <div class="context-item">
+          <span class="context-icon">🔄</span>
+          <span>Auto-sync is enabled — changes will propagate immediately</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

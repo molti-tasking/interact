@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Intent-Schema Marketplace — Malleable Forms</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f8f9fa; color: #1a1a2e; }
+  .app-container { width: 1200px; height: 800px; margin: 20px auto; background: #fff; border-radius: 12px; box-shadow: 0 2px 20px rgba(0,0,0,0.08); display: flex; overflow: hidden; }
+  
+  /* Left: Marketplace */
+  .marketplace-panel { width: 520px; background: #fafafa; border-right: 1px solid #e8e8e8; display: flex; flex-direction: column; }
+  
+  .marketplace-header { padding: 20px; border-bottom: 1px solid #e8e8e8; background: #fff; }
+  .marketplace-header h2 { font-size: 18px; font-weight: 600; margin-bottom: 12px; }
+  .search-bar { display: flex; gap: 8px; }
+  .search-input { flex: 1; padding: 10px 14px; border: 1px solid #e0e0e0; border-radius: 10px; font-size: 14px; }
+  .search-input:focus { outline: none; border-color: #7c3aed; }
+  .search-btn { padding: 10px 18px; background: #4338ca; color: #fff; border: none; border-radius: 10px; font-size: 14px; font-weight: 500; cursor: pointer; }
+  
+  .marketplace-fragments { flex: 1; padding: 20px; overflow-y: auto; }
+  
+  .fragment-card { background: #fff; border: 1.5px solid #e0e0e0; border-radius: 12px; padding: 16px; margin-bottom: 14px; cursor: grab; transition: all 0.2s; }
+  .fragment-card:hover { border-color: #7c3aed; box-shadow: 0 4px 16px rgba(124,58,237,0.12); }
+  .fragment-card.dragging { opacity: 0.6; transform: rotate(2deg); cursor: grabbing; }
+  
+  .fragment-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 12px; }
+  .fragment-title { font-size: 15px; font-weight: 600; color: #1a1a2e; }
+  .fragment-usage { font-size: 11px; color: #7c3aed; background: #f3f0ff; padding: 4px 8px; border-radius: 6px; font-weight: 500; }
+  
+  .fragment-intent { font-size: 13px; color: #555; line-height: 1.5; margin-bottom: 12px; padding: 10px; background: #f8f9fa; border-radius: 8px; border-left: 3px solid #7c3aed; }
+  
+  .fragment-fields { display: flex; flex-direction: column; gap: 4px; }
+  .field-pill { font-size: 12px; padding: 6px 10px; background: #eef2ff; color: #4338ca; border-radius: 6px; display: inline-flex; align-items: center; gap: 6px; }
+  .field-type-badge { font-size: 10px; background: #ddd; color: #666; padding: 2px 6px; border-radius: 4px; }
+  
+  /* Right: Current Portfolio */
+  .portfolio-panel { flex: 1; display: flex; flex-direction: column; }
+  
+  .portfolio-header { padding: 20px; border-bottom: 1px solid #e8e8e8; }
+  .portfolio-header h2 { font-size: 18px; font-weight: 600; margin-bottom: 8px; }
+  .portfolio-subtitle { font-size: 13px; color: #666; }
+  
+  .portfolio-content { flex: 1; padding: 20px; overflow-y: auto; }
+  
+  .intent-box { background: linear-gradient(135deg, #faf8ff 0%, #ffffff 100%); border: 1.5px solid #7c3aed; border-radius: 12px; padding: 16px; margin-bottom: 20px; }
+  .intent-box-header { font-size: 12px; color: #7c3aed; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px; font-weight: 600; }
+  .intent-text { font-size: 14px; color: #333; line-height: 1.6; }
+  .intent-text .new-segment { background: linear-gradient(120deg, #a78bfa 0%, #a78bfa 100%); background-repeat: no-repeat; background-size: 100% 30%; background-position: 0 85%; padding: 0 2px; animation: highlight 1.5s ease-in-out; }
+  
+  @keyframes highlight {
+    0% { background-size: 0% 30%; }
+    100% { background-size: 100% 30%; }
+  }
+  
+  .imported-section { border: 2px dashed #7c3aed; border-radius: 12px; padding: 16px; background: linear-gradient(135deg, #faf8ff 0%, #ffffff 100%); animation: merge 0.8s ease-out; }
+  
+  @keyframes merge {
+    0% { opacity: 0; transform: translateY(-20px); }
+    100% { opacity: 1; transform: translateY(0); }
+  }
+  
+  .section-label { font-size: 11px; color: #7c3aed; background: #f3f0ff; padding: 4px 10px; border-radius: 6px; display: inline-block; margin-bottom: 12px; font-weight: 600; }
+  
+  .portfolio-field { background: #fff; border: 1px solid #e0e0e0; border-radius: 10px; padding: 12px; margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between; }
+  .portfolio-field.new { border-color: #7c3aed; background: #faf8ff; }
+  
+  .drop-zone { border: 2px dashed #ccc; border-radius: 12px; padding: 40px; text-align: center; color: #999; font-size: 14px; margin-top: 20px; }
+  .drop-zone.active { border-color: #7c3aed; background: #faf8ff; color: #7c3aed; }
+</style>
+</head>
+<body>
+  <div class="app-container">
+    <!-- Left: Marketplace -->
+    <div class="marketplace-panel">
+      <div class="marketplace-header">
+        <h2>Reusable Portfolio Fragments</h2>
+        <div class="search-bar">
+          <input type="text" class="search-input" placeholder="Search reusable portfolio fragments" />
+          <button class="search-btn">Search</button>
+        </div>
+      </div>
+      
+      <div class="marketplace-fragments">
+        <div class="fragment-card">
+          <div class="fragment-header">
+            <div class="fragment-title">Customer Information</div>
+            <div class="fragment-usage">Used in 47 portfolios</div>
+          </div>
+          <div class="fragment-intent">
+            "Collect company name, contact person, and phone number for business correspondence"
+          </div>
+          <div class="fragment-fields">
+            <div class="field-pill">
+              Company Name
+              <span class="field-type-badge">Text</span>
+            </div>
+            <div class="field-pill">
+              Contact Person
+              <span class="field-type-badge">Text</span>
+            </div>
+            <div class="field-pill">
+              Phone Number
+              <span class="field-type-badge">Tel</span>
+            </div>
+          </div>
+        </div>
+        
+        <div class="fragment-card dragging" style="transform: translateX(150px) translateY(-30px) rotate(3deg); opacity: 0.7;">
+          <div class="fragment-header">
+            <div class="fragment-title">Address Collection</div>
+            <div class="fragment-usage">Used in 89 portfolios</div>
+          </div>
+          <div class="fragment-intent">
+            "Capture complete shipping or billing address with validation for deliveries"
+          </div>
+          <div class="fragment-fields">
+            <div class="field-pill">
+              Street Address
+              <span class="field-type-badge">Text</span>
+            </div>
+            <div class="field-pill">
+              City
+              <span class="field-type-badge">Text</span>
+            </div>
+            <div class="field-pill">
+              Postal Code
+              <span class="field-type-badge">Text</span>
+            </div>
+            <div class="field-pill">
+              Country
+              <span class="field-type-badge">Dropdown</span>
+            </div>
+          </div>
+        </div>
+        
+        <div class="fragment-card">
+          <div class="fragment-header">
+            <div class="fragment-title">Payment Details</div>
+            <div class="fragment-usage">Used in 34 portfolios</div>
+          </div>
+          <div class="fragment-intent">
+            "Gather payment method and billing information for transaction processing"
+          </div>
+          <div class="fragment-fields">
+            <div class="field-pill">
+              Card Number
+              <span class="field-type-badge">Secure</span>
+            </div>
+            <div class="field-pill">
+              Expiry Date
+              <span class="field-type-badge">Date</span>
+            </div>
+            <div class="field-pill">
+              CVV
+              <span class="field-type-badge">Secure</span>
+            </div>
+          </div>
+        </div>
+        
+        <div class="fragment-card">
+          <div class="fragment-header">
+            <div class="fragment-title">Event Registration</div>
+            <div class="fragment-usage">Used in 23 portfolios</div>
+          </div>
+          <div class="fragment-intent">
+            "Register attendees for events with dietary preferences and accessibility needs"
+          </div>
+          <div class="fragment-fields">
+            <div class="field-pill">
+              Attendee Name
+              <span class="field-type-badge">Text</span>
+            </div>
+            <div class="field-pill">
+              Dietary Restrictions
+              <span class="field-type-badge">Multi-select</span>
+            </div>
+            <div class="field-pill">
+              Accessibility Requirements
+              <span class="field-type-badge">Text area</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Right: Current Portfolio -->
+    <div class="portfolio-panel">
+      <div class="portfolio-header">
+        <h2>Current Portfolio: E-commerce Checkout</h2>
+        <div class="portfolio-subtitle">Import fragments to extend your schema and intent</div>
+      </div>
+      
+      <div class="portfolio-content">
+        <!-- Intent Box -->
+        <div class="intent-box">
+          <div class="intent-box-header">🎯 Portfolio Intent</div>
+          <div class="intent-text">
+            We need to collect customer checkout information for an online store, including personal details and <span class="new-segment">complete shipping or billing address with validation for deliveries</span>.
+          </div>
+        </div>
+        
+        <!-- Existing Fields -->
+        <div style="margin-bottom: 16px;">
+          <div class="portfolio-field">
+            <div>
+              <div style="font-size: 13px; font-weight: 600;">Customer Email</div>
+              <div style="font-size: 11px; color: #999;">Email</div>
+            </div>
+          </div>
+          
+          <div class="portfolio-field">
+            <div>
+              <div style="font-size: 13px; font-weight: 600;">Full Name</div>
+              <div style="font-size: 11px; color: #999;">Text</div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Imported Fragment -->
+        <div class="imported-section">
+          <div class="section-label">📦 Just imported: Address Collection</div>
+          
+          <div class="portfolio-field new">
+            <div>
+              <div style="font-size: 13px; font-weight: 600;">Street Address</div>
+              <div style="font-size: 11px; color: #999;">Text</div>
+            </div>
+          </div>
+          
+          <div class="portfolio-field new">
+            <div>
+              <div style="font-size: 13px; font-weight: 600;">City</div>
+              <div style="font-size: 11px; color: #999;">Text</div>
+            </div>
+          </div>
+          
+          <div class="portfolio-field new">
+            <div>
+              <div style="font-size: 13px; font-weight: 600;">Postal Code</div>
+              <div style="font-size: 11px; color: #999;">Text</div>
+            </div>
+          </div>
+          
+          <div class="portfolio-field new">
+            <div>
+              <div style="font-size: 13px; font-weight: 600;">Country</div>
+              <div style="font-size: 11px; color: #999;">Dropdown</div>
+            </div>
+          </div>
+        </div>
+        
+        <div class="drop-zone">
+          Drop fragments here to import
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
