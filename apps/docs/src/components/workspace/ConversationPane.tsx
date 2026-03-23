@@ -1,5 +1,6 @@
 "use client";
 
+import type { ConflictFix, SchemaConflict } from "@/app/actions/conflict-actions";
 import { resolveOpinionInteractionAction } from "@/app/actions/opinion-actions";
 import { PromptDiff } from "@/components/form/configurator/PromptDiff";
 import { Badge } from "@/components/ui/badge";
@@ -7,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { MarkdownEditor } from "@/components/ui/markdown-editor";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { StandardCard } from "@/components/workspace/StandardCard";
+import { useDetectConflicts, useResolveConflict } from "@/hooks/query/conflicts";
 import { useDimensions, useGenerateDimensions } from "@/hooks/query/dimensions";
 import {
   useDismissOpinion,
@@ -30,9 +32,10 @@ import { diffSchemas } from "@/lib/engine/schema-ops";
 import type { Portfolio, PortfolioSchema } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { useQueryClient } from "@tanstack/react-query";
-import { Loader2, Shield, Sparkles, XIcon } from "lucide-react";
+import { AlertTriangle, Loader2, Shield, Sparkles, XIcon } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Label } from "../ui/label";
+import { ConflictCard } from "./ConflictCard";
 import { OpinionCard } from "./OpinionCard";
 
 interface ConversationPaneProps {
@@ -67,6 +70,17 @@ export function ConversationPane({ portfolio }: ConversationPaneProps) {
   const dismissOpinion = useDismissOpinion(portfolio.id);
 
   const generateSchema = useGenerateSchema(portfolio.id);
+
+  // --- Conflict detection + resolution ---
+  const { data: conflicts } = useDetectConflicts(
+    portfolio.id,
+    portfolioSchema,
+    intent,
+  );
+  const resolveConflict = useResolveConflict(portfolio.id);
+  const [dismissedConflicts, setDismissedConflicts] = useState<Set<string>>(
+    new Set(),
+  );
 
   /** Log provenance with snapshot of current state, then invalidate cache */
   const logWithSnapshot = useCallback(
@@ -305,6 +319,31 @@ export function ConversationPane({ portfolio }: ConversationPaneProps) {
   };
 
   // -------------------------------------------------------------------
+  // Conflict resolution: select a fix → apply to schema
+  // -------------------------------------------------------------------
+  const handleConflictFix = async (
+    conflict: SchemaConflict,
+    fix: ConflictFix,
+  ) => {
+    try {
+      const result = await resolveConflict.mutateAsync({
+        conflict,
+        fix,
+        currentSchema: portfolioSchema,
+        currentIntent: intent,
+      });
+      setIntent(result.updatedIntent);
+    } catch (err) {
+      console.error("[ConversationPane] Conflict fix error:", err);
+      setError(err instanceof Error ? err.message : "Conflict fix failed");
+    }
+  };
+
+  const handleDismissConflict = (conflictId: string) => {
+    setDismissedConflicts((prev) => new Set([...prev, conflictId]));
+  };
+
+  // -------------------------------------------------------------------
   // Derived state
   // -------------------------------------------------------------------
   const isGenerating = discoveryPhase !== "idle" || isPromptEditing;
@@ -320,6 +359,10 @@ export function ConversationPane({ portfolio }: ConversationPaneProps) {
 
   const acceptedStandardIds = new Set(
     (portfolioSchema.acceptedStandards ?? []).map((s) => s.standardId),
+  );
+
+  const visibleConflicts = (conflicts ?? []).filter(
+    (c) => !dismissedConflicts.has(c.id),
   );
 
   return (
@@ -449,10 +492,32 @@ export function ConversationPane({ portfolio }: ConversationPaneProps) {
         )}
       </div>
 
-      {/* Standards + Refinement Questions */}
-      {(visibleStandards.length > 0 || visibleOpinions.length > 0) && (
+      {/* Conflicts + Standards + Refinement Questions */}
+      {(visibleConflicts.length > 0 || visibleStandards.length > 0 || visibleOpinions.length > 0) && (
         <ScrollArea className="flex-1 px-4 pb-4">
           <div className="space-y-3">
+            {/* Schema Conflicts */}
+            {visibleConflicts.length > 0 && (
+              <div data-testid="conflicts-section" className="space-y-3">
+                <h3 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                  <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
+                  Schema Issues
+                  {resolveConflict.isPending && (
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                  )}
+                </h3>
+                {visibleConflicts.map((conflict) => (
+                  <ConflictCard
+                    key={conflict.id}
+                    conflict={conflict}
+                    isResolving={resolveConflict.isPending}
+                    onSelectFix={handleConflictFix}
+                    onDismiss={handleDismissConflict}
+                  />
+                ))}
+              </div>
+            )}
+
             {/* Suggested Standards */}
             {visibleStandards.length > 0 && (
               <div data-testid="standards-section">
