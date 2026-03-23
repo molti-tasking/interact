@@ -1,22 +1,30 @@
 # Paper Teaser Wireframes
 
-Five visualization concepts for the Malleable Forms UIST '26 paper teaser figure.
+Twenty visualization concepts for the Malleable Forms UIST '26 paper teaser figure.
 
 Open each HTML file in a browser to see the wireframe. Designed at 1200×800 for paper screenshot capture.
 
 ## Concepts
 
-1. **Opinion Convergence Flow** (`01-opinion-convergence.html`)
-   The system surfaces structured decision points (opinions) that the user resolves. A convergence bar shows how much of the design space has been narrowed. Cascading: resolving one opinion triggers deeper follow-ups.
-
-2. **Bidirectional Intent-Schema Edit** (`02-bidirectional-edit.html`)
-   Split view: the user directly edits a form field (right), and the natural-language intent description updates in real-time (left). Arrows show the propagation direction.
-
-3. **Derivation Diff View** (`03-derivation-diff.html`)
-   Side-by-side comparison of a base schema and a derived scenario view (e.g., Surgeon vs. Patient Portal). Shared fields highlighted, additions/removals marked.
-
-4. **Standards Coverage Overlay** (`04-standards-coverage.html`)
-   When the system detects domain overlap with an established standard (e.g., FHIR Patient Intake), it shows a coverage map of which standard fields are already present, which are missing, and offers to fill gaps.
-
-5. **Portfolio Provenance Timeline** (`05-provenance-timeline.html`)
-   A vertical timeline showing the evolution of an intent portfolio: creation, opinion resolutions, direct edits, derivation branches. Each entry shows who/what triggered the change and the rationale.
+| # | Concept | Preview |
+|---|---------|---------|
+| 01 | **Opinion Convergence Flow** — Cascading opinions with convergence bar. The system surfaces structured decision points; resolving one triggers deeper follow-ups. | [Preview](https://htmlpreview.github.io/?https://github.com/molti-tasking/interact/blob/paper/teaser-wireframes/paper-wireframes/01-opinion-convergence.html) |
+| 02 | **Bidirectional Intent-Schema Edit** — Split view: user edits a form field (right), intent description updates in real-time (left). Arrows show propagation direction. | [Preview](https://htmlpreview.github.io/?https://github.com/molti-tasking/interact/blob/paper/teaser-wireframes/paper-wireframes/02-bidirectional-edit.html) |
+| 03 | **Derivation Diff View** — Side-by-side comparison of base schema and derived scenario view (Surgeon vs. Patient Portal). Shared/added/removed fields color-coded. | [Preview](https://htmlpreview.github.io/?https://github.com/molti-tasking/interact/blob/paper/teaser-wireframes/paper-wireframes/03-derivation-diff.html) |
+| 04 | **Standards Coverage Overlay** — FHIR standard detected, 60% coverage ring, field-by-field mapping with covered/partial/missing indicators. | [Preview](https://htmlpreview.github.io/?https://github.com/molti-tasking/interact/blob/paper/teaser-wireframes/paper-wireframes/04-standards-coverage.html) |
+| 05 | **Portfolio Provenance Timeline** — Vertical timeline showing portfolio evolution: creation, opinion resolutions, direct edits, derivation branches across contributors. | [Preview](https://htmlpreview.github.io/?https://github.com/molti-tasking/interact/blob/paper/teaser-wireframes/paper-wireframes/05-provenance-timeline.html) |
+| 06 | **NL Form Filling** — Respondent describes data in natural language; system maps to form fields with extraction confidence per field. | [Preview](https://htmlpreview.github.io/?https://github.com/molti-tasking/interact/blob/paper/teaser-wireframes/paper-wireframes/06-nl-form-filling.html) |
+| 07 | **Response-Driven Schema Evolution** — Dashboard showing response patterns that suggest schema improvements (e.g., "87% write N/A → remove field"). | [Preview](https://htmlpreview.github.io/?https://github.com/molti-tasking/interact/blob/paper/teaser-wireframes/paper-wireframes/07-response-evolution.html) |
+| 08 | **Collaborative Real-Time Elicitation** — Multiple collaborators (Owner, Manager, Safety Officer) resolving different opinions simultaneously with role indicators. | [Preview](https://htmlpreview.github.io/?https://github.com/molti-tasking/interact/blob/paper/teaser-wireframes/paper-wireframes/08-collaborative-elicitation.html) |
+| 09 | **Schema Translation / Multi-Modal Output** — Same intent portfolio generating 4 output modalities: web form, REST API spec, database table, PDF report. | [Preview](https://htmlpreview.github.io/?https://github.com/molti-tasking/interact/blob/paper/teaser-wireframes/paper-wireframes/09-schema-translation.html) |
+| 10 | **Voice-Driven Elicitation** — Audio waveform with transcription, system extracting dimensions from speech with highlighted entities. | [Preview](https://htmlpreview.github.io/?https://github.com/molti-tasking/interact/blob/paper/teaser-wireframes/paper-wireframes/10-voice-elicitation.html) |
+| 11 | **Predictive Field Completion** — Ghost fields predicted with confidence scores (92%→34%). "Based on similar forms, you likely also need..." | [Preview](https://htmlpreview.github.io/?https://github.com/molti-tasking/interact/blob/paper/teaser-wireframes/paper-wireframes/11-predictive-fields.html) |
+| 12 | **Form Simulation / Persona Preview** — Three respondent personas with estimated completion times and confusion points highlighted. | [Preview](https://htmlpreview.github.io/?https://github.com/molti-tasking/interact/blob/paper/teaser-wireframes/paper-wireframes/12-persona-simulation.html) |
+| 13 | **Regulatory Change Propagation** — Alert: "FHIR R5 released — 3 portfolios affected." Field-level impact with "propagate changes" action. | [Preview](https://htmlpreview.github.io/?https://github.com/molti-tasking/interact/blob/paper/teaser-wireframes/paper-wireframes/13-regulatory-propagation.html) |
+| 14 | **Cross-Portfolio Field Marketplace** — Browse and import reusable field groups from other portfolios. Component library for form fields. | [Preview](https://htmlpreview.github.io/?https://github.com/molti-tasking/interact/blob/paper/teaser-wireframes/paper-wireframes/14-field-marketplace.html) |
+| 15 | **Schema Health Monitor** — Traffic-light dashboard per field: completion rate, avg time to fill, error rate, skip rate. Flags problematic fields. | [Preview](https://htmlpreview.github.io/?https://github.com/molti-tasking/interact/blob/paper/teaser-wireframes/paper-wireframes/15-schema-health.html) |
+| 16 | **Temporal / Conditional Schema** — Gantt-chart style timeline showing fields that activate/deactivate based on conditions or time phases. | [Preview](https://htmlpreview.github.io/?https://github.com/molti-tasking/interact/blob/paper/teaser-wireframes/paper-wireframes/16-temporal-schema.html) |
+| 17 | **Schema Genealogy Graph** — Node graph showing relationships between all portfolios: base schemas, derived views, shared dimensions. | [Preview](https://htmlpreview.github.io/?https://github.com/molti-tasking/interact/blob/paper/teaser-wireframes/paper-wireframes/17-schema-genealogy.html) |
+| 18 | **Conflict Resolution Workspace** — Base schema change conflicts with derived view. Side-by-side with resolution options (keep/merge/fork). | [Preview](https://htmlpreview.github.io/?https://github.com/molti-tasking/interact/blob/paper/teaser-wireframes/paper-wireframes/18-conflict-resolution.html) |
+| 19 | **Intent Diff Across Versions** — Git-like diff for natural language intent descriptions with corresponding schema changes in side panel. | [Preview](https://htmlpreview.github.io/?https://github.com/molti-tasking/interact/blob/paper/teaser-wireframes/paper-wireframes/19-intent-diff.html) |
+| 20 | **AI Confidence Overlay** — Each field has a confidence indicator (green/yellow/red) with reasoning. Accept/reject buttons on uncertain fields. | [Preview](https://htmlpreview.github.io/?https://github.com/molti-tasking/interact/blob/paper/teaser-wireframes/paper-wireframes/20-ai-confidence.html) |
