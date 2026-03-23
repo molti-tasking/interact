@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NL Form Filling — Malleable Forms</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f8f9fa; color: #1a1a2e; }
+  .app-container { width: 1200px; height: 800px; margin: 20px auto; background: #fff; border-radius: 12px; box-shadow: 0 2px 20px rgba(0,0,0,0.08); display: flex; overflow: hidden; }
+  
+  /* Sidebar */
+  .sidebar { width: 240px; background: #fafafa; border-right: 1px solid #e8e8e8; padding: 20px 16px; }
+  .sidebar h2 { font-size: 13px; color: #888; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 16px; }
+  .portfolio-item { padding: 10px 12px; border-radius: 8px; margin-bottom: 4px; font-size: 14px; cursor: pointer; }
+  .portfolio-item.active { background: #eef2ff; color: #4338ca; font-weight: 600; }
+  .portfolio-item:not(.active) { color: #555; }
+  
+  /* Main content */
+  .main { flex: 1; display: flex; flex-direction: column; }
+  .topbar { padding: 16px 24px; border-bottom: 1px solid #eee; display: flex; align-items: center; justify-content: space-between; }
+  .topbar h1 { font-size: 18px; font-weight: 600; }
+  .status-badge { font-size: 13px; padding: 6px 12px; background: #d1fae5; color: #059669; border-radius: 6px; font-weight: 500; }
+  
+  .content { flex: 1; display: flex; overflow: hidden; }
+  
+  /* Left: NL Input */
+  .nl-panel { width: 420px; padding: 24px; border-right: 1px solid #eee; display: flex; flex-direction: column; }
+  .nl-panel h3 { font-size: 14px; color: #888; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 16px; }
+  .nl-input-box { flex: 1; background: #fafafa; border: 2px solid #e8e8e8; border-radius: 10px; padding: 16px; font-size: 15px; line-height: 1.6; color: #333; resize: none; font-family: inherit; }
+  .nl-input-box:focus { outline: none; border-color: #7c3aed; }
+  .nl-actions { margin-top: 12px; display: flex; gap: 8px; }
+  .btn { padding: 10px 20px; border-radius: 8px; font-size: 14px; font-weight: 500; cursor: pointer; border: none; }
+  .btn-primary { background: #4338ca; color: #fff; }
+  .btn-secondary { background: #f0f0f0; color: #555; }
+  
+  /* Right: Extracted Fields */
+  .fields-panel { flex: 1; padding: 24px; overflow-y: auto; }
+  .fields-panel h3 { font-size: 14px; color: #888; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 16px; }
+  .field-group { margin-bottom: 20px; }
+  .field-item { background: #fff; border: 1px solid #e2e2e2; border-radius: 10px; padding: 16px; margin-bottom: 10px; }
+  .field-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+  .field-label { font-size: 13px; font-weight: 600; color: #555; }
+  .confidence { font-size: 12px; padding: 4px 10px; border-radius: 6px; font-weight: 500; }
+  .confidence.high { background: #d1fae5; color: #059669; }
+  .confidence.medium { background: #fef3c7; color: #d97706; }
+  .confidence.low { background: #fee2e2; color: #dc2626; }
+  .field-value { font-size: 15px; color: #333; padding: 10px 12px; background: #fafafa; border-radius: 8px; margin-bottom: 8px; }
+  .field-source { font-size: 12px; color: #888; font-style: italic; }
+  .field-source span { background: #fffbeb; color: #d97706; padding: 2px 6px; border-radius: 4px; }
+  .empty-state { text-align: center; color: #aaa; padding: 60px 20px; font-size: 14px; }
+</style>
+</head>
+<body>
+<div class="app-container">
+  <!-- Sidebar -->
+  <div class="sidebar">
+    <h2>Portfolios</h2>
+    <div class="portfolio-item">🏗️ Machine Rental Contract</div>
+    <div class="portfolio-item active">🏋️ Fitness Client Intake</div>
+    <div class="portfolio-item">🦴 Orthopedic Records</div>
+  </div>
+
+  <!-- Main -->
+  <div class="main">
+    <div class="topbar">
+      <h1>Fitness Client Intake · Natural Language Entry</h1>
+      <div class="status-badge">✓ 6 fields extracted</div>
+    </div>
+    
+    <div class="content">
+      <!-- NL Input -->
+      <div class="nl-panel">
+        <h3>Describe Yourself</h3>
+        <textarea class="nl-input-box" readonly>I'm 28, been training for 3 years, mainly interested in hypertrophy. I usually work out 5 times a week, mostly compound movements with some isolation work. My main goal right now is to add muscle mass while staying relatively lean. I've had a shoulder injury in the past but it's fully healed now.</textarea>
+        <div class="nl-actions">
+          <button class="btn btn-primary">Extract Fields</button>
+          <button class="btn btn-secondary">Clear</button>
+        </div>
+      </div>
+      
+      <!-- Extracted Fields -->
+      <div class="fields-panel">
+        <h3>Extracted Information</h3>
+        
+        <div class="field-group">
+          <div class="field-item">
+            <div class="field-header">
+              <span class="field-label">Age</span>
+              <span class="confidence high">98% confident</span>
+            </div>
+            <div class="field-value">28</div>
+            <div class="field-source">From: <span>"I'm 28"</span></div>
+          </div>
+          
+          <div class="field-item">
+            <div class="field-header">
+              <span class="field-label">Training Experience</span>
+              <span class="confidence high">95% confident</span>
+            </div>
+            <div class="field-value">3 years</div>
+            <div class="field-source">From: <span>"been training for 3 years"</span></div>
+          </div>
+          
+          <div class="field-item">
+            <div class="field-header">
+              <span class="field-label">Primary Goal</span>
+              <span class="confidence high">92% confident</span>
+            </div>
+            <div class="field-value">Hypertrophy (Muscle Gain)</div>
+            <div class="field-source">From: <span>"mainly interested in hypertrophy"</span></div>
+          </div>
+          
+          <div class="field-item">
+            <div class="field-header">
+              <span class="field-label">Weekly Training Frequency</span>
+              <span class="confidence medium">87% confident</span>
+            </div>
+            <div class="field-value">5 sessions/week</div>
+            <div class="field-source">From: <span>"work out 5 times a week"</span></div>
+          </div>
+          
+          <div class="field-item">
+            <div class="field-header">
+              <span class="field-label">Training Style</span>
+              <span class="confidence medium">81% confident</span>
+            </div>
+            <div class="field-value">Compound + Isolation</div>
+            <div class="field-source">From: <span>"compound movements with some isolation work"</span></div>
+          </div>
+          
+          <div class="field-item">
+            <div class="field-header">
+              <span class="field-label">Medical History</span>
+              <span class="confidence medium">76% confident</span>
+            </div>
+            <div class="field-value">Previous shoulder injury (healed)</div>
+            <div class="field-source">From: <span>"shoulder injury in the past but it's fully healed"</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

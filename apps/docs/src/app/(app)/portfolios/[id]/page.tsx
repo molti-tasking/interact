@@ -6,6 +6,11 @@ import { Card } from "@/components/ui/card";
 import { ConversationPane } from "@/components/workspace/ConversationPane";
 import { FieldEditDrawer } from "@/components/workspace/FieldEditDrawer";
 import { usePortfolio, useUpdatePortfolio } from "@/hooks/query/portfolios";
+import { useProvenance } from "@/hooks/query/provenance";
+import {
+  useLastUpdated,
+  formatLastUpdated,
+} from "@/hooks/query/last-updated";
 import { logProvenance } from "@/lib/engine/provenance";
 import { diffSchemas, removeField, updateField } from "@/lib/engine/schema-ops";
 import { FormRenderer } from "@/lib/form-renderer/FormRenderer";
@@ -13,6 +18,7 @@ import type { Field, PortfolioSchema } from "@/lib/types";
 import {
   BarChart3,
   ClipboardList,
+  Clock,
   FormInput,
   History,
   Loader2,
@@ -27,6 +33,11 @@ export default function PortfolioWorkspacePage() {
   const { data: portfolio, isLoading } = usePortfolio(id);
   const portfolioSchema = portfolio?.schema as unknown as PortfolioSchema;
   const updatePortfolio = useUpdatePortfolio();
+  const { data: provenanceEntries } = useProvenance(id);
+  const { intentUpdatedAt, schemaUpdatedAt } = useLastUpdated(
+    provenanceEntries,
+    portfolio?.created_at,
+  );
 
   // Field edit drawer state
   const [editingField, setEditingField] = useState<Field | null>(null);
@@ -167,11 +178,35 @@ export default function PortfolioWorkspacePage() {
       >
         {/* Left: Intent + Dimensions */}
         <Card className="flex flex-col overflow-hidden">
+          <div className="flex items-center justify-between px-4 pt-3 pb-1">
+            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+              Intent
+            </span>
+            <span
+              className="text-xs text-muted-foreground flex items-center gap-1"
+              title={intentUpdatedAt ? new Date(intentUpdatedAt).toLocaleString() : undefined}
+            >
+              <Clock className="h-3 w-3" />
+              {formatLastUpdated(intentUpdatedAt)}
+            </span>
+          </div>
           <ConversationPane portfolio={portfolio} />
         </Card>
 
         {/* Right: Preview */}
         <Card className="flex flex-col overflow-hidden">
+          <div className="flex items-center justify-between px-4 pt-3 pb-1">
+            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+              Schema
+            </span>
+            <span
+              className="text-xs text-muted-foreground flex items-center gap-1"
+              title={schemaUpdatedAt ? new Date(schemaUpdatedAt).toLocaleString() : undefined}
+            >
+              <Clock className="h-3 w-3" />
+              {formatLastUpdated(schemaUpdatedAt)}
+            </span>
+          </div>
           <div className="flex-1 p-4 overflow-auto">
             <FormRenderer
               schema={portfolioSchema}

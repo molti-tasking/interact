@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Response-Driven Schema Evolution — Malleable Forms</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f8f9fa; color: #1a1a2e; }
+  .app-container { width: 1200px; height: 800px; margin: 20px auto; background: #fff; border-radius: 12px; box-shadow: 0 2px 20px rgba(0,0,0,0.08); display: flex; overflow: hidden; }
+  
+  /* Sidebar */
+  .sidebar { width: 240px; background: #fafafa; border-right: 1px solid #e8e8e8; padding: 20px 16px; }
+  .sidebar h2 { font-size: 13px; color: #888; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 16px; }
+  .portfolio-item { padding: 10px 12px; border-radius: 8px; margin-bottom: 4px; font-size: 14px; cursor: pointer; }
+  .portfolio-item.active { background: #eef2ff; color: #4338ca; font-weight: 600; }
+  .portfolio-item:not(.active) { color: #555; }
+  
+  /* Main content */
+  .main { flex: 1; display: flex; flex-direction: column; }
+  .topbar { padding: 16px 24px; border-bottom: 1px solid #eee; display: flex; align-items: center; justify-content: space-between; }
+  .topbar h1 { font-size: 18px; font-weight: 600; }
+  .response-count { font-size: 13px; color: #666; }
+  .response-count strong { color: #4338ca; font-weight: 600; }
+  
+  .content { flex: 1; padding: 24px; overflow-y: auto; }
+  .content h3 { font-size: 14px; color: #888; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 16px; }
+  
+  .insight-card { background: #fff; border: 1px solid #e2e2e2; border-radius: 10px; padding: 18px; margin-bottom: 14px; }
+  .insight-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+  .insight-type { font-size: 11px; padding: 4px 10px; border-radius: 6px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+  .insight-type.remove { background: #fee2e2; color: #dc2626; }
+  .insight-type.convert { background: #fef3c7; color: #d97706; }
+  .insight-type.add { background: #d1fae5; color: #059669; }
+  .insight-priority { font-size: 13px; color: #888; }
+  .insight-title { font-size: 15px; font-weight: 600; margin-bottom: 10px; }
+  .insight-field { font-family: 'Monaco', monospace; background: #fafafa; padding: 6px 10px; border-radius: 6px; display: inline-block; font-size: 13px; color: #7c3aed; }
+  .insight-stats { margin: 12px 0; }
+  .stat-bar { height: 8px; background: #e8e8e8; border-radius: 4px; overflow: hidden; margin-top: 6px; }
+  .stat-fill { height: 100%; border-radius: 4px; }
+  .stat-fill.red { background: #dc2626; }
+  .stat-fill.amber { background: #d97706; }
+  .stat-fill.green { background: #059669; }
+  .insight-detail { font-size: 13px; color: #666; line-height: 1.5; margin-bottom: 10px; }
+  .cluster-tags { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+  .cluster-tag { font-size: 12px; padding: 4px 10px; background: #f0f0f0; border-radius: 6px; color: #555; }
+  .insight-actions { display: flex; gap: 8px; margin-top: 12px; }
+  .btn { padding: 8px 16px; border-radius: 8px; font-size: 13px; font-weight: 500; cursor: pointer; border: none; }
+  .btn-apply { background: #4338ca; color: #fff; }
+  .btn-dismiss { background: #f0f0f0; color: #555; }
+</style>
+</head>
+<body>
+<div class="app-container">
+  <!-- Sidebar -->
+  <div class="sidebar">
+    <h2>Portfolios</h2>
+    <div class="portfolio-item active">🏗️ Machine Rental Contract</div>
+    <div class="portfolio-item">🏋️ Fitness Client Intake</div>
+    <div class="portfolio-item">🦴 Orthopedic Records</div>
+  </div>
+
+  <!-- Main -->
+  <div class="main">
+    <div class="topbar">
+      <h1>Schema Evolution Insights</h1>
+      <div class="response-count">Based on <strong>243 responses</strong> collected</div>
+    </div>
+    
+    <div class="content">
+      <h3>Suggested Improvements</h3>
+      
+      <div class="insight-card">
+        <div class="insight-header">
+          <span class="insight-type remove">Remove Field</span>
+          <span class="insight-priority">High priority</span>
+        </div>
+        <div class="insight-title">Field <span class="insight-field">Fax Number</span> rarely used</div>
+        <div class="insight-stats">
+          <div>87% of respondents write "N/A" or leave blank</div>
+          <div class="stat-bar"><div class="stat-fill red" style="width: 87%"></div></div>
+        </div>
+        <div class="insight-detail">Only 32 of 243 responses contain valid fax numbers. Field appears outdated for modern construction rental workflow.</div>
+        <div class="insight-actions">
+          <button class="btn btn-apply">Remove Field</button>
+          <button class="btn btn-dismiss">Keep</button>
+        </div>
+      </div>
+      
+      <div class="insight-card">
+        <div class="insight-header">
+          <span class="insight-type convert">Convert to Select</span>
+          <span class="insight-priority">High priority</span>
+        </div>
+        <div class="insight-title">Free-text field <span class="insight-field">Other Equipment</span> shows clustering</div>
+        <div class="insight-stats">
+          <div>Responses cluster into 5 distinct categories</div>
+          <div class="stat-bar"><div class="stat-fill amber" style="width: 78%"></div></div>
+        </div>
+        <div class="cluster-tags">
+          <div class="cluster-tag">Safety Gear (34%)</div>
+          <div class="cluster-tag">Fuel (22%)</div>
+          <div class="cluster-tag">Transport (18%)</div>
+          <div class="cluster-tag">Attachments (14%)</div>
+          <div class="cluster-tag">None (12%)</div>
+        </div>
+        <div class="insight-detail">Converting to multi-select would improve data quality and enable better reporting.</div>
+        <div class="insight-actions">
+          <button class="btn btn-apply">Convert to Select</button>
+          <button class="btn btn-dismiss">Dismiss</button>
+        </div>
+      </div>
+      
+      <div class="insight-card">
+        <div class="insight-header">
+          <span class="insight-type add">Add Field</span>
+          <span class="insight-priority">Medium priority</span>
+        </div>
+        <div class="insight-title">Respondents frequently mention delivery time windows in notes</div>
+        <div class="insight-stats">
+          <div>41% of responses include time window in "Additional Notes"</div>
+          <div class="stat-bar"><div class="stat-fill green" style="width: 41%"></div></div>
+        </div>
+        <div class="insight-detail">Common patterns: "between 7-9am", "before 10am", "after 2pm". Consider adding dedicated time window field.</div>
+        <div class="insight-actions">
+          <button class="btn btn-apply">Add Field</button>
+          <button class="btn btn-dismiss">Dismiss</button>
+        </div>
+      </div>
+      
+      <div class="insight-card">
+        <div class="insight-header">
+          <span class="insight-type convert">Validation Update</span>
+          <span class="insight-priority">Low priority</span>
+        </div>
+        <div class="insight-title">Field <span class="insight-field">Machine Weight</span> has inconsistent units</div>
+        <div class="insight-detail">73% use metric tons, 27% use pounds. Add unit selector or enforce consistent unit.</div>
+        <div class="insight-actions">
+          <button class="btn btn-apply">Add Unit Selector</button>
+          <button class="btn btn-dismiss">Dismiss</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>
