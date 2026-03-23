@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=1200, initial-scale=1.0">
+    <title>AI Confidence Indicators - Malleable Forms</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: #f5f5f7;
+            padding: 40px;
+            width: 1200px;
+            height: 800px;
+            overflow: hidden;
+        }
+        .container {
+            background: white;
+            border-radius: 12px;
+            padding: 32px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+        h1 {
+            font-size: 28px;
+            font-weight: 600;
+            color: #1d1d1f;
+            margin-bottom: 8px;
+        }
+        .subtitle {
+            color: #86868b;
+            font-size: 16px;
+            margin-bottom: 24px;
+        }
+        .main-layout {
+            display: grid;
+            grid-template-columns: 1fr 380px;
+            gap: 24px;
+            flex-grow: 1;
+            overflow: hidden;
+        }
+        .form-preview {
+            border: 1px solid #e5e5e7;
+            border-radius: 10px;
+            padding: 24px;
+            overflow-y: auto;
+            background: #fafafa;
+        }
+        .form-title {
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 20px;
+            color: #1d1d1f;
+        }
+        .form-field {
+            margin-bottom: 20px;
+            background: white;
+            padding: 16px;
+            border-radius: 8px;
+            position: relative;
+        }
+        .field-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 8px;
+        }
+        .confidence-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+        .confidence-high { background: #34c759; }
+        .confidence-medium { background: #ff9500; }
+        .confidence-low { background: #ff3b30; }
+        .field-label {
+            font-size: 14px;
+            font-weight: 600;
+            color: #1d1d1f;
+        }
+        .field-input {
+            background: #f5f5f7;
+            border: 1px solid #d2d2d7;
+            border-radius: 6px;
+            padding: 10px 12px;
+            font-size: 14px;
+            width: 100%;
+            font-family: inherit;
+        }
+        .field-uncertain {
+            border-color: #ff9500;
+            background: #fff9f0;
+        }
+        .field-actions {
+            display: none;
+            margin-top: 12px;
+            gap: 8px;
+        }
+        .field-uncertain ~ .field-actions {
+            display: flex;
+        }
+        .field-btn {
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 600;
+            border: none;
+            cursor: pointer;
+        }
+        .btn-accept {
+            background: #34c759;
+            color: white;
+        }
+        .btn-reject {
+            background: #ff3b30;
+            color: white;
+        }
+        .confidence-sidebar {
+            border: 1px solid #e5e5e7;
+            border-radius: 10px;
+            padding: 20px;
+            overflow-y: auto;
+            background: #fafafa;
+        }
+        .sidebar-title {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 16px;
+            color: #1d1d1f;
+        }
+        .legend {
+            margin-bottom: 24px;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 8px;
+            font-size: 12px;
+            color: #6e6e73;
+        }
+        .reasoning-block {
+            background: white;
+            border-radius: 8px;
+            padding: 14px;
+            margin-bottom: 12px;
+            border-left: 3px solid #d2d2d7;
+        }
+        .reasoning-block.high-confidence {
+            border-left-color: #34c759;
+        }
+        .reasoning-block.low-confidence {
+            border-left-color: #ff3b30;
+        }
+        .reasoning-field {
+            font-size: 13px;
+            font-weight: 600;
+            color: #1d1d1f;
+            margin-bottom: 6px;
+        }
+        .reasoning-text {
+            font-size: 12px;
+            color: #6e6e73;
+            line-height: 1.5;
+        }
+        .confidence-score {
+            font-size: 11px;
+            color: #86868b;
+            margin-top: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>AI Confidence Indicators</h1>
+        <p class="subtitle">Field-level confidence with reasoning and human oversight</p>
+        
+        <div class="main-layout">
+            <div class="form-preview">
+                <div class="form-title">Business Registration Form</div>
+                
+                <div class="form-field">
+                    <div class="field-header">
+                        <span class="confidence-dot confidence-high"></span>
+                        <label class="field-label">Customer Name</label>
+                    </div>
+                    <input type="text" class="field-input" value="Acme Corporation" />
+                </div>
+                
+                <div class="form-field">
+                    <div class="field-header">
+                        <span class="confidence-dot confidence-high"></span>
+                        <label class="field-label">Business Email</label>
+                    </div>
+                    <input type="email" class="field-input" value="contact@acme.com" />
+                </div>
+                
+                <div class="form-field">
+                    <div class="field-header">
+                        <span class="confidence-dot confidence-high"></span>
+                        <label class="field-label">Tax ID Number</label>
+                    </div>
+                    <input type="text" class="field-input" value="" />
+                </div>
+                
+                <div class="form-field">
+                    <div class="field-header">
+                        <span class="confidence-dot confidence-low"></span>
+                        <label class="field-label">Operating Hours</label>
+                    </div>
+                    <input type="text" class="field-input field-uncertain" value="" placeholder="e.g., Mon-Fri 9-5" />
+                    <div class="field-actions">
+                        <button class="field-btn btn-accept">Keep Field</button>
+                        <button class="field-btn btn-reject">Remove Field</button>
+                    </div>
+                </div>
+                
+                <div class="form-field">
+                    <div class="field-header">
+                        <span class="confidence-dot confidence-medium"></span>
+                        <label class="field-label">Number of Employees</label>
+                    </div>
+                    <input type="number" class="field-input field-uncertain" value="" />
+                    <div class="field-actions">
+                        <button class="field-btn btn-accept">Keep Field</button>
+                        <button class="field-btn btn-reject">Remove Field</button>
+                    </div>
+                </div>
+                
+                <div class="form-field">
+                    <div class="field-header">
+                        <span class="confidence-dot confidence-high"></span>
+                        <label class="field-label">Business Address</label>
+                    </div>
+                    <input type="text" class="field-input" value="" />
+                </div>
+                
+                <div class="form-field">
+                    <div class="field-header">
+                        <span class="confidence-dot confidence-low"></span>
+                        <label class="field-label">Preferred Payment Method</label>
+                    </div>
+                    <select class="field-input field-uncertain">
+                        <option>Select...</option>
+                        <option>Invoice</option>
+                        <option>Credit Card</option>
+                        <option>Bank Transfer</option>
+                    </select>
+                    <div class="field-actions">
+                        <button class="field-btn btn-accept">Keep Field</button>
+                        <button class="field-btn btn-reject">Remove Field</button>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="confidence-sidebar">
+                <div class="sidebar-title">Confidence Reasoning</div>
+                
+                <div class="legend">
+                    <div class="legend-item">
+                        <span class="confidence-dot confidence-high"></span>
+                        <span><strong>95%+</strong> High confidence</span>
+                    </div>
+                    <div class="legend-item">
+                        <span class="confidence-dot confidence-medium"></span>
+                        <span><strong>60-95%</strong> Medium confidence</span>
+                    </div>
+                    <div class="legend-item">
+                        <span class="confidence-dot confidence-low"></span>
+                        <span><strong>&lt;60%</strong> Low confidence</span>
+                    </div>
+                </div>
+                
+                <div class="reasoning-block high-confidence">
+                    <div class="reasoning-field">Customer Name</div>
+                    <div class="reasoning-text">
+                        Universally required for business registration. Present in 99.8% of similar forms.
+                    </div>
+                    <div class="confidence-score">Confidence: 99%</div>
+                </div>
+                
+                <div class="reasoning-block high-confidence">
+                    <div class="reasoning-field">Tax ID Number</div>
+                    <div class="reasoning-text">
+                        Standard regulatory requirement for business entities. Required by tax law.
+                    </div>
+                    <div class="confidence-score">Confidence: 98%</div>
+                </div>
+                
+                <div class="reasoning-block low-confidence">
+                    <div class="reasoning-field">Operating Hours</div>
+                    <div class="reasoning-text">
+                        Depends on billing model. Service businesses typically need this; product businesses often don't. Only present in 42% of similar forms.
+                    </div>
+                    <div class="confidence-score">Confidence: 42%</div>
+                </div>
+                
+                <div class="reasoning-block low-confidence">
+                    <div class="reasoning-field">Number of Employees</div>
+                    <div class="reasoning-text">
+                        Relevant for certain industries (insurance, B2B sales) but not universal. Present in 67% of B2B forms but only 23% of general registration.
+                    </div>
+                    <div class="confidence-score">Confidence: 67%</div>
+                </div>
+                
+                <div class="reasoning-block low-confidence">
+                    <div class="reasoning-field">Preferred Payment Method</div>
+                    <div class="reasoning-text">
+                        Depends on sales process. E-commerce needs upfront payment selection; enterprise B2B typically handles this separately. Context unclear.
+                    </div>
+                    <div class="confidence-score">Confidence: 51%</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

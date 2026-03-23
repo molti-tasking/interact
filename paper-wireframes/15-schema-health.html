@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=1200, initial-scale=1.0">
+    <title>Schema Health Dashboard - Malleable Forms</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: #f5f5f7;
+            padding: 40px;
+            width: 1200px;
+            height: 800px;
+            overflow: hidden;
+        }
+        .container {
+            background: white;
+            border-radius: 12px;
+            padding: 32px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+        h1 {
+            font-size: 28px;
+            font-weight: 600;
+            color: #1d1d1f;
+            margin-bottom: 8px;
+        }
+        .subtitle {
+            color: #86868b;
+            font-size: 16px;
+            margin-bottom: 24px;
+        }
+        .summary-cards {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+        .summary-card {
+            background: #fafafa;
+            border-radius: 8px;
+            padding: 16px;
+            border: 1px solid #e5e5e7;
+        }
+        .summary-value {
+            font-size: 28px;
+            font-weight: 700;
+            margin-bottom: 4px;
+        }
+        .summary-label {
+            font-size: 12px;
+            color: #86868b;
+        }
+        .health-table {
+            flex-grow: 1;
+            overflow-y: auto;
+            border: 1px solid #e5e5e7;
+            border-radius: 10px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        thead {
+            background: #fafafa;
+            position: sticky;
+            top: 0;
+        }
+        th {
+            text-align: left;
+            padding: 12px 16px;
+            font-size: 12px;
+            font-weight: 600;
+            color: #6e6e73;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            border-bottom: 1px solid #e5e5e7;
+        }
+        td {
+            padding: 14px 16px;
+            font-size: 14px;
+            border-bottom: 1px solid #f5f5f7;
+        }
+        tr:hover {
+            background: #fafafa;
+        }
+        .field-name {
+            font-weight: 500;
+            color: #1d1d1f;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .health-indicator {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+        .health-good { background: #34c759; }
+        .health-warning { background: #ff9500; }
+        .health-critical { background: #ff3b30; }
+        .completion-bar {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .bar-container {
+            flex-grow: 1;
+            height: 6px;
+            background: #e5e5e7;
+            border-radius: 3px;
+            overflow: hidden;
+            max-width: 100px;
+        }
+        .bar-fill {
+            height: 100%;
+            border-radius: 3px;
+            transition: width 0.3s;
+        }
+        .bar-high { background: #34c759; }
+        .bar-medium { background: #ff9500; }
+        .bar-low { background: #ff3b30; }
+        .completion-text {
+            font-size: 13px;
+            font-weight: 600;
+            min-width: 40px;
+        }
+        .metric-value {
+            font-size: 13px;
+            color: #6e6e73;
+        }
+        .row-critical {
+            background: #fff5f5;
+        }
+        .row-good {
+            background: #f5fff5;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Schema Health Dashboard</h1>
+        <p class="subtitle">Field-level analytics and performance metrics</p>
+        
+        <div class="summary-cards">
+            <div class="summary-card">
+                <div class="summary-value" style="color: #34c759;">87%</div>
+                <div class="summary-label">Avg Completion</div>
+            </div>
+            <div class="summary-card">
+                <div class="summary-value" style="color: #ff9500;">12</div>
+                <div class="summary-label">Fields at Risk</div>
+            </div>
+            <div class="summary-card">
+                <div class="summary-value" style="color: #007aff;">3.2 min</div>
+                <div class="summary-label">Avg Fill Time</div>
+            </div>
+            <div class="summary-card">
+                <div class="summary-value" style="color: #6e6e73;">4.2%</div>
+                <div class="summary-label">Error Rate</div>
+            </div>
+        </div>
+        
+        <div class="health-table">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Field Name</th>
+                        <th>Completion Rate</th>
+                        <th>Avg Fill Time</th>
+                        <th>Error Rate</th>
+                        <th>Skip Rate</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr class="row-good">
+                        <td>
+                            <div class="field-name">
+                                <span class="health-indicator health-good"></span>
+                                Customer Name
+                            </div>
+                        </td>
+                        <td>
+                            <div class="completion-bar">
+                                <div class="bar-container">
+                                    <div class="bar-fill bar-high" style="width: 99%;"></div>
+                                </div>
+                                <span class="completion-text">99%</span>
+                            </div>
+                        </td>
+                        <td><span class="metric-value">8s</span></td>
+                        <td><span class="metric-value">0.2%</span></td>
+                        <td><span class="metric-value">0.5%</span></td>
+                    </tr>
+                    
+                    <tr>
+                        <td>
+                            <div class="field-name">
+                                <span class="health-indicator health-good"></span>
+                                Email Address
+                            </div>
+                        </td>
+                        <td>
+                            <div class="completion-bar">
+                                <div class="bar-container">
+                                    <div class="bar-fill bar-high" style="width: 96%;"></div>
+                                </div>
+                                <span class="completion-text">96%</span>
+                            </div>
+                        </td>
+                        <td><span class="metric-value">12s</span></td>
+                        <td><span class="metric-value">3.1%</span></td>
+                        <td><span class="metric-value">2.8%</span></td>
+                    </tr>
+                    
+                    <tr>
+                        <td>
+                            <div class="field-name">
+                                <span class="health-indicator health-good"></span>
+                                Phone Number
+                            </div>
+                        </td>
+                        <td>
+                            <div class="completion-bar">
+                                <div class="bar-container">
+                                    <div class="bar-fill bar-high" style="width: 92%;"></div>
+                                </div>
+                                <span class="completion-text">92%</span>
+                            </div>
+                        </td>
+                        <td><span class="metric-value">15s</span></td>
+                        <td><span class="metric-value">5.7%</span></td>
+                        <td><span class="metric-value">4.2%</span></td>
+                    </tr>
+                    
+                    <tr>
+                        <td>
+                            <div class="field-name">
+                                <span class="health-indicator health-warning"></span>
+                                Insurance Policy Number
+                            </div>
+                        </td>
+                        <td>
+                            <div class="completion-bar">
+                                <div class="bar-container">
+                                    <div class="bar-fill bar-medium" style="width: 78%;"></div>
+                                </div>
+                                <span class="completion-text">78%</span>
+                            </div>
+                        </td>
+                        <td><span class="metric-value">45s</span></td>
+                        <td><span class="metric-value">8.3%</span></td>
+                        <td><span class="metric-value">12.1%</span></td>
+                    </tr>
+                    
+                    <tr>
+                        <td>
+                            <div class="field-name">
+                                <span class="health-indicator health-warning"></span>
+                                Date of Birth
+                            </div>
+                        </td>
+                        <td>
+                            <div class="completion-bar">
+                                <div class="bar-container">
+                                    <div class="bar-fill bar-medium" style="width: 85%;"></div>
+                                </div>
+                                <span class="completion-text">85%</span>
+                            </div>
+                        </td>
+                        <td><span class="metric-value">22s</span></td>
+                        <td><span class="metric-value">4.2%</span></td>
+                        <td><span class="metric-value">10.8%</span></td>
+                    </tr>
+                    
+                    <tr class="row-critical">
+                        <td>
+                            <div class="field-name">
+                                <span class="health-indicator health-critical"></span>
+                                Certification Expiry
+                            </div>
+                        </td>
+                        <td>
+                            <div class="completion-bar">
+                                <div class="bar-container">
+                                    <div class="bar-fill bar-low" style="width: 23%;"></div>
+                                </div>
+                                <span class="completion-text">23%</span>
+                            </div>
+                        </td>
+                        <td><span class="metric-value">1m 38s</span></td>
+                        <td><span class="metric-value">18.7%</span></td>
+                        <td><span class="metric-value">62.3%</span></td>
+                    </tr>
+                    
+                    <tr>
+                        <td>
+                            <div class="field-name">
+                                <span class="health-indicator health-good"></span>
+                                Billing Address
+                            </div>
+                        </td>
+                        <td>
+                            <div class="completion-bar">
+                                <div class="bar-container">
+                                    <div class="bar-fill bar-high" style="width: 88%;"></div>
+                                </div>
+                                <span class="completion-text">88%</span>
+                            </div>
+                        </td>
+                        <td><span class="metric-value">35s</span></td>
+                        <td><span class="metric-value">2.9%</span></td>
+                        <td><span class="metric-value">8.4%</span></td>
+                    </tr>
+                    
+                    <tr>
+                        <td>
+                            <div class="field-name">
+                                <span class="health-indicator health-warning"></span>
+                                Emergency Contact
+                            </div>
+                        </td>
+                        <td>
+                            <div class="completion-bar">
+                                <div class="bar-container">
+                                    <div class="bar-fill bar-medium" style="width: 72%;"></div>
+                                </div>
+                                <span class="completion-text">72%</span>
+                            </div>
+                        </td>
+                        <td><span class="metric-value">28s</span></td>
+                        <td><span class="metric-value">6.1%</span></td>
+                        <td><span class="metric-value">21.9%</span></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</body>
+</html>

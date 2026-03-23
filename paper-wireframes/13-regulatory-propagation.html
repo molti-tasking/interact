@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=1200, initial-scale=1.0">
+    <title>Regulatory Propagation - Malleable Forms</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: #f5f5f7;
+            padding: 40px;
+            width: 1200px;
+            height: 800px;
+            overflow: hidden;
+        }
+        .container {
+            background: white;
+            border-radius: 12px;
+            padding: 32px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+        h1 {
+            font-size: 28px;
+            font-weight: 600;
+            color: #1d1d1f;
+            margin-bottom: 8px;
+        }
+        .subtitle {
+            color: #86868b;
+            font-size: 16px;
+            margin-bottom: 24px;
+        }
+        .alert-banner {
+            background: linear-gradient(135deg, #ff9500 0%, #ff6b00 100%);
+            color: white;
+            padding: 20px 24px;
+            border-radius: 10px;
+            margin-bottom: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 2px 8px rgba(255, 149, 0, 0.2);
+        }
+        .alert-content {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+        .alert-icon {
+            font-size: 28px;
+        }
+        .alert-text h2 {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+        .alert-text p {
+            font-size: 14px;
+            opacity: 0.95;
+        }
+        .alert-badge {
+            background: rgba(255,255,255,0.25);
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 600;
+        }
+        .portfolios-list {
+            flex-grow: 1;
+            overflow-y: auto;
+        }
+        .portfolio-item {
+            background: #fafafa;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 16px;
+            border: 1px solid #e5e5e7;
+        }
+        .portfolio-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+        .portfolio-name {
+            font-size: 18px;
+            font-weight: 600;
+            color: #1d1d1f;
+        }
+        .impact-badge {
+            padding: 4px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        .impact-high {
+            background: #ffebee;
+            color: #c62828;
+        }
+        .impact-medium {
+            background: #fff3e0;
+            color: #ef6c00;
+        }
+        .impact-list {
+            list-style: none;
+        }
+        .impact-item {
+            padding: 10px 0;
+            border-bottom: 1px solid #e5e5e7;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .impact-item:last-child {
+            border-bottom: none;
+        }
+        .impact-icon {
+            font-size: 16px;
+        }
+        .impact-type {
+            color: #86868b;
+            font-size: 12px;
+            margin-left: auto;
+            padding: 3px 8px;
+            background: white;
+            border-radius: 4px;
+        }
+        .action-bar {
+            margin-top: 24px;
+            padding-top: 24px;
+            border-top: 1px solid #e5e5e7;
+            display: flex;
+            justify-content: flex-end;
+            gap: 12px;
+        }
+        .btn {
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 15px;
+            font-weight: 600;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .btn-secondary {
+            background: #f5f5f7;
+            color: #1d1d1f;
+        }
+        .btn-primary {
+            background: #007aff;
+            color: white;
+            box-shadow: 0 2px 6px rgba(0, 122, 255, 0.3);
+        }
+        .btn:hover {
+            transform: translateY(-1px);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Regulatory Propagation</h1>
+        <p class="subtitle">Automatic impact analysis and update management</p>
+        
+        <div class="alert-banner">
+            <div class="alert-content">
+                <span class="alert-icon">⚠️</span>
+                <div class="alert-text">
+                    <h2>FHIR R5 Released</h2>
+                    <p>New regulatory standard detected with schema changes</p>
+                </div>
+            </div>
+            <div class="alert-badge">3 portfolios affected</div>
+        </div>
+        
+        <div class="portfolios-list">
+            <div class="portfolio-item">
+                <div class="portfolio-header">
+                    <div class="portfolio-name">Patient Intake Forms</div>
+                    <div class="impact-badge impact-high">High Impact</div>
+                </div>
+                <ul class="impact-list">
+                    <li class="impact-item">
+                        <span class="impact-icon">🔄</span>
+                        <span><strong>Patient.contact</strong> structure changed</span>
+                        <span class="impact-type">Field update</span>
+                    </li>
+                    <li class="impact-item">
+                        <span class="impact-icon">🔄</span>
+                        <span><strong>Patient.telecom</strong> requires new system codes</span>
+                        <span class="impact-type">Field update</span>
+                    </li>
+                    <li class="impact-item">
+                        <span class="impact-icon">💥</span>
+                        <span><strong>Contact Summary View</strong> incompatible with new structure</span>
+                        <span class="impact-type">View broken</span>
+                    </li>
+                </ul>
+            </div>
+            
+            <div class="portfolio-item">
+                <div class="portfolio-header">
+                    <div class="portfolio-name">Clinical Documentation</div>
+                    <div class="impact-badge impact-medium">Medium Impact</div>
+                </div>
+                <ul class="impact-list">
+                    <li class="impact-item">
+                        <span class="impact-icon">🔄</span>
+                        <span><strong>Observation.code</strong> coding system updated</span>
+                        <span class="impact-type">Field update</span>
+                    </li>
+                    <li class="impact-item">
+                        <span class="impact-icon">🔄</span>
+                        <span><strong>Condition.severity</strong> value set expanded</span>
+                        <span class="impact-type">Field update</span>
+                    </li>
+                </ul>
+            </div>
+            
+            <div class="portfolio-item">
+                <div class="portfolio-header">
+                    <div class="portfolio-name">Medication Orders</div>
+                    <div class="impact-badge impact-medium">Medium Impact</div>
+                </div>
+                <ul class="impact-list">
+                    <li class="impact-item">
+                        <span class="impact-icon">🔄</span>
+                        <span><strong>MedicationRequest.dosageInstruction</strong> schema refined</span>
+                        <span class="impact-type">Field update</span>
+                    </li>
+                </ul>
+            </div>
+        </div>
+        
+        <div class="action-bar">
+            <button class="btn btn-secondary">Review Changes</button>
+            <button class="btn btn-primary">Propagate Changes</button>
+        </div>
+    </div>
+</body>
+</html>
