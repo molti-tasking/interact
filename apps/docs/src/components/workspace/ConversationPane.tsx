@@ -32,11 +32,10 @@ import { diffSchemas } from "@/lib/engine/schema-ops";
 import type { Portfolio, PortfolioSchema } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, Loader2, Shield, Sparkles, XIcon } from "lucide-react";
+import { Loader2, Shield, Sparkles, XIcon } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Label } from "../ui/label";
-import { ConflictCard } from "./ConflictCard";
-import { OpinionCard } from "./OpinionCard";
+import { OpinionCardDeck } from "./OpinionCardDeck";
 
 interface ConversationPaneProps {
   portfolio: Portfolio;
@@ -492,79 +491,51 @@ export function ConversationPane({ portfolio }: ConversationPaneProps) {
         )}
       </div>
 
-      {/* Conflicts + Standards + Refinement Questions */}
-      {(visibleConflicts.length > 0 || visibleStandards.length > 0 || visibleOpinions.length > 0) && (
-        <ScrollArea className="flex-1 px-4 pb-4">
-          <div className="space-y-3">
-            {/* Schema Conflicts */}
-            {visibleConflicts.length > 0 && (
-              <div data-testid="conflicts-section" className="space-y-3">
-                <h3 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                  <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
-                  Schema Issues
-                  {resolveConflict.isPending && (
-                    <Loader2 className="h-3 w-3 animate-spin" />
-                  )}
-                </h3>
-                {visibleConflicts.map((conflict) => (
-                  <ConflictCard
-                    key={conflict.id}
-                    conflict={conflict}
-                    isResolving={resolveConflict.isPending}
-                    onSelectFix={handleConflictFix}
-                    onDismiss={handleDismissConflict}
-                  />
-                ))}
-              </div>
-            )}
+      {/* Standards + Card Deck (opinions + conflicts) */}
+      <ScrollArea className="flex-1 px-4 pb-4">
+        <div className="space-y-3">
+          {/* Suggested Standards */}
+          {visibleStandards.length > 0 && (
+            <div data-testid="standards-section">
+              <h3 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                <Shield className="h-3.5 w-3.5 text-blue-500" />
+                Suggested Standards
+              </h3>
+              {visibleStandards.map((detected: DetectedStandard) => (
+                <StandardCard
+                  key={detected.standard.id}
+                  detected={detected}
+                  isAccepted={acceptedStandardIds.has(detected.standard.id)}
+                  onAccept={handleAcceptStandard}
+                  onSkip={handleSkipStandard}
+                />
+              ))}
+            </div>
+          )}
 
-            {/* Suggested Standards */}
-            {visibleStandards.length > 0 && (
-              <div data-testid="standards-section">
-                <h3 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                  <Shield className="h-3.5 w-3.5 text-blue-500" />
-                  Suggested Standards
-                </h3>
-                {visibleStandards.map((detected: DetectedStandard) => (
-                  <StandardCard
-                    key={detected.standard.id}
-                    detected={detected}
-                    isAccepted={acceptedStandardIds.has(detected.standard.id)}
-                    onAccept={handleAcceptStandard}
-                    onSkip={handleSkipStandard}
-                  />
-                ))}
-              </div>
-            )}
-
-            {/* Refinement Questions */}
-            {visibleOpinions.length > 0 && (
-              <div data-testid="opinions-section" className="space-y-3">
-                <h3 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                  <Sparkles className="h-3.5 w-3.5 text-violet-500" />
-                  Refinement Questions
-                  {generateOpinions.isPending && (
-                    <Loader2 className="h-3 w-3 animate-spin" />
-                  )}
-                </h3>
-
-                {visibleOpinions.map((interaction, visibleIndex) => (
-                  <OpinionCard
-                    key={interaction.id}
-                    interaction={interaction}
-                    index={visibleIndex}
-                    isAnimating={activeAnimation === visibleIndex}
-                    editorRef={editorRef}
-                    anyLoading={resolveOpinion.isPending}
-                    onSelect={handleOpinionSelect}
-                    onDismiss={handleDismissOpinion}
-                  />
-                ))}
-              </div>
-            )}
-          </div>
-        </ScrollArea>
-      )}
+          {/* Opinion Card Deck (unified: conflicts + opinions) */}
+          {(visibleConflicts.length > 0 || (opinions ?? []).length > 0) && (
+            <div data-testid="card-deck-section" className="space-y-2">
+              <h3 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                <Sparkles className="h-3.5 w-3.5 text-violet-500" />
+                Decisions
+                {(generateOpinions.isPending || resolveOpinion.isPending || resolveConflict.isPending) && (
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                )}
+              </h3>
+              <OpinionCardDeck
+                opinions={opinions ?? []}
+                conflicts={visibleConflicts}
+                anyLoading={resolveOpinion.isPending || resolveConflict.isPending}
+                onSelectOpinion={handleOpinionSelect}
+                onDismissOpinion={handleDismissOpinion}
+                onSelectConflictFix={handleConflictFix}
+                onDismissConflict={handleDismissConflict}
+              />
+            </div>
+          )}
+        </div>
+      </ScrollArea>
 
       {/* Dimensions (collapsed summary when available) */}
       {(dimensions ?? []).length > 0 && visibleOpinions.length === 0 && (
