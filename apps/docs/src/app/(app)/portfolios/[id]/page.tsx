@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { ConversationPane } from "@/components/workspace/ConversationPane";
 import { FieldEditDrawer } from "@/components/workspace/FieldEditDrawer";
+import { useSyncIntent } from "@/hooks/query/intent-sync";
 import { usePortfolio, useUpdatePortfolio } from "@/hooks/query/portfolios";
 import { logProvenance } from "@/lib/engine/provenance";
 import { diffSchemas, removeField, updateField } from "@/lib/engine/schema-ops";
@@ -27,6 +28,7 @@ export default function PortfolioWorkspacePage() {
   const { data: portfolio, isLoading } = usePortfolio(id);
   const portfolioSchema = portfolio?.schema as unknown as PortfolioSchema;
   const updatePortfolio = useUpdatePortfolio();
+  const syncIntent = useSyncIntent(id);
 
   // Field edit drawer state
   const [editingField, setEditingField] = useState<Field | null>(null);
@@ -40,6 +42,7 @@ export default function PortfolioWorkspacePage() {
   const handleFieldSave = useCallback(
     async (fieldId: string, updates: Partial<Field>) => {
       if (!portfolio) return;
+      const originalField = portfolioSchema.fields.find((f) => f.id === fieldId);
       const newSchema = updateField(portfolioSchema, fieldId, updates);
       const diff = diffSchemas(portfolioSchema, newSchema);
       try {
@@ -57,11 +60,21 @@ export default function PortfolioWorkspacePage() {
           `Modified field "${updates.label ?? fieldId}"`,
           { intent: portfolio.intent, schema: portfolioSchema },
         );
+
+        // Trigger intent sync (fire-and-forget)
+        if (originalField) {
+          const editDescription = buildEditDescription(originalField, updates);
+          syncIntent.mutate({
+            currentIntent: portfolio.intent,
+            editDescription,
+            currentSchema: newSchema,
+          });
+        }
       } catch (err) {
         console.error("[FieldEdit] Save error:", err);
       }
     },
-    [portfolio, updatePortfolio, portfolioSchema],
+    [portfolio, updatePortfolio, portfolioSchema, syncIntent],
   );
 
   const handleFieldRemove = useCallback(
@@ -85,11 +98,21 @@ export default function PortfolioWorkspacePage() {
           `Removed field "${removedField?.label ?? fieldId}"`,
           { intent: portfolio.intent, schema: portfolioSchema },
         );
+
+        // Trigger intent sync (fire-and-forget)
+        if (removedField) {
+          const editDescription = `Removed field "${removedField.label}" (${removedField.name})`;
+          syncIntent.mutate({
+            currentIntent: portfolio.intent,
+            editDescription,
+            currentSchema: newSchema,
+          });
+        }
       } catch (err) {
         console.error("[FieldEdit] Remove error:", err);
       }
     },
-    [portfolio, updatePortfolio, portfolioSchema],
+    [portfolio, updatePortfolio, portfolioSchema, syncIntent],
   );
 
   if (isLoading) {
@@ -167,7 +190,10 @@ export default function PortfolioWorkspacePage() {
       >
         {/* Left: Intent + Dimensions */}
         <Card className="flex flex-col overflow-hidden">
-          <ConversationPane portfolio={portfolio} />
+          <ConversationPane 
+            portfolio={portfolio} 
+            isSyncingIntent={syncIntent.isPending}
+          />
         </Card>
 
         {/* Right: Preview */}
@@ -193,4 +219,49 @@ export default function PortfolioWorkspacePage() {
       />
     </div>
   );
+}
+
+/**
+ * Build a human-readable description of the field edit.
+ */
+function buildEditDescription(
+  originalField: Field,
+  updates: Partial<Field>,
+): string {
+  const changes: string[] = [];
+
+  if (updates.label && updates.label !== originalField.label) {
+    changes.push(`renamed from "${originalField.label}" to "${updates.label}"`);
+  }
+
+  if (updates.type && JSON.stringify(updates.type) !== JSON.stringify(originalField.type)) {
+    const oldType = originalField.type.kind;
+    const newType = updates.type.kind;
+    
+    if (oldType === "select" && newType === "select") {
+      const oldOptions = originalField.type.options?.length ?? 0;
+      const newOptions = updates.type.options?.length ?? 0;
+      if (oldOptions !== newOptions) {
+        changes.push(`changed from ${oldOptions} options to ${newOptions} options`);
+      }
+    } else if (oldType !== newType) {
+      changes.push(`changed type from ${oldType} to ${newType}`);
+    }
+  }
+
+  if (updates.required !== undefined && updates.required !== originalField.required) {
+    changes.push(updates.required ? "made required" : "made optional");
+  }
+
+  if (updates.description && updates.description !== originalField.description) {
+    changes.push("description updated");
+  }
+
+  const fieldLabel = updates.label ?? originalField.label;
+  
+  if (changes.length === 0) {
+    return `Modified field "${fieldLabel}"`;
+  }
+
+  return `Modified field "${fieldLabel}": ${changes.join(", ")}`;
 }

@@ -37,11 +37,15 @@ import { OpinionCard } from "./OpinionCard";
 
 interface ConversationPaneProps {
   portfolio: Portfolio;
+  isSyncingIntent?: boolean;
 }
 
 type DiscoveryPhase = "idle" | "generating-dimensions" | "generating-schema";
 
-export function ConversationPane({ portfolio }: ConversationPaneProps) {
+export function ConversationPane({ 
+  portfolio, 
+  isSyncingIntent = false 
+}: ConversationPaneProps) {
   const portfolioSchema = portfolio.schema as unknown as PortfolioSchema;
 
   const editorRef = useRef<HTMLDivElement>(null);
@@ -327,7 +331,15 @@ export function ConversationPane({ portfolio }: ConversationPaneProps) {
       {/* Intent Editor */}
       <div className="p-4 space-y-3">
         <div className="flex items-center justify-between">
-          <Label htmlFor="basePrompt">What you want?</Label>
+          <div className="flex items-center gap-2">
+            <Label htmlFor="basePrompt">What you want?</Label>
+            {isSyncingIntent && (
+              <span className="text-xs text-muted-foreground flex items-center gap-1">
+                <Loader2 className="h-3 w-3 animate-spin" />
+                syncing...
+              </span>
+            )}
+          </div>
           {previousIntent && previousIntent !== intent && (
             <Button
               onClick={() => setShowDiff(!showDiff)}
