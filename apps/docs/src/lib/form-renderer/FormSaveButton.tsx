@@ -33,6 +33,7 @@ export const FormSaveButton = ({
   return (
     <Button
       type="submit"
+      data-testid="form-submit-btn"
       className={classes}
       disabled={!isDirty || (!isValid && submitCount > 0) || isSubmitting}
       {...props}

@@ -86,6 +86,7 @@ export function StandardCard({
         ) : (
           <div className="flex gap-2">
             <Button
+              data-testid={`standard-accept-${standard.id}`}
               size="sm"
               variant="default"
               className="h-7"
@@ -94,6 +95,7 @@ export function StandardCard({
               Apply Standard
             </Button>
             <Button
+              data-testid={`standard-skip-${standard.id}`}
               size="sm"
               variant="ghost"
               className="h-7 text-muted-foreground"

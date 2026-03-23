@@ -27,7 +27,7 @@ export default function ResponsesPage() {
         <h1 className="text-2xl font-bold tracking-tight">
           Responses: {portfolio.title}
         </h1>
-        <p className="text-muted-foreground">
+        <p data-testid="response-count" className="text-muted-foreground">
           {responses?.length ?? 0} response
           {responses?.length !== 1 ? "s" : ""} collected.
         </p>

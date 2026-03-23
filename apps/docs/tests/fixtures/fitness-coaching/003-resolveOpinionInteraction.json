@@ -1,0 +1,145 @@
+{
+  "actionName": "resolveOpinionInteraction",
+  "callIndex": 0,
+  "input": {
+    "basePrompt": "## Fitness Coaching Client Intake Form",
+    "currentSchema": {},
+    "interactionText": "Should the form include nutrition tracking questions?",
+    "selectedOptionLabel": "Yes, include nutrition section"
+  },
+  "output": {
+    "success": true,
+    "result": {
+      "basePrompt": "## Fitness Coaching Client Intake Form\n\nCollect comprehensive intake information from new fitness coaching clients. The form captures:\n\n- **Health background** including medical conditions and injuries\n- **Nutrition habits** including dietary restrictions and meal frequency\n- **Training preferences** covering workout style and equipment access\n- **Fitness goals** with primary objective and timeline\n- **Scheduling** including availability and preferred session frequency",
+      "artifactFormSchema": {
+        "fields": [
+          {
+            "id": "field-fix-0",
+            "name": "fullName",
+            "label": "Full Name",
+            "type": { "kind": "text" },
+            "required": true,
+            "constraints": [],
+            "description": "Client's full name",
+            "origin": "system",
+            "tags": []
+          },
+          {
+            "id": "field-fix-1",
+            "name": "email",
+            "label": "Email Address",
+            "type": { "kind": "text" },
+            "required": true,
+            "constraints": [],
+            "description": "Contact email for scheduling and follow-ups",
+            "origin": "system",
+            "tags": []
+          },
+          {
+            "id": "field-fix-2",
+            "name": "dateOfBirth",
+            "label": "Date of Birth",
+            "type": { "kind": "date" },
+            "required": true,
+            "constraints": [],
+            "origin": "system",
+            "tags": []
+          },
+          {
+            "id": "field-fix-3",
+            "name": "medicalConditions",
+            "label": "Medical Conditions or Injuries",
+            "type": { "kind": "text", "maxLength": 500 },
+            "required": false,
+            "constraints": [],
+            "description": "List any current medical conditions, injuries, or physical limitations",
+            "origin": "system",
+            "tags": []
+          },
+          {
+            "id": "field-fix-4",
+            "name": "primaryGoal",
+            "label": "Primary Fitness Goal",
+            "type": {
+              "kind": "select",
+              "options": [
+                { "label": "Weight Loss", "value": "weightLoss" },
+                { "label": "Muscle Gain", "value": "muscleGain" },
+                { "label": "General Fitness", "value": "generalFitness" },
+                { "label": "Endurance", "value": "endurance" },
+                { "label": "Rehabilitation", "value": "rehabilitation" }
+              ],
+              "multiple": false
+            },
+            "required": true,
+            "constraints": [],
+            "description": "What is your main objective?",
+            "origin": "system",
+            "tags": []
+          },
+          {
+            "id": "field-fix-5",
+            "name": "sessionsPerWeek",
+            "label": "Preferred Sessions Per Week",
+            "type": { "kind": "number", "min": 1, "max": 7 },
+            "required": true,
+            "constraints": [],
+            "description": "How many training sessions per week can you commit to?",
+            "origin": "system",
+            "tags": []
+          },
+          {
+            "id": "field-fix-6",
+            "name": "hasPhysicianClearance",
+            "label": "Physician Clearance",
+            "type": { "kind": "boolean" },
+            "required": false,
+            "constraints": [],
+            "description": "Have you been cleared by a physician for exercise?",
+            "origin": "system",
+            "tags": []
+          },
+          {
+            "id": "field-fix-7",
+            "name": "dietaryRestrictions",
+            "label": "Dietary Restrictions",
+            "type": {
+              "kind": "select",
+              "options": [
+                { "label": "None", "value": "none" },
+                { "label": "Vegetarian", "value": "vegetarian" },
+                { "label": "Vegan", "value": "vegan" },
+                { "label": "Gluten-Free", "value": "glutenFree" },
+                { "label": "Other", "value": "other" }
+              ],
+              "multiple": true
+            },
+            "required": false,
+            "constraints": [],
+            "description": "Select any dietary restrictions that apply",
+            "origin": "system",
+            "tags": []
+          },
+          {
+            "id": "field-fix-8",
+            "name": "mealsPerDay",
+            "label": "Typical Meals Per Day",
+            "type": { "kind": "number", "min": 1, "max": 8 },
+            "required": false,
+            "constraints": [],
+            "description": "How many meals do you typically eat per day?",
+            "origin": "system",
+            "tags": []
+          }
+        ],
+        "groups": [],
+        "version": 1
+      },
+      "followUpInteractions": []
+    }
+  },
+  "timestamp": "2026-01-01T00:00:03.000Z",
+  "matchHints": {
+    "selectedOptionLabel": "Yes, include nutrition section"
+  }
+}

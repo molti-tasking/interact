@@ -18,6 +18,19 @@ export async function processColumnPromptAction(
   prompt: string,
   responseData: Array<{ responseId: string; value: unknown }>,
 ): Promise<ProcessColumnPromptResponse> {
+  if (process.env.USE_FIXTURES || process.env.RECORD_FIXTURES) {
+    const { fixtureGuard } = await import("@/lib/testing/fixture-guard");
+    return fixtureGuard("processColumnPrompt", { field, prompt, responseData },
+      () => processColumnPromptReal(field, prompt, responseData), { prompt });
+  }
+  return processColumnPromptReal(field, prompt, responseData);
+}
+
+async function processColumnPromptReal(
+  field: Field,
+  prompt: string,
+  responseData: Array<{ responseId: string; value: unknown }>,
+): Promise<ProcessColumnPromptResponse> {
   try {
     const systemPrompt = `You are a data processing assistant. The user has a table of form responses. They want to apply a transformation to a specific column.
 
@@ -81,6 +94,19 @@ export interface DeriveFieldsResponse {
 }
 
 export async function deriveFieldsFromPromptAction(
+  field: Field,
+  prompt: string,
+  existingFieldNames: string[],
+): Promise<DeriveFieldsResponse> {
+  if (process.env.USE_FIXTURES || process.env.RECORD_FIXTURES) {
+    const { fixtureGuard } = await import("@/lib/testing/fixture-guard");
+    return fixtureGuard("deriveFieldsFromPrompt", { field, prompt, existingFieldNames },
+      () => deriveFieldsFromPromptReal(field, prompt, existingFieldNames), { prompt });
+  }
+  return deriveFieldsFromPromptReal(field, prompt, existingFieldNames);
+}
+
+async function deriveFieldsFromPromptReal(
   field: Field,
   prompt: string,
   existingFieldNames: string[],

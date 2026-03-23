@@ -49,6 +49,7 @@ export default function NewPortfolioPage() {
 
         <div className="flex gap-2 pt-2">
           <Button
+            data-testid="create-portfolio-btn"
             onClick={handleCreate}
             disabled={!title.trim() || createPortfolio.isPending}
           >

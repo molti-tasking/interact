@@ -33,6 +33,20 @@ export async function generateOpinionInteractionsAction(
   dimensions?: DimensionObject[],
   acceptedStandards?: DetectedStandard[],
 ): Promise<GenerateOpinionResponse> {
+  if (process.env.USE_FIXTURES || process.env.RECORD_FIXTURES) {
+    const { fixtureGuard } = await import("@/lib/testing/fixture-guard");
+    return fixtureGuard("generateOpinionInteractions", { basePrompt, maxOpinions, dimensions, acceptedStandards },
+      () => generateOpinionInteractionsReal(basePrompt, maxOpinions, dimensions, acceptedStandards), { prompt: basePrompt });
+  }
+  return generateOpinionInteractionsReal(basePrompt, maxOpinions, dimensions, acceptedStandards);
+}
+
+async function generateOpinionInteractionsReal(
+  basePrompt: string,
+  maxOpinions: number,
+  dimensions?: DimensionObject[],
+  acceptedStandards?: DetectedStandard[],
+): Promise<GenerateOpinionResponse> {
   if (maxOpinions <= 0) return { success: true, interactions: [] };
 
   try {
@@ -200,6 +214,18 @@ export interface ResolveOpinionResponse {
 }
 
 export async function resolveOpinionInteractionAction(
+  request: ResolveOpinionRequest,
+): Promise<ResolveOpinionResponse> {
+  if (process.env.USE_FIXTURES || process.env.RECORD_FIXTURES) {
+    const { fixtureGuard } = await import("@/lib/testing/fixture-guard");
+    return fixtureGuard("resolveOpinionInteraction", request,
+      () => resolveOpinionInteractionReal(request),
+      { selectedOptionLabel: request.selectedOptionLabel });
+  }
+  return resolveOpinionInteractionReal(request);
+}
+
+async function resolveOpinionInteractionReal(
   request: ResolveOpinionRequest,
 ): Promise<ResolveOpinionResponse> {
   try {

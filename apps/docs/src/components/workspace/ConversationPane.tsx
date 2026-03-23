@@ -359,17 +359,19 @@ export function ConversationPane({ portfolio }: ConversationPaneProps) {
               <PromptDiff previous={previousIntent} current={intent} />
             </div>
           ) : (
-            <MarkdownEditor
-              ref={editorRef}
-              placeholder="Describe what this form is for, who will use it, and what data you need to collect..."
-              value={intent}
-              className={cn(
-                "rounded-2xl relative border",
-                isGenerating ? "bg-transparent" : "",
-              )}
-              onChange={handleIntentChange}
-              disabled={isGenerating || promptEditOpen}
-            />
+            <div data-testid="intent-editor">
+              <MarkdownEditor
+                ref={editorRef}
+                placeholder="Describe what this form is for, who will use it, and what data you need to collect..."
+                value={intent}
+                className={cn(
+                  "rounded-2xl relative border",
+                  isGenerating ? "bg-transparent" : "",
+                )}
+                onChange={handleIntentChange}
+                disabled={isGenerating || promptEditOpen}
+              />
+            </div>
           )}
         </div>
 
@@ -403,6 +405,7 @@ export function ConversationPane({ portfolio }: ConversationPaneProps) {
               </div>
             ) : (
               <Button
+                data-testid="generate-form-btn"
                 onClick={handleGenerate}
                 disabled={!intent.trim() || isGenerating}
                 className="flex-1"
@@ -452,7 +455,7 @@ export function ConversationPane({ portfolio }: ConversationPaneProps) {
           <div className="space-y-3">
             {/* Suggested Standards */}
             {visibleStandards.length > 0 && (
-              <>
+              <div data-testid="standards-section">
                 <h3 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
                   <Shield className="h-3.5 w-3.5 text-blue-500" />
                   Suggested Standards
@@ -466,32 +469,34 @@ export function ConversationPane({ portfolio }: ConversationPaneProps) {
                     onSkip={handleSkipStandard}
                   />
                 ))}
-              </>
+              </div>
             )}
 
             {/* Refinement Questions */}
             {visibleOpinions.length > 0 && (
-              <h3 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                <Sparkles className="h-3.5 w-3.5 text-violet-500" />
-                Refinement Questions
-                {generateOpinions.isPending && (
-                  <Loader2 className="h-3 w-3 animate-spin" />
-                )}
-              </h3>
-            )}
+              <div data-testid="opinions-section" className="space-y-3">
+                <h3 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                  <Sparkles className="h-3.5 w-3.5 text-violet-500" />
+                  Refinement Questions
+                  {generateOpinions.isPending && (
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                  )}
+                </h3>
 
-            {visibleOpinions.map((interaction, visibleIndex) => (
-              <OpinionCard
-                key={interaction.id}
-                interaction={interaction}
-                index={visibleIndex}
-                isAnimating={activeAnimation === visibleIndex}
-                editorRef={editorRef}
-                anyLoading={resolveOpinion.isPending}
-                onSelect={handleOpinionSelect}
-                onDismiss={handleDismissOpinion}
-              />
-            ))}
+                {visibleOpinions.map((interaction, visibleIndex) => (
+                  <OpinionCard
+                    key={interaction.id}
+                    interaction={interaction}
+                    index={visibleIndex}
+                    isAnimating={activeAnimation === visibleIndex}
+                    editorRef={editorRef}
+                    anyLoading={resolveOpinion.isPending}
+                    onSelect={handleOpinionSelect}
+                    onDismiss={handleDismissOpinion}
+                  />
+                ))}
+              </div>
+            )}
           </div>
         </ScrollArea>
       )}

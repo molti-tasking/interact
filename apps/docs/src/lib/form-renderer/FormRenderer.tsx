@@ -56,12 +56,14 @@ export function FormRenderer({
   return (
     <Form {...form}>
       <form
+        data-testid="form-renderer"
         onSubmit={form.handleSubmit(handleSubmit)}
         className={className ?? "space-y-6"}
       >
         {schema.fields.map((field) => (
           <div
             key={field.id}
+            data-testid={`form-field-${field.name}`}
             className={cn(
               mode === "preview" && onFieldClick && "group relative",
             )}

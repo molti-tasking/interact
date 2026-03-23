@@ -34,6 +34,7 @@ export function OpinionCard({
       )}
       <Card
         ref={cardRef}
+        data-testid={`opinion-card-${index}`}
         className={cn(interaction.status === "loading" && "opacity-60")}
       >
         <CardHeader className="pb-2">
@@ -93,6 +94,7 @@ export function OpinionCard({
             {interaction.options.map((option) => (
               <Button
                 key={option.value}
+                data-testid={`opinion-option-${option.value}`}
                 variant={
                   interaction.selectedOption === option.value
                     ? "default"

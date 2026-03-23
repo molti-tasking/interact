@@ -20,6 +20,18 @@ export async function generateDimensionsAction(
   prompt: string,
   maxDimensions: number = 5,
 ): Promise<GenerateDimensionsResponse> {
+  if (process.env.USE_FIXTURES || process.env.RECORD_FIXTURES) {
+    const { fixtureGuard } = await import("@/lib/testing/fixture-guard");
+    return fixtureGuard("generateDimensions", { prompt, maxDimensions },
+      () => generateDimensionsReal(prompt, maxDimensions), { prompt });
+  }
+  return generateDimensionsReal(prompt, maxDimensions);
+}
+
+async function generateDimensionsReal(
+  prompt: string,
+  maxDimensions: number,
+): Promise<GenerateDimensionsResponse> {
   if (!prompt || prompt.trim().length < 3) {
     return { success: true, dimensions: [], reasoning: "" };
   }
@@ -151,6 +163,19 @@ export async function refineDimensionAction(
   basePrompt: string,
   userFeedback: string,
 ): Promise<RefineDimensionResponse> {
+  if (process.env.USE_FIXTURES || process.env.RECORD_FIXTURES) {
+    const { fixtureGuard } = await import("@/lib/testing/fixture-guard");
+    return fixtureGuard("refineDimension", { dimension, basePrompt, userFeedback },
+      () => refineDimensionReal(dimension, basePrompt, userFeedback));
+  }
+  return refineDimensionReal(dimension, basePrompt, userFeedback);
+}
+
+async function refineDimensionReal(
+  dimension: DimensionObject,
+  basePrompt: string,
+  userFeedback: string,
+): Promise<RefineDimensionResponse> {
   try {
     const prompt = `You are refining a domain dimension for a form design process.
 
@@ -212,6 +237,19 @@ export interface DimensionsToSchemaResponse {
 }
 
 export async function dimensionsToSchemaAction(
+  dimensions: DimensionObject[],
+  basePrompt: string,
+  acceptedStandards?: DetectedStandard[],
+): Promise<DimensionsToSchemaResponse> {
+  if (process.env.USE_FIXTURES || process.env.RECORD_FIXTURES) {
+    const { fixtureGuard } = await import("@/lib/testing/fixture-guard");
+    return fixtureGuard("dimensionsToSchema", { dimensions, basePrompt, acceptedStandards },
+      () => dimensionsToSchemaReal(dimensions, basePrompt, acceptedStandards), { prompt: basePrompt });
+  }
+  return dimensionsToSchemaReal(dimensions, basePrompt, acceptedStandards);
+}
+
+async function dimensionsToSchemaReal(
   dimensions: DimensionObject[],
   basePrompt: string,
   acceptedStandards?: DetectedStandard[],
