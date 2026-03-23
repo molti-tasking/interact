@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { ConversationPane } from "@/components/workspace/ConversationPane";
+import { ConvergenceBar } from "@/components/workspace/ConvergenceBar";
 import { FieldEditDrawer } from "@/components/workspace/FieldEditDrawer";
 import { usePortfolio, useUpdatePortfolio } from "@/hooks/query/portfolios";
 import { logProvenance } from "@/lib/engine/provenance";
@@ -115,15 +116,18 @@ export default function PortfolioWorkspacePage() {
     <div className="space-y-4">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-bold tracking-tight">
-            {portfolio.title}
-          </h1>
-          {portfolio.base_id && (
-            <Badge variant="outline" className="mt-1">
-              Derived
-            </Badge>
-          )}
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center gap-3">
+            <h1 className="text-xl font-bold tracking-tight">
+              {portfolio.title}
+            </h1>
+            {portfolio.base_id && (
+              <Badge variant="outline">
+                Derived
+              </Badge>
+            )}
+          </div>
+          <ConvergenceBar portfolioId={id} />
         </div>
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" asChild>
