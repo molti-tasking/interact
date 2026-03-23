@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Standards Coverage Overlay — Malleable Forms</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f8f9fa; color: #1a1a2e; }
+  .app-container { width: 1200px; height: 800px; margin: 20px auto; background: #fff; border-radius: 12px; box-shadow: 0 2px 20px rgba(0,0,0,0.08); display: flex; flex-direction: column; overflow: hidden; }
+  
+  .topbar { padding: 16px 24px; border-bottom: 1px solid #eee; display: flex; align-items: center; justify-content: space-between; }
+  .topbar h1 { font-size: 18px; font-weight: 600; }
+  
+  .content { flex: 1; display: flex; overflow: hidden; }
+  
+  /* Left: Standards detection */
+  .standards-panel { width: 380px; padding: 24px; border-right: 1px solid #eee; overflow-y: auto; }
+  .standards-panel h3 { font-size: 14px; color: #888; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 16px; }
+  
+  .standard-detected { background: #fffbeb; border: 1px solid #fbbf24; border-radius: 10px; padding: 16px; margin-bottom: 16px; }
+  .standard-detected-header { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+  .standard-icon { width: 32px; height: 32px; background: #fbbf24; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 16px; }
+  .standard-name { font-size: 15px; font-weight: 600; }
+  .standard-desc { font-size: 12px; color: #666; margin-bottom: 12px; line-height: 1.4; }
+  
+  .coverage-ring-container { display: flex; align-items: center; gap: 16px; margin-bottom: 16px; }
+  .coverage-ring { position: relative; width: 80px; height: 80px; }
+  .coverage-ring svg { transform: rotate(-90deg); }
+  .coverage-ring-label { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); font-size: 18px; font-weight: 700; color: #d97706; }
+  .coverage-stats { font-size: 12px; color: #555; line-height: 1.8; }
+  .coverage-stats strong { color: #333; }
+  
+  .standard-action { padding: 10px 16px; background: #4338ca; color: #fff; border: none; border-radius: 8px; font-size: 13px; font-weight: 500; cursor: pointer; width: 100%; text-align: center; margin-top: 8px; }
+  .standard-action:hover { background: #3730a3; }
+  .standard-action.secondary { background: #fff; color: #4338ca; border: 1px solid #4338ca; margin-top: 6px; }
+  
+  /* Unmatched standard */
+  .standard-available { background: #f8f9fa; border: 1px solid #e8e8e8; border-radius: 10px; padding: 16px; margin-bottom: 12px; }
+  .standard-available .standard-name { color: #888; }
+  .no-match { font-size: 12px; color: #aaa; font-style: italic; }
+  
+  /* Right: Field mapping */
+  .mapping-panel { flex: 1; padding: 24px; overflow-y: auto; }
+  .mapping-panel h3 { font-size: 14px; color: #888; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 16px; }
+  
+  .mapping-section { margin-bottom: 20px; }
+  .mapping-section-header { font-size: 12px; font-weight: 600; color: #555; padding: 6px 0; border-bottom: 1px solid #eee; margin-bottom: 8px; display: flex; align-items: center; gap: 8px; }
+  .section-badge { font-size: 10px; padding: 2px 8px; border-radius: 8px; }
+  .badge-covered { background: #ecfdf5; color: #059669; }
+  .badge-missing { background: #fef2f2; color: #dc2626; }
+  .badge-partial { background: #fffbeb; color: #d97706; }
+  
+  .mapping-row { display: flex; align-items: center; padding: 6px 10px; margin-bottom: 3px; border-radius: 6px; font-size: 13px; }
+  .mapping-row .std-field { flex: 1; color: #555; }
+  .mapping-row .arrow { color: #ccc; margin: 0 8px; font-size: 11px; }
+  .mapping-row .your-field { flex: 1; font-weight: 500; }
+  .mapping-row .action-btn { font-size: 11px; padding: 2px 8px; border-radius: 4px; border: 1px solid #ddd; background: #fff; cursor: pointer; color: #666; }
+  
+  .mapping-row.covered { background: #f0fdf4; }
+  .mapping-row.covered .your-field { color: #059669; }
+  .mapping-row.missing { background: #fef2f2; }
+  .mapping-row.missing .your-field { color: #dc2626; font-style: italic; font-weight: 400; }
+  .mapping-row.missing .action-btn { border-color: #4338ca; color: #4338ca; font-weight: 500; }
+  .mapping-row.partial { background: #fffbeb; }
+  .mapping-row.partial .your-field { color: #d97706; }
+</style>
+</head>
+<body>
+<div class="app-container">
+  <div class="topbar">
+    <h1>Orthopedic Patient Records · Standards Analysis</h1>
+  </div>
+  
+  <div class="content">
+    <!-- Standards Panel -->
+    <div class="standards-panel">
+      <h3>Detected Standards</h3>
+      
+      <div class="standard-detected">
+        <div class="standard-detected-header">
+          <div class="standard-icon">🏥</div>
+          <div>
+            <div class="standard-name">FHIR Patient Intake</div>
+            <div style="font-size:11px; color:#888">HL7 FHIR R4 · Patient Resource</div>
+          </div>
+        </div>
+        <div class="standard-desc">
+          Your intent mentions "patient records" and "orthopedic department". This overlaps with the FHIR Patient resource standard for healthcare data interoperability.
+        </div>
+        
+        <div class="coverage-ring-container">
+          <div class="coverage-ring">
+            <svg width="80" height="80" viewBox="0 0 80 80">
+              <circle cx="40" cy="40" r="34" fill="none" stroke="#eee" stroke-width="6"/>
+              <circle cx="40" cy="40" r="34" fill="none" stroke="#d97706" stroke-width="6" 
+                      stroke-dasharray="214" stroke-dashoffset="86" stroke-linecap="round"/>
+            </svg>
+            <span class="coverage-ring-label">60%</span>
+          </div>
+          <div class="coverage-stats">
+            <div><strong>9</strong> of 15 fields covered</div>
+            <div><strong>3</strong> partially matched</div>
+            <div><strong>3</strong> missing from your schema</div>
+          </div>
+        </div>
+        
+        <button class="standard-action">Add 3 missing fields to schema</button>
+        <button class="standard-action secondary">Review field mapping →</button>
+      </div>
+      
+      <div class="standard-available">
+        <div class="standard-detected-header">
+          <div class="standard-icon" style="background:#e8e8e8">📊</div>
+          <div>
+            <div class="standard-name">ESRS E1 Climate</div>
+            <div style="font-size:11px; color:#aaa">EU Sustainability Reporting</div>
+          </div>
+        </div>
+        <div class="no-match">No overlap detected with current intent</div>
+      </div>
+    </div>
+    
+    <!-- Field Mapping -->
+    <div class="mapping-panel">
+      <h3>FHIR Patient Intake · Field Mapping</h3>
+      
+      <div class="mapping-section">
+        <div class="mapping-section-header">
+          Patient Identification
+          <span class="section-badge badge-covered">4/4 covered</span>
+        </div>
+        <div class="mapping-row covered">
+          <span class="std-field">patient.name</span>
+          <span class="arrow">→</span>
+          <span class="your-field">Patient Name ✓</span>
+        </div>
+        <div class="mapping-row covered">
+          <span class="std-field">patient.birthDate</span>
+          <span class="arrow">→</span>
+          <span class="your-field">Date of Birth ✓</span>
+        </div>
+        <div class="mapping-row covered">
+          <span class="std-field">patient.identifier</span>
+          <span class="arrow">→</span>
+          <span class="your-field">Patient ID ✓</span>
+        </div>
+        <div class="mapping-row covered">
+          <span class="std-field">coverage.identifier</span>
+          <span class="arrow">→</span>
+          <span class="your-field">Insurance Number ✓</span>
+        </div>
+      </div>
+      
+      <div class="mapping-section">
+        <div class="mapping-section-header">
+          Clinical Data
+          <span class="section-badge badge-partial">5/6 covered · 2 partial</span>
+        </div>
+        <div class="mapping-row covered">
+          <span class="std-field">condition.code</span>
+          <span class="arrow">→</span>
+          <span class="your-field">Primary Diagnosis ✓</span>
+        </div>
+        <div class="mapping-row covered">
+          <span class="std-field">medicationStatement</span>
+          <span class="arrow">→</span>
+          <span class="your-field">Medication List ✓</span>
+        </div>
+        <div class="mapping-row covered">
+          <span class="std-field">allergyIntolerance</span>
+          <span class="arrow">→</span>
+          <span class="your-field">Allergies ✓</span>
+        </div>
+        <div class="mapping-row partial">
+          <span class="std-field">observation.vitalSigns</span>
+          <span class="arrow">→</span>
+          <span class="your-field">Vital Signs (missing: BMI, SpO2)</span>
+          <button class="action-btn">expand</button>
+        </div>
+        <div class="mapping-row partial">
+          <span class="std-field">encounter.practitioner</span>
+          <span class="arrow">→</span>
+          <span class="your-field">Referring Physician (missing: NPI)</span>
+          <button class="action-btn">expand</button>
+        </div>
+        <div class="mapping-row missing">
+          <span class="std-field">consent.status</span>
+          <span class="arrow">→</span>
+          <span class="your-field">— not in schema</span>
+          <button class="action-btn">+ add</button>
+        </div>
+      </div>
+      
+      <div class="mapping-section">
+        <div class="mapping-section-header">
+          Contact & Communication
+          <span class="section-badge badge-missing">0/3 covered</span>
+        </div>
+        <div class="mapping-row missing">
+          <span class="std-field">patient.telecom</span>
+          <span class="arrow">→</span>
+          <span class="your-field">— not in schema</span>
+          <button class="action-btn">+ add</button>
+        </div>
+        <div class="mapping-row missing">
+          <span class="std-field">patient.address</span>
+          <span class="arrow">→</span>
+          <span class="your-field">— not in schema</span>
+          <button class="action-btn">+ add</button>
+        </div>
+        <div class="mapping-row missing">
+          <span class="std-field">patient.communication.language</span>
+          <span class="arrow">→</span>
+          <span class="your-field">— not in schema</span>
+          <button class="action-btn">+ add</button>
+        </div>
+      </div>
+      
+      <div class="mapping-section">
+        <div class="mapping-section-header">
+          Administrative
+          <span class="section-badge badge-covered">2/2 covered</span>
+        </div>
+        <div class="mapping-row covered">
+          <span class="std-field">encounter.period.start</span>
+          <span class="arrow">→</span>
+          <span class="your-field">Admission Date ✓</span>
+        </div>
+        <div class="mapping-row covered">
+          <span class="std-field">encounter.serviceProvider</span>
+          <span class="arrow">→</span>
+          <span class="your-field">Referring Physician ✓</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

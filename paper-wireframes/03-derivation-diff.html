@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Derivation Diff View — Malleable Forms</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f8f9fa; color: #1a1a2e; }
+  .app-container { width: 1200px; height: 800px; margin: 20px auto; background: #fff; border-radius: 12px; box-shadow: 0 2px 20px rgba(0,0,0,0.08); display: flex; flex-direction: column; overflow: hidden; }
+  
+  .topbar { padding: 16px 24px; border-bottom: 1px solid #eee; display: flex; align-items: center; gap: 16px; }
+  .topbar h1 { font-size: 18px; font-weight: 600; }
+  .breadcrumb { font-size: 13px; color: #888; }
+  .breadcrumb span { color: #4338ca; }
+  
+  /* Derivation graph bar */
+  .derivation-bar { padding: 14px 24px; background: #fafafa; border-bottom: 1px solid #eee; display: flex; align-items: center; gap: 12px; }
+  .deriv-node { padding: 6px 14px; border-radius: 20px; font-size: 12px; font-weight: 500; cursor: pointer; border: 2px solid; }
+  .deriv-node.base { border-color: #4338ca; background: #eef2ff; color: #4338ca; }
+  .deriv-node.active { border-color: #059669; background: #ecfdf5; color: #059669; }
+  .deriv-node.inactive { border-color: #ddd; background: #fff; color: #888; }
+  .deriv-arrow { color: #ccc; font-size: 16px; }
+  .deriv-branch { display: flex; flex-direction: column; gap: 4px; }
+  
+  .content { flex: 1; display: flex; overflow: hidden; }
+  
+  /* Schema columns */
+  .schema-col { flex: 1; padding: 20px; overflow-y: auto; }
+  .schema-col.base { border-right: 1px solid #eee; }
+  .schema-col h3 { font-size: 13px; color: #888; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
+  .schema-col .subtitle { font-size: 12px; color: #aaa; margin-bottom: 16px; }
+  
+  .field-row { display: flex; align-items: center; padding: 8px 12px; margin-bottom: 4px; border-radius: 6px; font-size: 13px; }
+  .field-row .fname { flex: 1; }
+  .field-row .ftype { font-size: 11px; color: #888; background: #f0f0f0; padding: 2px 8px; border-radius: 4px; }
+  
+  /* States */
+  .field-row.shared { background: #f0fdf4; border-left: 3px solid #059669; }
+  .field-row.base-only { background: #fef2f2; border-left: 3px solid #ef4444; opacity: 0.5; }
+  .field-row.derived-only { background: #eff6ff; border-left: 3px solid #3b82f6; }
+  .field-row.neutral { background: #fafafa; border-left: 3px solid #ddd; }
+  
+  .group-header { font-size: 12px; font-weight: 600; color: #555; padding: 6px 12px; margin-top: 12px; margin-bottom: 4px; border-bottom: 1px solid #eee; }
+  
+  /* Center diff indicators */
+  .diff-col { width: 60px; display: flex; flex-direction: column; align-items: center; padding-top: 80px; gap: 0; }
+  .diff-marker { width: 24px; height: 28px; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; margin-bottom: 4px; }
+  .diff-marker.shared { color: #059669; }
+  .diff-marker.removed { color: #ef4444; }
+  .diff-marker.added { color: #3b82f6; }
+  .diff-marker.spacer { color: transparent; }
+  
+  /* Legend */
+  .legend { padding: 12px 24px; background: #f8f9fa; border-top: 1px solid #eee; display: flex; align-items: center; gap: 20px; }
+  .legend-item { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #666; }
+  .legend-dot { width: 10px; height: 10px; border-radius: 2px; }
+  
+  /* Stats */
+  .stats-bar { padding: 10px 24px; background: #fafafa; border-bottom: 1px solid #eee; display: flex; gap: 24px; }
+  .stat { font-size: 12px; color: #666; }
+  .stat strong { color: #333; }
+</style>
+</head>
+<body>
+<div class="app-container">
+  <div class="topbar">
+    <h1>Orthopedic Patient Records</h1>
+    <div class="breadcrumb">Base Schema → <span>Surgeon View</span> (derived)</div>
+  </div>
+  
+  <div class="derivation-bar">
+    <div class="deriv-node base">Base Schema</div>
+    <div class="deriv-arrow">──┬──▶</div>
+    <div class="deriv-branch">
+      <div class="deriv-node active">Surgeon View</div>
+    </div>
+    <div style="margin-left: -12px;" class="deriv-arrow">├──▶</div>
+    <div class="deriv-node inactive">Physiotherapist</div>
+    <div style="margin-left: -12px;" class="deriv-arrow">└──▶</div>
+    <div class="deriv-node inactive">Patient Portal</div>
+  </div>
+  
+  <div class="stats-bar">
+    <div class="stat">Base fields: <strong>14</strong></div>
+    <div class="stat">Derived fields: <strong>18</strong></div>
+    <div class="stat" style="color:#059669">Shared: <strong>11</strong></div>
+    <div class="stat" style="color:#ef4444">Excluded: <strong>3</strong></div>
+    <div class="stat" style="color:#3b82f6">Added: <strong>7</strong></div>
+  </div>
+  
+  <div class="content">
+    <!-- Base Schema -->
+    <div class="schema-col base">
+      <h3>Base Schema</h3>
+      <div class="subtitle">14 fields · shared across all views</div>
+      
+      <div class="group-header">Patient Demographics</div>
+      <div class="field-row shared"><span class="fname">Patient Name</span><span class="ftype">text</span></div>
+      <div class="field-row shared"><span class="fname">Date of Birth</span><span class="ftype">date</span></div>
+      <div class="field-row shared"><span class="fname">Patient ID</span><span class="ftype">text</span></div>
+      <div class="field-row shared"><span class="fname">Insurance Number</span><span class="ftype">text</span></div>
+      
+      <div class="group-header">Admission</div>
+      <div class="field-row shared"><span class="fname">Admission Date</span><span class="ftype">date</span></div>
+      <div class="field-row shared"><span class="fname">Primary Diagnosis</span><span class="ftype">text</span></div>
+      <div class="field-row shared"><span class="fname">Referring Physician</span><span class="ftype">text</span></div>
+      
+      <div class="group-header">Clinical</div>
+      <div class="field-row shared"><span class="fname">Vital Signs</span><span class="ftype">group</span></div>
+      <div class="field-row shared"><span class="fname">Medication List</span><span class="ftype">group</span></div>
+      <div class="field-row shared"><span class="fname">Allergies</span><span class="ftype">text</span></div>
+      <div class="field-row shared"><span class="fname">Weight-Bearing Status</span><span class="ftype">select</span></div>
+      
+      <div class="group-header">Notes</div>
+      <div class="field-row base-only"><span class="fname">Clinical Notes Timeline</span><span class="ftype">group</span></div>
+      <div class="field-row base-only"><span class="fname">Internal Comments</span><span class="ftype">text</span></div>
+      <div class="field-row base-only"><span class="fname">Administrative Flags</span><span class="ftype">boolean</span></div>
+    </div>
+    
+    <!-- Diff column -->
+    <div class="diff-col">
+      <div class="diff-marker shared">=</div>
+      <div class="diff-marker shared">=</div>
+      <div class="diff-marker shared">=</div>
+      <div class="diff-marker shared">=</div>
+      <div class="diff-marker spacer">·</div>
+      <div class="diff-marker shared">=</div>
+      <div class="diff-marker shared">=</div>
+      <div class="diff-marker shared">=</div>
+      <div class="diff-marker spacer">·</div>
+      <div class="diff-marker shared">=</div>
+      <div class="diff-marker shared">=</div>
+      <div class="diff-marker shared">=</div>
+      <div class="diff-marker shared">=</div>
+      <div class="diff-marker spacer">·</div>
+      <div class="diff-marker removed">✕</div>
+      <div class="diff-marker removed">✕</div>
+      <div class="diff-marker removed">✕</div>
+      <div class="diff-marker spacer">·</div>
+      <div class="diff-marker added">+</div>
+      <div class="diff-marker added">+</div>
+      <div class="diff-marker added">+</div>
+      <div class="diff-marker added">+</div>
+      <div class="diff-marker added">+</div>
+      <div class="diff-marker added">+</div>
+      <div class="diff-marker added">+</div>
+    </div>
+    
+    <!-- Derived Schema -->
+    <div class="schema-col">
+      <h3>Surgeon View</h3>
+      <div class="subtitle">18 fields · super-schema (extends base)</div>
+      
+      <div class="group-header">Patient Demographics</div>
+      <div class="field-row shared"><span class="fname">Patient Name</span><span class="ftype">text</span></div>
+      <div class="field-row shared"><span class="fname">Date of Birth</span><span class="ftype">date</span></div>
+      <div class="field-row shared"><span class="fname">Patient ID</span><span class="ftype">text</span></div>
+      <div class="field-row shared"><span class="fname">Insurance Number</span><span class="ftype">text</span></div>
+      
+      <div class="group-header">Admission</div>
+      <div class="field-row shared"><span class="fname">Admission Date</span><span class="ftype">date</span></div>
+      <div class="field-row shared"><span class="fname">Primary Diagnosis</span><span class="ftype">text</span></div>
+      <div class="field-row shared"><span class="fname">Referring Physician</span><span class="ftype">text</span></div>
+      
+      <div class="group-header">Clinical</div>
+      <div class="field-row shared"><span class="fname">Vital Signs</span><span class="ftype">group</span></div>
+      <div class="field-row shared"><span class="fname">Medication List</span><span class="ftype">group</span></div>
+      <div class="field-row shared"><span class="fname">Allergies</span><span class="ftype">text</span></div>
+      <div class="field-row shared"><span class="fname">Weight-Bearing Status</span><span class="ftype">select</span></div>
+      
+      <div class="group-header">Surgical (derived)</div>
+      <div class="field-row derived-only"><span class="fname">Surgical History</span><span class="ftype">group</span></div>
+      <div class="field-row derived-only"><span class="fname">Imaging Results</span><span class="ftype">file</span></div>
+      <div class="field-row derived-only"><span class="fname">Implant Specifications</span><span class="ftype">group</span></div>
+      <div class="field-row derived-only"><span class="fname">Pre-Op Protocol</span><span class="ftype">group</span></div>
+      <div class="field-row derived-only"><span class="fname">Post-Op Protocol</span><span class="ftype">group</span></div>
+      <div class="field-row derived-only"><span class="fname">Complication Risk Score</span><span class="ftype">number</span></div>
+      <div class="field-row derived-only"><span class="fname">Planned Procedure</span><span class="ftype">text</span></div>
+    </div>
+  </div>
+  
+  <div class="legend">
+    <div class="legend-item"><div class="legend-dot" style="background:#059669"></div> Shared fields (inherited)</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#ef4444"></div> Base-only (excluded from view)</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#3b82f6"></div> Derived-only (added for scenario)</div>
+    <div style="flex:1"></div>
+    <div class="legend-item" style="color: #4338ca; font-weight: 500;">Super-schema: derived view extends base</div>
+  </div>
+</div>
+</body>
+</html>

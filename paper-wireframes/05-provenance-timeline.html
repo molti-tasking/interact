@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Portfolio Provenance Timeline — Malleable Forms</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f8f9fa; color: #1a1a2e; }
+  .app-container { width: 1200px; height: 800px; margin: 20px auto; background: #fff; border-radius: 12px; box-shadow: 0 2px 20px rgba(0,0,0,0.08); display: flex; flex-direction: column; overflow: hidden; }
+  
+  .topbar { padding: 16px 24px; border-bottom: 1px solid #eee; display: flex; align-items: center; justify-content: space-between; }
+  .topbar h1 { font-size: 18px; font-weight: 600; }
+  .topbar-tabs { display: flex; gap: 4px; }
+  .topbar-tab { padding: 6px 14px; font-size: 13px; border-radius: 6px; cursor: pointer; color: #888; }
+  .topbar-tab.active { background: #f0f0f0; color: #333; font-weight: 500; }
+  
+  .content { flex: 1; display: flex; overflow: hidden; }
+  
+  /* Left: Timeline */
+  .timeline-panel { flex: 1; padding: 24px 24px 24px 40px; overflow-y: auto; }
+  .timeline-panel h3 { font-size: 14px; color: #888; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 20px; }
+  
+  .timeline { position: relative; padding-left: 32px; }
+  .timeline::before { content: ''; position: absolute; left: 8px; top: 0; bottom: 0; width: 2px; background: #e8e8e8; }
+  
+  .tl-entry { position: relative; margin-bottom: 24px; }
+  .tl-dot { position: absolute; left: -28px; top: 4px; width: 16px; height: 16px; border-radius: 50%; border: 2px solid; background: #fff; }
+  .tl-dot.create { border-color: #4338ca; background: #4338ca; }
+  .tl-dot.opinion { border-color: #7c3aed; background: #7c3aed; }
+  .tl-dot.edit { border-color: #d97706; background: #d97706; }
+  .tl-dot.derive { border-color: #059669; background: #059669; }
+  .tl-dot.standard { border-color: #dc2626; background: #dc2626; }
+  
+  .tl-time { font-size: 11px; color: #aaa; margin-bottom: 2px; }
+  .tl-title { font-size: 14px; font-weight: 500; margin-bottom: 4px; }
+  .tl-body { font-size: 13px; color: #666; line-height: 1.5; }
+  .tl-actor { font-size: 11px; color: #888; margin-top: 4px; display: flex; align-items: center; gap: 4px; }
+  .actor-avatar { width: 16px; height: 16px; border-radius: 50%; background: #ddd; display: inline-flex; align-items: center; justify-content: center; font-size: 8px; color: #666; }
+  
+  .tl-diff { margin-top: 8px; background: #fafafa; border: 1px solid #e8e8e8; border-radius: 6px; padding: 8px 10px; font-size: 12px; font-family: 'SF Mono', 'Fira Code', monospace; }
+  .diff-add { color: #059669; }
+  .diff-remove { color: #dc2626; }
+  .diff-context { color: #888; }
+  
+  .tl-branch { margin-top: 8px; display: inline-flex; align-items: center; gap: 6px; background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 6px; padding: 4px 10px; font-size: 12px; color: #059669; }
+  
+  .tl-principle { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; padding: 2px 8px; border-radius: 10px; margin-top: 6px; }
+  .pr-blue { background: #eef2ff; color: #4338ca; }
+  .pr-purple { background: #ede9fe; color: #7c3aed; }
+  .pr-orange { background: #fef3c7; color: #92400e; }
+  .pr-green { background: #ecfdf5; color: #059669; }
+  
+  /* Right: Detail panel */
+  .detail-panel { width: 360px; background: #fafafa; border-left: 1px solid #eee; padding: 24px; overflow-y: auto; }
+  .detail-panel h3 { font-size: 14px; color: #888; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 16px; }
+  
+  .detail-card { background: #fff; border: 1px solid #e8e8e8; border-radius: 10px; padding: 16px; margin-bottom: 16px; }
+  .detail-card h4 { font-size: 13px; font-weight: 600; margin-bottom: 8px; }
+  .detail-card p { font-size: 12px; color: #666; line-height: 1.5; }
+  
+  .detail-stat-row { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #f0f0f0; font-size: 12px; }
+  .detail-stat-row:last-child { border: none; }
+  .detail-stat-label { color: #888; }
+  .detail-stat-value { font-weight: 500; }
+  
+  .snapshot-btn { display: block; width: 100%; padding: 8px; background: #fff; border: 1px solid #ddd; border-radius: 6px; font-size: 12px; cursor: pointer; text-align: center; color: #4338ca; margin-top: 8px; }
+</style>
+</head>
+<body>
+<div class="app-container">
+  <div class="topbar">
+    <h1>Machine Rental Contract · Provenance</h1>
+    <div class="topbar-tabs">
+      <div class="topbar-tab">Opinions</div>
+      <div class="topbar-tab">Dimensions</div>
+      <div class="topbar-tab">Schema</div>
+      <div class="topbar-tab active">Provenance</div>
+      <div class="topbar-tab">Derived Views</div>
+    </div>
+  </div>
+  
+  <div class="content">
+    <div class="timeline-panel">
+      <h3>Portfolio Evolution · 6 entries</h3>
+      
+      <div class="timeline">
+        <!-- Entry 1: Creation -->
+        <div class="tl-entry">
+          <div class="tl-dot create"></div>
+          <div class="tl-time">Mar 3, 2026 · 09:14</div>
+          <div class="tl-title">Portfolio created</div>
+          <div class="tl-body">
+            Initial intent: "I need a rental contract form for our construction machines."<br>
+            Generated 5 dimensions, 12 initial fields.
+          </div>
+          <div class="tl-actor"><span class="actor-avatar">KM</span> Karl Meyer (Owner)</div>
+          <div class="tl-principle pr-blue">↻ Iterative Convergence · Round 1</div>
+        </div>
+        
+        <!-- Entry 2: Opinion resolved -->
+        <div class="tl-entry">
+          <div class="tl-dot opinion"></div>
+          <div class="tl-time">Mar 3, 2026 · 09:22</div>
+          <div class="tl-title">Opinion resolved: Pricing structure</div>
+          <div class="tl-body">
+            Selected "Degressive pricing with configurable tier thresholds" over fixed daily rates.
+          </div>
+          <div class="tl-diff">
+            <div class="diff-add">+ Base Daily Rate (number)</div>
+            <div class="diff-add">+ Tier Thresholds (group: duration, rate)</div>
+            <div class="diff-add">+ Discount Percentage (number)</div>
+            <div class="diff-context">  schema: 12 → 15 fields</div>
+          </div>
+          <div class="tl-actor"><span class="actor-avatar">KM</span> Karl Meyer (Owner)</div>
+          <div class="tl-principle pr-purple">◉ Opinion-driven elicitation</div>
+        </div>
+        
+        <!-- Entry 3: New collaborator -->
+        <div class="tl-entry">
+          <div class="tl-dot edit"></div>
+          <div class="tl-time">Mar 10, 2026 · 14:05</div>
+          <div class="tl-title">Collaborator joined · Schema extended</div>
+          <div class="tl-body">
+            Office manager added operator certification fields.<br>
+            Rationale: "We need the renter's operator certifications before handover."
+          </div>
+          <div class="tl-diff">
+            <div class="diff-add">+ Certification Type (select)</div>
+            <div class="diff-add">+ Issuing Body (text)</div>
+            <div class="diff-add">+ Expiry Date (date)</div>
+            <div class="diff-add">+ Machine Categories Covered (multiselect)</div>
+            <div class="diff-context">  schema: 15 → 19 fields</div>
+          </div>
+          <div class="tl-actor"><span class="actor-avatar">LS</span> Lisa Schmidt (Office Manager)</div>
+          <div class="tl-principle pr-orange">⧗ Decision Traceability</div>
+        </div>
+        
+        <!-- Entry 4: External requirement -->
+        <div class="tl-entry">
+          <div class="tl-dot standard"></div>
+          <div class="tl-time">May 15, 2026 · 10:30</div>
+          <div class="tl-title">External requirement: Insurance condition checklist</div>
+          <div class="tl-body">
+            Insurance provider XY now requires photographic pre-delivery condition documentation effective June 1, 2026. Added 12-field checklist section.
+          </div>
+          <div class="tl-diff">
+            <div class="diff-add">+ Condition Checklist (group: 12 sub-fields)</div>
+            <div class="diff-add">+ Photo Documentation (file, multiple)</div>
+            <div class="diff-context">  schema: 19 → 33 fields</div>
+          </div>
+          <div class="tl-actor"><span class="actor-avatar">LS</span> Lisa Schmidt (Office Manager)</div>
+          <div class="tl-principle pr-orange">⧗ Decision Traceability · External trigger</div>
+        </div>
+        
+        <!-- Entry 5: Direct edit with backprop -->
+        <div class="tl-entry">
+          <div class="tl-dot edit"></div>
+          <div class="tl-time">May 16, 2026 · 08:45</div>
+          <div class="tl-title">Direct edit → Intent updated</div>
+          <div class="tl-body">
+            Weight class thresholds changed from 2 tiers to 3. Intent description automatically updated to reflect: "three weight classes: &lt;3.5t, 3.5–7.5t, &gt;7.5t"
+          </div>
+          <div class="tl-diff">
+            <div class="diff-remove">- Weight Class: Light (&lt;5t) / Heavy (≥5t)</div>
+            <div class="diff-add">+ Weight Class: Light (&lt;3.5t) / Medium (3.5–7.5t) / Heavy (&gt;7.5t)</div>
+            <div class="diff-context">  ↔ intent backpropagated</div>
+          </div>
+          <div class="tl-actor"><span class="actor-avatar">KM</span> Karl Meyer (Owner)</div>
+          <div class="tl-principle pr-purple">↔ Bidirectional sync</div>
+        </div>
+        
+        <!-- Entry 6: Derivation -->
+        <div class="tl-entry">
+          <div class="tl-dot derive"></div>
+          <div class="tl-time">May 20, 2026 · 11:15</div>
+          <div class="tl-title">Derived view: Dispatcher Delivery Sheet</div>
+          <div class="tl-body">
+            Request: "I just need the delivery info."<br>
+            Sub-schema derived with 6 fields from base (33 → 6).
+          </div>
+          <div class="tl-branch">⑃ Branched → Dispatcher Delivery Sheet (6 fields)</div>
+          <div class="tl-actor"><span class="actor-avatar">TB</span> Tom Bauer (Dispatcher)</div>
+          <div class="tl-principle pr-green">⑃ Scenario-Driven Derivation</div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Detail Panel -->
+    <div class="detail-panel">
+      <h3>Portfolio Summary</h3>
+      
+      <div class="detail-card">
+        <h4>Current State</h4>
+        <div class="detail-stat-row">
+          <span class="detail-stat-label">Total fields</span>
+          <span class="detail-stat-value">33</span>
+        </div>
+        <div class="detail-stat-row">
+          <span class="detail-stat-label">Derived views</span>
+          <span class="detail-stat-value">1</span>
+        </div>
+        <div class="detail-stat-row">
+          <span class="detail-stat-label">Contributors</span>
+          <span class="detail-stat-value">3</span>
+        </div>
+        <div class="detail-stat-row">
+          <span class="detail-stat-label">Iterations</span>
+          <span class="detail-stat-value">6</span>
+        </div>
+        <div class="detail-stat-row">
+          <span class="detail-stat-label">Opinions resolved</span>
+          <span class="detail-stat-value">4</span>
+        </div>
+        <div class="detail-stat-row">
+          <span class="detail-stat-label">Time span</span>
+          <span class="detail-stat-value">78 days</span>
+        </div>
+      </div>
+      
+      <div class="detail-card">
+        <h4>Contributors</h4>
+        <div class="detail-stat-row">
+          <span class="detail-stat-label"><span class="actor-avatar" style="display:inline-flex">KM</span> Karl Meyer</span>
+          <span class="detail-stat-value">Owner · 3 edits</span>
+        </div>
+        <div class="detail-stat-row">
+          <span class="detail-stat-label"><span class="actor-avatar" style="display:inline-flex">LS</span> Lisa Schmidt</span>
+          <span class="detail-stat-value">Manager · 2 edits</span>
+        </div>
+        <div class="detail-stat-row">
+          <span class="detail-stat-label"><span class="actor-avatar" style="display:inline-flex">TB</span> Tom Bauer</span>
+          <span class="detail-stat-value">Dispatcher · 1 derivation</span>
+        </div>
+      </div>
+      
+      <div class="detail-card">
+        <h4>Design Principles Exercised</h4>
+        <div style="display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px;">
+          <span class="tl-principle pr-blue">↻ Iterative Convergence</span>
+          <span class="tl-principle pr-purple">◉ Opinion-driven</span>
+          <span class="tl-principle pr-orange">⧗ Traceability</span>
+          <span class="tl-principle pr-green">⑃ Derivation</span>
+        </div>
+      </div>
+      
+      <button class="snapshot-btn">↩ Restore to any snapshot</button>
+      <button class="snapshot-btn">📄 Export provenance log</button>
+    </div>
+  </div>
+</div>
+</body>
+</html>

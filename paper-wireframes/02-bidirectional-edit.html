@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bidirectional Intent-Schema Edit — Malleable Forms</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f8f9fa; color: #1a1a2e; }
+  .app-container { width: 1200px; height: 800px; margin: 20px auto; background: #fff; border-radius: 12px; box-shadow: 0 2px 20px rgba(0,0,0,0.08); display: flex; flex-direction: column; overflow: hidden; }
+  
+  .topbar { padding: 16px 24px; border-bottom: 1px solid #eee; display: flex; align-items: center; justify-content: space-between; }
+  .topbar h1 { font-size: 18px; font-weight: 600; }
+  .topbar-badge { font-size: 12px; background: #ede9fe; color: #7c3aed; padding: 4px 10px; border-radius: 12px; font-weight: 500; }
+  
+  .content { flex: 1; display: flex; overflow: hidden; }
+  
+  /* Left: Intent Panel */
+  .intent-panel { flex: 1; padding: 24px; border-right: 1px solid #eee; display: flex; flex-direction: column; }
+  .panel-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+  .panel-header h3 { font-size: 14px; color: #888; text-transform: uppercase; letter-spacing: 0.5px; }
+  .sync-indicator { font-size: 12px; color: #059669; display: flex; align-items: center; gap: 4px; }
+  .sync-dot { width: 8px; height: 8px; background: #059669; border-radius: 50%; animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+  
+  .intent-text { flex: 1; background: #fafafa; border: 1px solid #e8e8e8; border-radius: 10px; padding: 20px; font-size: 14px; line-height: 1.8; overflow-y: auto; }
+  .intent-text p { margin-bottom: 12px; }
+  .intent-highlight { background: #ede9fe; border-left: 3px solid #7c3aed; padding: 2px 8px; border-radius: 0 4px 4px 0; }
+  .intent-highlight-new { background: #fef3c7; border-left: 3px solid #d97706; padding: 2px 8px; border-radius: 0 4px 4px 0; }
+  .intent-deleted { background: #fee2e2; text-decoration: line-through; color: #999; padding: 2px 8px; border-radius: 4px; }
+  
+  /* Center: Arrow */
+  .arrow-column { width: 80px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 20px; }
+  .arrow-box { text-align: center; }
+  .arrow-icon { font-size: 28px; color: #7c3aed; }
+  .arrow-label { font-size: 10px; color: #999; margin-top: 2px; }
+  .arrow-icon.right { color: #4338ca; }
+  .arrow-icon.left { color: #d97706; }
+  
+  /* Right: Form Editor */
+  .form-panel { flex: 1; padding: 24px; display: flex; flex-direction: column; }
+  .form-panel h3 { font-size: 14px; color: #888; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 16px; }
+  
+  .form-preview { flex: 1; background: #fafafa; border: 1px solid #e8e8e8; border-radius: 10px; padding: 20px; overflow-y: auto; }
+  .form-field { margin-bottom: 16px; }
+  .form-field label { font-size: 13px; font-weight: 500; color: #444; display: block; margin-bottom: 4px; }
+  .form-field input, .form-field select { width: 100%; padding: 8px 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 13px; background: #fff; }
+  .form-field.editing { position: relative; }
+  .form-field.editing input, .form-field.editing select { border-color: #7c3aed; box-shadow: 0 0 0 2px rgba(124,58,237,0.15); }
+  .form-field.editing label { color: #7c3aed; }
+  .form-field.new-field { background: #fef3c7; border: 1px dashed #d97706; border-radius: 8px; padding: 12px; }
+  .form-field.new-field label { color: #d97706; }
+  .form-field.removed { opacity: 0.4; position: relative; }
+  .form-field.removed::after { content: "REMOVED"; position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); font-size: 11px; color: #dc2626; font-weight: 700; background: rgba(255,255,255,0.8); padding: 2px 8px; border-radius: 4px; }
+
+  .edit-action { position: absolute; top: -8px; right: -4px; background: #7c3aed; color: #fff; font-size: 10px; padding: 2px 8px; border-radius: 8px; }
+  .field-group-label { font-size: 12px; color: #888; font-weight: 600; margin-bottom: 8px; margin-top: 16px; padding-bottom: 4px; border-bottom: 1px solid #eee; }
+
+  /* Bottom annotation */
+  .annotation-bar { padding: 12px 24px; background: #f8f9fa; border-top: 1px solid #eee; display: flex; align-items: center; gap: 16px; }
+  .annotation-chip { font-size: 12px; padding: 4px 10px; border-radius: 12px; display: flex; align-items: center; gap: 4px; }
+  .chip-purple { background: #ede9fe; color: #7c3aed; }
+  .chip-orange { background: #fef3c7; color: #92400e; }
+  .chip-red { background: #fee2e2; color: #dc2626; }
+</style>
+</head>
+<body>
+<div class="app-container">
+  <div class="topbar">
+    <h1>Fitness Coaching · Client Intake</h1>
+    <span class="topbar-badge">↔ Bidirectional Sync Active</span>
+  </div>
+  
+  <div class="content">
+    <!-- Intent Panel -->
+    <div class="intent-panel">
+      <div class="panel-header">
+        <h3>Intent Description</h3>
+        <div class="sync-indicator"><span class="sync-dot"></span> Synced</div>
+      </div>
+      <div class="intent-text">
+        <p>I need a <strong>training intake form</strong> for new fitness coaching clients.</p>
+        <p>Collect basic <strong>client information</strong>: name, age, weight, height, and email.</p>
+        <p>Assess <strong>fitness baseline</strong>: current activity level, training frequency per week, <span class="intent-highlight">preferred session duration (30/45/60/90 min)</span>, and any prior training experience.</p>
+        <p>Record <strong>health and injury history</strong>: <span class="intent-deleted">general injury notes</span> <span class="intent-highlight-new">structured injury records including body region, injury type, date of injury, and current status (active/recovered/managed)</span>, allergies, and current medications.</p>
+        <p>Capture <strong>training goals</strong>: primary goal (hypertrophy / strength / endurance / weight loss / rehabilitation), target muscle groups if applicable, and timeline expectations.</p>
+        <p>Include a <strong>movement screening</strong> section: FMS scores for deep squat, hurdle step, inline lunge, shoulder mobility, active straight leg raise, trunk stability push-up, and rotary stability.</p>
+      </div>
+    </div>
+    
+    <!-- Arrows -->
+    <div class="arrow-column">
+      <div class="arrow-box">
+        <div class="arrow-icon right">→</div>
+        <div class="arrow-label">generate</div>
+      </div>
+      <div class="arrow-box">
+        <div class="arrow-icon left">←</div>
+        <div class="arrow-label">backprop</div>
+      </div>
+    </div>
+    
+    <!-- Form Editor -->
+    <div class="form-panel">
+      <h3>Form Schema Editor</h3>
+      <div class="form-preview">
+        <div class="field-group-label">Client Information</div>
+        <div class="form-field">
+          <label>Full Name</label>
+          <input type="text" placeholder="Enter client name" disabled>
+        </div>
+        <div class="form-field">
+          <label>Age</label>
+          <input type="number" placeholder="25" disabled>
+        </div>
+        
+        <div class="field-group-label">Fitness Baseline</div>
+        <div class="form-field">
+          <label>Current Activity Level</label>
+          <select disabled><option>Sedentary / Lightly Active / Active / Very Active</option></select>
+        </div>
+        <div class="form-field editing" style="position:relative">
+          <span class="edit-action">editing</span>
+          <label>Preferred Session Duration</label>
+          <select><option>30 min / 45 min / 60 min / 90 min</option></select>
+        </div>
+        
+        <div class="field-group-label">Health & Injury History</div>
+        <div class="form-field removed">
+          <label>Injury Notes</label>
+          <input type="text" disabled placeholder="Free text notes...">
+        </div>
+        <div class="form-field new-field">
+          <label>⬡ Structured Injury Record (group)</label>
+          <div style="padding: 8px 0; font-size: 12px; color: #92400e;">
+            Body Region · Injury Type · Date of Injury · Status
+          </div>
+        </div>
+        
+        <div class="field-group-label">Training Goals</div>
+        <div class="form-field">
+          <label>Primary Goal</label>
+          <select disabled><option>Hypertrophy / Strength / Endurance / Weight Loss / Rehab</option></select>
+        </div>
+        
+        <div class="field-group-label">FMS Screening</div>
+        <div class="form-field">
+          <label>Deep Squat</label>
+          <select disabled><option>0 / 1 / 2 / 3</option></select>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <div class="annotation-bar">
+    <span class="annotation-chip chip-purple">● Schema → Intent sync: "session duration" options added to intent</span>
+    <span class="annotation-chip chip-orange">● Direct edit: "injury notes" replaced with structured group</span>
+    <span class="annotation-chip chip-red">● Removed: free-text injury field (replaced)</span>
+  </div>
+</div>
+</body>
+</html>

@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Opinion Convergence Flow — Malleable Forms</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f8f9fa; color: #1a1a2e; }
+  .app-container { width: 1200px; height: 800px; margin: 20px auto; background: #fff; border-radius: 12px; box-shadow: 0 2px 20px rgba(0,0,0,0.08); display: flex; overflow: hidden; }
+  
+  /* Sidebar */
+  .sidebar { width: 240px; background: #fafafa; border-right: 1px solid #e8e8e8; padding: 20px 16px; }
+  .sidebar h2 { font-size: 13px; color: #888; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 16px; }
+  .portfolio-item { padding: 10px 12px; border-radius: 8px; margin-bottom: 4px; font-size: 14px; cursor: pointer; }
+  .portfolio-item.active { background: #eef2ff; color: #4338ca; font-weight: 600; }
+  .portfolio-item:not(.active) { color: #555; }
+  .nav-section { margin-top: 24px; }
+  .nav-item { padding: 8px 12px; font-size: 13px; color: #666; display: flex; align-items: center; gap: 8px; border-radius: 6px; margin-bottom: 2px; }
+  .nav-item.active { background: #f0f0f0; color: #333; font-weight: 500; }
+  .nav-dot { width: 6px; height: 6px; border-radius: 50%; }
+  
+  /* Main content */
+  .main { flex: 1; display: flex; flex-direction: column; }
+  .topbar { padding: 16px 24px; border-bottom: 1px solid #eee; display: flex; align-items: center; justify-content: space-between; }
+  .topbar h1 { font-size: 18px; font-weight: 600; }
+  .convergence-bar-container { display: flex; align-items: center; gap: 12px; }
+  .convergence-label { font-size: 13px; color: #666; }
+  .convergence-bar { width: 180px; height: 8px; background: #e8e8e8; border-radius: 4px; overflow: hidden; }
+  .convergence-fill { height: 100%; border-radius: 4px; background: linear-gradient(90deg, #4338ca, #7c3aed); transition: width 0.3s; }
+  .convergence-pct { font-size: 13px; font-weight: 600; color: #4338ca; }
+  
+  .content { flex: 1; display: flex; overflow: hidden; }
+  
+  /* Left: Opinions */
+  .opinions-panel { flex: 1; padding: 24px; overflow-y: auto; border-right: 1px solid #eee; }
+  .opinions-panel h3 { font-size: 14px; color: #888; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 16px; }
+  
+  .opinion-card { background: #fff; border: 1px solid #e2e2e2; border-radius: 10px; padding: 18px; margin-bottom: 14px; }
+  .opinion-card.resolved { opacity: 0.5; border-color: #d4edda; }
+  .opinion-card.active { border-color: #7c3aed; box-shadow: 0 0 0 2px rgba(124,58,237,0.12); }
+  .opinion-question { font-size: 15px; font-weight: 500; margin-bottom: 12px; line-height: 1.4; }
+  .opinion-options { display: flex; flex-direction: column; gap: 8px; }
+  .opinion-option { padding: 10px 14px; border: 1px solid #ddd; border-radius: 8px; font-size: 13px; cursor: pointer; display: flex; align-items: center; gap: 10px; }
+  .opinion-option:hover { border-color: #7c3aed; background: #faf8ff; }
+  .opinion-option.selected { border-color: #4338ca; background: #eef2ff; }
+  .option-radio { width: 16px; height: 16px; border-radius: 50%; border: 2px solid #ccc; flex-shrink: 0; }
+  .option-radio.filled { border-color: #4338ca; background: #4338ca; box-shadow: inset 0 0 0 3px #fff; }
+  .opinion-resolved-label { font-size: 12px; color: #059669; font-weight: 500; display: flex; align-items: center; gap: 4px; margin-top: 8px; }
+  .opinion-cascade-arrow { text-align: center; color: #7c3aed; font-size: 18px; margin: 4px 0; }
+  .cascade-label { font-size: 11px; color: #7c3aed; text-align: center; margin-bottom: 8px; }
+  
+  /* Right: Live Schema Preview */
+  .schema-panel { width: 340px; padding: 24px; background: #fafafa; overflow-y: auto; }
+  .schema-panel h3 { font-size: 14px; color: #888; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 16px; }
+  .schema-field { padding: 10px 12px; background: #fff; border: 1px solid #e8e8e8; border-radius: 8px; margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between; }
+  .schema-field.new { border-color: #7c3aed; background: #faf8ff; animation: fieldPulse 1.5s ease-in-out; }
+  .schema-field.removed { border-color: #fee2e2; background: #fef2f2; text-decoration: line-through; color: #999; }
+  .field-name { font-size: 13px; font-weight: 500; }
+  .field-type { font-size: 11px; color: #888; background: #f0f0f0; padding: 2px 8px; border-radius: 4px; }
+  .field-type.new { background: #ede9fe; color: #7c3aed; }
+  .schema-group { margin-bottom: 16px; }
+  .schema-group-label { font-size: 12px; color: #555; font-weight: 600; margin-bottom: 6px; padding-left: 4px; }
+  
+  @keyframes fieldPulse {
+    0% { box-shadow: 0 0 0 0 rgba(124,58,237,0.3); }
+    50% { box-shadow: 0 0 0 4px rgba(124,58,237,0.1); }
+    100% { box-shadow: 0 0 0 0 rgba(124,58,237,0); }
+  }
+</style>
+</head>
+<body>
+<div class="app-container">
+  <!-- Sidebar -->
+  <div class="sidebar">
+    <h2>Portfolios</h2>
+    <div class="portfolio-item active">🏗️ Machine Rental Contract</div>
+    <div class="portfolio-item">🏋️ Fitness Client Intake</div>
+    <div class="portfolio-item">🦴 Orthopedic Records</div>
+    <div class="nav-section">
+      <h2>Current Portfolio</h2>
+      <div class="nav-item"><span class="nav-dot" style="background:#7c3aed"></span> Opinions</div>
+      <div class="nav-item active"><span class="nav-dot" style="background:#4338ca"></span> Dimensions</div>
+      <div class="nav-item"><span class="nav-dot" style="background:#059669"></span> Schema</div>
+      <div class="nav-item"><span class="nav-dot" style="background:#d97706"></span> Provenance</div>
+    </div>
+  </div>
+
+  <!-- Main -->
+  <div class="main">
+    <div class="topbar">
+      <h1>Machine Rental Contract</h1>
+      <div class="convergence-bar-container">
+        <span class="convergence-label">Schema convergence</span>
+        <div class="convergence-bar"><div class="convergence-fill" style="width: 62%"></div></div>
+        <span class="convergence-pct">62%</span>
+      </div>
+    </div>
+    
+    <div class="content">
+      <!-- Opinions -->
+      <div class="opinions-panel">
+        <h3>Design Opinions · Round 2 of 3</h3>
+        
+        <!-- Resolved opinion -->
+        <div class="opinion-card resolved">
+          <div class="opinion-question">Should rental pricing be structured as fixed daily rates or degressive (longer rental = lower daily rate)?</div>
+          <div class="opinion-options">
+            <div class="opinion-option selected">
+              <span class="option-radio filled"></span>
+              Degressive pricing with configurable tier thresholds
+            </div>
+          </div>
+          <div class="opinion-resolved-label">✓ Resolved · Added 3 fields</div>
+        </div>
+        
+        <div class="opinion-cascade-arrow">↓</div>
+        <div class="cascade-label">Follow-up triggered by pricing choice</div>
+        
+        <!-- Active opinion (cascaded) -->
+        <div class="opinion-card active">
+          <div class="opinion-question">For degressive pricing: should tier thresholds be based on rental duration or machine weight class?</div>
+          <div class="opinion-options">
+            <div class="opinion-option">
+              <span class="option-radio"></span>
+              Duration-based tiers (e.g., 1–3 days, 4–7 days, 8+ days)
+            </div>
+            <div class="opinion-option">
+              <span class="option-radio"></span>
+              Weight-class-based tiers (e.g., &lt;3.5t, 3.5–7.5t, &gt;7.5t)
+            </div>
+            <div class="opinion-option">
+              <span class="option-radio"></span>
+              Combined matrix: duration × weight class
+            </div>
+          </div>
+        </div>
+        
+        <!-- Pending opinion -->
+        <div class="opinion-card" style="opacity: 0.4;">
+          <div class="opinion-question">Should the contract require operator certification documentation before machine handover?</div>
+          <div class="opinion-options">
+            <div class="opinion-option" style="pointer-events:none">
+              <span class="option-radio"></span>
+              Yes, with certification type, issuing body, and expiry date
+            </div>
+            <div class="opinion-option" style="pointer-events:none">
+              <span class="option-radio"></span>
+              No, operator qualification is the renter's responsibility
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Schema Preview -->
+      <div class="schema-panel">
+        <h3>Live Schema Preview</h3>
+        
+        <div class="schema-group">
+          <div class="schema-group-label">Customer Information</div>
+          <div class="schema-field"><span class="field-name">Company Name</span><span class="field-type">text</span></div>
+          <div class="schema-field"><span class="field-name">Contact Person</span><span class="field-type">text</span></div>
+          <div class="schema-field"><span class="field-name">Phone</span><span class="field-type">text</span></div>
+        </div>
+        
+        <div class="schema-group">
+          <div class="schema-group-label">Machine Details</div>
+          <div class="schema-field"><span class="field-name">Machine Category</span><span class="field-type">select</span></div>
+          <div class="schema-field"><span class="field-name">Weight Class</span><span class="field-type">select</span></div>
+          <div class="schema-field"><span class="field-name">Rental Start</span><span class="field-type">date</span></div>
+          <div class="schema-field"><span class="field-name">Rental End</span><span class="field-type">date</span></div>
+        </div>
+        
+        <div class="schema-group">
+          <div class="schema-group-label">Pricing · <span style="color:#7c3aed">from opinion</span></div>
+          <div class="schema-field new"><span class="field-name">Base Daily Rate</span><span class="field-type new">number</span></div>
+          <div class="schema-field new"><span class="field-name">Tier Thresholds</span><span class="field-type new">group</span></div>
+          <div class="schema-field new"><span class="field-name">Discount Percentage</span><span class="field-type new">number</span></div>
+        </div>
+        
+        <div class="schema-group">
+          <div class="schema-group-label">Delivery</div>
+          <div class="schema-field"><span class="field-name">Delivery Address</span><span class="field-type">text</span></div>
+          <div class="schema-field"><span class="field-name">Delivery Date</span><span class="field-type">date</span></div>
+          <div class="schema-field"><span class="field-name">Site Contact</span><span class="field-type">text</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>
