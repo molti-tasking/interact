@@ -1,6 +1,9 @@
 "use client";
 
-import type { ConflictFix, SchemaConflict } from "@/app/actions/conflict-actions";
+import type {
+  ConflictFix,
+  SchemaConflict,
+} from "@/app/actions/conflict-actions";
 import { resolveOpinionInteractionAction } from "@/app/actions/opinion-actions";
 import { PromptDiff } from "@/components/form/configurator/PromptDiff";
 import { Badge } from "@/components/ui/badge";
@@ -8,7 +11,10 @@ import { Button } from "@/components/ui/button";
 import { MarkdownEditor } from "@/components/ui/markdown-editor";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { StandardCard } from "@/components/workspace/StandardCard";
-import { useDetectConflicts, useResolveConflict } from "@/hooks/query/conflicts";
+import {
+  useDetectConflicts,
+  useResolveConflict,
+} from "@/hooks/query/conflicts";
 import { useDimensions, useGenerateDimensions } from "@/hooks/query/dimensions";
 import {
   useDismissOpinion,
@@ -519,14 +525,18 @@ export function ConversationPane({ portfolio }: ConversationPaneProps) {
               <h3 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
                 <Sparkles className="h-3.5 w-3.5 text-violet-500" />
                 Decisions
-                {(generateOpinions.isPending || resolveOpinion.isPending || resolveConflict.isPending) && (
+                {(generateOpinions.isPending ||
+                  resolveOpinion.isPending ||
+                  resolveConflict.isPending) && (
                   <Loader2 className="h-3 w-3 animate-spin" />
                 )}
               </h3>
               <OpinionCardDeck
                 opinions={opinions ?? []}
                 conflicts={visibleConflicts}
-                anyLoading={resolveOpinion.isPending || resolveConflict.isPending}
+                anyLoading={
+                  resolveOpinion.isPending || resolveConflict.isPending
+                }
                 onSelectOpinion={handleOpinionSelect}
                 onDismissOpinion={handleDismissOpinion}
                 onSelectConflictFix={handleConflictFix}

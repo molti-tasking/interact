@@ -1,11 +1,15 @@
 "use client";
 
-import type { OpinionInteraction } from "@/lib/types";
-import type { SchemaConflict, ConflictFix } from "@/app/actions/conflict-actions";
+import type {
+  ConflictFix,
+  SchemaConflict,
+} from "@/app/actions/conflict-actions";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import type { OpinionInteraction } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { AnimatePresence, motion } from "framer-motion";
 import {
   AlertTriangle,
   Ban,
@@ -14,7 +18,6 @@ import {
   Info,
   X,
 } from "lucide-react";
-import { AnimatePresence, motion } from "framer-motion";
 import { useState } from "react";
 
 // ---------------------------------------------------------------------------
@@ -32,7 +35,11 @@ type DeckItem =
 
 const severityConfig = {
   error: { icon: Ban, color: "border-red-400", bg: "bg-red-50/50" },
-  warning: { icon: AlertTriangle, color: "border-amber-400", bg: "bg-amber-50/50" },
+  warning: {
+    icon: AlertTriangle,
+    color: "border-amber-400",
+    bg: "bg-amber-50/50",
+  },
   info: { icon: Info, color: "border-blue-400", bg: "bg-blue-50/50" },
 };
 
@@ -74,11 +81,13 @@ export function OpinionCardDeck({
 
   const pendingItems: DeckItem[] = [
     ...conflicts.map((c): DeckItem => ({ kind: "conflict", data: c })),
-    ...pendingOpinions.map((o, i): DeckItem => ({
-      kind: "opinion",
-      data: o,
-      index: i,
-    })),
+    ...pendingOpinions.map(
+      (o, i): DeckItem => ({
+        kind: "opinion",
+        data: o,
+        index: i,
+      }),
+    ),
   ];
 
   const topItem = pendingItems[0];
@@ -87,6 +96,10 @@ export function OpinionCardDeck({
 
   if (pendingItems.length === 0 && resolvedCount === 0) return null;
 
+  // TODO
+  // 1. the "card stack" does not look correct because of different sizing of the cards.
+  // 2. I want to show max 3 different "refinement question cards", that are not answered yet. Also we want to show below that a "stack of answered refinment question cards". Whenever one card has been answered, it shall be push on the stack. When the user clicks on the stack itself, it should open up a big dialog that shows all answered cards in a grid view in the order they have been answered.
+  // 3. I noticed that these refinement questions sometimes do not appear. They should have been persisted into the db into the "opinion_interactions" table, right? I want you to do deep research on the db schema and if we have to update that. As I noticed, we do not always see those refinement questions, I want to have some kind of button that triggers a server action to regenerate those refinement questions.
   return (
     <div className="flex flex-col items-center w-full">
       {/* Active card deck */}
@@ -167,7 +180,8 @@ export function OpinionCardDeck({
           {stackedCount > 0 && (
             <div className="text-center mt-2">
               <span className="text-xs text-muted-foreground">
-                +{stackedCount} more {stackedCount === 1 ? "question" : "questions"}
+                +{stackedCount} more{" "}
+                {stackedCount === 1 ? "question" : "questions"}
               </span>
             </div>
           )}
@@ -223,7 +237,10 @@ export function OpinionCardDeck({
                         <span className="flex-1 truncate text-muted-foreground">
                           {o.text}
                         </span>
-                        <Badge variant="secondary" className="text-[10px] shrink-0">
+                        <Badge
+                          variant="secondary"
+                          className="text-[10px] shrink-0"
+                        >
                           {selectedLabel}
                         </Badge>
                       </div>
@@ -261,7 +278,11 @@ function OpinionDeckCard({
   return (
     <Card
       data-testid={`opinion-deck-card-${index}`}
-      className={cn("border-l-4", borderColor, interaction.status === "loading" && "opacity-60")}
+      className={cn(
+        "border-l-4",
+        borderColor,
+        interaction.status === "loading" && "opacity-60",
+      )}
     >
       <CardHeader className="pb-2">
         <div className="flex items-center justify-between gap-2">
@@ -346,7 +367,12 @@ function ConflictDeckCard({
   return (
     <Card
       data-testid={`conflict-deck-card-${conflict.id}`}
-      className={cn("border-l-4", config.color, config.bg, isResolving && "opacity-60")}
+      className={cn(
+        "border-l-4",
+        config.color,
+        config.bg,
+        isResolving && "opacity-60",
+      )}
     >
       <CardHeader className="pb-2">
         <div className="flex items-center justify-between gap-2">
