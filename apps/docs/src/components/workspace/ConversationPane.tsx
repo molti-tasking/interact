@@ -349,6 +349,28 @@ export function ConversationPane({ portfolio }: ConversationPaneProps) {
   };
 
   // -------------------------------------------------------------------
+  // Regenerate refinement questions
+  // -------------------------------------------------------------------
+  const handleRegenerateOpinions = () => {
+    if (!intent.trim() || generateOpinions.isPending) return;
+
+    const acceptedDims = (dimensions ?? []).filter(
+      (d) => (d.status === "accepted" || d.status === "edited") && d.isActive,
+    );
+
+    const acceptedStandardRefs = portfolioSchema.acceptedStandards ?? [];
+    const acceptedStds = (detectedStandards ?? []).filter((s) =>
+      acceptedStandardRefs.some((ref) => ref.standardId === s.standard.id),
+    );
+
+    generateOpinions.mutate({
+      intent: intent.trim(),
+      dimensions: acceptedDims.length > 0 ? acceptedDims : undefined,
+      acceptedStandards: acceptedStds.length > 0 ? acceptedStds : undefined,
+    });
+  };
+
+  // -------------------------------------------------------------------
   // Derived state
   // -------------------------------------------------------------------
   const isGenerating = discoveryPhase !== "idle" || isPromptEditing;
@@ -537,10 +559,12 @@ export function ConversationPane({ portfolio }: ConversationPaneProps) {
                 anyLoading={
                   resolveOpinion.isPending || resolveConflict.isPending
                 }
+                isRegenerating={generateOpinions.isPending}
                 onSelectOpinion={handleOpinionSelect}
                 onDismissOpinion={handleDismissOpinion}
                 onSelectConflictFix={handleConflictFix}
                 onDismissConflict={handleDismissConflict}
+                onRegenerate={handleRegenerateOpinions}
               />
             </div>
           )}

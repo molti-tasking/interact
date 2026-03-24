@@ -7,15 +7,22 @@ import type {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import type { OpinionInteraction } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   AlertTriangle,
   Ban,
-  ChevronDown,
-  ChevronUp,
+  Check,
   Info,
+  Layers,
+  RefreshCw,
   X,
 } from "lucide-react";
 import { useState } from "react";
@@ -24,13 +31,12 @@ import { useState } from "react";
 // Types
 // ---------------------------------------------------------------------------
 
-/** Unified card item — either an opinion or a conflict */
 type DeckItem =
   | { kind: "opinion"; data: OpinionInteraction; index: number }
   | { kind: "conflict"; data: SchemaConflict };
 
 // ---------------------------------------------------------------------------
-// Severity config for conflicts
+// Config
 // ---------------------------------------------------------------------------
 
 const severityConfig = {
@@ -43,11 +49,16 @@ const severityConfig = {
   info: { icon: Info, color: "border-blue-400", bg: "bg-blue-50/50" },
 };
 
-// Layer colors for opinions
 const layerColors: Record<string, string> = {
   intent: "border-blue-400",
   dimensions: "border-violet-400",
   both: "border-amber-400",
+};
+
+const layerDotColors: Record<string, string> = {
+  intent: "bg-blue-400",
+  dimensions: "bg-violet-400",
+  both: "bg-amber-400",
 };
 
 // ---------------------------------------------------------------------------
@@ -58,28 +69,32 @@ export function OpinionCardDeck({
   opinions,
   conflicts,
   anyLoading,
+  isRegenerating,
   onSelectOpinion,
   onDismissOpinion,
   onSelectConflictFix,
   onDismissConflict,
+  onRegenerate,
 }: {
   opinions: OpinionInteraction[];
   conflicts: SchemaConflict[];
   anyLoading: boolean;
+  isRegenerating?: boolean;
   onSelectOpinion: (index: number, value: string) => void;
   onDismissOpinion: (index: number) => void;
   onSelectConflictFix: (conflict: SchemaConflict, fix: ConflictFix) => void;
   onDismissConflict: (conflictId: string) => void;
+  onRegenerate?: () => void;
 }) {
-  const [expanded, setExpanded] = useState(false);
+  const [dialogOpen, setDialogOpen] = useState(false);
 
-  // Build unified deck: conflicts first (higher priority), then pending opinions
   const pendingOpinions = opinions.filter(
     (o) => o.status === "pending" || o.status === "loading",
   );
   const resolvedOpinions = opinions.filter((o) => o.status === "resolved");
 
-  const pendingItems: DeckItem[] = [
+  // Build unified deck: conflicts first, then pending opinions (max 3 shown)
+  const allPendingItems: DeckItem[] = [
     ...conflicts.map((c): DeckItem => ({ kind: "conflict", data: c })),
     ...pendingOpinions.map(
       (o, i): DeckItem => ({
@@ -90,43 +105,42 @@ export function OpinionCardDeck({
     ),
   ];
 
-  const topItem = pendingItems[0];
-  const stackedCount = pendingItems.length - 1;
+  const visibleItems = allPendingItems.slice(0, 3);
+  const hiddenCount = allPendingItems.length - visibleItems.length;
   const resolvedCount = resolvedOpinions.length;
 
-  if (pendingItems.length === 0 && resolvedCount === 0) return null;
+  if (allPendingItems.length === 0 && resolvedCount === 0) return null;
 
-  // TODO
-  // 1. the "card stack" does not look correct because of different sizing of the cards.
-  // 2. I want to show max 3 different "refinement question cards", that are not answered yet. Also we want to show below that a "stack of answered refinment question cards". Whenever one card has been answered, it shall be push on the stack. When the user clicks on the stack itself, it should open up a big dialog that shows all answered cards in a grid view in the order they have been answered.
-  // 3. I noticed that these refinement questions sometimes do not appear. They should have been persisted into the db into the "opinion_interactions" table, right? I want you to do deep research on the db schema and if we have to update that. As I noticed, we do not always see those refinement questions, I want to have some kind of button that triggers a server action to regenerate those refinement questions.
   return (
-    <div className="flex flex-col items-center w-full">
-      {/* Active card deck */}
-      {pendingItems.length > 0 && (
-        <div className="relative w-full" style={{ minHeight: 180 }}>
-          {/* Stacked cards behind (max 3 visible) */}
-          {pendingItems
-            .slice(1, 4)
+    <div className="flex flex-col w-full gap-3">
+      {/* Pending cards — show up to 3 as a stack */}
+      {visibleItems.length > 0 && (
+        <div
+          className="relative w-full"
+          style={{ minHeight: visibleItems.length > 1 ? 200 : undefined }}
+        >
+          {/* Stacked cards behind (rendered first = lowest z) */}
+          {visibleItems
+            .slice(1)
             .reverse()
             .map((item, reverseIdx) => {
-              const stackIdx = pendingItems.slice(1, 4).length - reverseIdx;
-              const itemKey =
+              const stackPos = visibleItems.length - 1 - reverseIdx; // 1 or 2
+              const key =
                 item.kind === "conflict" ? item.data.id : item.data.id;
               return (
                 <motion.div
-                  key={itemKey}
+                  key={key}
                   initial={{ opacity: 0, y: 10 }}
                   animate={{
-                    opacity: 0.4 + stackIdx * 0.15,
-                    y: stackIdx * 4,
-                    scale: 1 - stackIdx * 0.03,
-                    rotate: stackIdx % 2 === 0 ? -0.5 : 0.5,
+                    opacity: 0.3 + (visibleItems.length - stackPos) * 0.15,
+                    y: stackPos * 6,
+                    scale: 1 - stackPos * 0.02,
                   }}
                   className="absolute inset-x-0 top-0 pointer-events-none"
-                  style={{ zIndex: stackIdx }}
+                  style={{ zIndex: visibleItems.length - stackPos }}
                 >
-                  <Card className="border-l-4 border-l-gray-300 opacity-60">
+                  {/* Fixed-height placeholder card for consistent stacking */}
+                  <Card className="border-l-4 border-l-gray-300">
                     <CardHeader className="pb-1 pt-3 px-4">
                       <CardTitle className="text-sm font-medium text-muted-foreground truncate">
                         {item.kind === "conflict"
@@ -134,39 +148,39 @@ export function OpinionCardDeck({
                           : item.data.text}
                       </CardTitle>
                     </CardHeader>
-                    <CardContent className="h-8" />
+                    <div className="h-10" />
                   </Card>
                 </motion.div>
               );
             })}
 
-          {/* Top card (active) */}
+          {/* Top card (interactive) */}
           <AnimatePresence mode="popLayout">
-            {topItem && (
+            {visibleItems[0] && (
               <motion.div
                 key={
-                  topItem.kind === "conflict"
-                    ? topItem.data.id
-                    : topItem.data.id
+                  visibleItems[0].kind === "conflict"
+                    ? visibleItems[0].data.id
+                    : visibleItems[0].data.id
                 }
                 initial={{ opacity: 0, y: -20, scale: 0.95 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, y: 40, scale: 0.9 }}
+                exit={{ opacity: 0, x: -80, scale: 0.9, rotate: -5 }}
                 transition={{ type: "spring", stiffness: 300, damping: 25 }}
                 className="relative"
                 style={{ zIndex: 10 }}
               >
-                {topItem.kind === "conflict" ? (
+                {visibleItems[0].kind === "conflict" ? (
                   <ConflictDeckCard
-                    conflict={topItem.data}
+                    conflict={visibleItems[0].data}
                     isResolving={anyLoading}
                     onSelectFix={onSelectConflictFix}
                     onDismiss={onDismissConflict}
                   />
                 ) : (
                   <OpinionDeckCard
-                    interaction={topItem.data}
-                    index={topItem.index}
+                    interaction={visibleItems[0].data}
+                    index={visibleItems[0].index}
                     anyLoading={anyLoading}
                     onSelect={onSelectOpinion}
                     onDismiss={onDismissOpinion}
@@ -176,82 +190,108 @@ export function OpinionCardDeck({
             )}
           </AnimatePresence>
 
-          {/* Stack count indicator */}
-          {stackedCount > 0 && (
+          {hiddenCount > 0 && (
             <div className="text-center mt-2">
               <span className="text-xs text-muted-foreground">
-                +{stackedCount} more{" "}
-                {stackedCount === 1 ? "question" : "questions"}
+                +{hiddenCount} more{" "}
+                {hiddenCount === 1 ? "question" : "questions"}
               </span>
             </div>
           )}
         </div>
       )}
 
-      {/* Resolved opinions — collapsed deck */}
-      {resolvedCount > 0 && (
-        <div className="w-full mt-3">
+      {/* Resolved stack + regenerate button */}
+      <div className="flex items-center gap-2">
+        {/* Clickable resolved stack */}
+        {resolvedCount > 0 && (
           <button
             type="button"
-            className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors w-full justify-center py-1"
-            onClick={() => setExpanded(!expanded)}
+            onClick={() => setDialogOpen(true)}
+            className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors py-2 px-3 rounded-lg border border-dashed hover:border-solid hover:bg-muted/30 flex-1"
           >
-            <span className="font-semibold">{resolvedCount} resolved</span>
-            {expanded ? (
-              <ChevronUp className="h-3 w-3" />
-            ) : (
-              <ChevronDown className="h-3 w-3" />
-            )}
-            <span>{expanded ? "Hide" : "Show"} timeline</span>
+            <Layers className="h-3.5 w-3.5" />
+            <span className="font-semibold">{resolvedCount}</span>
+            <span>resolved — tap to review</span>
           </button>
+        )}
 
-          <AnimatePresence>
-            {expanded && (
-              <motion.div
-                initial={{ height: 0, opacity: 0 }}
-                animate={{ height: "auto", opacity: 1 }}
-                exit={{ height: 0, opacity: 0 }}
-                transition={{ duration: 0.25 }}
-                className="overflow-hidden"
-              >
-                <div className="mt-2 space-y-1.5 border rounded-lg p-3 bg-muted/20">
-                  {resolvedOpinions.map((o) => {
-                    const selectedLabel =
-                      o.options.find((opt) => opt.value === o.selectedOption)
-                        ?.label ?? o.selectedOption;
-                    return (
-                      <div
-                        key={o.id}
-                        className="flex items-center gap-2 text-xs py-1.5 px-2 rounded-md bg-background"
+        {/* Regenerate button */}
+        {onRegenerate && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onRegenerate}
+            disabled={anyLoading || isRegenerating}
+            className="text-xs text-muted-foreground shrink-0"
+            title="Generate new refinement questions"
+          >
+            <RefreshCw
+              className={cn(
+                "h-3.5 w-3.5 mr-1",
+                isRegenerating && "animate-spin",
+              )}
+            />
+            {isRegenerating ? "Generating..." : "New questions"}
+          </Button>
+        )}
+      </div>
+
+      {/* Resolved opinions dialog (grid) */}
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Resolved Decisions ({resolvedCount})</DialogTitle>
+          </DialogHeader>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-2">
+            {resolvedOpinions.map((o) => {
+              const selectedLabel =
+                o.options.find((opt) => opt.value === o.selectedOption)?.label ??
+                o.selectedOption;
+              return (
+                <Card key={o.id} className="border-l-4 border-l-green-400">
+                  <CardHeader className="pb-2 pt-3">
+                    <CardTitle className="text-sm font-medium">
+                      {o.text}
+                    </CardTitle>
+                    <div className="flex gap-1.5">
+                      <Badge
+                        variant="outline"
+                        className={cn(
+                          "text-[10px] w-fit",
+                          o.layer === "intent"
+                            ? "text-blue-600 border-blue-200"
+                            : o.layer === "dimensions"
+                              ? "text-violet-600 border-violet-200"
+                              : "text-amber-600 border-amber-200",
+                        )}
                       >
-                        <div
-                          className={cn(
-                            "w-2 h-2 rounded-full shrink-0",
-                            o.layer === "intent"
-                              ? "bg-blue-400"
-                              : o.layer === "dimensions"
-                                ? "bg-violet-400"
-                                : "bg-amber-400",
-                          )}
-                        />
-                        <span className="flex-1 truncate text-muted-foreground">
-                          {o.text}
-                        </span>
+                        {o.layer}
+                      </Badge>
+                      {o.dimensionName && (
                         <Badge
-                          variant="secondary"
-                          className="text-[10px] shrink-0"
+                          variant="outline"
+                          className="text-[10px] w-fit"
                         >
-                          {selectedLabel}
+                          {o.dimensionName}
                         </Badge>
-                      </div>
-                    );
-                  })}
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
-      )}
+                      )}
+                    </div>
+                  </CardHeader>
+                  <CardContent className="pt-0">
+                    <div className="flex items-center gap-2 text-sm bg-green-50 rounded-md px-3 py-2">
+                      <Check className="h-3.5 w-3.5 text-green-600 shrink-0" />
+                      <span className="font-medium text-green-800">
+                        {selectedLabel}
+                      </span>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
