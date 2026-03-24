@@ -85,7 +85,7 @@ export function OpinionCardDeck({
 
   return (
     <div className="flex flex-col w-full gap-3">
-      {/* Resolved stack  */}
+      {/* Resolved stack */}
       {resolvedCount > 0 && (
         <div className="space-y-2 opacity-60">
           {resolvedCount > 0 && (
@@ -95,13 +95,13 @@ export function OpinionCardDeck({
               className="w-full text-left group cursor-pointer"
             >
               <div
-                className="relative"
+                className="relative transition-transform duration-200 group-hover:scale-[1.02]"
                 style={{
                   paddingTop: Math.min(resolvedCount - 1, 2) * 6,
                 }}
               >
                 {resolvedCount >= 3 && (
-                  <div className="absolute top-0 left-1 right-1 h-10 rounded-xl border border-green-200 bg-green-50/30" />
+                  <div className="absolute top-0 left-1 right-1 h-10 rounded-xl border border-green-200 bg-green-50/30 transition-transform duration-200 origin-bottom group-hover:rotate-[-2deg]" />
                 )}
                 {resolvedCount >= 2 && (
                   <div
@@ -124,7 +124,7 @@ export function OpinionCardDeck({
                       accentColor={
                         layerAccentColors[last.layer] ?? "border-gray-300"
                       }
-                      className="relative "
+                      className="relative transition-transform duration-200 origin-bottom group-hover:rotate-[1.5deg]"
                       badges={
                         <>
                           <LayerBadge layer={last.layer} />
