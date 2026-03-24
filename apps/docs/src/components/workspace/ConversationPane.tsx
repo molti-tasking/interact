@@ -500,7 +500,7 @@ export function ConversationPane({ portfolio }: ConversationPaneProps) {
 
       {/* Standards + Card Deck (opinions + conflicts) */}
       <ScrollArea className="flex-1 px-4 pb-4">
-        <div className="space-y-3 min-w-0 overflow-hidden">
+        <div className="space-y-3 min-w-0">
           {/* Suggested Standards */}
           {visibleStandards.length > 0 && (
             <div data-testid="standards-section">

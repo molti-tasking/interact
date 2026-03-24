@@ -87,7 +87,7 @@ export function OpinionCardDeck({
     <div className="flex flex-col w-full gap-3">
       {/* Resolved stack */}
       {resolvedCount > 0 && (
-        <div className="space-y-2 opacity-60">
+        <div className="space-y-2 opacity-60 px-2">
           {resolvedCount > 0 && (
             <button
               type="button"
