@@ -1,253 +1,104 @@
-# Seam-Based Testing: Mock at the LLM Boundary
+# Seam-Based Testing for Paper Evaluation
 
-> Strategy: Intercept server actions at the LLM call boundary, replay recorded fixtures,
-> and run deterministic Playwright E2E tests against the full UI.
-
----
-
-## Phase 0: Infrastructure Setup
-
-- [ ] **0.1** Install Playwright (`pnpm add -D @playwright/test` in `apps/docs`)
-- [ ] **0.2** Create `playwright.config.ts` in `apps/docs` (baseURL: `http://localhost:3000`, webServer config for `next dev`)
-- [ ] **0.3** Install Vitest + Testing Library (`pnpm add -D vitest @testing-library/react @testing-library/jest-dom jsdom` in `apps/docs`)
-- [ ] **0.4** Create `vitest.config.ts` (environment: jsdom, path aliases matching `tsconfig.json`)
-- [ ] **0.5** Add npm scripts: `"test": "vitest"`, `"test:e2e": "playwright test"`, `"test:e2e:ui": "playwright test --ui"`
-- [ ] **0.6** Create directory structure:
-  ```
-  apps/docs/
-  ├── tests/
-  │   ├── e2e/                    # Playwright specs
-  │   ├── unit/                   # Vitest specs
-  │   └── fixtures/               # Recorded LLM responses
-  │       ├── construction-rental/
-  │       ├── fitness-coaching/
-  │       └── orthopedic-records/
-  ```
+> Goal: Automated E2E tests for the three UIST paper case studies.
+> These demonstrate that the Malleable Forms toolkit works end-to-end
+> and make the scenarios reproducible for demos, the video figure, and reviewers.
 
 ---
 
-## Phase 1: Identify & Document LLM Seams
+## Infrastructure ✅
 
-All 5 LLM-calling server actions use `generateText()` from `ai` + manual JSON parsing.
-Each returns `{ success: boolean; <payload>?; error?: string }`.
+All test tooling is in place:
 
-- [ ] **1.1** Document the **input → output contract** for each server action:
+- **Playwright** for E2E tests (`pnpm test:e2e`)
+- **Fixture system** (`src/lib/testing/`) — record/replay LLM responses at the server action boundary
+- **9 server actions** instrumented with env-gated fixture guards
+- **DB lifecycle** — local Supabase, truncate between tests
+- **data-testid** attributes on all key UI components
+- **`.env.test`** — fixture replay mode, dummy LLM keys, local Supabase
 
-  | #   | Action                              | File                   | Inputs                                                                                 | Output shape                                                                       |
-  | --- | ----------------------------------- | ---------------------- | -------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
-  | 1   | `generateDimensionsAction`          | `dimension-actions.ts` | `(prompt, maxDimensions?)`                                                             | `{ success, dimensions?: DimensionObject[], reasoning? }`                          |
-  | 2   | `refineDimensionAction`             | `dimension-actions.ts` | `(dimension, basePrompt, userFeedback)`                                                | `{ success, dimension?: Partial<DimensionObject> }`                                |
-  | 3   | `dimensionsToSchemaAction`          | `dimension-actions.ts` | `(dimensions, basePrompt, acceptedStandards?)`                                         | `{ success, result?: { basePrompt, artifactFormSchema, configuratorFormValues } }` |
-  | 4   | `generateOpinionInteractionsAction` | `opinion-actions.ts`   | `(basePrompt, maxOpinions?, dimensions?, acceptedStandards?)`                          | `{ success, interactions?: OpinionInteraction[] }`                                 |
-  | 5   | `resolveOpinionInteractionAction`   | `opinion-actions.ts`   | `({ basePrompt, currentSchema, interactionText, selectedOptionLabel, maxFollowUps? })` | `{ success, result?: { basePrompt, artifactFormSchema, followUpInteractions } }`   |
-  | 6   | `processColumnPromptAction`         | `column-actions.ts`    | `(field, prompt, responseData)`                                                        | `{ success, results?: Record<string, unknown> }`                                   |
-  | 7   | `deriveFieldsFromPromptAction`      | `column-actions.ts`    | `(field, prompt, existingFieldNames)`                                                  | `{ success, newFields?: Field[], label? }`                                         |
+### Key files
 
-- [ ] **1.2** Verify that `standards-actions.ts` (`detectDomainStandardsAction`) has **no LLM dependency** — it uses keyword matching only and needs no mocking
-
----
-
-## Phase 2: Build the Fixture Recording Harness
-
-Goal: Run the app once with a real LLM, capture every server action call/response as JSON fixtures.
-
-- [ ] **2.1** Create a **recording interceptor** module (`tests/fixtures/recorder.ts`):
-  - Wraps each server action
-  - Logs `{ actionName, input, output, timestamp }` to a JSONL file
-  - Activated via env var: `RECORD_FIXTURES=true`
-- [ ] **2.2** Create a thin wrapper/proxy around `generateText` (single interception point):
-  - Option A: Patch at the `generateText` import level (module mock)
-  - Option B: Add an env-gated recording layer inside each server action (more explicit, less magic)
-  - **Recommended: Option B** — add a `recordFixture(name, input, output)` call after each `generateText` in dev mode. Fewer moving parts, no module patching.
-- [ ] **2.3** Run each of the 3 paper scenarios end-to-end with `RECORD_FIXTURES=true`:
-  - Construction Machine Rental (multi-role, derivation)
-  - Fitness Coaching (iterative refinement, 4 opinion rounds)
-  - Orthopedic Patient Records (base + derived views)
-- [ ] **2.4** Save recordings as structured fixture files:
-  ```
-  tests/fixtures/fitness-coaching/
-  ├── 01-generate-dimensions.json       # { input: {...}, output: {...} }
-  ├── 02-dimensions-to-schema.json
-  ├── 03-generate-opinions.json
-  ├── 04-resolve-opinion-nutrition.json
-  ├── 05-resolve-opinion-frequency.json
-  └── scenario.meta.json                # { description, steps[], portfolioTitle }
-  ```
-- [ ] **2.5** Review and curate fixtures: trim non-deterministic fields (timestamps, UUIDs), ensure responses are realistic and internally consistent
+| What | Where |
+|------|-------|
+| Playwright config | `apps/docs/playwright.config.ts` |
+| Fixture guard | `src/lib/testing/fixture-guard.ts` |
+| Fixture loader | `src/lib/testing/fixture-loader.ts` |
+| Fixture recorder | `src/lib/testing/fixture-recorder.ts` |
+| E2E helpers | `tests/e2e/helpers.ts` |
+| Global setup/teardown | `tests/e2e/global-setup.ts`, `global-teardown.ts` |
+| Fixture data | `tests/fixtures/{scenario}/` |
 
 ---
 
-## Phase 3: Build the Fixture Replay Layer
+## Scenario Tests (one per paper case study)
 
-Goal: During Playwright tests, intercept server action calls and return recorded fixtures.
+### Scenario 1: Fitness Coaching — partial ✅
 
-- [ ] **3.1** Decide interception strategy:
-  - **Option A: Playwright `page.route()` on Next.js server action POST requests**
-    - Server actions go through `/_next/...` routes with action IDs
-    - Intercept at the HTTP level, match by action ID or request body shape
-  - **Option B: Environment-gated mock inside server actions**
-    - `if (process.env.USE_FIXTURES) return loadFixture(actionName, input)`
-    - Simpler, no Playwright route matching, works at the Node.js level
-  - **Recommended: Option B** — server actions are the natural seam; avoids fragile route matching against Next.js internals
-- [ ] **3.2** Implement `tests/fixtures/loader.ts`:
-  ```typescript
-  // Loads fixture by scenario + step, returns the recorded server action output
-  function loadFixture(
-    scenario: string,
-    actionName: string,
-    stepIndex: number,
-  ): ActionOutput;
-  ```
-- [ ] **3.3** Add fixture-loading guard to each server action:
-  ```typescript
-  export async function generateDimensionsAction(prompt: string, maxDimensions = 5) {
-    if (process.env.USE_FIXTURES) {
-      return loadFixture(process.env.FIXTURE_SCENARIO!, "generateDimensions", ...);
-    }
-    // ... existing LLM code ...
-  }
-  ```
-- [ ] **3.4** Handle **stateful fixture sequencing** — some actions are called multiple times per scenario (e.g., `resolveOpinionInteractionAction` called once per opinion). The loader must track call order and return the Nth fixture for repeated actions.
-- [ ] **3.5** Consider a **fixture matching strategy** for `resolveOpinionInteractionAction`:
-  - Match by `selectedOptionLabel` from the request (most robust)
-  - Fallback to sequential index if label doesn't match (for resilience)
+> Paper: "a training plan schema emerges iteratively as assessment results reveal new requirements"
 
----
+Fixtures: `tests/fixtures/fitness-coaching/` (5 files, hand-crafted)
+Test: `tests/e2e/fitness-coaching.spec.ts`
 
-## Phase 4: Write Playwright E2E Tests (Recorded Scenarios)
+- [x] Create portfolio, enter intent, click Generate Form
+- [x] Verify dimensions → schema → form preview with fields
+- [x] Resolve 2 refinement opinions, verify schema evolves
+- [ ] Publish form → navigate to `/forms/[id]` → verify respondent view renders
+- [ ] Fill and submit form → verify response appears in `/responses/[portfolioId]`
 
-All DB state is created naturally by Playwright driving the UI — no DB seeding needed.
-Each test runs the full flow; the only mock is the LLM response layer.
+### Scenario 2: Construction Machine Rental — not started
 
-- [ ] **4.1** Create test helper: `tests/e2e/helpers.ts`
-  - `createPortfolio(page, title, intent)` — navigates to `/portfolios/new`, fills form, submits
-  - `waitForDimensions(page)` — waits for dimension cards to appear
-  - `acceptAllDimensions(page)` — clicks accept on each dimension card
-  - `waitForSchema(page)` — waits for form preview to render fields
-  - `resolveOpinion(page, optionLabel)` — clicks an opinion option by label
-  - `waitForOpinions(page)` — waits for opinion cards to appear
-  - `fillAndSubmitForm(page, data)` — fills form fields and submits (for response collection tests)
+> Paper: "multiple roles collaboratively build and extend a contract schema across skill levels"
 
-- [ ] **4.2** **Scenario 1: Fitness Coaching (simplest, single-role)**
+- [ ] Record fixture set with real LLM (or hand-craft)
+- [ ] E2E test: create base portfolio as Owner → generate schema
+- [ ] Switch role to Manager → refine with additional dimensions
+- [ ] Switch role to Insurance → add compliance fields
+- [ ] Derive sub-schema for Dispatcher
+- [ ] Verify provenance log shows entries from all roles
 
-  ```
-  1. Create portfolio: "Fitness Coaching Client Intake"
-  2. Wait for dimensions → verify dimension cards rendered
-  3. Accept dimensions → wait for schema generation
-  4. Verify form preview shows fields (count > 0)
-  5. Wait for opinion cards
-  6. Resolve opinion 1 → verify schema updated (field count changed or field labels changed)
-  7. Resolve opinion 2 → verify schema updated
-  8. Publish form
-  9. Navigate to /forms/[id] → verify form renders for respondent
-  10. Fill and submit form → verify response saved
-  11. Navigate to /responses/[portfolioId] → verify response appears in table
-  ```
+### Scenario 3: Orthopedic Patient Records — not started
 
-- [ ] **4.3** **Scenario 2: Construction Machine Rental (multi-role + derivation)**
+> Paper: "a single base schema yields radically different views for surgeons, physiotherapists, and patients"
 
-  ```
-  1. Create base portfolio as Owner role
-  2. Generate dimensions + schema
-  3. Switch to Manager role → add certification dimensions
-  4. Switch to Insurance role → add checklist fields
-  5. Derive sub-schema for Dispatcher
-  6. Verify derived portfolio links back to base
-  7. Verify provenance log shows entries from all roles
-  ```
-
-- [ ] **4.4** **Scenario 3: Orthopedic Patient Records (derivation focus)**
-
-  ```
-  1. Create base patient schema
-  2. Derive surgeon view (sub-schema)
-  3. Derive physiotherapy view (sub-schema)
-  4. Derive patient self-report view (sub-schema)
-  5. Verify each derived view has correct field subset
-  6. Verify base portfolio shows derivation tree
-  ```
-
-- [ ] **4.5** **Scenario 4: Column Actions (response table)**
-      Column actions require an existing portfolio with responses — earlier test steps
-      in this scenario create that state through the UI before testing column features.
-  ```
-  1. Create portfolio + generate schema (reuses fitness-coaching LLM fixtures)
-  2. Publish form
-  3. Fill and submit 3 responses via /forms/[id]
-  4. Navigate to /responses/[portfolioId]
-  5. Apply column prompt (processColumnPromptAction) → verify enriched values appear
-  6. Derive new fields from column (deriveFieldsFromPromptAction) → verify new columns appear
-  ```
+- [ ] Record fixture set with real LLM (or hand-craft)
+- [ ] E2E test: create base patient schema
+- [ ] Derive surgeon view (sub-schema)
+- [ ] Derive physiotherapy view (sub-schema)
+- [ ] Derive patient self-report view (sub-schema)
+- [ ] Verify each derived view has appropriate field subset
 
 ---
 
-## Phase 5: Unit Tests (Pure Functions, No LLM)
+## Remaining Helpers Needed
 
-- [ ] **5.1** `lib/engine/schema-ops.ts` — test `addField`, `removeField`, `diffSchemas`, `mergeSchemas`, `schemaToZod`
-- [ ] **5.2** `lib/form-renderer/validation.ts` — test constraint evaluation for each constraint type
-- [ ] **5.3** `lib/engine/provenance.ts` — test provenance entry creation, diff computation
-- [ ] **5.4** `lib/types.ts` — test Zod schema parsing for edge cases (nested groups, all field types)
-- [ ] **5.5** `standards-actions.ts` — test keyword detection with known intents (no LLM, safe to unit test directly)
+- [ ] `fillAndSubmitForm(page, data)` — fill form fields by name, click submit
+- [ ] `publishPortfolio(page, portfolioId)` — set status to published
 
 ---
 
-## Phase 6: Test Database Lifecycle
+## Recording Fixtures from Real LLM
 
-No seed data — Playwright creates all DB state by driving the UI.
-We only need isolation (clean DB per test) and a test environment config.
+To capture fixtures from a live session instead of hand-crafting:
 
-- [ ] **6.1** Use local Supabase (`supabase start`) for test isolation — runs against the same migrations as prod
-- [ ] **6.2** Add `beforeEach` cleanup hook that truncates all tables in dependency order:
-  ```typescript
-  // tests/e2e/global-setup.ts
-  async function resetDb() {
-    const pg = new Client(process.env.TEST_DATABASE_URL); // direct pg to local supabase
-    await pg.query("TRUNCATE responses, provenance_log, portfolios CASCADE");
-  }
-  ```
-- [ ] **6.3** Create `.env.test` pointing to local Supabase + `USE_FIXTURES=true` + `FIXTURE_SCENARIO=<set per test>`
-- [ ] **6.4** Add Playwright `globalSetup` that verifies local Supabase is running and DB is migrated before tests start
+```bash
+# Start app in recording mode
+pnpm fixtures:record
 
----
+# Walk through the scenario in browser
+# Fixtures appear in tests/fixtures/_recording-session/
 
-## Phase 7: CI Integration
-
-- [ ] **7.1** Add GitHub Actions workflow: `.github/workflows/test.yml`
-  ```yaml
-  jobs:
-    unit:
-      - pnpm test
-    e2e:
-      - supabase start (local)
-      - USE_FIXTURES=true pnpm test:e2e
-  ```
-- [ ] **7.2** Cache Playwright browsers in CI
-- [ ] **7.3** Upload Playwright HTML report as artifact on failure
-- [ ] **7.4** Add a **nightly live-LLM smoke job** (no fixtures, asserts structure only):
-  - Runs against real Anthropic API with budget cap
-  - Only asserts: "dimensions appeared", "schema has >0 fields", "form renders"
-  - Allowed to be flaky — alerts but doesn't block
-
----
-
-## Phase 8: Fixture Maintenance & Refresh
-
-- [ ] **8.1** Document the fixture recording process in a `tests/fixtures/README.md`
-- [ ] **8.2** Add a script: `pnpm fixtures:record` — runs the app with `RECORD_FIXTURES=true`, walks through each scenario, saves outputs
-- [ ] **8.3** Add a script: `pnpm fixtures:validate` — loads each fixture file, validates against the Zod schemas / TypeScript types
-- [ ] **8.4** Set a calendar reminder or CI job to **re-record fixtures quarterly** (or when server action contracts change)
-- [ ] **8.5** Add a pre-commit or CI check: if any server action file changed, warn that fixtures may need updating
+# Move to scenario folder
+mv tests/fixtures/_recording-session/* tests/fixtures/construction-rental/
+```
 
 ---
 
 ## Decision Log
 
-| Decision           | Choice                                                       | Rationale                                                                                           |
-| ------------------ | ------------------------------------------------------------ | --------------------------------------------------------------------------------------------------- |
-| Interception point | Inside server actions (env-gated)                            | Avoids fragile Next.js internal route matching; server actions are the natural seam                 |
-| Fixture format     | One JSON file per action call per scenario                   | Easy to inspect, version, and diff in PRs                                                           |
-| Fixture matching   | By action name + call sequence index + request body matching | Handles repeated calls (multiple opinion resolutions)                                               |
-| DB seeding         | None — Playwright drives UI, UI writes to DB naturally       | Fewer moving parts; tests exercise the real write path; no fixture/DB drift                         |
-| Test DB            | Local Supabase (`supabase start`) with truncate between runs | Free, isolated, matches prod schema via migrations                                                  |
-| E2E framework      | Playwright                                                   | Best Next.js support, built-in route interception if needed later                                   |
-| Unit framework     | Vitest                                                       | Fast, native ESM, compatible with Next.js + TypeScript                                              |
+| Decision | Choice | Rationale |
+|----------|--------|-----------|
+| Interception point | Inside server actions (env-gated) | Server actions are the natural seam |
+| Fixture format | One JSON per action call per scenario | Easy to inspect and version |
+| DB seeding | None — Playwright drives UI, DB writes happen naturally | Tests exercise the real write path |
+| LLM provider | OpenAI-compatible via LiteLLM (`@/lib/model.ts`) | `.env.test` sets dummy values; fixtures bypass LLM |
