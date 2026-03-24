@@ -4,7 +4,7 @@ import type { DimensionObject } from "@/lib/dimension-types";
 import type { DetectedStandard } from "@/lib/domain-standards";
 import { withTracing } from "@/lib/telemetry";
 import type { PortfolioSchema } from "@/lib/types";
-import { anthropic } from "@ai-sdk/anthropic";
+import { model } from "@/lib/model";
 import { generateText } from "ai";
 
 /** Shape returned by the LLM / server action (no portfolioId or createdAt — those are added by the DB). */
@@ -110,10 +110,10 @@ Rules:
 
     const result = await withTracing({ tags: ["opinions", "generate"] }, () =>
       generateText({
-        model: anthropic("claude-haiku-4-5-20251001"),
+        model,
         prompt,
         temperature: 0.3,
-        experimental_telemetry: { isEnabled: true },
+        experimental_telemetry: { isEnabled: true, functionId: "opinion-action", recordInputs: true, recordOutputs: true },
       }),
     );
 
@@ -301,10 +301,10 @@ Return ONLY valid JSON in this exact format:
 
     const result = await withTracing({ tags: ["opinions", "resolve"] }, () =>
       generateText({
-        model: anthropic("claude-haiku-4-5-20251001"),
+        model,
         prompt,
         temperature: 0.3,
-        experimental_telemetry: { isEnabled: true },
+        experimental_telemetry: { isEnabled: true, functionId: "opinion-action", recordInputs: true, recordOutputs: true },
       }),
     );
 

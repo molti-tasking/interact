@@ -33,7 +33,7 @@ export default async function globalSetup() {
     });
     await client.connect();
     await client.query(
-      "TRUNCATE responses, provenance_log, portfolios CASCADE",
+      "TRUNCATE opinion_interactions, responses, provenance_log, portfolios CASCADE",
     );
     await client.end();
   } catch (err) {

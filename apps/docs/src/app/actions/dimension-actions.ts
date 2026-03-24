@@ -4,7 +4,7 @@ import type { DimensionObject, DimensionScope } from "@/lib/dimension-types";
 import type { DetectedStandard } from "@/lib/domain-standards";
 import { withTracing } from "@/lib/telemetry";
 import type { Field, PortfolioSchema } from "@/lib/types";
-import { anthropic } from "@ai-sdk/anthropic";
+import { model } from "@/lib/model";
 import { generateText } from "ai";
 
 // ---------- generateDimensionsAction ----------
@@ -73,10 +73,10 @@ Rules:
 
     const result = await withTracing({ tags: ["dimensions", "generate"] }, () =>
       generateText({
-        model: anthropic("claude-haiku-4-5-20251001"),
+        model,
         prompt: systemPrompt,
         temperature: 0.3,
-        experimental_telemetry: { isEnabled: true },
+        experimental_telemetry: { isEnabled: true, functionId: "dimension-action", recordInputs: true, recordOutputs: true },
       }),
     );
 
@@ -201,10 +201,10 @@ Based on the feedback, return an updated dimension. Return ONLY valid JSON:
 
     const result = await withTracing({ tags: ["dimensions", "refine"] }, () =>
       generateText({
-        model: anthropic("claude-haiku-4-5-20251001"),
+        model,
         prompt,
         temperature: 0.3,
-        experimental_telemetry: { isEnabled: true },
+        experimental_telemetry: { isEnabled: true, functionId: "dimension-action", recordInputs: true, recordOutputs: true },
       }),
     );
 
@@ -363,10 +363,10 @@ Return in this exact format:
       { tags: ["dimensions", "to-schema"] },
       () =>
         generateText({
-          model: anthropic("claude-haiku-4-5-20251001"),
+          model,
           prompt,
           temperature: 0.3,
-          experimental_telemetry: { isEnabled: true },
+          experimental_telemetry: { isEnabled: true, functionId: "dimension-action", recordInputs: true, recordOutputs: true },
         }),
     );
 

@@ -22,7 +22,7 @@ export async function resetDatabase(): Promise<void> {
   const client = new Client({ connectionString: DB_URL });
   await client.connect();
   await client.query(
-    "TRUNCATE responses, provenance_log, portfolios CASCADE",
+    "TRUNCATE opinion_interactions, responses, provenance_log, portfolios CASCADE",
   );
   await client.end();
 }
@@ -57,7 +57,7 @@ export async function waitForFormFields(page: Page): Promise<void> {
  * Wait for opinion cards to appear.
  */
 export async function waitForOpinions(page: Page): Promise<void> {
-  await page.locator('[data-testid="opinions-section"]').waitFor({ state: "visible", timeout: 30000 });
+  await page.locator('[data-testid="card-deck-section"]').waitFor({ state: "visible", timeout: 30000 });
 }
 
 /**

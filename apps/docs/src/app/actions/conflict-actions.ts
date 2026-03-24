@@ -2,7 +2,7 @@
 
 import type { PortfolioSchema } from "@/lib/types";
 import { withTracing } from "@/lib/telemetry";
-import { anthropic } from "@ai-sdk/anthropic";
+import { model } from "@/lib/model";
 import { generateText } from "ai";
 
 // ---------------------------------------------------------------------------
@@ -204,10 +204,10 @@ Rules:
       { tags: ["conflicts", "detect"] },
       () =>
         generateText({
-          model: anthropic("claude-haiku-4-5-20251001"),
+          model,
           prompt,
           temperature: 0.2,
-          experimental_telemetry: { isEnabled: true },
+          experimental_telemetry: { isEnabled: true, functionId: "detect-conflicts", recordInputs: true, recordOutputs: true },
         }),
     );
 
@@ -301,10 +301,10 @@ Field format: { "id": "string", "name": "string", "label": "string", "type": { "
       { tags: ["conflicts", "resolve"] },
       () =>
         generateText({
-          model: anthropic("claude-haiku-4-5-20251001"),
+          model,
           prompt,
           temperature: 0.2,
-          experimental_telemetry: { isEnabled: true },
+          experimental_telemetry: { isEnabled: true, functionId: "resolve-conflicts", recordInputs: true, recordOutputs: true },
         }),
     );
 

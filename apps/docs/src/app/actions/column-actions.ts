@@ -2,7 +2,7 @@
 
 import { withTracing } from "@/lib/telemetry";
 import type { Field } from "@/lib/types";
-import { anthropic } from "@ai-sdk/anthropic";
+import { model } from "@/lib/model";
 import { generateText } from "ai";
 
 // ---------- processColumnPromptAction ----------
@@ -61,10 +61,10 @@ Rules:
       { tags: ["column-action", "process"] },
       () =>
         generateText({
-          model: anthropic("claude-haiku-4-5-20251001"),
+          model,
           prompt: systemPrompt,
           temperature: 0.2,
-          experimental_telemetry: { isEnabled: true },
+          experimental_telemetry: { isEnabled: true, functionId: "column-action", recordInputs: true, recordOutputs: true },
         }),
     );
 
@@ -148,10 +148,10 @@ Rules:
       { tags: ["column-action", "derive"] },
       () =>
         generateText({
-          model: anthropic("claude-haiku-4-5-20251001"),
+          model,
           prompt: systemPrompt,
           temperature: 0.3,
-          experimental_telemetry: { isEnabled: true },
+          experimental_telemetry: { isEnabled: true, functionId: "column-action", recordInputs: true, recordOutputs: true },
         }),
     );
 
