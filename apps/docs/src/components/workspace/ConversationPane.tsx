@@ -33,7 +33,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Loader2, Shield, Sparkles, XIcon } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Label } from "../ui/label";
-import { OpinionCard } from "./OpinionCard";
+import { OpinionCardDeck } from "./OpinionCardDeck";
 
 interface ConversationPaneProps {
   portfolio: Portfolio;
@@ -226,6 +226,28 @@ export function ConversationPane({ portfolio }: ConversationPaneProps) {
     if (interaction) {
       dismissOpinion.mutate(interaction.id);
     }
+  };
+
+  // -------------------------------------------------------------------
+  // Regenerate refinement questions
+  // -------------------------------------------------------------------
+  const handleRegenerateOpinions = () => {
+    if (!intent.trim() || generateOpinions.isPending) return;
+
+    const acceptedDims = (dimensions ?? []).filter(
+      (d) => (d.status === "accepted" || d.status === "edited") && d.isActive,
+    );
+
+    const acceptedStandardRefs = portfolioSchema.acceptedStandards ?? [];
+    const acceptedStds = (detectedStandards ?? []).filter((s) =>
+      acceptedStandardRefs.some((ref) => ref.standardId === s.standard.id),
+    );
+
+    generateOpinions.mutate({
+      intent: intent.trim(),
+      dimensions: acceptedDims.length > 0 ? acceptedDims : undefined,
+      acceptedStandards: acceptedStds.length > 0 ? acceptedStds : undefined,
+    });
   };
 
   // -------------------------------------------------------------------
@@ -449,57 +471,50 @@ export function ConversationPane({ portfolio }: ConversationPaneProps) {
         )}
       </div>
 
-      {/* Standards + Refinement Questions */}
-      {(visibleStandards.length > 0 || visibleOpinions.length > 0) && (
-        <ScrollArea className="flex-1 px-4 pb-4">
-          <div className="space-y-3">
-            {/* Suggested Standards */}
-            {visibleStandards.length > 0 && (
-              <div data-testid="standards-section">
-                <h3 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                  <Shield className="h-3.5 w-3.5 text-blue-500" />
-                  Suggested Standards
-                </h3>
-                {visibleStandards.map((detected: DetectedStandard) => (
-                  <StandardCard
-                    key={detected.standard.id}
-                    detected={detected}
-                    isAccepted={acceptedStandardIds.has(detected.standard.id)}
-                    onAccept={handleAcceptStandard}
-                    onSkip={handleSkipStandard}
-                  />
-                ))}
-              </div>
-            )}
+      {/* Standards + Opinion Card Deck */}
+      <ScrollArea className="flex-1 px-4 pb-4">
+        <div className="space-y-3">
+          {/* Suggested Standards */}
+          {visibleStandards.length > 0 && (
+            <div data-testid="standards-section">
+              <h3 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                <Shield className="h-3.5 w-3.5 text-blue-500" />
+                Suggested Standards
+              </h3>
+              {visibleStandards.map((detected: DetectedStandard) => (
+                <StandardCard
+                  key={detected.standard.id}
+                  detected={detected}
+                  isAccepted={acceptedStandardIds.has(detected.standard.id)}
+                  onAccept={handleAcceptStandard}
+                  onSkip={handleSkipStandard}
+                />
+              ))}
+            </div>
+          )}
 
-            {/* Refinement Questions */}
-            {visibleOpinions.length > 0 && (
-              <div data-testid="opinions-section" className="space-y-3">
-                <h3 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                  <Sparkles className="h-3.5 w-3.5 text-violet-500" />
-                  Refinement Questions
-                  {generateOpinions.isPending && (
-                    <Loader2 className="h-3 w-3 animate-spin" />
-                  )}
-                </h3>
-
-                {visibleOpinions.map((interaction, visibleIndex) => (
-                  <OpinionCard
-                    key={interaction.id}
-                    interaction={interaction}
-                    index={visibleIndex}
-                    isAnimating={activeAnimation === visibleIndex}
-                    editorRef={editorRef}
-                    anyLoading={resolveOpinion.isPending}
-                    onSelect={handleOpinionSelect}
-                    onDismiss={handleDismissOpinion}
-                  />
-                ))}
-              </div>
-            )}
-          </div>
-        </ScrollArea>
-      )}
+          {/* Opinion Card Deck */}
+          {(opinions ?? []).length > 0 && (
+            <div data-testid="opinions-section" className="space-y-2">
+              <h3 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                <Sparkles className="h-3.5 w-3.5 text-violet-500" />
+                Refinement Questions
+                {(generateOpinions.isPending || resolveOpinion.isPending) && (
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                )}
+              </h3>
+              <OpinionCardDeck
+                opinions={opinions ?? []}
+                anyLoading={resolveOpinion.isPending}
+                isRegenerating={generateOpinions.isPending}
+                onSelect={handleOpinionSelect}
+                onDismiss={handleDismissOpinion}
+                onRegenerate={handleRegenerateOpinions}
+              />
+            </div>
+          )}
+        </div>
+      </ScrollArea>
 
       {/* Dimensions (collapsed summary when available) */}
       {(dimensions ?? []).length > 0 && visibleOpinions.length === 0 && (
