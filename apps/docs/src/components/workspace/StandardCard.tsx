@@ -2,7 +2,7 @@
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { DecisionCard } from "@/components/workspace/DecisionCard";
 import type { DetectedStandard } from "@/lib/domain-standards";
 import { Check, Shield, X } from "lucide-react";
 
@@ -32,33 +32,24 @@ export function StandardCard({
   ).length;
 
   return (
-    <Card
-      className={
-        isAccepted
-          ? "border-emerald-300 bg-emerald-50/50 dark:border-emerald-800 dark:bg-emerald-950/20"
-          : "border-blue-200 dark:border-blue-900"
+    <DecisionCard
+      title={standard.name}
+      icon={<Shield className="h-4 w-4 text-blue-500 shrink-0" />}
+      accentColor={isAccepted ? "border-emerald-400" : "border-blue-400"}
+      bgTint={isAccepted ? "bg-emerald-50/50 dark:bg-emerald-950/20" : undefined}
+      description={standard.description}
+      badges={
+        <>
+          <Badge variant="outline" className="text-[10px]">
+            {standard.domain}
+          </Badge>
+          <Badge variant="secondary" className="text-[10px]">
+            Conf. {Math.round(confidence * 100)}%
+          </Badge>
+        </>
       }
     >
-      <CardHeader className="pb-2">
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
-            <Shield className="h-4 w-4 text-blue-500 shrink-0" />
-            <CardTitle className="text-sm font-medium">
-              {standard.name}
-            </CardTitle>
-          </div>
-          <div className="flex items-center gap-1.5 shrink-0">
-            <Badge variant="outline" className="text-[10px]">
-              {standard.domain}
-            </Badge>
-            <Badge variant="secondary" className="text-[10px]">
-              Conf. {Math.round(confidence * 100)}%
-            </Badge>
-          </div>
-        </div>
-        <p className="text-xs text-muted-foreground">{standard.description}</p>
-      </CardHeader>
-      <CardContent className="space-y-3">
+      <div className="space-y-3">
         <div className="flex gap-3 text-xs text-muted-foreground">
           {mandatory > 0 && (
             <span>
@@ -106,7 +97,7 @@ export function StandardCard({
             </Button>
           </div>
         )}
-      </CardContent>
-    </Card>
+      </div>
+    </DecisionCard>
   );
 }

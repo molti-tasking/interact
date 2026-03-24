@@ -105,7 +105,6 @@ export function ConversationPane({ portfolio }: ConversationPaneProps) {
     [queryClient, portfolio, portfolioSchema],
   );
   const [discoveryPhase, setDiscoveryPhase] = useState<DiscoveryPhase>("idle");
-  const [activeAnimation, setActiveAnimation] = useState<number | null>(null);
 
   // Prompt-based edit state
   const [promptEditOpen, setPromptEditOpen] = useState(false);
@@ -121,15 +120,6 @@ export function ConversationPane({ portfolio }: ConversationPaneProps) {
   useEffect(() => {
     setIntent(portfolio.intent);
   }, [portfolio.intent]);
-
-  // Clear animation when no opinion is resolving
-  const isOpinionResolving = resolveOpinion.isPending;
-  useEffect(() => {
-    if (!isOpinionResolving && activeAnimation !== null) {
-      const timer = setTimeout(() => setActiveAnimation(null), 1200);
-      return () => clearTimeout(timer);
-    }
-  }, [isOpinionResolving, activeAnimation]);
 
   const handleIntentChange = useCallback((value: string) => {
     setIntent(value);
@@ -211,16 +201,11 @@ export function ConversationPane({ portfolio }: ConversationPaneProps) {
   // Opinion interaction: select an option → backpropagate into prompt
   // -------------------------------------------------------------------
   const handleOpinionSelect = async (
-    opinionIndex: number,
+    opinionId: string,
     selectedValue: string,
   ) => {
-    const visibleList = (opinions ?? []).filter(
-      (o) => o.status !== "resolved" && o.status !== "dismissed",
-    );
-    const interaction = visibleList[opinionIndex];
+    const interaction = (opinions ?? []).find((o) => o.id === opinionId);
     if (!interaction || interaction.status !== "pending") return;
-
-    setActiveAnimation(opinionIndex);
 
     try {
       const result = await resolveOpinion.mutateAsync({
@@ -237,14 +222,8 @@ export function ConversationPane({ portfolio }: ConversationPaneProps) {
     }
   };
 
-  const handleDismissOpinion = (index: number) => {
-    const visibleList = (opinions ?? []).filter(
-      (o) => o.status !== "resolved" && o.status !== "dismissed",
-    );
-    const interaction = visibleList[index];
-    if (interaction) {
-      dismissOpinion.mutate(interaction.id);
-    }
+  const handleDismissOpinion = (opinionId: string) => {
+    dismissOpinion.mutate(opinionId);
   };
 
   // -------------------------------------------------------------------
@@ -521,7 +500,7 @@ export function ConversationPane({ portfolio }: ConversationPaneProps) {
 
       {/* Standards + Card Deck (opinions + conflicts) */}
       <ScrollArea className="flex-1 px-4 pb-4">
-        <div className="space-y-3">
+        <div className="space-y-3 min-w-0 overflow-hidden">
           {/* Suggested Standards */}
           {visibleStandards.length > 0 && (
             <div data-testid="standards-section">
