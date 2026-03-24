@@ -3,6 +3,7 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { InlineEditableTitle } from "@/components/ui/inline-editable-title";
 import { ConversationPane } from "@/components/workspace/ConversationPane";
 import { FieldEditDrawer } from "@/components/workspace/FieldEditDrawer";
 import { usePortfolio, useUpdatePortfolio } from "@/hooks/query/portfolios";
@@ -115,15 +116,14 @@ export default function PortfolioWorkspacePage() {
     <div className="space-y-4">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-bold tracking-tight">
-            {portfolio.title}
-          </h1>
-          {portfolio.base_id && (
-            <Badge variant="outline" className="mt-1">
-              Derived
-            </Badge>
-          )}
+        <div className="flex items-center gap-2">
+          <InlineEditableTitle
+            value={portfolio.title}
+            onSave={(title) =>
+              updatePortfolio.mutate({ id: portfolio.id, title })
+            }
+          />
+          {portfolio.base_id && <Badge variant="outline">Derived</Badge>}
         </div>
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" asChild>
