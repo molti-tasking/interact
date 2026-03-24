@@ -7,25 +7,12 @@ import type {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import type { OpinionInteraction } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { AnimatePresence, motion } from "framer-motion";
-import {
-  AlertTriangle,
-  Ban,
-  Check,
-  Info,
-  Layers,
-  RefreshCw,
-  X,
-} from "lucide-react";
+import { AlertTriangle, Ban, Info, Layers, RefreshCw, X } from "lucide-react";
 import { useState } from "react";
+import { OpinionCardResolvedDialog } from "./OpinionCardResolvedDialog";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -53,12 +40,6 @@ const layerColors: Record<string, string> = {
   intent: "border-blue-400",
   dimensions: "border-violet-400",
   both: "border-amber-400",
-};
-
-const layerDotColors: Record<string, string> = {
-  intent: "bg-blue-400",
-  dimensions: "bg-violet-400",
-  both: "bg-amber-400",
 };
 
 // ---------------------------------------------------------------------------
@@ -237,61 +218,11 @@ export function OpinionCardDeck({
         )}
       </div>
 
-      {/* Resolved opinions dialog (grid) */}
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Resolved Decisions ({resolvedCount})</DialogTitle>
-          </DialogHeader>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-2">
-            {resolvedOpinions.map((o) => {
-              const selectedLabel =
-                o.options.find((opt) => opt.value === o.selectedOption)?.label ??
-                o.selectedOption;
-              return (
-                <Card key={o.id} className="border-l-4 border-l-green-400">
-                  <CardHeader className="pb-2 pt-3">
-                    <CardTitle className="text-sm font-medium">
-                      {o.text}
-                    </CardTitle>
-                    <div className="flex gap-1.5">
-                      <Badge
-                        variant="outline"
-                        className={cn(
-                          "text-[10px] w-fit",
-                          o.layer === "intent"
-                            ? "text-blue-600 border-blue-200"
-                            : o.layer === "dimensions"
-                              ? "text-violet-600 border-violet-200"
-                              : "text-amber-600 border-amber-200",
-                        )}
-                      >
-                        {o.layer}
-                      </Badge>
-                      {o.dimensionName && (
-                        <Badge
-                          variant="outline"
-                          className="text-[10px] w-fit"
-                        >
-                          {o.dimensionName}
-                        </Badge>
-                      )}
-                    </div>
-                  </CardHeader>
-                  <CardContent className="pt-0">
-                    <div className="flex items-center gap-2 text-sm bg-green-50 rounded-md px-3 py-2">
-                      <Check className="h-3.5 w-3.5 text-green-600 shrink-0" />
-                      <span className="font-medium text-green-800">
-                        {selectedLabel}
-                      </span>
-                    </div>
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
-        </DialogContent>
-      </Dialog>
+      <OpinionCardResolvedDialog
+        dialogOpen={dialogOpen}
+        setDialogOpen={setDialogOpen}
+        resolvedOpinions={resolvedOpinions}
+      />
     </div>
   );
 }
