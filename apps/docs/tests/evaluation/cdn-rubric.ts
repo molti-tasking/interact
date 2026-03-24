@@ -1,0 +1,261 @@
+/**
+ * CDN (Cognitive Dimensions of Notations) rubric definitions.
+ *
+ * Each dimension is operationalized as a structured evaluation prompt
+ * with a 5-point scale and descriptive anchors per the paper methodology.
+ *
+ * Reference: Green & Petre (1996), Blackwell et al. (2001)
+ */
+
+export interface CDNDimension {
+  id: string;
+  name: string;
+  /** Lower is better for some dimensions */
+  lowerIsBetter: boolean;
+  description: string;
+  /** What to look for in the artifacts */
+  evaluationFocus: string;
+  /** Descriptive anchors for the 5-point scale */
+  anchors: {
+    1: string;
+    2: string;
+    3: string;
+    4: string;
+    5: string;
+  };
+}
+
+export const cdnDimensions: CDNDimension[] = [
+  {
+    id: "viscosity",
+    name: "Viscosity",
+    lowerIsBetter: true,
+    description:
+      "Resistance to change. How much effort is required to make a single change to the form design?",
+    evaluationFocus:
+      "Look at how intent edits propagate to schema changes. " +
+      "Count the steps needed to add/remove/modify a field. " +
+      "Check if opinion resolutions automatically update both intent and schema.",
+    anchors: {
+      1: "Changes require a single action (e.g., answer one opinion) and propagate automatically to all layers",
+      2: "Most changes are low-effort with automatic propagation; occasional manual adjustment needed",
+      3: "Moderate effort — some changes propagate, others require explicit regeneration",
+      4: "Significant manual work to make changes; limited automatic propagation",
+      5: "Every change requires manual editing of multiple artifacts; no automatic propagation",
+    },
+  },
+  {
+    id: "premature-commitment",
+    name: "Premature Commitment",
+    lowerIsBetter: true,
+    description:
+      "Are users forced to make decisions before they have enough information?",
+    evaluationFocus:
+      "Check if the system requires upfront schema specification. " +
+      "Look at whether the creator can express vague intent first and refine later. " +
+      "Examine if opinion questions allow deferring decisions.",
+    anchors: {
+      1: "Creator can start with vague intent; all decisions can be deferred or revised; system guides incrementally",
+      2: "Minimal upfront commitment; most decisions are reversible through intent editing",
+      3: "Some early decisions are required but can be changed later with moderate effort",
+      4: "Several decisions must be made upfront; changing them later requires significant rework",
+      5: "Full schema must be specified upfront; changes require starting over",
+    },
+  },
+  {
+    id: "progressive-evaluation",
+    name: "Progressive Evaluation",
+    lowerIsBetter: false,
+    description:
+      "Can users check their work at any point during the design process?",
+    evaluationFocus:
+      "Check for live form preview alongside intent editing. " +
+      "Look for intermediate feedback (dimension badges, opinion cards, field count). " +
+      "Can the creator see the form at every stage of the process?",
+    anchors: {
+      1: "No feedback until the entire process is complete",
+      2: "Limited feedback available only after explicit generation steps",
+      3: "Some intermediate feedback (e.g., field list) but no live preview",
+      4: "Good intermediate feedback with live preview; minor delays between changes and updates",
+      5: "Continuous, real-time feedback at every stage — live preview, dimension badges, opinion status, field count all update immediately",
+    },
+  },
+  {
+    id: "hidden-dependencies",
+    name: "Hidden Dependencies",
+    lowerIsBetter: true,
+    description:
+      "Are there relationships between components that are not visible to the user?",
+    evaluationFocus:
+      "Check provenance logging — can the creator trace why a field exists? " +
+      "Look at opinion-to-schema connections. " +
+      "Are dimension-to-field mappings visible? Are standard requirements traceable?",
+    anchors: {
+      1: "All dependencies are explicitly visible — provenance log traces every field origin, opinion resolutions show impact, dimension-field mappings are clear",
+      2: "Most dependencies visible through provenance; a few implicit connections exist",
+      3: "Some dependencies visible but others require investigation to understand",
+      4: "Many hidden dependencies — unclear why fields exist or how changes propagate",
+      5: "Completely opaque — no traceability between intent, opinions, dimensions, and schema",
+    },
+  },
+  {
+    id: "visibility",
+    name: "Visibility",
+    lowerIsBetter: false,
+    description:
+      "Can the user easily see all relevant information, or is it hidden behind navigation?",
+    evaluationFocus:
+      "Check the workspace layout — are intent, opinions, standards, and form preview all visible simultaneously? " +
+      "Is the resolved opinion history accessible? " +
+      "Can all schema fields be seen at once?",
+    anchors: {
+      1: "Critical information is hidden behind multiple clicks or separate pages",
+      2: "Some information visible but important elements require navigation",
+      3: "Main workspace shows intent and preview; secondary information requires scrolling or expanding",
+      4: "Good visibility — intent, opinions, standards, and preview mostly visible; resolved history accessible on demand",
+      5: "Excellent visibility — all layers (intent, opinions, dimensions, standards, schema, preview) visible or one click away in a coherent workspace",
+    },
+  },
+  {
+    id: "closeness-of-mapping",
+    name: "Closeness of Mapping",
+    lowerIsBetter: false,
+    description:
+      "How closely does the notation correspond to the problem domain?",
+    evaluationFocus:
+      "Check if the creator works in natural language (their domain language) rather than schema notation. " +
+      "Are opinion questions phrased in domain terms? " +
+      "Does the system use domain-specific standards (OSHA, medical)?",
+    anchors: {
+      1: "Creator must work in technical schema notation with no domain mapping",
+      2: "Mix of technical and domain language; some translation required",
+      3: "Domain language used for input but output shown in technical terms",
+      4: "Good domain mapping — natural language intent, domain-aware opinions, but schema still somewhat technical",
+      5: "Excellent domain mapping — creator works entirely in domain language; system handles all technical translation; standards referenced by domain name",
+    },
+  },
+  {
+    id: "role-expressiveness",
+    name: "Role-Expressiveness",
+    lowerIsBetter: false,
+    description:
+      "Can the user easily understand the purpose of each component?",
+    evaluationFocus:
+      "Check if fields have clear labels and descriptions. " +
+      "Are opinion cards self-explanatory? " +
+      "Do dimension badges convey their purpose? " +
+      "Is the relationship between intent sections and generated fields clear?",
+    anchors: {
+      1: "Components are cryptic — field keys, types, and constraints have no human-readable explanation",
+      2: "Some components labeled but purpose of many elements is unclear",
+      3: "Main components are understandable but secondary elements (constraints, groups, tags) are opaque",
+      4: "Good expressiveness — fields have labels+descriptions, opinions have explanations, dimensions are named",
+      5: "Excellent — every component clearly communicates its purpose; layer badges, dimension names, opinion explanations, and field descriptions all contribute to understanding",
+    },
+  },
+  {
+    id: "provisionality",
+    name: "Provisionality",
+    lowerIsBetter: false,
+    description:
+      "Can the user sketch and explore tentatively, or must every action be definitive?",
+    evaluationFocus:
+      "Check if opinions can be dismissed (deferred). " +
+      "Can intent be edited freely without losing the schema? " +
+      "Is there a prompt-edit mode for quick what-if changes? " +
+      "Can the creator regenerate/refine without starting over?",
+    anchors: {
+      1: "Every action is final — no way to explore tentatively or undo",
+      2: "Limited provisionality — some actions reversible but exploration is difficult",
+      3: "Moderate — can dismiss opinions and re-edit intent, but regeneration resets progress",
+      4: "Good — opinions dismissable, intent editable, prompt-edit for experiments; refinement builds on existing schema",
+      5: "Excellent — full provisional workflow; dismiss opinions, edit intent incrementally, prompt-edit experiments, regenerate preserves resolved opinions, version history via provenance",
+    },
+  },
+];
+
+/**
+ * Build the CDN judging prompt for a specific dimension and session artifacts.
+ */
+export function buildJudgingPrompt(
+  dimension: CDNDimension,
+  artifacts: SessionArtifacts,
+): string {
+  return `You are an expert HCI evaluator applying the Cognitive Dimensions of Notations (CDN) framework to assess an AI-assisted form design system called "Malleable Forms".
+
+## Dimension: ${dimension.name}
+${dimension.description}
+
+## What to Evaluate
+${dimension.evaluationFocus}
+
+## Scoring Scale (1-5)
+${dimension.lowerIsBetter ? "LOWER is better for this dimension." : "HIGHER is better for this dimension."}
+
+1: ${dimension.anchors[1]}
+2: ${dimension.anchors[2]}
+3: ${dimension.anchors[3]}
+4: ${dimension.anchors[4]}
+5: ${dimension.anchors[5]}
+
+## Session Artifacts
+
+### Persona
+Name: ${artifacts.persona.name}
+Role: ${artifacts.persona.role}
+Skill Level: ${artifacts.persona.skillLevel}
+Description: ${artifacts.persona.description}
+
+### Scenario
+${artifacts.scenario.name}
+
+### Initial Intent (as entered by persona)
+${artifacts.initialIntent}
+
+### Final Intent (after system refinement)
+${artifacts.finalIntent}
+
+### Opinion Interactions (${artifacts.opinions.length} total)
+${artifacts.opinions.map((o, i) => `${i + 1}. Q: "${o.text}" → A: "${o.selectedLabel}" [${o.status}]`).join("\n")}
+
+### Final Schema (${artifacts.fieldCount} fields)
+${artifacts.schemaDescription}
+
+### Provenance Log (${artifacts.provenanceEntries} entries)
+${artifacts.provenanceSummary}
+
+## Instructions
+1. First, cite 2-3 specific observations from the artifacts that are relevant to ${dimension.name}.
+2. Then assign a score from 1-5 based on the anchors above.
+3. Provide a brief (1-2 sentence) justification.
+
+Return ONLY valid JSON:
+{
+  "observations": ["observation 1", "observation 2"],
+  "score": 4,
+  "justification": "Brief explanation of score"
+}`;
+}
+
+export interface SessionArtifacts {
+  persona: {
+    name: string;
+    role: string;
+    skillLevel: string;
+    description: string;
+  };
+  scenario: {
+    name: string;
+  };
+  initialIntent: string;
+  finalIntent: string;
+  opinions: {
+    text: string;
+    selectedLabel: string;
+    status: string;
+  }[];
+  fieldCount: number;
+  schemaDescription: string;
+  provenanceEntries: number;
+  provenanceSummary: string;
+}
