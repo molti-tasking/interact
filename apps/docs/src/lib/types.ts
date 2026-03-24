@@ -152,6 +152,43 @@ export interface FieldGroup {
 }
 
 // ---------------------------------------------------------------------------
+// Structured Intent (stored in portfolios.intent JSONB)
+// ---------------------------------------------------------------------------
+
+export interface IntentSection {
+  content: string;
+  updatedAt: string; // ISO timestamp
+}
+
+export interface StructuredIntent {
+  purpose: IntentSection; // What the form is for
+  audience: IntentSection; // Who fills it out
+  exclusions: IntentSection; // Excluded fields/topics
+  constraints: IntentSection; // Rules, compliance, limits
+}
+
+export type SectionKey = keyof StructuredIntent;
+
+export type PipelineStrategy =
+  | { kind: "full" }
+  | { kind: "filter-only" }
+  | { kind: "recheck-constraints" }
+  | { kind: "noop" };
+
+export function emptyIntentSection(): IntentSection {
+  return { content: "", updatedAt: new Date().toISOString() };
+}
+
+export function emptyStructuredIntent(): StructuredIntent {
+  return {
+    purpose: emptyIntentSection(),
+    audience: emptyIntentSection(),
+    exclusions: emptyIntentSection(),
+    constraints: emptyIntentSection(),
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Portfolio Schema (stored in portfolios.schema JSONB)
 // ---------------------------------------------------------------------------
 
@@ -210,15 +247,17 @@ export type PortfolioStatus = z.infer<typeof portfolioStatusZ>;
 
 export interface PortfolioInsert extends Omit<
   TablesInsert<"portfolios">,
-  "schema"
+  "schema" | "intent"
 > {
   schema: PortfolioSchema;
+  intent: StructuredIntent;
 }
 
 export interface Portfolio extends Omit<
   Tables<"portfolios">,
-  "schema" | "projection"
+  "schema" | "projection" | "intent"
 > {
+  intent: StructuredIntent;
   schema: PortfolioSchema;
   projection: DerivationSpec | null;
 }
@@ -236,9 +275,10 @@ export type ProvenanceLayer = z.infer<typeof provenanceLayerZ>;
 
 export interface ProvenanceEntry extends Omit<
   Tables<"provenance_log">,
-  "diff" | "prev_schema"
+  "diff" | "prev_schema" | "prev_intent"
 > {
   diff: SchemaDiff;
+  prev_intent: StructuredIntent | null;
   prev_schema: PortfolioSchema | null;
 }
 

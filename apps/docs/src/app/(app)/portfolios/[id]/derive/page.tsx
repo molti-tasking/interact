@@ -5,7 +5,7 @@ import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useCreatePortfolio, usePortfolio } from "@/hooks/query/portfolios";
-import { PortfolioSchema } from "@/lib/types";
+import { emptyStructuredIntent, PortfolioSchema } from "@/lib/types";
 import { ArrowLeft, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
@@ -36,7 +36,10 @@ export default function DerivePage() {
       // Phase 7 will add LLM-powered classification and field selection
       const derived = await createPortfolio.mutateAsync({
         title: `${portfolio.title} — ${scenario.trim().slice(0, 50)}`,
-        intent: scenario.trim(),
+        intent: {
+          ...emptyStructuredIntent(),
+          purpose: { content: scenario.trim(), updatedAt: new Date().toISOString() },
+        },
         schema: portfolio.schema,
         base_id: portfolio.id,
         projection: {

@@ -9,7 +9,7 @@ import {
 import { logProvenance } from "@/lib/engine/provenance";
 import { diffSchemas } from "@/lib/engine/schema-ops";
 import { createClient } from "@/lib/supabase/client";
-import type { PortfolioSchema } from "@/lib/types";
+import type { PortfolioSchema, StructuredIntent } from "@/lib/types";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 function conflictsKey(portfolioId: string) {
@@ -23,7 +23,7 @@ function conflictsKey(portfolioId: string) {
 export function useDetectConflicts(
   portfolioId: string,
   schema: PortfolioSchema | undefined,
-  intent: string,
+  intent: StructuredIntent,
 ) {
   return useQuery({
     queryKey: [...conflictsKey(portfolioId), schema?.version ?? 0],
@@ -55,7 +55,7 @@ export function useResolveConflict(portfolioId: string) {
       conflict: SchemaConflict;
       fix: ConflictFix;
       currentSchema: PortfolioSchema;
-      currentIntent: string;
+      currentIntent: StructuredIntent;
     }) => {
       const response = await resolveSchemaConflictAction(
         currentSchema,
@@ -76,7 +76,7 @@ export function useResolveConflict(portfolioId: string) {
       const { error } = await supabase
         .from("portfolios")
         .update({
-          intent: updatedIntent,
+          intent: JSON.parse(JSON.stringify(updatedIntent)),
           schema: JSON.parse(JSON.stringify(updatedSchema)),
           updated_at: new Date().toISOString(),
         })

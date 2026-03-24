@@ -2,8 +2,9 @@
 
 import type { DimensionObject, DimensionScope } from "@/lib/dimension-types";
 import type { DetectedStandard } from "@/lib/domain-standards";
+import { serializeForLLM } from "@/lib/engine/structured-intent";
 import { withTracing } from "@/lib/telemetry";
-import type { Field, PortfolioSchema } from "@/lib/types";
+import type { Field, PortfolioSchema, StructuredIntent } from "@/lib/types";
 import { model } from "@/lib/model";
 import { generateText } from "ai";
 
@@ -17,9 +18,10 @@ export interface GenerateDimensionsResponse {
 }
 
 export async function generateDimensionsAction(
-  prompt: string,
+  intent: StructuredIntent,
   maxDimensions: number = 5,
 ): Promise<GenerateDimensionsResponse> {
+  const prompt = serializeForLLM(intent);
   if (process.env.USE_FIXTURES || process.env.RECORD_FIXTURES) {
     const { fixtureGuard } = await import("@/lib/testing/fixture-guard");
     return fixtureGuard("generateDimensions", { prompt, maxDimensions },
@@ -238,9 +240,10 @@ export interface DimensionsToSchemaResponse {
 
 export async function dimensionsToSchemaAction(
   dimensions: DimensionObject[],
-  basePrompt: string,
+  intent: StructuredIntent,
   acceptedStandards?: DetectedStandard[],
 ): Promise<DimensionsToSchemaResponse> {
+  const basePrompt = serializeForLLM(intent);
   if (process.env.USE_FIXTURES || process.env.RECORD_FIXTURES) {
     const { fixtureGuard } = await import("@/lib/testing/fixture-guard");
     return fixtureGuard("dimensionsToSchema", { dimensions, basePrompt, acceptedStandards },

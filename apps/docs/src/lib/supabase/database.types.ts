@@ -93,7 +93,7 @@ export type Database = {
           created_at: string | null
           creator_role: string | null
           id: string
-          intent: string
+          intent: Json
           projection: Json | null
           schema: Json
           status: string | null
@@ -105,7 +105,7 @@ export type Database = {
           created_at?: string | null
           creator_role?: string | null
           id?: string
-          intent: string
+          intent: Json
           projection?: Json | null
           schema: Json
           status?: string | null
@@ -117,7 +117,7 @@ export type Database = {
           created_at?: string | null
           creator_role?: string | null
           id?: string
-          intent?: string
+          intent?: Json
           projection?: Json | null
           schema?: Json
           status?: string | null
@@ -144,7 +144,7 @@ export type Database = {
           id: string
           layer: string
           portfolio_id: string
-          prev_intent: string | null
+          prev_intent: Json | null
           prev_schema: Json | null
           rationale: string | null
         }
@@ -157,7 +157,7 @@ export type Database = {
           id?: string
           layer: string
           portfolio_id: string
-          prev_intent?: string | null
+          prev_intent?: Json | null
           prev_schema?: Json | null
           rationale?: string | null
         }
@@ -170,7 +170,7 @@ export type Database = {
           id?: string
           layer?: string
           portfolio_id?: string
-          prev_intent?: string | null
+          prev_intent?: Json | null
           prev_schema?: Json | null
           rationale?: string | null
         }

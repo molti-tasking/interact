@@ -73,7 +73,7 @@ export function FormRenderer({
               <button
                 type="button"
                 onClick={() => onFieldClick(field)}
-                className="absolute inset-0 z-10 rounded-lg border border-transparent opacity-0 group-hover:opacity-100 group-hover:border-primary/30 group-hover:bg-primary/5 transition-all cursor-pointer flex items-center justify-end pr-3"
+                className="absolute -top-1 -bottom-1 -left-1 -right-1 z-10 rounded-lg border border-transparent opacity-0 group-hover:opacity-100 group-hover:border-primary/30 group-hover:bg-primary/5 transition-all cursor-pointer flex items-center justify-end pr-3"
               >
                 <Pencil className="h-3.5 w-3.5 text-primary/60" />
               </button>

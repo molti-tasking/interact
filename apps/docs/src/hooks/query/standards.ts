@@ -3,7 +3,7 @@
 import { detectDomainStandardsAction } from "@/app/actions/standards-actions";
 import type { DetectedStandard } from "@/lib/domain-standards";
 import { logProvenance } from "@/lib/engine/provenance";
-import type { AcceptedStandardRef, PortfolioSchema } from "@/lib/types";
+import type { AcceptedStandardRef, PortfolioSchema, StructuredIntent } from "@/lib/types";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 function detectedStandardsKey(portfolioId: string) {
@@ -55,7 +55,7 @@ export function useAcceptStandard(portfolioId: string) {
       detected: DetectedStandard;
       portfolio: {
         id: string;
-        intent: string;
+        intent: StructuredIntent;
         schema: PortfolioSchema;
       };
     }) => {
@@ -81,20 +81,24 @@ export function useAcceptStandard(portfolioId: string) {
         acceptedStandards: [...existing, newRef],
       };
 
-      // Append standards section to intent if not already present
-      let updatedIntent = portfolio.intent;
-      const standardsHeader = "## Applied Standards";
-      if (!updatedIntent.includes(standardsHeader)) {
-        updatedIntent += `\n\n${standardsHeader}\n- **${detected.standard.name}** (${detected.standard.domain})`;
-      } else if (!updatedIntent.includes(detected.standard.name)) {
-        updatedIntent += `\n- **${detected.standard.name}** (${detected.standard.domain})`;
-      }
+      // Append standard info to constraints section
+      const standardLine = `- **${detected.standard.name}** (${detected.standard.domain})`;
+      const currentConstraints = portfolio.intent.constraints.content.trim();
+      const updatedIntent: StructuredIntent = {
+        ...portfolio.intent,
+        constraints: {
+          content: currentConstraints
+            ? `${currentConstraints}\n${standardLine}`
+            : standardLine,
+          updatedAt: new Date().toISOString(),
+        },
+      };
 
       const { error } = await supabase
         .from("portfolios")
         .update({
           schema: JSON.parse(JSON.stringify(updatedSchema)),
-          intent: updatedIntent,
+          intent: JSON.parse(JSON.stringify(updatedIntent)),
           updated_at: new Date().toISOString(),
         })
         .eq("id", portfolio.id);

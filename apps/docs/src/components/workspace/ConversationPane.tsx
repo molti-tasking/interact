@@ -5,7 +5,6 @@ import type {
   SchemaConflict,
 } from "@/app/actions/conflict-actions";
 import { resolveOpinionInteractionAction } from "@/app/actions/opinion-actions";
-import { PromptDiff } from "@/components/form/configurator/PromptDiff";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { MarkdownEditor } from "@/components/ui/markdown-editor";
@@ -15,56 +14,59 @@ import {
   useDetectConflicts,
   useResolveConflict,
 } from "@/hooks/query/conflicts";
-import { useDimensions, useGenerateDimensions } from "@/hooks/query/dimensions";
+import { useDimensions } from "@/hooks/query/dimensions";
 import {
   useDismissOpinion,
   useGenerateOpinions,
   useOpinions,
   useResolveOpinion,
 } from "@/hooks/query/opinions";
+import { usePipelineGenerate } from "@/hooks/query/pipeline";
 import { useUpdatePortfolio } from "@/hooks/query/portfolios";
-import { useProvenance } from "@/hooks/query/provenance";
-import { useGenerateSchema } from "@/hooks/query/schema-generation";
 import {
   useAcceptStandard,
   useDetectedStandards,
-  useDetectStandards,
   useSkippedStandards,
   useSkipStandard,
 } from "@/hooks/query/standards";
 import type { DetectedStandard } from "@/lib/domain-standards";
 import { logProvenance } from "@/lib/engine/provenance";
 import { diffSchemas } from "@/lib/engine/schema-ops";
-import type { Portfolio, PortfolioSchema } from "@/lib/types";
+import {
+  parseFromMarkdown,
+  serializeToMarkdown,
+} from "@/lib/engine/structured-intent";
+import type { Portfolio, PortfolioSchema, StructuredIntent } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { useQueryClient } from "@tanstack/react-query";
 import { Loader2, Shield, Sparkles, XIcon } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
-import { Label } from "../ui/label";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { OpinionCardDeck } from "./OpinionCardDeck";
 
 interface ConversationPaneProps {
   portfolio: Portfolio;
 }
 
-type DiscoveryPhase = "idle" | "generating-dimensions" | "generating-schema";
-
 export function ConversationPane({ portfolio }: ConversationPaneProps) {
   const portfolioSchema = portfolio.schema as unknown as PortfolioSchema;
 
   const editorRef = useRef<HTMLDivElement>(null);
-  const [intent, setIntent] = useState(portfolio.intent);
-  const [showDiff, setShowDiff] = useState(false);
+  const [structuredIntent, setStructuredIntent] = useState<StructuredIntent>(
+    portfolio.intent,
+  );
   const updatePortfolio = useUpdatePortfolio();
   const queryClient = useQueryClient();
-  const { data: provenanceEntries } = useProvenance(portfolio.id);
 
-  // --- React Query hooks for each subprocess ---
+  // Markdown projection of the structured intent for the editor
+  const editorValue = useMemo(
+    () => serializeToMarkdown(structuredIntent),
+    [structuredIntent],
+  );
+
+  // --- React Query hooks ---
   const { data: dimensions } = useDimensions(portfolio.id);
-  const generateDimensions = useGenerateDimensions(portfolio.id);
 
   const { data: detectedStandards } = useDetectedStandards(portfolio.id);
-  const detectStandards = useDetectStandards(portfolio.id);
   const acceptStandard = useAcceptStandard(portfolio.id);
   const skipStandard = useSkipStandard(portfolio.id);
   const { data: skippedStandardIds } = useSkippedStandards(portfolio.id);
@@ -74,37 +76,19 @@ export function ConversationPane({ portfolio }: ConversationPaneProps) {
   const resolveOpinion = useResolveOpinion(portfolio.id);
   const dismissOpinion = useDismissOpinion(portfolio.id);
 
-  const generateSchema = useGenerateSchema(portfolio.id);
+  // Pipeline hook replaces the old handleGenerate
+  const pipeline = usePipelineGenerate(portfolio.id);
 
-  // --- Conflict detection + resolution ---
+  // Conflict detection + resolution
   const { data: conflicts } = useDetectConflicts(
     portfolio.id,
     portfolioSchema,
-    intent,
+    structuredIntent,
   );
   const resolveConflict = useResolveConflict(portfolio.id);
   const [dismissedConflicts, setDismissedConflicts] = useState<Set<string>>(
     new Set(),
   );
-
-  /** Log provenance with snapshot of current state, then invalidate cache */
-  const logWithSnapshot = useCallback(
-    async (
-      layer: Parameters<typeof logProvenance>[1],
-      action: string,
-      actor: "creator" | "system",
-      diff: Parameters<typeof logProvenance>[4],
-      rationale?: string,
-    ) => {
-      await logProvenance(portfolio.id, layer, action, actor, diff, rationale, {
-        intent: portfolio.intent,
-        schema: portfolioSchema,
-      });
-      queryClient.invalidateQueries({ queryKey: ["provenance", portfolio.id] });
-    },
-    [queryClient, portfolio, portfolioSchema],
-  );
-  const [discoveryPhase, setDiscoveryPhase] = useState<DiscoveryPhase>("idle");
 
   // Prompt-based edit state
   const [promptEditOpen, setPromptEditOpen] = useState(false);
@@ -112,93 +96,45 @@ export function ConversationPane({ portfolio }: ConversationPaneProps) {
   const [isPromptEditing, setIsPromptEditing] = useState(false);
   const [error, setError] = useState<string | null | undefined>();
 
-  // Derive previousIntent from the latest provenance entry
-  const latestEntry = provenanceEntries?.[0] ?? null;
-  const previousIntent = latestEntry?.prev_intent ?? null;
-
-  // Sync intent from portfolio when it changes externally
+  // Sync structured intent from portfolio when it changes externally
   useEffect(() => {
-    setIntent(portfolio.intent);
+    setStructuredIntent(portfolio.intent);
   }, [portfolio.intent]);
 
-  const handleIntentChange = useCallback((value: string) => {
-    setIntent(value);
+  // Parse markdown from editor back into structured intent
+  const handleEditorChange = useCallback((markdown: string) => {
+    setStructuredIntent((prev) => parseFromMarkdown(markdown, prev));
   }, []);
 
   // -------------------------------------------------------------------
-  // Button: Generate dimensions + schema (now using independent hooks)
+  // Button: Smart pipeline generate
   // -------------------------------------------------------------------
   const handleGenerate = async () => {
-    if (!intent.trim() || isGenerating) return;
+    if (!structuredIntent.purpose.content.trim() || isGenerating) return;
 
     setError(null);
 
     try {
-      // Save intent + log provenance if intent changed
-      const intentChanged = intent.trim() !== portfolio.intent;
-      await updatePortfolio.mutateAsync({
-        id: portfolio.id,
-        intent: intent.trim(),
-      });
-
-      if (intentChanged) {
-        await logWithSnapshot(
-          "intent",
-          "intent_updated",
-          "creator",
-          { added: [], removed: [], modified: [] },
-          "Intent updated by creator",
-        );
-      }
-
-      // Step 1: Generate dimensions + detect standards IN PARALLEL
-      setDiscoveryPhase("generating-dimensions");
-
-      const [dimensionsResult, standardsResult] = await Promise.all([
-        generateDimensions.mutateAsync(intent.trim()),
-        detectStandards.mutateAsync(intent.trim()),
-      ]);
-
-      // Step 2: Generate schema from dimensions
-      setDiscoveryPhase("generating-schema");
-
-      // Get currently accepted standards from portfolio schema
-      const acceptedStandardRefs = portfolioSchema.acceptedStandards ?? [];
-      const acceptedStandards = (standardsResult ?? []).filter((s) =>
-        acceptedStandardRefs.some((ref) => ref.standardId === s.standard.id),
-      );
-
-      const schemaResult = await generateSchema.mutateAsync({
-        dimensions: dimensionsResult,
-        intent: intent.trim(),
+      const result = await pipeline.mutateAsync({
+        previousIntent: portfolio.intent,
+        currentIntent: structuredIntent,
         currentSchema: portfolioSchema,
-        acceptedStandards:
-          acceptedStandards.length > 0 ? acceptedStandards : undefined,
       });
 
-      // Update local intent if LLM refined it
-      if (schemaResult.intent !== intent.trim()) {
-        setIntent(schemaResult.intent);
+      if (result.strategy.kind === "noop") {
+        setError("No changes detected. Edit the intent to regenerate.");
+        return;
       }
 
-      setDiscoveryPhase("idle");
-
-      // Step 3: Generate refinement questions (fire-and-forget, runs independently)
-      generateOpinions.mutate({
-        intent: schemaResult.intent,
-        dimensions: dimensionsResult,
-        acceptedStandards:
-          acceptedStandards.length > 0 ? acceptedStandards : undefined,
-      });
+      setStructuredIntent(result.intent);
     } catch (err) {
       console.error("[ConversationPane] Generation error:", err);
       setError(err instanceof Error ? err.message : "Generation failed");
-      setDiscoveryPhase("idle");
     }
   };
 
   // -------------------------------------------------------------------
-  // Opinion interaction: select an option → backpropagate into prompt
+  // Opinion interaction: select an option
   // -------------------------------------------------------------------
   const handleOpinionSelect = async (
     opinionId: string,
@@ -211,11 +147,11 @@ export function ConversationPane({ portfolio }: ConversationPaneProps) {
       const result = await resolveOpinion.mutateAsync({
         opinion: interaction,
         selectedValue,
-        currentIntent: intent,
+        currentIntent: structuredIntent,
         currentSchema: portfolioSchema,
       });
 
-      setIntent(result.newIntent);
+      setStructuredIntent(result.newIntent);
     } catch (err) {
       console.error("[ConversationPane] Opinion error:", err);
       setError(err instanceof Error ? err.message : "Opinion failed");
@@ -227,7 +163,7 @@ export function ConversationPane({ portfolio }: ConversationPaneProps) {
   };
 
   // -------------------------------------------------------------------
-  // Prompt-based edit: user describes a change in natural language
+  // Prompt-based edit
   // -------------------------------------------------------------------
   const handlePromptEdit = async () => {
     if (!promptEditText.trim() || isGenerating || !portfolio) return;
@@ -237,7 +173,7 @@ export function ConversationPane({ portfolio }: ConversationPaneProps) {
 
     try {
       const response = await resolveOpinionInteractionAction({
-        basePrompt: intent,
+        intent: structuredIntent,
         currentSchema: portfolioSchema,
         interactionText: "User requested a direct prompt-based edit",
         selectedOptionLabel: promptEditText.trim(),
@@ -250,21 +186,24 @@ export function ConversationPane({ portfolio }: ConversationPaneProps) {
           response.result.artifactFormSchema,
         );
 
-        setIntent(response.result.basePrompt);
-
         await updatePortfolio.mutateAsync({
           id: portfolio.id,
-          intent: response.result.basePrompt,
+          intent: structuredIntent,
           schema: response.result.artifactFormSchema,
         });
 
-        await logWithSnapshot(
+        await logProvenance(
+          portfolio.id,
           "configuration",
           "prompt_edit",
           "creator",
           editDiff,
           promptEditText.trim(),
+          { intent: structuredIntent, schema: portfolioSchema },
         );
+        queryClient.invalidateQueries({
+          queryKey: ["provenance", portfolio.id],
+        });
 
         setPromptEditText("");
         setPromptEditOpen(false);
@@ -280,7 +219,7 @@ export function ConversationPane({ portfolio }: ConversationPaneProps) {
   };
 
   // -------------------------------------------------------------------
-  // Standard accept/skip (now using react-query hooks)
+  // Standard accept/skip
   // -------------------------------------------------------------------
   const handleAcceptStandard = async (standardId: string) => {
     const detected = (detectedStandards ?? []).find(
@@ -292,7 +231,7 @@ export function ConversationPane({ portfolio }: ConversationPaneProps) {
       detected,
       portfolio: {
         id: portfolio.id,
-        intent: portfolio.intent,
+        intent: structuredIntent,
         schema: portfolioSchema,
       },
     });
@@ -303,7 +242,7 @@ export function ConversationPane({ portfolio }: ConversationPaneProps) {
   };
 
   // -------------------------------------------------------------------
-  // Conflict resolution: select a fix → apply to schema
+  // Conflict resolution
   // -------------------------------------------------------------------
   const handleConflictFix = async (
     conflict: SchemaConflict,
@@ -314,9 +253,9 @@ export function ConversationPane({ portfolio }: ConversationPaneProps) {
         conflict,
         fix,
         currentSchema: portfolioSchema,
-        currentIntent: intent,
+        currentIntent: structuredIntent,
       });
-      setIntent(result.updatedIntent);
+      setStructuredIntent(result.updatedIntent);
     } catch (err) {
       console.error("[ConversationPane] Conflict fix error:", err);
       setError(err instanceof Error ? err.message : "Conflict fix failed");
@@ -328,10 +267,11 @@ export function ConversationPane({ portfolio }: ConversationPaneProps) {
   };
 
   // -------------------------------------------------------------------
-  // Regenerate refinement questions
+  // Regenerate opinions
   // -------------------------------------------------------------------
   const handleRegenerateOpinions = () => {
-    if (!intent.trim() || generateOpinions.isPending) return;
+    if (!structuredIntent.purpose.content.trim() || generateOpinions.isPending)
+      return;
 
     const acceptedDims = (dimensions ?? []).filter(
       (d) => (d.status === "accepted" || d.status === "edited") && d.isActive,
@@ -343,7 +283,7 @@ export function ConversationPane({ portfolio }: ConversationPaneProps) {
     );
 
     generateOpinions.mutate({
-      intent: intent.trim(),
+      intent: structuredIntent,
       dimensions: acceptedDims.length > 0 ? acceptedDims : undefined,
       acceptedStandards: acceptedStds.length > 0 ? acceptedStds : undefined,
     });
@@ -352,7 +292,7 @@ export function ConversationPane({ portfolio }: ConversationPaneProps) {
   // -------------------------------------------------------------------
   // Derived state
   // -------------------------------------------------------------------
-  const isGenerating = discoveryPhase !== "idle" || isPromptEditing;
+  const isGenerating = pipeline.isPending || isPromptEditing;
 
   const visibleOpinions = (opinions ?? []).filter(
     (o) => o.status !== "resolved" && o.status !== "dismissed",
@@ -373,22 +313,8 @@ export function ConversationPane({ portfolio }: ConversationPaneProps) {
 
   return (
     <div className="flex flex-col h-full">
-      {/* Intent Editor */}
-      <div className="p-4 space-y-3">
-        <div className="flex items-center justify-between">
-          <Label htmlFor="basePrompt">What you want?</Label>
-          {previousIntent && previousIntent !== intent && (
-            <Button
-              onClick={() => setShowDiff(!showDiff)}
-              variant="ghost"
-              size="sm"
-              className="h-5 px-2 text-xs text-muted-foreground"
-            >
-              {!showDiff ? "View" : "Hide"} changes
-            </Button>
-          )}
-        </div>
-
+      {/* Intent Editor — single field, structured data underneath */}
+      <div className="space-y-3">
         <div className="relative overflow-hidden rounded-2xl">
           {/* Animated gradient when processing */}
           <div
@@ -399,29 +325,19 @@ export function ConversationPane({ portfolio }: ConversationPaneProps) {
             )}
           />
 
-          {/* Show diff view when prompt was refined, otherwise show editor */}
-          {showDiff && previousIntent ? (
-            <div
-              className="border rounded-2xl px-3 py-2 bg-muted/30 cursor-pointer"
-              onClick={() => setShowDiff(false)}
-            >
-              <PromptDiff previous={previousIntent} current={intent} />
-            </div>
-          ) : (
-            <div data-testid="intent-editor">
-              <MarkdownEditor
-                ref={editorRef}
-                placeholder="Describe what this form is for, who will use it, and what data you need to collect..."
-                value={intent}
-                className={cn(
-                  "rounded-2xl relative border",
-                  isGenerating ? "bg-transparent" : "",
-                )}
-                onChange={handleIntentChange}
-                disabled={isGenerating || promptEditOpen}
-              />
-            </div>
-          )}
+          <div data-testid="intent-editor">
+            <MarkdownEditor
+              ref={editorRef}
+              placeholder="Describe what this form is for, who will use it, and what data you need to collect..."
+              value={editorValue}
+              className={cn(
+                "rounded-2xl relative border",
+                isGenerating ? "bg-transparent" : "",
+              )}
+              onChange={handleEditorChange}
+              disabled={isGenerating || promptEditOpen}
+            />
+          </div>
         </div>
 
         {/* Error display */}
@@ -431,75 +347,72 @@ export function ConversationPane({ portfolio }: ConversationPaneProps) {
           </div>
         )}
 
-        {!showDiff && (
-          <div className="flex gap-2">
-            {promptEditOpen ? (
-              <div className="flex-1 space-y-2">
-                <textarea
-                  placeholder="Describe the change you want to make to the form..."
-                  value={promptEditText}
-                  onChange={(e) => setPromptEditText(e.target.value)}
-                  rows={2}
-                  className="w-full rounded-md border px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-ring"
-                  disabled={isGenerating}
-                />
-                <Button
-                  size="sm"
-                  onClick={handlePromptEdit}
-                  disabled={!promptEditText.trim() || isGenerating}
-                  className="w-full"
-                >
-                  Apply Edit
-                </Button>
-              </div>
-            ) : (
-              <Button
-                data-testid="generate-form-btn"
-                onClick={handleGenerate}
-                disabled={!intent.trim() || isGenerating}
-                className="flex-1"
-              >
-                {isGenerating ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    {discoveryPhase === "generating-dimensions"
-                      ? "Discovering dimensions..."
-                      : discoveryPhase === "generating-schema"
-                        ? "Generating form..."
-                        : "Processing..."}
-                  </>
-                ) : (
-                  <>
-                    <Sparkles className="h-4 w-4 mr-2" />
-                    {portfolioSchema.fields.length > 0
-                      ? "Refine Form"
-                      : "Generate Form"}
-                  </>
-                )}
-              </Button>
-            )}
-            {portfolioSchema.fields.length > 0 && (
-              <Button
-                variant="outline"
-                onClick={() => setPromptEditOpen(!promptEditOpen)}
+        {/* Action buttons */}
+        <div className="flex gap-2">
+          {promptEditOpen ? (
+            <div className="flex-1 space-y-2">
+              <textarea
+                placeholder="Describe the change you want to make to the form..."
+                value={promptEditText}
+                onChange={(e) => setPromptEditText(e.target.value)}
+                rows={2}
+                className="w-full rounded-md border px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-ring"
                 disabled={isGenerating}
+              />
+              <Button
+                size="sm"
+                onClick={handlePromptEdit}
+                disabled={!promptEditText.trim() || isGenerating}
+                className="w-full"
               >
-                {!promptEditOpen ? (
-                  "Prompt Edit"
-                ) : (
-                  <>
-                    Close
-                    <XIcon />
-                  </>
-                )}
+                Apply Edit
               </Button>
-            )}
-          </div>
-        )}
+            </div>
+          ) : (
+            <Button
+              data-testid="generate-form-btn"
+              onClick={handleGenerate}
+              disabled={
+                !structuredIntent.purpose.content.trim() || isGenerating
+              }
+              className="flex-1"
+            >
+              {isGenerating ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Processing...
+                </>
+              ) : (
+                <>
+                  <Sparkles className="h-4 w-4 mr-2" />
+                  {portfolioSchema.fields.length > 0
+                    ? "Refine Form"
+                    : "Generate Form"}
+                </>
+              )}
+            </Button>
+          )}
+          {portfolioSchema.fields.length > 0 && (
+            <Button
+              variant="outline"
+              onClick={() => setPromptEditOpen(!promptEditOpen)}
+              disabled={isGenerating}
+            >
+              {!promptEditOpen ? (
+                "Prompt Edit"
+              ) : (
+                <>
+                  Close
+                  <XIcon />
+                </>
+              )}
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Standards + Card Deck (opinions + conflicts) */}
-      <ScrollArea className="flex-1 px-4 pb-4">
+      <ScrollArea className="flex-1 py-4">
         <div className="space-y-3 min-w-0">
           {/* Suggested Standards */}
           {visibleStandards.length > 0 && (

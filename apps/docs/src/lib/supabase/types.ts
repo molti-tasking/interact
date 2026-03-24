@@ -16,6 +16,7 @@ import type {
   PortfolioSchema,
   ProvenanceEntry,
   SchemaDiff,
+  StructuredIntent,
 } from "../types";
 import type { Tables } from "./database.types";
 
@@ -35,7 +36,7 @@ export type OpinionRow = Tables<"opinion_interactions">;
 
 export interface PortfolioUpdate {
   title?: string;
-  intent?: string;
+  intent?: StructuredIntent;
   schema?: PortfolioSchema;
   base_id?: string | null;
   projection?: DerivationSpec | null;
@@ -57,6 +58,7 @@ export function rowToPortfolio(row: PortfolioRow): Portfolio {
     ...row,
     created_at: row.created_at ?? new Date().toISOString(),
     updated_at: row.updated_at ?? new Date().toISOString(),
+    intent: row.intent as unknown as StructuredIntent,
     schema: row.schema as unknown as PortfolioSchema,
     projection: row.projection as unknown as DerivationSpec | null,
     status: (row.status ?? "draft") as "draft" | "published",
@@ -68,6 +70,7 @@ export function rowToProvenance(row: ProvenanceRow): ProvenanceEntry {
     ...row,
     layer: row.layer as "intent" | "dimensions" | "configuration",
     diff: row.diff as unknown as SchemaDiff,
+    prev_intent: row.prev_intent as unknown as StructuredIntent | null,
     prev_schema: row.prev_schema as unknown as PortfolioSchema | null,
     created_at: row.created_at ?? new Date().toISOString(),
   };

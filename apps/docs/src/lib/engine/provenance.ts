@@ -6,6 +6,7 @@ import type {
   PortfolioSchema,
   ProvenanceLayer,
   SchemaDiff,
+  StructuredIntent,
 } from "../types";
 import { diffSchemas } from "./schema-ops";
 
@@ -20,7 +21,7 @@ async function insertProvenanceEntry(params: {
   actor: "creator" | "system";
   diff: SchemaDiff;
   rationale?: string | null;
-  prevIntent?: string | null;
+  prevIntent?: StructuredIntent | null;
   prevSchema?: unknown | null;
 }): Promise<void> {
   const supabase = createClient();
@@ -32,7 +33,7 @@ async function insertProvenanceEntry(params: {
     actor: params.actor,
     diff: params.diff as unknown as Json,
     rationale: params.rationale ?? null,
-    prev_intent: params.prevIntent ?? null,
+    prev_intent: params.prevIntent ? (params.prevIntent as unknown as Json) : null,
     prev_schema: params.prevSchema ? (params.prevSchema as Json) : null,
   });
 
@@ -81,7 +82,7 @@ export async function mutatePortfolio(
     .from("portfolios")
     .update({
       title: updated.title,
-      intent: updated.intent,
+      intent: JSON.parse(JSON.stringify(updated.intent)),
       schema: JSON.parse(JSON.stringify(updated.schema)),
       status: updated.status,
       updated_at: new Date().toISOString(),
@@ -124,7 +125,7 @@ export async function logProvenance(
   actor: "creator" | "system",
   diff: SchemaDiff,
   rationale?: string,
-  prev?: { intent: string; schema: unknown },
+  prev?: { intent: StructuredIntent; schema: unknown },
 ): Promise<void> {
   await insertProvenanceEntry({
     portfolioId,

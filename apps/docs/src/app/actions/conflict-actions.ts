@@ -1,7 +1,8 @@
 "use server";
 
-import type { PortfolioSchema } from "@/lib/types";
+import { serializeForLLM } from "@/lib/engine/structured-intent";
 import { withTracing } from "@/lib/telemetry";
+import type { PortfolioSchema, StructuredIntent } from "@/lib/types";
 import { model } from "@/lib/model";
 import { generateText } from "ai";
 
@@ -43,7 +44,7 @@ export interface ResolveConflictResponse {
   success: boolean;
   result?: {
     updatedSchema: PortfolioSchema;
-    updatedIntent: string;
+    updatedIntent: StructuredIntent;
     rationale: string;
   };
   error?: string;
@@ -55,18 +56,19 @@ export interface ResolveConflictResponse {
 
 export async function detectSchemaConflictsAction(
   schema: PortfolioSchema,
-  intent: string,
+  intent: StructuredIntent,
 ): Promise<DetectConflictsResponse> {
+  const intentText = serializeForLLM(intent);
   if (process.env.USE_FIXTURES || process.env.RECORD_FIXTURES) {
     const { fixtureGuard } = await import("@/lib/testing/fixture-guard");
     return fixtureGuard(
       "detectSchemaConflicts",
-      { schema, intent },
-      () => detectSchemaConflictsReal(schema, intent),
-      { prompt: intent },
+      { schema, intent: intentText },
+      () => detectSchemaConflictsReal(schema, intentText),
+      { prompt: intentText },
     );
   }
-  return detectSchemaConflictsReal(schema, intent);
+  return detectSchemaConflictsReal(schema, intentText);
 }
 
 async function detectSchemaConflictsReal(
@@ -245,7 +247,7 @@ Rules:
 
 export async function resolveSchemaConflictAction(
   schema: PortfolioSchema,
-  intent: string,
+  intent: StructuredIntent,
   conflict: SchemaConflict,
   selectedFix: ConflictFix,
 ): Promise<ResolveConflictResponse> {
@@ -263,14 +265,15 @@ export async function resolveSchemaConflictAction(
 
 async function resolveSchemaConflictReal(
   schema: PortfolioSchema,
-  intent: string,
+  intent: StructuredIntent,
   conflict: SchemaConflict,
   selectedFix: ConflictFix,
 ): Promise<ResolveConflictResponse> {
   try {
+    const intentText = serializeForLLM(intent);
     const prompt = `You are a form schema repair assistant. Apply a specific fix to resolve a schema conflict.
 
-Current intent: ${intent}
+Current intent: ${intentText}
 
 Current schema:
 ${JSON.stringify(schema, null, 2)}
@@ -326,11 +329,21 @@ Field format: { "id": "string", "name": "string", "label": "string", "type": { "
       return { success: false, error: "Invalid resolution: missing fields" };
     }
 
+    // Map the LLM's updated intent text back to StructuredIntent
+    // by updating the purpose section (conflict fixes primarily affect purpose)
+    const updatedIntent: StructuredIntent = {
+      ...intent,
+      purpose: {
+        content: parsed.updatedIntent,
+        updatedAt: new Date().toISOString(),
+      },
+    };
+
     return {
       success: true,
       result: {
         updatedSchema: parsed.updatedSchema,
-        updatedIntent: parsed.updatedIntent,
+        updatedIntent,
         rationale: parsed.rationale ?? "Conflict resolved",
       },
     };

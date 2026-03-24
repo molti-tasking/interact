@@ -10,7 +10,7 @@ import { logProvenance } from "@/lib/engine/provenance";
 import { diffSchemas } from "@/lib/engine/schema-ops";
 import { createClient } from "@/lib/supabase/client";
 import { rowToOpinion } from "@/lib/supabase/types";
-import type { OpinionInteraction, PortfolioSchema } from "@/lib/types";
+import type { OpinionInteraction, PortfolioSchema, StructuredIntent } from "@/lib/types";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 function opinionsKey(portfolioId: string) {
@@ -51,7 +51,7 @@ export function useGenerateOpinions(portfolioId: string) {
       dimensions,
       acceptedStandards,
     }: {
-      intent: string;
+      intent: StructuredIntent;
       dimensions?: DimensionObject[];
       acceptedStandards?: DetectedStandard[];
     }) => {
@@ -111,7 +111,7 @@ export function useResolveOpinion(portfolioId: string) {
     }: {
       opinion: OpinionInteraction;
       selectedValue: string;
-      currentIntent: string;
+      currentIntent: StructuredIntent;
       currentSchema: PortfolioSchema;
     }) => {
       const selectedOption = opinion.options.find(
@@ -127,7 +127,7 @@ export function useResolveOpinion(portfolioId: string) {
         .eq("id", opinion.id);
 
       const response = await resolveOpinionInteractionAction({
-        basePrompt: currentIntent,
+        intent: currentIntent,
         currentSchema,
         interactionText: opinion.text,
         selectedOptionLabel: selectedOption.label,
@@ -143,6 +143,9 @@ export function useResolveOpinion(portfolioId: string) {
         throw new Error(response.error ?? "Failed to resolve opinion");
       }
 
+      // Intent stays as-is — opinion decisions are tracked in opinion_interactions table
+      const newIntent = currentIntent;
+
       // Update portfolio
       const opinionDiff = diffSchemas(
         currentSchema,
@@ -152,7 +155,7 @@ export function useResolveOpinion(portfolioId: string) {
       const { error: updateError } = await supabase
         .from("portfolios")
         .update({
-          intent: response.result.basePrompt,
+          intent: JSON.parse(JSON.stringify(newIntent)),
           schema: JSON.parse(
             JSON.stringify(response.result.artifactFormSchema),
           ),
@@ -198,7 +201,7 @@ export function useResolveOpinion(portfolioId: string) {
       }
 
       return {
-        newIntent: response.result.basePrompt,
+        newIntent,
         newSchema: response.result.artifactFormSchema,
       };
     },

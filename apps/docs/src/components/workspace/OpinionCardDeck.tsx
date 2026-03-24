@@ -101,7 +101,7 @@ export function OpinionCardDeck({
                 }}
               >
                 {resolvedCount >= 3 && (
-                  <div className="absolute top-0 left-1 right-1 h-10 rounded-xl border border-green-200 bg-green-50/30 transition-transform duration-200 origin-bottom group-hover:rotate-[-2deg]" />
+                  <div className="absolute top-0 left-1 right-1 h-10 rounded-xl border border-green-200 bg-green-50/30 transition-transform duration-200 origin-bottom group-hover:-rotate-1" />
                 )}
                 {resolvedCount >= 2 && (
                   <div
@@ -124,7 +124,7 @@ export function OpinionCardDeck({
                       accentColor={
                         layerAccentColors[last.layer] ?? "border-gray-300"
                       }
-                      className="relative transition-transform duration-200 origin-bottom group-hover:rotate-[1.5deg]"
+                      className="relative transition-transform duration-200 origin-bottom group-hover:rotate-1"
                       badges={
                         <>
                           <LayerBadge layer={last.layer} />
@@ -152,7 +152,7 @@ export function OpinionCardDeck({
               </div>
             </button>
           )}
-          <div className="flex justify-self-center opacity-20">
+          <div className="flex justify-self-center opacity-40">
             <ArrowDown />
           </div>
         </div>

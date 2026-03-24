@@ -2,8 +2,9 @@
 
 import type { DimensionObject } from "@/lib/dimension-types";
 import type { DetectedStandard } from "@/lib/domain-standards";
+import { serializeForLLM } from "@/lib/engine/structured-intent";
 import { withTracing } from "@/lib/telemetry";
-import type { PortfolioSchema } from "@/lib/types";
+import type { PortfolioSchema, StructuredIntent } from "@/lib/types";
 import { model } from "@/lib/model";
 import { generateText } from "ai";
 
@@ -28,11 +29,12 @@ export interface GenerateOpinionResponse {
 }
 
 export async function generateOpinionInteractionsAction(
-  basePrompt: string,
+  intent: StructuredIntent,
   maxOpinions: number = 5,
   dimensions?: DimensionObject[],
   acceptedStandards?: DetectedStandard[],
 ): Promise<GenerateOpinionResponse> {
+  const basePrompt = serializeForLLM(intent);
   if (process.env.USE_FIXTURES || process.env.RECORD_FIXTURES) {
     const { fixtureGuard } = await import("@/lib/testing/fixture-guard");
     return fixtureGuard("generateOpinionInteractions", { basePrompt, maxOpinions, dimensions, acceptedStandards },
@@ -196,7 +198,7 @@ Rules:
 }
 
 export interface ResolveOpinionRequest {
-  basePrompt: string;
+  intent: StructuredIntent;
   currentSchema: PortfolioSchema;
   interactionText: string;
   selectedOptionLabel: string;
@@ -206,7 +208,7 @@ export interface ResolveOpinionRequest {
 export interface ResolveOpinionResponse {
   success: boolean;
   result?: {
-    basePrompt: string;
+    refinementDelta: string;
     artifactFormSchema: PortfolioSchema;
     followUpInteractions: OpinionInteractionRaw[];
   };
@@ -230,12 +232,14 @@ async function resolveOpinionInteractionReal(
 ): Promise<ResolveOpinionResponse> {
   try {
     const {
-      basePrompt,
+      intent,
       currentSchema,
       interactionText,
       selectedOptionLabel,
       maxFollowUps = 3,
     } = request;
+
+    const basePrompt = serializeForLLM(intent);
 
     const prompt = `You are a form design assistant. The user is refining a form through interactive opinion choices.
 
@@ -248,7 +252,7 @@ The user was asked: "${interactionText}"
 They chose: "${selectedOptionLabel}"
 
 Based on this choice, you must:
-1. Update the base prompt to concisely incorporate this design decision (rewrite, don't append). The basePrompt uses markdown formatting — preserve and use markdown (headings, lists, bold, etc.) in the rewritten version.
+1. Write a SHORT "refinementDelta" — a single sentence summarizing the design decision made (e.g., "Internal staff only; no external user access"). Do NOT rewrite the full form description.
 2. Update the form schemas to reflect this choice
 3. Optionally generate 0-${maxFollowUps} follow-up opinion questions if the choice opens up new design decisions${maxFollowUps === 0 ? ". Do NOT generate any follow-up questions, return an empty followUpInteractions array." : ""}
 
@@ -260,7 +264,7 @@ IMPORTANT RULES:
 
 Return ONLY valid JSON in this exact format:
 {
-  "basePrompt": "Updated concise form description incorporating the user's choice",
+  "refinementDelta": "Short sentence summarizing the design decision",
   "artifactFormSchema": {
     "name": "Form Name",
     "description": "Form description",
@@ -309,7 +313,7 @@ Return ONLY valid JSON in this exact format:
     );
 
     let parsedResult: {
-      basePrompt: string;
+      refinementDelta: string;
       artifactFormSchema: {
         name: string;
         description: string;
@@ -345,7 +349,7 @@ Return ONLY valid JSON in this exact format:
       };
     }
 
-    if (!parsedResult.basePrompt || !parsedResult.artifactFormSchema) {
+    if (!parsedResult.refinementDelta || !parsedResult.artifactFormSchema) {
       return {
         success: false,
         error: "Invalid response: missing required fields",
@@ -393,7 +397,7 @@ Return ONLY valid JSON in this exact format:
     return {
       success: true,
       result: {
-        basePrompt: parsedResult.basePrompt,
+        refinementDelta: parsedResult.refinementDelta,
         artifactFormSchema,
         followUpInteractions,
       },

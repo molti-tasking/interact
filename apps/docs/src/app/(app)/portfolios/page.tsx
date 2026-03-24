@@ -53,7 +53,7 @@ export default function PortfoliosPage() {
                   </Badge>
                 </div>
                 <p className="text-sm text-muted-foreground line-clamp-2 mb-3">
-                  {portfolio.intent || "No intent defined yet"}
+                  {portfolio.intent.purpose.content || "No intent defined yet"}
                 </p>
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
                   <FileText className="h-3 w-3" />

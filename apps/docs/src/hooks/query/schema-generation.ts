@@ -6,7 +6,7 @@ import type { DetectedStandard } from "@/lib/domain-standards";
 import { logProvenance } from "@/lib/engine/provenance";
 import { diffSchemas } from "@/lib/engine/schema-ops";
 import { createClient } from "@/lib/supabase/client";
-import type { PortfolioSchema } from "@/lib/types";
+import type { PortfolioSchema, StructuredIntent } from "@/lib/types";
 import { emptyPortfolioSchema } from "@/lib/types";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
@@ -25,7 +25,7 @@ export function useGenerateSchema(portfolioId: string) {
       acceptedStandards,
     }: {
       dimensions: DimensionObject[];
-      intent: string;
+      intent: StructuredIntent;
       currentSchema: PortfolioSchema;
       acceptedStandards?: DetectedStandard[];
     }) => {
@@ -39,7 +39,18 @@ export function useGenerateSchema(portfolioId: string) {
         throw new Error(result.error ?? "Failed to generate schema");
       }
 
-      const newIntent = result.result.basePrompt || intent;
+      // The LLM may refine the purpose — update that section
+      const refinedPurpose = result.result.basePrompt;
+      const newIntent: StructuredIntent = refinedPurpose !== ""
+        ? {
+            ...intent,
+            purpose: {
+              content: refinedPurpose,
+              updatedAt: new Date().toISOString(),
+            },
+          }
+        : intent;
+
       const newSchema = result.result.artifactFormSchema;
       const schemaDiff = diffSchemas(
         currentSchema.fields.length > 0
@@ -53,7 +64,7 @@ export function useGenerateSchema(portfolioId: string) {
       const { error } = await supabase
         .from("portfolios")
         .update({
-          intent: newIntent,
+          intent: JSON.parse(JSON.stringify(newIntent)),
           schema: JSON.parse(JSON.stringify(newSchema)),
           updated_at: new Date().toISOString(),
         })

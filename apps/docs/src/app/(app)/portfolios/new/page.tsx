@@ -5,7 +5,7 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useCreatePortfolio } from "@/hooks/query/portfolios";
-import { emptyPortfolioSchema } from "@/lib/types";
+import { emptyPortfolioSchema, emptyStructuredIntent } from "@/lib/types";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
@@ -19,7 +19,7 @@ export default function NewPortfolioPage() {
 
     const portfolio = await createPortfolio.mutateAsync({
       title: title.trim(),
-      intent: "",
+      intent: emptyStructuredIntent(),
       schema: emptyPortfolioSchema(),
       status: "draft",
     });

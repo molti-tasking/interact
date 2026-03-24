@@ -61,7 +61,7 @@ export function useCreatePortfolio() {
         .from("portfolios")
         .insert({
           title: input.title,
-          intent: input.intent,
+          intent: input.intent as unknown as Json,
           schema: input.schema as unknown as Json,
           base_id: input.base_id ?? null,
           projection: input.projection
@@ -97,7 +97,8 @@ export function useUpdatePortfolio() {
         updated_at: new Date().toISOString(),
       };
       if (update.title !== undefined) dbUpdate.title = update.title;
-      if (update.intent !== undefined) dbUpdate.intent = update.intent;
+      if (update.intent !== undefined)
+        dbUpdate.intent = JSON.parse(JSON.stringify(update.intent));
       if (update.schema !== undefined)
         dbUpdate.schema = JSON.parse(JSON.stringify(update.schema));
       if (update.base_id !== undefined) dbUpdate.base_id = update.base_id;

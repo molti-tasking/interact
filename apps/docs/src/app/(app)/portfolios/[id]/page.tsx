@@ -158,7 +158,6 @@ export default function PortfolioWorkspacePage() {
           </Button>
         </div>
       </div>
-      <pre data-testid="field-count">Amount of fields: {portfolioSchema?.fields?.length}</pre>
 
       {/* Split pane workspace */}
       <div
@@ -166,12 +165,18 @@ export default function PortfolioWorkspacePage() {
         style={{ minHeight: "70vh" }}
       >
         {/* Left: Intent + Dimensions */}
-        <Card data-testid="conversation-pane" className="flex flex-col overflow-hidden">
+        <div
+          data-testid="conversation-pane"
+          className="flex flex-col overflow-hidden"
+        >
           <ConversationPane portfolio={portfolio} />
-        </Card>
+        </div>
 
         {/* Right: Preview */}
-        <Card data-testid="preview-pane" className="flex flex-col overflow-hidden">
+        <Card
+          data-testid="preview-pane"
+          className="flex flex-col overflow-hidden"
+        >
           <div className="flex-1 p-4 overflow-auto">
             <FormRenderer
               schema={portfolioSchema}
@@ -182,6 +187,9 @@ export default function PortfolioWorkspacePage() {
           </div>
         </Card>
       </div>
+      <pre data-testid="field-count">
+        Amount of fields: {portfolioSchema?.fields?.length}
+      </pre>
 
       {/* Field edit drawer */}
       <FieldEditDrawer

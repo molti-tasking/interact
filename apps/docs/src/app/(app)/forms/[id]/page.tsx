@@ -67,7 +67,7 @@ export default function PublishedFormPage() {
             <DialogContent>
               <DialogHeader>
                 <DialogTitle>About this form</DialogTitle>
-                <DialogDescription>{portfolio.intent}</DialogDescription>
+                <DialogDescription>{portfolio.intent.purpose.content || "No description"}</DialogDescription>
               </DialogHeader>
             </DialogContent>
           </Dialog>
