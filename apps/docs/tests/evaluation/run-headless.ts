@@ -27,9 +27,10 @@ const DB_URL =
   process.env.EVAL_DB_URL ??
   "postgresql://postgres:postgres@127.0.0.1:54322/interact_eval";
 
-const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY ?? "";
-const ANTHROPIC_MODEL = process.env.EVAL_MODEL ?? "claude-haiku-4-5-20251001";
-const JUDGE_MODEL = process.env.EVAL_JUDGE_MODEL ?? "claude-sonnet-4-5-20250514";
+const LLM_API_KEY = process.env.ANTHROPIC_API_KEY ?? process.env.OPENAI_API_KEY ?? "";
+const LLM_PROVIDER = process.env.ANTHROPIC_API_KEY ? "anthropic" : "openai";
+const SIM_MODEL = process.env.EVAL_MODEL ?? (LLM_PROVIDER === "anthropic" ? "claude-haiku-4-5-20251001" : "gpt-4o-mini");
+const JUDGE_MODEL = process.env.EVAL_JUDGE_MODEL ?? (LLM_PROVIDER === "anthropic" ? "claude-sonnet-4-5-20250514" : "gpt-4o");
 
 const RESULTS_DIR = path.resolve(__dirname, "results");
 const ARTIFACTS_DIR = path.join(RESULTS_DIR, "artifacts");
@@ -39,34 +40,57 @@ const JUDGE_RUNS = parseInt(process.env.EVAL_JUDGE_RUNS ?? "1", 10);
 // Anthropic API helper
 // ---------------------------------------------------------------------------
 
-async function callAnthropic(
+async function callLLM(
   prompt: string,
-  model: string = ANTHROPIC_MODEL,
+  model?: string,
   maxTokens: number = 4096,
   temperature: number = 0.3,
 ): Promise<string> {
-  const response = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-api-key": ANTHROPIC_API_KEY,
-      "anthropic-version": "2023-06-01",
-    },
-    body: JSON.stringify({
-      model,
-      max_tokens: maxTokens,
-      temperature,
-      messages: [{ role: "user", content: prompt }],
-    }),
-  });
+  const useModel = model ?? SIM_MODEL;
 
-  if (!response.ok) {
-    const err = await response.text();
-    throw new Error(`Anthropic API error ${response.status}: ${err}`);
+  if (LLM_PROVIDER === "anthropic") {
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": LLM_API_KEY,
+        "anthropic-version": "2023-06-01",
+      },
+      body: JSON.stringify({
+        model: useModel,
+        max_tokens: maxTokens,
+        temperature,
+        messages: [{ role: "user", content: prompt }],
+      }),
+    });
+    if (!response.ok) {
+      const err = await response.text();
+      throw new Error(`Anthropic API error ${response.status}: ${err}`);
+    }
+    const data = await response.json();
+    return data.content?.[0]?.text ?? "";
+  } else {
+    // OpenAI-compatible
+    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${LLM_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: useModel,
+        max_tokens: maxTokens,
+        temperature,
+        messages: [{ role: "user", content: prompt }],
+      }),
+    });
+    if (!response.ok) {
+      const err = await response.text();
+      throw new Error(`OpenAI API error ${response.status}: ${err}`);
+    }
+    const data = await response.json();
+    return data.choices?.[0]?.message?.content ?? "";
   }
-
-  const data = await response.json();
-  return data.content?.[0]?.text ?? "";
 }
 
 // ---------------------------------------------------------------------------
@@ -111,7 +135,7 @@ Return ONLY valid JSON:
   ]
 }`;
 
-  const dimResponse = await callAnthropic(dimensionsPrompt);
+  const dimResponse = await callLLM(dimensionsPrompt);
   let dimensions: { name: string; description: string }[] = [];
   try {
     const parsed = JSON.parse(dimResponse.match(/\{[\s\S]*\}/)?.[0] ?? "{}");
@@ -136,7 +160,7 @@ Return ONLY valid JSON:
 Field type kinds: text, number, select (with options: [{label, value}], multiple: false), date, boolean, email, scale (min, max).
 Use camelCase for field names. Generate 6-15 fields.`;
 
-  const schemaResponse = await callAnthropic(schemaPrompt);
+  const schemaResponse = await callLLM(schemaPrompt);
   let schema = { fields: [] as any[], groups: [] as any[], version: 1 };
   try {
     const parsed = JSON.parse(schemaResponse.match(/\{[\s\S]*\}/)?.[0] ?? "{}");
@@ -169,7 +193,7 @@ Return ONLY valid JSON:
   ]
 }`;
 
-  const opinionsResponse = await callAnthropic(opinionsPrompt);
+  const opinionsResponse = await callLLM(opinionsPrompt);
   let opinionQuestions: any[] = [];
   try {
     const parsed = JSON.parse(opinionsResponse.match(/\{[\s\S]*\}/)?.[0] ?? "{}");
@@ -201,7 +225,7 @@ Options: ${options.map((o: any, i: number) => `${i + 1}. "${o.label}"`).join(", 
 
 Which do you pick? Return ONLY the option value (e.g., "${options[0].value}").`;
 
-    const decision = await callAnthropic(decisionPrompt, ANTHROPIC_MODEL, 50);
+    const decision = await callLLM(decisionPrompt, SIM_MODEL, 50);
     const chosen = options.find(
       (o: any) =>
         decision.includes(o.value) || decision.toLowerCase().includes(o.label.toLowerCase()),
@@ -268,7 +292,7 @@ function extractSection(markdown: string, heading: string): string {
 // Override judge-cdn to use Anthropic directly
 // ---------------------------------------------------------------------------
 
-async function judgeSessionAnthropic(
+async function judgeSessionDirect(
   artifacts: SessionArtifacts,
   personaId: string,
   scenarioId: string,
@@ -281,7 +305,7 @@ async function judgeSessionAnthropic(
     console.log(`     ⚖️  ${dim.name}...`);
 
     try {
-      const text = await callAnthropic(prompt, JUDGE_MODEL, 500, 0.1);
+      const text = await callLLM(prompt, JUDGE_MODEL, 500, 0.1);
       const jsonMatch = text.match(/\{[\s\S]*\}/);
       if (!jsonMatch) throw new Error("No JSON");
       const parsed = JSON.parse(jsonMatch[0]);
@@ -316,50 +340,66 @@ async function judgeSessionAnthropic(
 // ---------------------------------------------------------------------------
 
 async function main() {
-  if (!ANTHROPIC_API_KEY) {
-    console.error("❌ ANTHROPIC_API_KEY is required");
+  if (!LLM_API_KEY) {
+    console.error("❌ Set ANTHROPIC_API_KEY or OPENAI_API_KEY");
     process.exit(1);
   }
+
+  const SKIP_SIMULATION = process.env.EVAL_SKIP_SIMULATION === "true";
 
   fs.mkdirSync(ARTIFACTS_DIR, { recursive: true });
 
   console.log(`\n🔬 CDN Evaluation Runner (Headless)`);
   console.log(`   DB: ${DB_URL}`);
-  console.log(`   Model (simulation): ${ANTHROPIC_MODEL}`);
+  console.log(`   Model (simulation): ${SIM_MODEL}`);
   console.log(`   Model (judging): ${JUDGE_MODEL}`);
   console.log(`   Personas: ${personas.length} × Scenarios: ${scenarios.length} = ${personas.length * scenarios.length} sessions`);
   console.log(`   Judge runs: ${JUDGE_RUNS}`);
   console.log(`   Total LLM calls: ~${personas.length * scenarios.length * (4 + 4)} (simulation) + ${personas.length * scenarios.length * 8 * JUDGE_RUNS} (judging)\n`);
 
-  const db = new Client({ connectionString: DB_URL });
-  await db.connect();
-
-  // Clean slate
-  await db.query("TRUNCATE opinion_interactions, provenance_log, responses, portfolios CASCADE");
-
-  // =========================================================================
-  // Phase 1: Persona Simulation
-  // =========================================================================
-  console.log("🎭 Phase 1: Persona Simulation\n");
   const allArtifacts: Map<string, SessionArtifacts> = new Map();
 
-  for (const persona of personas) {
-    for (const scenario of scenarios) {
-      const key = `${persona.id}-${scenario.id}`;
-      try {
-        const artifacts = await simulateSession(db, persona, scenario);
-        allArtifacts.set(key, artifacts);
-        fs.writeFileSync(
-          path.join(ARTIFACTS_DIR, `${key}.json`),
-          JSON.stringify(artifacts, null, 2),
-        );
-      } catch (err) {
-        console.error(`  ❌ ${key}: ${err}`);
+  if (SKIP_SIMULATION) {
+    console.log("⏩ Skipping simulation — loading cached artifacts...\n");
+    for (const persona of personas) {
+      for (const scenario of scenarios) {
+        const key = `${persona.id}-${scenario.id}`;
+        const file = path.join(ARTIFACTS_DIR, `${key}.json`);
+        if (fs.existsSync(file)) {
+          allArtifacts.set(key, JSON.parse(fs.readFileSync(file, "utf-8")));
+          console.log(`   Loaded ${key}`);
+        } else {
+          console.warn(`   ⚠️  Missing ${key}`);
+        }
       }
     }
-  }
+    console.log(`\n✅ Loaded ${allArtifacts.size} cached sessions\n`);
+  } else {
+    const db = new Client({ connectionString: DB_URL });
+    await db.connect();
+    await db.query("TRUNCATE opinion_interactions, provenance_log, responses, portfolios CASCADE");
 
-  console.log(`\n✅ Phase 1 done: ${allArtifacts.size} sessions\n`);
+    console.log("🎭 Phase 1: Persona Simulation\n");
+
+    for (const persona of personas) {
+      for (const scenario of scenarios) {
+        const key = `${persona.id}-${scenario.id}`;
+        try {
+          const artifacts = await simulateSession(db, persona, scenario);
+          allArtifacts.set(key, artifacts);
+          fs.writeFileSync(
+            path.join(ARTIFACTS_DIR, `${key}.json`),
+            JSON.stringify(artifacts, null, 2),
+          );
+        } catch (err) {
+          console.error(`  ❌ ${key}: ${err}`);
+        }
+      }
+    }
+
+    await db.end();
+    console.log(`\n✅ Phase 1 done: ${allArtifacts.size} sessions\n`);
+  }
 
   // =========================================================================
   // Phase 2: CDN Judging
@@ -375,7 +415,7 @@ async function main() {
 
       console.log(`  Judging ${persona.name} × ${scenario.name}:`);
       for (let run = 0; run < JUDGE_RUNS; run++) {
-        const scores = await judgeSessionAnthropic(
+        const scores = await judgeSessionDirect(
           artifacts,
           persona.id,
           scenario.id,
@@ -423,7 +463,6 @@ async function main() {
     console.log(`${dim.name} ${arrow}\t\t${scores}`);
   }
 
-  await db.end();
   console.log(`\n✅ Done. Results in ${RESULTS_DIR}/`);
 }
 

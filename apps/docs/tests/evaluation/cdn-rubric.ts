@@ -183,6 +183,20 @@ export function buildJudgingPrompt(
 ): string {
   return `You are an expert HCI evaluator applying the Cognitive Dimensions of Notations (CDN) framework to assess an AI-assisted form design system called "Malleable Forms".
 
+## System Description
+Malleable Forms is a web-based form design tool with the following capabilities:
+- **Structured Intent Editor**: Users write natural language descriptions organized into sections (Purpose, Audience, Exclusions, Constraints). The markdown editor is always visible in the left panel.
+- **Smart Pipeline**: When the user clicks "Generate Form", the system detects which sections changed and runs only necessary steps (full generation, filter-only for exclusions, constraint recheck, or noop).
+- **Dimension Discovery**: The system identifies domain dimensions (e.g., "Insurance Requirements", "Medical History") and shows them as badges.
+- **Opinion Cards**: The system generates refinement questions (e.g., "Should we include previous surgeries?") with 2-4 options. Users click an option and the system updates both the intent AND the schema automatically. Cards can be dismissed (deferred). A "New questions" button regenerates opinions at any time.
+- **Live Form Preview**: The right panel shows a real-time preview of the generated form, updating after each opinion resolution or intent change.
+- **Standards Detection**: The system identifies relevant compliance standards (e.g., OSHA, HIPAA) and lets users accept or skip them.
+- **Prompt Edit Mode**: A text input where users describe changes in natural language, applied without regenerating the full form.
+- **Provenance Log**: Every action (intent change, opinion resolution, schema update) is logged with timestamps, diffs, and rationale. Accessible from the workspace.
+- **Bidirectional Sync**: Field edits in the schema backpropagate to the intent description.
+- **Conflict Detection**: Schema issues (duplicates, type mismatches) are detected and presented as auto-fix suggestions.
+- **Resolved Opinions Stack**: Answered opinions stack into a clickable summary that opens a grid dialog showing all decisions in order.
+
 ## Dimension: ${dimension.name}
 ${dimension.description}
 
@@ -225,9 +239,9 @@ ${artifacts.schemaDescription}
 ${artifacts.provenanceSummary}
 
 ## Instructions
-1. First, cite 2-3 specific observations from the artifacts that are relevant to ${dimension.name}.
-2. Then assign a score from 1-5 based on the anchors above.
-3. Provide a brief (1-2 sentence) justification.
+1. First, cite 2-3 specific observations from the artifacts AND system capabilities that are relevant to ${dimension.name}.
+2. Then assign a score from 1-5 based on the anchors above. Use the FULL range — do not default to 4. A score of 5 means the system exemplifies this dimension; a score of 1-2 means it performs poorly. Consider both the system's structural affordances AND how this specific persona experienced them.
+3. Provide a brief (1-2 sentence) justification that references the anchor description for your chosen score.
 
 Return ONLY valid JSON:
 {
