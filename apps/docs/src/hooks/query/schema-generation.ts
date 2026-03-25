@@ -1,7 +1,6 @@
 "use client";
 
-import { dimensionsToSchemaAction } from "@/app/actions/dimension-actions";
-import type { DimensionObject } from "@/lib/dimension-types";
+import { intentToSchemaAction } from "@/app/actions/schema-actions";
 import type { DetectedStandard } from "@/lib/domain-standards";
 import { logProvenance } from "@/lib/engine/provenance";
 import { diffSchemas } from "@/lib/engine/schema-ops";
@@ -11,7 +10,7 @@ import { emptyPortfolioSchema } from "@/lib/types";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 /**
- * Generate a schema from dimensions and accepted standards,
+ * Generate a schema from the structured intent and accepted standards,
  * then persist to portfolio.
  */
 export function useGenerateSchema(portfolioId: string) {
@@ -19,18 +18,15 @@ export function useGenerateSchema(portfolioId: string) {
 
   return useMutation({
     mutationFn: async ({
-      dimensions,
       intent,
       currentSchema,
       acceptedStandards,
     }: {
-      dimensions: DimensionObject[];
       intent: StructuredIntent;
       currentSchema: PortfolioSchema;
       acceptedStandards?: DetectedStandard[];
     }) => {
-      const result = await dimensionsToSchemaAction(
-        dimensions,
+      const result = await intentToSchemaAction(
         intent,
         acceptedStandards?.length ? acceptedStandards : undefined,
       );
@@ -75,11 +71,11 @@ export function useGenerateSchema(portfolioId: string) {
       // Log provenance
       await logProvenance(
         portfolioId,
-        "dimensions",
+        "configuration",
         "schema_generated",
         "system",
         schemaDiff,
-        `Generated ${newSchema.fields.length} fields from ${dimensions.length} dimensions`,
+        `Generated ${newSchema.fields.length} fields from intent`,
         { intent, schema: currentSchema },
       );
 

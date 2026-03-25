@@ -1,16 +1,16 @@
 {
   "actionName": "resolveOpinionInteraction",
-  "callIndex": 0,
+  "callIndex": 1,
   "input": {
     "basePrompt": "## Fitness Coaching Client Intake Form",
     "currentSchema": {},
-    "interactionText": "Should the form include nutrition tracking questions?",
-    "selectedOptionLabel": "Yes, include nutrition section"
+    "interactionText": "How should experience level be captured?",
+    "selectedOptionLabel": "Self-rated beginner/intermediate/advanced"
   },
   "output": {
     "success": true,
     "result": {
-      "basePrompt": "## Fitness Coaching Client Intake Form\n\nCollect comprehensive intake information from new fitness coaching clients. The form captures:\n\n- **Health background** including medical conditions and injuries\n- **Nutrition habits** including dietary restrictions and meal frequency\n- **Training preferences** covering workout style and equipment access\n- **Fitness goals** with primary objective and timeline\n- **Scheduling** including availability and preferred session frequency",
+      "basePrompt": "## Fitness Coaching Client Intake Form\n\nCollect comprehensive intake information from new fitness coaching clients. The form captures:\n\n- **Health background** including medical conditions and injuries\n- **Nutrition habits** including dietary restrictions and meal frequency\n- **Training preferences** covering workout style, equipment access, and **self-rated experience level**\n- **Fitness goals** with primary objective and timeline\n- **Scheduling** including availability and preferred session frequency",
       "artifactFormSchema": {
         "fields": [
           {
@@ -130,6 +130,25 @@
             "description": "How many meals do you typically eat per day?",
             "origin": "system",
             "tags": []
+          },
+          {
+            "id": "field-fix-9",
+            "name": "experienceLevel",
+            "label": "Fitness Experience Level",
+            "type": {
+              "kind": "select",
+              "options": [
+                { "label": "Beginner", "value": "beginner" },
+                { "label": "Intermediate", "value": "intermediate" },
+                { "label": "Advanced", "value": "advanced" }
+              ],
+              "multiple": false
+            },
+            "required": true,
+            "constraints": [],
+            "description": "How would you rate your current fitness experience?",
+            "origin": "system",
+            "tags": []
           }
         ],
         "groups": [],
@@ -138,8 +157,8 @@
       "followUpInteractions": []
     }
   },
-  "timestamp": "2026-01-01T00:00:03.000Z",
+  "timestamp": "2026-01-01T00:00:04.000Z",
   "matchHints": {
-    "selectedOptionLabel": "Yes, include nutrition section"
+    "selectedOptionLabel": "Self-rated beginner/intermediate/advanced"
   }
 }

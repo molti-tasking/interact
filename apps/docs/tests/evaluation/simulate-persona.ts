@@ -8,8 +8,11 @@
  */
 
 import { chromium, type Browser } from "@playwright/test";
+import fs from "fs";
+import path from "path";
 import type { Persona, Scenario } from "./personas";
 import type { SessionArtifacts } from "./cdn-rubric";
+
 
 // Env vars are read lazily so that .env is loaded before access
 const env = () => ({
@@ -92,6 +95,7 @@ export async function simulatePersona(
   persona: Persona,
   scenario: Scenario,
   browser?: Browser,
+  screenshotsDir?: string,
 ): Promise<SessionArtifacts> {
   const ownBrowser = !browser;
   if (!browser) {
@@ -118,17 +122,36 @@ export async function simulatePersona(
     console.log(`[simulate] Created portfolio: ${portfolioId}`);
 
     // Step 2: Enter intent
+    // The intent editor is a dynamically-loaded @uiw/react-md-editor.
+    // We must wait for its textarea to mount and use keyboard input so that
+    // React's onChange fires and structuredIntent updates.
     const intentEditor = page.locator('[data-testid="intent-editor"]');
     await intentEditor.waitFor({ state: "visible" });
+    console.log(`[simulate] Intent editor visible, waiting for textarea to mount...`);
     const textarea = intentEditor.locator("textarea").first();
+    await textarea.waitFor({ state: "visible", timeout: 10000 });
     await textarea.click();
-    await textarea.fill(scenario.intent);
+    // Use pressSequentially instead of fill() — fill() may not trigger React onChange
+    // for the MDEditor component. pressSequentially dispatches real keyboard events.
+    await textarea.pressSequentially(scenario.intent, { delay: 5 });
+    console.log(`[simulate] Intent entered: "${scenario.intent.slice(0, 60)}..."`);
 
     const initialIntent = scenario.intent;
 
     // Step 3: Generate form
+    // Verify the button is enabled before clicking
+    const generateBtn = page.locator('[data-testid="generate-form-btn"]');
+    await generateBtn.waitFor({ state: "visible" });
+    const isDisabled = await generateBtn.isDisabled();
+    console.log(`[simulate] generate-form-btn disabled=${isDisabled}`);
+    if (isDisabled) {
+      console.error(`[simulate] Generate button is disabled — intent may not have been registered`);
+      const currentValue = await textarea.inputValue();
+      console.error(`[simulate] Textarea value: "${currentValue.slice(0, 80)}..."`);
+      throw new Error("Generate button is disabled after entering intent");
+    }
     console.log(`[simulate] Clicking generate-form-btn...`);
-    await page.locator('[data-testid="generate-form-btn"]').click();
+    await generateBtn.click();
 
     // Wait for form fields to appear
     console.log(`[simulate] Waiting for form-renderer to become visible (timeout: 90s)...`);
@@ -253,6 +276,15 @@ export async function simulatePersona(
       provenanceEntries: resolvedOpinions.length + 1, // intent update + opinion resolutions
       provenanceSummary: `Intent updated once. ${resolvedOpinions.length} opinion resolutions recorded.`,
     };
+  } catch (err) {
+    // Save a screenshot for debugging failed sessions
+    const outDir = screenshotsDir ?? path.join(__dirname, "results", "screenshots");
+    fs.mkdirSync(outDir, { recursive: true });
+    const slug = `${persona.id ?? persona.name}-${scenario.id ?? scenario.name}`;
+    const screenshotPath = path.join(outDir, `${slug}-failure.png`);
+    await page.screenshot({ path: screenshotPath, fullPage: true });
+    console.error(`[simulate] Screenshot saved: ${screenshotPath}`);
+    throw err;
   } finally {
     await context.close();
     if (ownBrowser) await browser.close();

@@ -7,18 +7,15 @@
  *   Phase 2: CDN rubric judging (LLM-as-judge)
  *   Phase 3: Results aggregation + LaTeX generation
  *
+ * Each run creates a timestamped directory under results/ so you can
+ * iterate without overwriting previous data.
+ *
  * Usage:
- *   # Against deployed app (default)
- *   pnpm eval
- *
- *   # Against local app
- *   EVAL_BASE_URL=http://localhost:3000 pnpm eval
- *
- *   # Skip simulation (use cached artifacts)
- *   pnpm eval:judge-only
- *
- *   # Visual mode (watch the browser)
- *   EVAL_HEADED=true pnpm eval
+ *   pnpm eval                                      # full run
+ *   EVAL_BASE_URL=http://localhost:3000 pnpm eval   # against local app
+ *   pnpm eval:headed                                # watch the browser
+ *   pnpm eval:judge-only                            # re-judge latest run
+ *   EVAL_RUN_DIR=results/run-2026-03-25_143022 pnpm eval:judge-only  # re-judge specific run
  *
  * Environment variables:
  *   EVAL_BASE_URL        — App URL (default: https://interact-molt.vercel.app)
@@ -32,6 +29,7 @@
  *   EVAL_JUDGE_MODEL     — Model for CDN judging (defaults to LLM_MODEL_NAME)
  *   EVAL_SKIP_SIMULATION — Skip Phase 1, use cached artifacts
  *   EVAL_JUDGE_RUNS      — Number of judge runs per session (default: 1)
+ *   EVAL_RUN_DIR         — Re-use a specific run directory (for judge-only)
  */
 
 import path from "path";
@@ -48,22 +46,69 @@ import { judgeSession, type SessionScores } from "./judge-cdn";
 import { aggregateScores, generateLatexTable } from "./aggregate";
 import type { SessionArtifacts } from "./cdn-rubric";
 
-const RESULTS_DIR = path.resolve(__dirname, "results");
-const ARTIFACTS_DIR = path.join(RESULTS_DIR, "artifacts");
+// ---------------------------------------------------------------------------
+// Run directory setup
+// ---------------------------------------------------------------------------
+
+const RESULTS_BASE = path.resolve(__dirname, "results");
 const SKIP_SIMULATION = process.env.EVAL_SKIP_SIMULATION === "true";
 const HEADED = process.env.EVAL_HEADED === "true";
 const JUDGE_RUNS = parseInt(process.env.EVAL_JUDGE_RUNS ?? "1", 10);
 
-async function main() {
-  fs.mkdirSync(ARTIFACTS_DIR, { recursive: true });
+function createRunDir(): string {
+  const now = new Date();
+  const ts = now.toISOString().replace(/[T]/g, "_").replace(/[:]/g, "").slice(0, 15);
+  const dir = path.join(RESULTS_BASE, `run-${ts}`);
+  fs.mkdirSync(path.join(dir, "artifacts"), { recursive: true });
+  fs.mkdirSync(path.join(dir, "screenshots"), { recursive: true });
+  return dir;
+}
 
+function resolveRunDir(): string {
+  // Explicit run dir via env
+  if (process.env.EVAL_RUN_DIR) {
+    const dir = path.resolve(__dirname, process.env.EVAL_RUN_DIR);
+    if (!fs.existsSync(dir)) {
+      throw new Error(`EVAL_RUN_DIR does not exist: ${dir}`);
+    }
+    return dir;
+  }
+
+  // Follow the "latest" symlink
+  const latest = path.join(RESULTS_BASE, "latest");
+  if (fs.existsSync(latest)) {
+    return fs.realpathSync(latest);
+  }
+
+  throw new Error(
+    "No previous run found. Run a full evaluation first, or set EVAL_RUN_DIR.",
+  );
+}
+
+function linkLatest(runDir: string): void {
+  const latest = path.join(RESULTS_BASE, "latest");
+  try {
+    if (fs.existsSync(latest)) fs.unlinkSync(latest);
+    fs.symlinkSync(path.basename(runDir), latest);
+  } catch {
+    // Symlinks may fail on some systems — not critical
+  }
+}
+
+async function main() {
   const baseUrl = process.env.EVAL_BASE_URL ?? "https://interact-molt.vercel.app";
   const llmHost = process.env.LLM_HOST ?? "(NOT SET)";
   const simModel = process.env.EVAL_SIM_MODEL ?? process.env.LLM_MODEL_NAME ?? "(NOT SET)";
   const judgeHost = process.env.EVAL_JUDGE_HOST ?? llmHost;
   const judgeModel = process.env.EVAL_JUDGE_MODEL ?? process.env.LLM_MODEL_NAME ?? "(NOT SET)";
 
+  // Determine run directory
+  const runDir = SKIP_SIMULATION ? resolveRunDir() : createRunDir();
+  const artifactsDir = path.join(runDir, "artifacts");
+  const screenshotsDir = path.join(runDir, "screenshots");
+
   console.log(`\n🔬 CDN Evaluation Runner`);
+  console.log(`   Run dir:     ${path.relative(process.cwd(), runDir)}`);
   console.log(`   App:         ${baseUrl}`);
   console.log(`   Headed:      ${HEADED}`);
   console.log(`   LLM host:    ${llmHost}`);
@@ -76,17 +121,39 @@ async function main() {
   console.log(`   Judge runs:  ${JUDGE_RUNS}`);
   console.log(`   Judge calls: ${personas.length * scenarios.length * 8 * JUDGE_RUNS}\n`);
 
+  // Save run metadata
+  if (!SKIP_SIMULATION) {
+    fs.writeFileSync(
+      path.join(runDir, "run-meta.json"),
+      JSON.stringify(
+        {
+          startedAt: new Date().toISOString(),
+          baseUrl,
+          simModel,
+          judgeModel,
+          judgeHost,
+          judgeRuns: JUDGE_RUNS,
+          headed: HEADED,
+          personas: personas.map((p) => p.id),
+          scenarios: scenarios.map((s) => s.id),
+        },
+        null,
+        2,
+      ),
+    );
+  }
+
   // =========================================================================
   // Phase 1: Persona Simulation
   // =========================================================================
   const allArtifacts: Map<string, SessionArtifacts> = new Map();
 
   if (SKIP_SIMULATION) {
-    console.log("⏩ Skipping simulation — loading cached artifacts...");
+    console.log(`⏩ Skipping simulation — loading artifacts from ${path.relative(process.cwd(), artifactsDir)}`);
     for (const persona of personas) {
       for (const scenario of scenarios) {
         const key = `${persona.id}-${scenario.id}`;
-        const file = path.join(ARTIFACTS_DIR, `${key}.json`);
+        const file = path.join(artifactsDir, `${key}.json`);
         if (fs.existsSync(file)) {
           allArtifacts.set(key, JSON.parse(fs.readFileSync(file, "utf-8")));
           console.log(`   Loaded ${key}`);
@@ -106,12 +173,17 @@ async function main() {
       for (const scenario of scenarios) {
         const key = `${persona.id}-${scenario.id}`;
         try {
-          const artifacts = await simulatePersona(persona, scenario, browser);
+          const artifacts = await simulatePersona(
+            persona,
+            scenario,
+            browser,
+            screenshotsDir,
+          );
           allArtifacts.set(key, artifacts);
 
-          // Cache artifacts
+          // Save artifacts
           fs.writeFileSync(
-            path.join(ARTIFACTS_DIR, `${key}.json`),
+            path.join(artifactsDir, `${key}.json`),
             JSON.stringify(artifacts, null, 2),
           );
         } catch (err) {
@@ -151,7 +223,7 @@ async function main() {
 
   // Save raw scores
   fs.writeFileSync(
-    path.join(RESULTS_DIR, "cdn-scores-raw.json"),
+    path.join(runDir, "cdn-scores-raw.json"),
     JSON.stringify(allScores, null, 2),
   );
   console.log(`\n   ✅ Judging complete: ${allScores.length} scored sessions\n`);
@@ -164,13 +236,13 @@ async function main() {
 
   // Save aggregated results
   fs.writeFileSync(
-    path.join(RESULTS_DIR, "cdn-scores.json"),
+    path.join(runDir, "cdn-scores.json"),
     JSON.stringify(results.table, null, 2),
   );
 
   // Generate LaTeX table
   const latexTable = generateLatexTable(results, scenarios);
-  fs.writeFileSync(path.join(RESULTS_DIR, "cdn-table.tex"), latexTable);
+  fs.writeFileSync(path.join(runDir, "cdn-table.tex"), latexTable);
   console.log("   Generated cdn-table.tex:\n");
   console.log(latexTable);
 
@@ -191,7 +263,20 @@ async function main() {
     console.log(row.join("\t"));
   }
 
-  console.log(`\n✅ Done. Results saved to ${RESULTS_DIR}/`);
+  // Update run metadata with completion time
+  const metaPath = path.join(runDir, "run-meta.json");
+  if (fs.existsSync(metaPath)) {
+    const meta = JSON.parse(fs.readFileSync(metaPath, "utf-8"));
+    meta.completedAt = new Date().toISOString();
+    meta.sessionsCompleted = allArtifacts.size;
+    meta.sessionsJudged = allScores.length;
+    fs.writeFileSync(metaPath, JSON.stringify(meta, null, 2));
+  }
+
+  // Symlink latest
+  linkLatest(runDir);
+
+  console.log(`\n✅ Done. Results saved to ${path.relative(process.cwd(), runDir)}/`);
 }
 
 main().catch((err) => {

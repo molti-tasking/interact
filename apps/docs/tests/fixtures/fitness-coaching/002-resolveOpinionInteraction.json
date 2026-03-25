@@ -1,14 +1,16 @@
 {
-  "actionName": "dimensionsToSchema",
+  "actionName": "resolveOpinionInteraction",
   "callIndex": 0,
   "input": {
-    "dimensions": [],
-    "basePrompt": "I want to collect intake information from new fitness coaching clients including their health history, fitness goals, and availability."
+    "basePrompt": "## Fitness Coaching Client Intake Form",
+    "currentSchema": {},
+    "interactionText": "Should the form include nutrition tracking questions?",
+    "selectedOptionLabel": "Yes, include nutrition section"
   },
   "output": {
     "success": true,
     "result": {
-      "basePrompt": "## Fitness Coaching Client Intake Form\n\nCollect comprehensive intake information from new fitness coaching clients. The form captures:\n\n- **Health background** including medical conditions and injuries\n- **Training preferences** covering workout style and equipment access\n- **Fitness goals** with primary objective and timeline\n- **Scheduling** including availability and preferred session frequency",
+      "basePrompt": "## Fitness Coaching Client Intake Form\n\nCollect comprehensive intake information from new fitness coaching clients. The form captures:\n\n- **Health background** including medical conditions and injuries\n- **Nutrition habits** including dietary restrictions and meal frequency\n- **Training preferences** covering workout style and equipment access\n- **Fitness goals** with primary objective and timeline\n- **Scheduling** including availability and preferred session frequency",
       "artifactFormSchema": {
         "fields": [
           {
@@ -40,7 +42,6 @@
             "type": { "kind": "date" },
             "required": true,
             "constraints": [],
-            "description": "Used to determine age-appropriate programming",
             "origin": "system",
             "tags": []
           },
@@ -97,13 +98,48 @@
             "description": "Have you been cleared by a physician for exercise?",
             "origin": "system",
             "tags": []
+          },
+          {
+            "id": "field-fix-7",
+            "name": "dietaryRestrictions",
+            "label": "Dietary Restrictions",
+            "type": {
+              "kind": "select",
+              "options": [
+                { "label": "None", "value": "none" },
+                { "label": "Vegetarian", "value": "vegetarian" },
+                { "label": "Vegan", "value": "vegan" },
+                { "label": "Gluten-Free", "value": "glutenFree" },
+                { "label": "Other", "value": "other" }
+              ],
+              "multiple": true
+            },
+            "required": false,
+            "constraints": [],
+            "description": "Select any dietary restrictions that apply",
+            "origin": "system",
+            "tags": []
+          },
+          {
+            "id": "field-fix-8",
+            "name": "mealsPerDay",
+            "label": "Typical Meals Per Day",
+            "type": { "kind": "number", "min": 1, "max": 8 },
+            "required": false,
+            "constraints": [],
+            "description": "How many meals do you typically eat per day?",
+            "origin": "system",
+            "tags": []
           }
         ],
         "groups": [],
         "version": 1
       },
-      "configuratorFormValues": {}
+      "followUpInteractions": []
     }
   },
-  "timestamp": "2026-01-01T00:00:01.000Z"
+  "timestamp": "2026-01-01T00:00:03.000Z",
+  "matchHints": {
+    "selectedOptionLabel": "Yes, include nutrition section"
+  }
 }

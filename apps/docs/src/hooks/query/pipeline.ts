@@ -12,7 +12,6 @@ import { diffSchemas } from "@/lib/engine/schema-ops";
 import { createClient } from "@/lib/supabase/client";
 import type { PortfolioSchema, PipelineStrategy, StructuredIntent } from "@/lib/types";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useGenerateDimensions } from "./dimensions";
 import { useGenerateOpinions } from "./opinions";
 import { useGenerateSchema } from "./schema-generation";
 import { useDetectStandards } from "./standards";
@@ -31,7 +30,6 @@ export interface PipelineResult {
  */
 export function usePipelineGenerate(portfolioId: string) {
   const queryClient = useQueryClient();
-  const generateDimensions = useGenerateDimensions(portfolioId);
   const generateSchema = useGenerateSchema(portfolioId);
   const generateOpinions = useGenerateOpinions(portfolioId);
   const detectStandards = useDetectStandards(portfolioId);
@@ -78,12 +76,9 @@ export function usePipelineGenerate(portfolioId: string) {
             );
           }
 
-          // Step 1: Generate dimensions + detect standards in parallel
+          // Step 1: Detect standards (keyword-based, no LLM)
           const intentText = serializeForLLM(currentIntent);
-          const [dimensionsResult, standardsResult] = await Promise.all([
-            generateDimensions.mutateAsync(currentIntent),
-            detectStandards.mutateAsync(intentText),
-          ]);
+          const standardsResult = await detectStandards.mutateAsync(intentText);
 
           // Step 2: Filter accepted standards
           const acceptedStandardRefs = currentSchema.acceptedStandards ?? [];
@@ -94,9 +89,8 @@ export function usePipelineGenerate(portfolioId: string) {
               ),
           );
 
-          // Step 3: Generate schema from dimensions
+          // Step 3: Generate schema directly from intent
           const schemaResult = await generateSchema.mutateAsync({
-            dimensions: dimensionsResult,
             intent: currentIntent,
             currentSchema,
             acceptedStandards:
@@ -106,7 +100,6 @@ export function usePipelineGenerate(portfolioId: string) {
           // Step 4: Generate opinions (fire-and-forget)
           generateOpinions.mutate({
             intent: schemaResult.intent,
-            dimensions: dimensionsResult,
             acceptedStandards:
               acceptedStandards.length > 0 ? acceptedStandards : undefined,
           });

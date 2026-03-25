@@ -5,7 +5,6 @@ import type {
   SchemaConflict,
 } from "@/app/actions/conflict-actions";
 import { resolveOpinionInteractionAction } from "@/app/actions/opinion-actions";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { MarkdownEditor } from "@/components/ui/markdown-editor";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -14,7 +13,6 @@ import {
   useDetectConflicts,
   useResolveConflict,
 } from "@/hooks/query/conflicts";
-import { useDimensions } from "@/hooks/query/dimensions";
 import {
   useDismissOpinion,
   useGenerateOpinions,
@@ -64,8 +62,6 @@ export function ConversationPane({ portfolio }: ConversationPaneProps) {
   );
 
   // --- React Query hooks ---
-  const { data: dimensions } = useDimensions(portfolio.id);
-
   const { data: detectedStandards } = useDetectedStandards(portfolio.id);
   const acceptStandard = useAcceptStandard(portfolio.id);
   const skipStandard = useSkipStandard(portfolio.id);
@@ -273,10 +269,6 @@ export function ConversationPane({ portfolio }: ConversationPaneProps) {
     if (!structuredIntent.purpose.content.trim() || generateOpinions.isPending)
       return;
 
-    const acceptedDims = (dimensions ?? []).filter(
-      (d) => (d.status === "accepted" || d.status === "edited") && d.isActive,
-    );
-
     const acceptedStandardRefs = portfolioSchema.acceptedStandards ?? [];
     const acceptedStds = (detectedStandards ?? []).filter((s) =>
       acceptedStandardRefs.some((ref) => ref.standardId === s.standard.id),
@@ -284,7 +276,6 @@ export function ConversationPane({ portfolio }: ConversationPaneProps) {
 
     generateOpinions.mutate({
       intent: structuredIntent,
-      dimensions: acceptedDims.length > 0 ? acceptedDims : undefined,
       acceptedStandards: acceptedStds.length > 0 ? acceptedStds : undefined,
     });
   };
@@ -293,10 +284,6 @@ export function ConversationPane({ portfolio }: ConversationPaneProps) {
   // Derived state
   // -------------------------------------------------------------------
   const isGenerating = pipeline.isPending || isPromptEditing;
-
-  const visibleOpinions = (opinions ?? []).filter(
-    (o) => o.status !== "resolved" && o.status !== "dismissed",
-  );
 
   const skippedIds = skippedStandardIds ?? new Set<string>();
   const visibleStandards = (detectedStandards ?? []).filter(
@@ -463,20 +450,6 @@ export function ConversationPane({ portfolio }: ConversationPaneProps) {
         </div>
       </ScrollArea>
 
-      {/* Dimensions (collapsed summary when available) */}
-      {(dimensions ?? []).length > 0 && visibleOpinions.length === 0 && (
-        <div className="px-4 pb-4">
-          <div className="flex flex-wrap gap-1.5">
-            {(dimensions ?? [])
-              .filter((d) => d.status !== "rejected")
-              .map((d) => (
-                <Badge key={d.id} variant="outline" className="text-xs">
-                  {d.name}
-                </Badge>
-              ))}
-          </div>
-        </div>
-      )}
     </div>
   );
 }

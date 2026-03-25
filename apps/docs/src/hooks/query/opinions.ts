@@ -4,7 +4,6 @@ import {
   generateOpinionInteractionsAction,
   resolveOpinionInteractionAction,
 } from "@/app/actions/opinion-actions";
-import type { DimensionObject } from "@/lib/dimension-types";
 import type { DetectedStandard } from "@/lib/domain-standards";
 import { logProvenance } from "@/lib/engine/provenance";
 import { diffSchemas } from "@/lib/engine/schema-ops";
@@ -48,17 +47,15 @@ export function useGenerateOpinions(portfolioId: string) {
   return useMutation({
     mutationFn: async ({
       intent,
-      dimensions,
       acceptedStandards,
     }: {
       intent: StructuredIntent;
-      dimensions?: DimensionObject[];
       acceptedStandards?: DetectedStandard[];
     }) => {
       const result = await generateOpinionInteractionsAction(
         intent,
         5,
-        dimensions,
+        undefined,
         acceptedStandards?.length ? acceptedStandards : undefined,
       );
 
