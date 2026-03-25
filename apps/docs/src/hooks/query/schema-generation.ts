@@ -1,7 +1,6 @@
 "use client";
 
-import { dimensionsToSchemaAction } from "@/app/actions/dimension-actions";
-import type { DimensionObject } from "@/lib/dimension-types";
+import { intentToSchemaAction } from "@/app/actions/schema-actions";
 import type { DetectedStandard } from "@/lib/domain-standards";
 import { logProvenance } from "@/lib/engine/provenance";
 import { diffSchemas } from "@/lib/engine/schema-ops";
@@ -11,7 +10,7 @@ import { emptyPortfolioSchema } from "@/lib/types";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 /**
- * Generate a schema from dimensions and accepted standards,
+ * Generate a schema from the structured intent and accepted standards,
  * then persist to portfolio.
  */
 export function useGenerateSchema(portfolioId: string) {
@@ -19,37 +18,22 @@ export function useGenerateSchema(portfolioId: string) {
 
   return useMutation({
     mutationFn: async ({
-      dimensions,
-      intent,
+      intent: newIntent,
       currentSchema,
       acceptedStandards,
     }: {
-      dimensions: DimensionObject[];
       intent: StructuredIntent;
       currentSchema: PortfolioSchema;
       acceptedStandards?: DetectedStandard[];
     }) => {
-      const result = await dimensionsToSchemaAction(
-        dimensions,
-        intent,
+      const result = await intentToSchemaAction(
+        newIntent,
         acceptedStandards?.length ? acceptedStandards : undefined,
       );
 
       if (!result.success || !result.result) {
         throw new Error(result.error ?? "Failed to generate schema");
       }
-
-      // The LLM may refine the purpose — update that section
-      const refinedPurpose = result.result.basePrompt;
-      const newIntent: StructuredIntent = refinedPurpose !== ""
-        ? {
-            ...intent,
-            purpose: {
-              content: refinedPurpose,
-              updatedAt: new Date().toISOString(),
-            },
-          }
-        : intent;
 
       const newSchema = result.result.artifactFormSchema;
       const schemaDiff = diffSchemas(
@@ -75,12 +59,12 @@ export function useGenerateSchema(portfolioId: string) {
       // Log provenance
       await logProvenance(
         portfolioId,
-        "dimensions",
+        "configuration",
         "schema_generated",
         "system",
         schemaDiff,
-        `Generated ${newSchema.fields.length} fields from ${dimensions.length} dimensions`,
-        { intent, schema: currentSchema },
+        `Generated ${newSchema.fields.length} fields from intent`,
+        { intent: newIntent, schema: currentSchema },
       );
 
       return { intent: newIntent, schema: newSchema };

@@ -3,10 +3,10 @@ import {
   createPortfolio,
   getFieldCount,
   resetDatabase,
-  resolveOpinion,
+  resolveDesignProbe,
   setScenario,
   waitForFormFields,
-  waitForOpinions,
+  waitForDesignProbes,
 } from "./helpers";
 
 test.describe("Fitness Coaching Scenario", () => {
@@ -18,7 +18,7 @@ test.describe("Fitness Coaching Scenario", () => {
     setScenario("fitness-coaching");
   });
 
-  test("full flow: create portfolio, generate form, resolve opinions", async ({
+  test("full flow: create portfolio, generate form, resolve design probes", async ({
     page,
   }) => {
     // Step 1: Create portfolio
@@ -29,7 +29,7 @@ test.describe("Fitness Coaching Scenario", () => {
     expect(portfolioId).toBeTruthy();
 
     // We should be on the workspace page
-    await expect(page.locator('[data-testid="conversation-pane"]')).toBeVisible();
+    await expect(page.locator('[data-testid="reflective-conversation-pane"]')).toBeVisible();
     await expect(page.locator('[data-testid="preview-pane"]')).toBeVisible();
 
     // Step 2: Enter intent and generate form
@@ -54,29 +54,29 @@ test.describe("Fitness Coaching Scenario", () => {
     const initialFieldCount = await getFieldCount(page);
     expect(initialFieldCount).toBeGreaterThan(0);
 
-    // Step 4: Wait for opinion cards to appear
-    await waitForOpinions(page);
+    // Step 4: Wait for design probe cards to appear
+    await waitForDesignProbes(page);
 
-    // Verify opinion cards rendered
-    await expect(page.locator('[data-testid="opinion-card-0"]')).toBeVisible();
-    await expect(page.locator('[data-testid="opinion-card-1"]')).toBeVisible();
+    // Verify design probe cards rendered
+    await expect(page.locator('[data-testid="design-probe-card-0"]')).toBeVisible();
+    await expect(page.locator('[data-testid="design-probe-card-1"]')).toBeVisible();
 
-    // Step 5: Resolve opinion 1 — include nutrition
-    await resolveOpinion(page, "includeNutrition");
+    // Step 5: Resolve design probe 1 — include nutrition
+    await resolveDesignProbe(page, "includeNutrition");
 
-    // Wait for the opinion card to no longer be pending (it gets resolved)
+    // Wait for the design probe card to no longer be pending (it gets resolved)
     // The field count should increase after schema update
     await page.waitForTimeout(2000); // Allow time for mutation + re-render
 
-    const afterOpinion1 = await getFieldCount(page);
-    expect(afterOpinion1).toBeGreaterThanOrEqual(initialFieldCount);
+    const afterProbe1 = await getFieldCount(page);
+    expect(afterProbe1).toBeGreaterThanOrEqual(initialFieldCount);
 
-    // Step 6: Resolve opinion 2 — self-rated experience level
-    // Need to wait for the second opinion to still be visible/pending
-    await resolveOpinion(page, "selfRated");
+    // Step 6: Resolve design probe 2 — self-rated experience level
+    // Need to wait for the second probe to still be visible/pending
+    await resolveDesignProbe(page, "selfRated");
     await page.waitForTimeout(2000);
 
-    const afterOpinion2 = await getFieldCount(page);
-    expect(afterOpinion2).toBeGreaterThanOrEqual(afterOpinion1);
+    const afterProbe2 = await getFieldCount(page);
+    expect(afterProbe2).toBeGreaterThanOrEqual(afterProbe1);
   });
 });

@@ -1,6 +1,7 @@
--- Run this in the Supabase SQL editor to create the opinion_interactions table.
+-- Design probes: system-generated decision prompts that surface design
+-- tradeoffs and ask the creator to resolve them (a form of directed backtalk).
 
-CREATE TABLE opinion_interactions (
+CREATE TABLE design_probes (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   portfolio_id UUID NOT NULL REFERENCES portfolios(id) ON DELETE CASCADE,
   text TEXT NOT NULL,
@@ -15,4 +16,4 @@ CREATE TABLE opinion_interactions (
   created_at TIMESTAMPTZ DEFAULT now()
 );
 
-CREATE INDEX idx_opinion_interactions_portfolio ON opinion_interactions(portfolio_id);
+CREATE INDEX idx_design_probes_portfolio ON design_probes(portfolio_id);
