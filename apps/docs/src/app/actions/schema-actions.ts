@@ -2,15 +2,15 @@
 
 import type { DetectedStandard } from "@/lib/domain-standards";
 import { serializeForLLM } from "@/lib/engine/structured-intent";
+import { model } from "@/lib/model";
 import { withTracing } from "@/lib/telemetry";
 import type { Field, PortfolioSchema, StructuredIntent } from "@/lib/types";
-import { model } from "@/lib/model";
-import { generateText } from "ai";
+import { generateText, Output } from "ai";
+import { z } from "zod";
 
 export interface IntentToSchemaResponse {
   success: boolean;
   result?: {
-    basePrompt: string;
     artifactFormSchema: PortfolioSchema;
     configuratorFormValues: Record<string, string | number | boolean>;
   };
@@ -34,6 +34,59 @@ export async function intentToSchemaAction(
   return intentToSchemaReal(basePrompt, acceptedStandards);
 }
 
+// ---------------------------------------------------------------------------
+// Structured output schema (Zod → JSON Schema for the model)
+// ---------------------------------------------------------------------------
+
+const optionSchema = z.object({
+  label: z.string(),
+  value: z.string(),
+});
+
+const fieldSchema = z.object({
+  label: z.string().describe("Human-readable field label"),
+  description: z.string().optional().describe("Short help text for the field"),
+  type: z
+    .enum(["string", "number", "boolean", "date", "email", "select"])
+    .describe("Field input type"),
+  required: z.boolean(),
+  validation: z
+    .object({
+      options: z
+        .array(optionSchema)
+        .optional()
+        .describe("Required for select fields"),
+    })
+    .optional(),
+  standardReference: z
+    .string()
+    .optional()
+    .describe("Reference to the domain standard, e.g. FHIR Patient.birthDate"),
+});
+
+const namedFieldSchema = fieldSchema.extend({
+  key: z.string().describe("camelCase field key, e.g. firstName"),
+});
+
+const schemaResponseSchema = z.object({
+  artifactFormSchema: z.object({
+    name: z.string(),
+    description: z.string(),
+    appliedStandards: z.array(z.string()).optional(),
+    fields: z.array(namedFieldSchema).describe("Form fields"),
+  }),
+  configuratorFormValues: z
+    .array(
+      z.object({
+        key: z.string(),
+        value: z.union([z.string(), z.number(), z.boolean()]),
+      }),
+    )
+    .describe("2-4 meta-settings about form behavior"),
+});
+
+// ---------------------------------------------------------------------------
+
 async function intentToSchemaReal(
   basePrompt: string,
   acceptedStandards?: DetectedStandard[],
@@ -41,11 +94,9 @@ async function intentToSchemaReal(
   try {
     // Build standard constraints section if standards were accepted
     let standardsSection = "";
-    const appliedStandardIds: string[] = [];
     if (acceptedStandards && acceptedStandards.length > 0) {
-      const constraintLines = acceptedStandards.flatMap((detected) => {
-        appliedStandardIds.push(detected.standard.id);
-        return detected.relevantConstraints.map((c) => {
+      const constraintLines = acceptedStandards.flatMap((detected) =>
+        detected.relevantConstraints.map((c) => {
           const reqLabel =
             c.required === "mandatory"
               ? "MANDATORY"
@@ -56,8 +107,8 @@ async function intentToSchemaReal(
             ? ` Options: [${c.validationRules.options.join(", ")}]`
             : "";
           return `  - [${reqLabel}] ${c.label} (key: ${c.fieldKey}, type: ${c.type}): ${c.description} Ref: ${c.standardReference}${optionsNote}`;
-        });
-      });
+        }),
+      );
 
       standardsSection = `
 
@@ -82,120 +133,59 @@ Analyze the description to identify:
 - What field types and options are most appropriate
 - What validation or constraints apply
 
-You must return:
+Design the form fields using these types:
+- "select" for choices with defined options (include options in validation.options)
+- "string" for free text
+- "number" for quantities
+- "boolean" for yes/no
+- "date" for dates
+- "email" for email addresses
 
-1. **basePrompt**: Rewrite the user's description to be more precise and structured. Write a natural, coherent description using markdown formatting (headings, lists, bold, etc.).
+RULES:
+- Field keys MUST be camelCase and descriptive${acceptedStandards && acceptedStandards.length > 0 ? '\n- For standard-sourced fields, include "standardReference"' : ""}`;
 
-2. **artifactFormSchema**: The form fields. Choose appropriate field types:
-   - Use "select" for choices with defined options (include options in validation.options as [{label, value}] objects)
-   - Use "string" for free text
-   - Use "number" for quantities
-   - Use "boolean" for yes/no
-   - Use "date" for dates
-   - Use "email" for email addresses
-
-3. **configuratorFormValues**: Initial configuration values (2-4 meta-settings about form behavior)
-
-IMPORTANT RULES:
-- Use valid field types: "string", "number", "boolean", "date", "email", "select"
-- For select fields, ALWAYS include options in validation.options as [{label, value}] objects
-- Field keys MUST be camelCase and descriptive${acceptedStandards && acceptedStandards.length > 0 ? '\n- For standard-sourced fields, include "standardReference" as a string property' : ""}
-- Return ONLY valid JSON, no markdown
-
-Return in this exact format:
-{
-  "basePrompt": "Rewritten form description",
-  "artifactFormSchema": {
-    "name": "Form Name",
-    "description": "Form description",${appliedStandardIds.length > 0 ? `\n    "appliedStandards": ${JSON.stringify(appliedStandardIds)},` : ""}
-    "fields": {
-      "fieldKey": {
-        "label": "Field Label",
-        "description": "Field description",
-        "type": "select",
-        "required": true,
-        "validation": { "options": [{"label": "Option A", "value": "option_a"}, {"label": "Option B", "value": "option_b"}] }
-      }
-    }
-  },
-  "configuratorFormValues": {
-    "configKey": true
-  }
-}`;
-
-    const result = await withTracing(
-      { tags: ["schema", "generate"] },
-      () =>
-        generateText({
-          model,
-          prompt,
-          temperature: 0.3,
-          experimental_telemetry: {
-            isEnabled: true,
-            functionId: "schema-action",
-            recordInputs: true,
-            recordOutputs: true,
-          },
-        }),
+    const result = await withTracing({ tags: ["schema", "generate"] }, () =>
+      generateText({
+        model,
+        output: Output.object({ schema: schemaResponseSchema }),
+        prompt,
+        temperature: 0.3,
+        experimental_telemetry: {
+          isEnabled: true,
+          functionId: "schema-action",
+          recordInputs: true,
+          recordOutputs: true,
+        },
+      }),
     );
 
-    let parsedResult: {
-      basePrompt: string;
-      artifactFormSchema: {
-        name: string;
-        description: string;
-        fields: Record<
-          string,
-          {
-            label: string;
-            description?: string;
-            type: string;
-            required: boolean;
-            validation?: { options?: string[] };
-            standardReference?: string;
-          }
-        >;
-        appliedStandards?: string[];
-      };
-      configuratorFormValues: Record<string, string | number | boolean>;
-    };
-
-    try {
-      const jsonMatch = result.text.match(/\{[\s\S]*\}/);
-      if (!jsonMatch) throw new Error("No valid JSON found in response");
-      parsedResult = JSON.parse(jsonMatch[0]);
-    } catch {
-      console.error("Failed to parse schema response:", result.text);
+    if (!result.output) {
+      console.error("No structured output from schema generation");
       return {
         success: false,
-        error: "Failed to parse schema from LLM response",
+        error: "Model did not return structured output",
       };
     }
 
-    if (!parsedResult.artifactFormSchema) {
-      return {
-        success: false,
-        error: "Invalid response: missing required schemas",
-      };
-    }
+    const parsedResult = result.output;
 
-    // Convert old field format to new Field format
-    const fields: Field[] = Object.entries(
-      parsedResult.artifactFormSchema.fields,
-    ).map(([key, f], index) => {
-      const fieldType = convertFieldType(f.type, f.validation);
-      return {
-        id: `field-${Date.now()}-${index}`,
-        name: key,
-        label: f.label,
-        type: fieldType,
-        required: f.required,
-        constraints: [],
-        description: f.description,
-        origin: "system" as const,
-        tags: [],
-      };
-    });
+    // Convert field format to internal Field type
+    const fields: Field[] = parsedResult.artifactFormSchema.fields.map(
+      (f, index) => {
+        const fieldType = convertFieldType(f.type, f.validation);
+        return {
+          id: `field-${Date.now()}-${index}`,
+          name: f.key,
+          label: f.label,
+          type: fieldType,
+          required: f.required,
+          constraints: [],
+          description: f.description,
+          origin: "system" as const,
+          tags: [],
+        };
+      },
+    );
 
     const artifactFormSchema: PortfolioSchema = {
       fields,
@@ -231,9 +221,10 @@ Return in this exact format:
     return {
       success: true,
       result: {
-        basePrompt: parsedResult.basePrompt || basePrompt,
         artifactFormSchema,
-        configuratorFormValues: parsedResult.configuratorFormValues || {},
+        configuratorFormValues: Object.fromEntries(
+          (parsedResult.configuratorFormValues ?? []).map((kv) => [kv.key, kv.value]),
+        ),
       },
     };
   } catch (error) {
@@ -248,7 +239,7 @@ Return in this exact format:
 // Helper to convert old field type string to new FieldType
 function convertFieldType(
   type: string,
-  validation?: { options?: string[] },
+  validation?: { options?: unknown[] },
 ): Field["type"] {
   switch (type) {
     case "select":

@@ -3,37 +3,37 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import type { SchemaProposal } from "@/lib/types";
+import type { SchemaBacktalk } from "@/lib/types";
 import { Check, Pencil, X } from "lucide-react";
 
-interface ProposalCardProps {
-  proposal: SchemaProposal;
+interface BacktalkCardProps {
+  backtalk: SchemaBacktalk;
   onAccept: (id: string) => void;
   onReject: (id: string) => void;
   onModify?: (id: string) => void;
 }
 
-export function ProposalCard({
-  proposal,
+export function BacktalkCard({
+  backtalk,
   onAccept,
   onReject,
   onModify,
-}: ProposalCardProps) {
-  const { diff } = proposal;
-  const isPending = proposal.status === "pending";
+}: BacktalkCardProps) {
+  const { diff } = backtalk;
+  const isPending = backtalk.status === "pending";
 
   return (
     <Card className="p-4 space-y-3">
       <div className="flex items-start justify-between">
         <div className="space-y-1">
-          <p className="text-sm font-medium">{proposal.description}</p>
-          <p className="text-xs text-muted-foreground">{proposal.rationale}</p>
+          <p className="text-sm font-medium">{backtalk.description}</p>
+          <p className="text-xs text-muted-foreground">{backtalk.rationale}</p>
         </div>
         {!isPending && (
           <Badge
-            variant={proposal.status === "accepted" ? "default" : "secondary"}
+            variant={backtalk.status === "accepted" ? "default" : "secondary"}
           >
-            {proposal.status}
+            {backtalk.status}
           </Badge>
         )}
       </div>
@@ -63,7 +63,7 @@ export function ProposalCard({
           <Button
             size="sm"
             variant="default"
-            onClick={() => onAccept(proposal.id)}
+            onClick={() => onAccept(backtalk.id)}
           >
             <Check className="h-3 w-3 mr-1" />
             Accept
@@ -71,7 +71,7 @@ export function ProposalCard({
           <Button
             size="sm"
             variant="outline"
-            onClick={() => onReject(proposal.id)}
+            onClick={() => onReject(backtalk.id)}
           >
             <X className="h-3 w-3 mr-1" />
             Reject
@@ -80,7 +80,7 @@ export function ProposalCard({
             <Button
               size="sm"
               variant="ghost"
-              onClick={() => onModify(proposal.id)}
+              onClick={() => onModify(backtalk.id)}
             >
               <Pencil className="h-3 w-3 mr-1" />
               Modify

@@ -41,11 +41,17 @@ import { Loader2, Shield, Sparkles, XIcon } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { OpinionCardDeck } from "./OpinionCardDeck";
 
-interface ConversationPaneProps {
+interface ReflectiveConversationPaneProps {
   portfolio: Portfolio;
 }
 
-export function ConversationPane({ portfolio }: ConversationPaneProps) {
+/**
+ * ReflectiveConversationPane — the primary elicitation workspace.
+ * Named after Rost/Schön's "reflective conversation": interaction as a
+ * sequence of moves (user) and backtalk (system) where meaning emerges
+ * through reciprocal exchange, not upfront specification.
+ */
+export function ReflectiveConversationPane({ portfolio }: ReflectiveConversationPaneProps) {
   const portfolioSchema = portfolio.schema as unknown as PortfolioSchema;
 
   const editorRef = useRef<HTMLDivElement>(null);
@@ -124,7 +130,7 @@ export function ConversationPane({ portfolio }: ConversationPaneProps) {
 
       setStructuredIntent(result.intent);
     } catch (err) {
-      console.error("[ConversationPane] Generation error:", err);
+      console.error("[ReflectiveConversationPane] Generation error:", err);
       setError(err instanceof Error ? err.message : "Generation failed");
     }
   };
@@ -149,7 +155,7 @@ export function ConversationPane({ portfolio }: ConversationPaneProps) {
 
       setStructuredIntent(result.newIntent);
     } catch (err) {
-      console.error("[ConversationPane] Opinion error:", err);
+      console.error("[ReflectiveConversationPane] Opinion error:", err);
       setError(err instanceof Error ? err.message : "Opinion failed");
     }
   };
@@ -207,7 +213,7 @@ export function ConversationPane({ portfolio }: ConversationPaneProps) {
         setError(response.error || "Failed to apply edit");
       }
     } catch (err) {
-      console.error("[ConversationPane] Prompt edit error:", err);
+      console.error("[ReflectiveConversationPane] Prompt edit error:", err);
       setError(err instanceof Error ? err.message : "Edit failed");
     } finally {
       setIsPromptEditing(false);
@@ -253,7 +259,7 @@ export function ConversationPane({ portfolio }: ConversationPaneProps) {
       });
       setStructuredIntent(result.updatedIntent);
     } catch (err) {
-      console.error("[ConversationPane] Conflict fix error:", err);
+      console.error("[ReflectiveConversationPane] Conflict fix error:", err);
       setError(err instanceof Error ? err.message : "Conflict fix failed");
     }
   };

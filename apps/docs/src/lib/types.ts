@@ -329,10 +329,12 @@ export interface SchemaDiff {
 }
 
 // ---------------------------------------------------------------------------
-// Schema Proposal (from LLM during elicitation)
+// Schema Backtalk (from LLM during elicitation)
+// Backtalk (Rost/Schön): system response that reveals consequences,
+// both intended and unintended, prompting reflection.
 // ---------------------------------------------------------------------------
 
-export const schemaProposalStatusZ = z.enum([
+export const schemaBacktalkStatusZ = z.enum([
   "pending",
   "accepted",
   "rejected",
@@ -351,15 +353,15 @@ export const schemaDiffZ = z.object({
   modified: z.array(fieldPatchZ),
 });
 
-export const schemaProposalZ = z.object({
+export const schemaBacktalkZ = z.object({
   id: z.string(),
   description: z.string(),
   diff: schemaDiffZ,
   rationale: z.string(),
-  status: schemaProposalStatusZ,
+  status: schemaBacktalkStatusZ,
 });
 
-export interface SchemaProposal {
+export interface SchemaBacktalk {
   id: string;
   description: string;
   diff: SchemaDiff;
@@ -391,21 +393,22 @@ export interface DerivationSpec {
 
 // ---------------------------------------------------------------------------
 // Elicitation State (workspace UI state, not persisted)
+// Move (Rost/Schön): a user or system action within reflective conversation.
 // ---------------------------------------------------------------------------
 
-export interface Message {
+export interface Move {
   id: string;
   role: "user" | "assistant" | "system";
   content: string;
-  proposals?: SchemaProposal[];
+  backtalk?: SchemaBacktalk[];
   timestamp: string;
 }
 
 export interface ElicitationState {
   portfolio: Portfolio;
-  conversationHistory: Message[];
+  interactionTrajectory: Move[];
   currentLayer: ProvenanceLayer;
-  pendingProposals: SchemaProposal[];
+  pendingBacktalk: SchemaBacktalk[];
 }
 
 // ---------------------------------------------------------------------------

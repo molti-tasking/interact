@@ -29,7 +29,7 @@ test.describe("Fitness Coaching Scenario", () => {
     expect(portfolioId).toBeTruthy();
 
     // We should be on the workspace page
-    await expect(page.locator('[data-testid="conversation-pane"]')).toBeVisible();
+    await expect(page.locator('[data-testid="reflective-conversation-pane"]')).toBeVisible();
     await expect(page.locator('[data-testid="preview-pane"]')).toBeVisible();
 
     // Step 2: Enter intent and generate form

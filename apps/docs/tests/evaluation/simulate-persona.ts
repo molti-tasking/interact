@@ -164,24 +164,46 @@ export async function simulatePersona(
       .first()
       .waitFor({ state: "visible", timeout: 30000 });
 
-    console.log(`[simulate] Form generated, waiting for opinions...`);
+    console.log(`[simulate] Form generated, waiting for opinions to be generated...`);
 
     // Step 4: Wait for and resolve opinion cards
+    // Opinions are generated asynchronously (fire-and-forget LLM call after
+    // schema generation). We need to poll until they appear in the UI.
     const resolvedOpinions: SessionArtifacts["opinions"] = [];
-    let maxRounds = 8; // Safety limit
 
-    while (maxRounds > 0) {
-      maxRounds--;
+    // Poll for opinion cards to appear (up to 60s)
+    const opinionTimeout = 60000;
+    const pollInterval = 3000;
+    const opinionDeadline = Date.now() + opinionTimeout;
+    let opinionsAppeared = false;
 
-      // Check if there are pending opinion cards
+    while (Date.now() < opinionDeadline) {
       const deckSection = page.locator('[data-testid="card-deck-section"]');
       const hasDeck = await deckSection.isVisible().catch(() => false);
-      if (!hasDeck) {
-        // Try waiting briefly for opinions to appear
-        await page.waitForTimeout(3000);
-        const retryDeck = await deckSection.isVisible().catch(() => false);
-        if (!retryDeck) break;
+      if (hasDeck) {
+        const cardCount = await page
+          .locator('[data-testid^="opinion-deck-card-"]')
+          .count();
+        if (cardCount > 0) {
+          opinionsAppeared = true;
+          console.log(`[simulate] ${cardCount} opinion card(s) appeared`);
+          break;
+        }
       }
+      console.log(
+        `[simulate] No opinions yet, polling... (${Math.round((opinionDeadline - Date.now()) / 1000)}s remaining)`,
+      );
+      await page.waitForTimeout(pollInterval);
+    }
+
+    if (!opinionsAppeared) {
+      console.warn(`[simulate] No opinions appeared within ${opinionTimeout / 1000}s — continuing without`);
+    }
+
+    // Resolve opinion cards
+    let maxRounds = 8; // Safety limit
+    while (maxRounds > 0 && opinionsAppeared) {
+      maxRounds--;
 
       // Find the first pending opinion card's options
       const opinionCards = page.locator(
@@ -233,8 +255,10 @@ export async function simulatePersona(
         status: "resolved",
       });
 
-      // Wait for the opinion to be processed
-      await page.waitForTimeout(4000);
+      // Wait for the opinion to be processed and the card to disappear.
+      // The resolve triggers a schema update round-trip, so give it time.
+      console.log(`[simulate] Waiting for opinion resolution to process...`);
+      await page.waitForTimeout(5000);
     }
 
     // Step 5: Collect final state

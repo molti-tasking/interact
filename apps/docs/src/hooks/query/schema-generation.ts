@@ -18,7 +18,7 @@ export function useGenerateSchema(portfolioId: string) {
 
   return useMutation({
     mutationFn: async ({
-      intent,
+      intent: newIntent,
       currentSchema,
       acceptedStandards,
     }: {
@@ -27,25 +27,13 @@ export function useGenerateSchema(portfolioId: string) {
       acceptedStandards?: DetectedStandard[];
     }) => {
       const result = await intentToSchemaAction(
-        intent,
+        newIntent,
         acceptedStandards?.length ? acceptedStandards : undefined,
       );
 
       if (!result.success || !result.result) {
         throw new Error(result.error ?? "Failed to generate schema");
       }
-
-      // The LLM may refine the purpose — update that section
-      const refinedPurpose = result.result.basePrompt;
-      const newIntent: StructuredIntent = refinedPurpose !== ""
-        ? {
-            ...intent,
-            purpose: {
-              content: refinedPurpose,
-              updatedAt: new Date().toISOString(),
-            },
-          }
-        : intent;
 
       const newSchema = result.result.artifactFormSchema;
       const schemaDiff = diffSchemas(
@@ -76,7 +64,7 @@ export function useGenerateSchema(portfolioId: string) {
         "system",
         schemaDiff,
         `Generated ${newSchema.fields.length} fields from intent`,
-        { intent, schema: currentSchema },
+        { intent: newIntent, schema: currentSchema },
       );
 
       return { intent: newIntent, schema: newSchema };
