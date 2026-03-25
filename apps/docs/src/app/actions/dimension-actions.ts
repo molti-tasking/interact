@@ -6,7 +6,53 @@ import { serializeForLLM } from "@/lib/engine/structured-intent";
 import { withTracing } from "@/lib/telemetry";
 import type { Field, PortfolioSchema, StructuredIntent } from "@/lib/types";
 import { model } from "@/lib/model";
-import { generateText } from "ai";
+import { generateText, Output } from "ai";
+import { z } from "zod";
+
+// ---------- Zod schemas for structured output ----------
+
+const generateDimensionsSchema = z.object({
+  reasoning: z.string().describe("Brief explanation of why these dimensions were chosen"),
+  dimensions: z.array(z.object({
+    name: z.string().describe("Short label, 2-4 words"),
+    description: z.string().describe("One sentence about what this facet covers"),
+    importance: z.string().describe("Why this matters for form design"),
+    scope: z.enum(["context", "measurement", "preference", "constraint"]),
+    openQuestions: z.array(z.string()).describe("2-3 specific questions"),
+  })),
+});
+
+const refineDimensionSchema = z.object({
+  name: z.string(),
+  description: z.string(),
+  importance: z.string(),
+  scope: z.enum(["context", "measurement", "preference", "constraint"]),
+  openQuestions: z.array(z.string()),
+});
+
+const dimensionsToSchemaSchema = z.object({
+  basePrompt: z.string().describe("Rewritten form description incorporating dimension decisions"),
+  artifactFormSchema: z.object({
+    name: z.string(),
+    description: z.string(),
+    appliedStandards: z.array(z.string()).optional(),
+    fields: z.array(z.object({
+      key: z.string().describe("camelCase field key"),
+      label: z.string(),
+      description: z.string().optional(),
+      type: z.enum(["string", "number", "boolean", "date", "email", "select"]),
+      required: z.boolean(),
+      validation: z.object({
+        options: z.array(z.object({ label: z.string(), value: z.string() })).optional(),
+      }).optional(),
+      standardReference: z.string().optional(),
+    })),
+  }),
+  configuratorFormValues: z.array(z.object({
+    key: z.string(),
+    value: z.union([z.string(), z.number(), z.boolean()]),
+  })),
+});
 
 // ---------- generateDimensionsAction ----------
 
@@ -52,20 +98,6 @@ For each dimension, provide:
 
 User's description: ${prompt}
 
-Return ONLY valid JSON in this exact format:
-{
-  "reasoning": "Brief explanation of why these dimensions were chosen and how they map the domain",
-  "dimensions": [
-    {
-      "name": "Dimension Name",
-      "description": "What this facet of the domain covers",
-      "importance": "Why this matters for the form design",
-      "scope": "context",
-      "openQuestions": ["Question 1?", "Question 2?"]
-    }
-  ]
-}
-
 Rules:
 - Generate ${Math.min(3, maxDimensions)}-${maxDimensions} dimensions
 - Dimensions should be orthogonal — each covers a distinct facet of the domain
@@ -78,27 +110,15 @@ Rules:
         model,
         prompt: systemPrompt,
         temperature: 0.3,
+        output: Output.object({ schema: generateDimensionsSchema }),
         experimental_telemetry: { isEnabled: true, functionId: "dimension-action", recordInputs: true, recordOutputs: true },
       }),
     );
 
-    let parsedResult: {
-      reasoning: string;
-      dimensions: {
-        name: string;
-        description: string;
-        importance: string;
-        scope: DimensionScope;
-        openQuestions: string[];
-      }[];
-    };
+    const parsedResult = result.output;
 
-    try {
-      const jsonMatch = result.text.match(/\{[\s\S]*\}/);
-      if (!jsonMatch) throw new Error("No valid JSON found in response");
-      parsedResult = JSON.parse(jsonMatch[0]);
-    } catch {
-      console.error("Failed to parse dimensions response:", result.text);
+    if (!parsedResult) {
+      console.error("Failed to parse dimensions response: output was null");
       return {
         success: false,
         error: "Failed to parse dimensions from LLM response",
@@ -192,31 +212,23 @@ Current dimension:
 
 User feedback: ${userFeedback}
 
-Based on the feedback, return an updated dimension. Return ONLY valid JSON:
-{
-  "name": "Updated Name",
-  "description": "Updated description",
-  "importance": "Updated importance",
-  "scope": "context",
-  "openQuestions": ["Updated question 1?", "Updated question 2?"]
-}`;
+Based on the feedback, return an updated dimension.`;
 
     const result = await withTracing({ tags: ["dimensions", "refine"] }, () =>
       generateText({
         model,
         prompt,
         temperature: 0.3,
+        output: Output.object({ schema: refineDimensionSchema }),
         experimental_telemetry: { isEnabled: true, functionId: "dimension-action", recordInputs: true, recordOutputs: true },
       }),
     );
 
-    const jsonMatch = result.text.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) {
-      return { success: false, error: "No valid JSON in response" };
+    if (!result.output) {
+      return { success: false, error: "No valid response from LLM" };
     }
 
-    const parsed = JSON.parse(jsonMatch[0]);
-    return { success: true, dimension: parsed };
+    return { success: true, dimension: result.output };
   } catch (error) {
     console.error("Dimension refinement error:", error);
     return {
@@ -319,48 +331,12 @@ You must return:
    - Use "date" for dates
    - Use "email" for email addresses
 
-3. **configuratorFormSchema**: 2-4 meta-questions about form behavior (e.g., required fields, validation strictness)
-
-4. **configuratorFormValues**: Initial values for the configurator
+3. **configuratorFormValues**: Initial key-value pairs for form configuration meta-questions (e.g., required fields, validation strictness)
 
 IMPORTANT RULES:
 - Use valid field types: "string", "number", "boolean", "date", "email", "select"
 - For select fields, ALWAYS include options in validation.options as [{label, value}] objects
-- Field keys MUST be camelCase and descriptive${acceptedStandards && acceptedStandards.length > 0 ? '\n- For standard-sourced fields, include "standardReference" as a string property' : ""}
-- Return ONLY valid JSON, no markdown
-
-Return in this exact format:
-{
-  "basePrompt": "Rewritten form description incorporating dimension decisions",
-  "artifactFormSchema": {
-    "name": "Form Name",
-    "description": "Form description",${appliedStandardIds.length > 0 ? `\n    "appliedStandards": ${JSON.stringify(appliedStandardIds)},` : ""}
-    "fields": {
-      "fieldKey": {
-        "label": "Field Label",
-        "description": "Field description",
-        "type": "select",
-        "required": true,
-        "validation": { "options": [{"label": "Option A", "value": "option_a"}, {"label": "Option B", "value": "option_b"}] }
-      }
-    }
-  },
-  "configuratorFormSchema": {
-    "name": "Configuration",
-    "description": "Form configuration",
-    "fields": {
-      "configKey": {
-        "label": "Config Question",
-        "description": "Description",
-        "type": "boolean",
-        "required": false
-      }
-    }
-  },
-  "configuratorFormValues": {
-    "configKey": true
-  }
-}`;
+- Field keys MUST be camelCase and descriptive${acceptedStandards && acceptedStandards.length > 0 ? '\n- For standard-sourced fields, include "standardReference" as a string property' : ""}`;
 
     const result = await withTracing(
       { tags: ["dimensions", "to-schema"] },
@@ -369,37 +345,15 @@ Return in this exact format:
           model,
           prompt,
           temperature: 0.3,
+          output: Output.object({ schema: dimensionsToSchemaSchema }),
           experimental_telemetry: { isEnabled: true, functionId: "dimension-action", recordInputs: true, recordOutputs: true },
         }),
     );
 
-    let parsedResult: {
-      basePrompt: string;
-      artifactFormSchema: {
-        name: string;
-        description: string;
-        fields: Record<
-          string,
-          {
-            label: string;
-            description?: string;
-            type: string;
-            required: boolean;
-            validation?: { options?: string[] };
-            standardReference?: string;
-          }
-        >;
-        appliedStandards?: string[];
-      };
-      configuratorFormValues: Record<string, string | number | boolean>;
-    };
+    const parsedResult = result.output;
 
-    try {
-      const jsonMatch = result.text.match(/\{[\s\S]*\}/);
-      if (!jsonMatch) throw new Error("No valid JSON found in response");
-      parsedResult = JSON.parse(jsonMatch[0]);
-    } catch {
-      console.error("Failed to parse schema response:", result.text);
+    if (!parsedResult) {
+      console.error("Failed to parse schema response: output was null");
       return {
         success: false,
         error: "Failed to parse schema from LLM response",
@@ -413,23 +367,22 @@ Return in this exact format:
       };
     }
 
-    // Convert old field format to new Field format
-    const fields: Field[] = Object.entries(
-      parsedResult.artifactFormSchema.fields,
-    ).map(([key, f], index) => {
-      const fieldType = convertFieldType(f.type, f.validation);
-      return {
-        id: `field-${Date.now()}-${index}`,
-        name: key,
-        label: f.label,
-        type: fieldType,
-        required: f.required,
-        constraints: [],
-        description: f.description,
-        origin: "system" as const,
-        tags: [],
-      };
-    });
+    // Convert field format to new Field format
+    const fields: Field[] = parsedResult.artifactFormSchema.fields
+      .map((f, index) => {
+        const fieldType = convertFieldType(f.type, f.validation);
+        return {
+          id: `field-${Date.now()}-${index}`,
+          name: f.key,
+          label: f.label,
+          type: fieldType,
+          required: f.required,
+          constraints: [],
+          description: f.description,
+          origin: "system" as const,
+          tags: [],
+        };
+      });
 
     const artifactFormSchema: PortfolioSchema = {
       fields,
@@ -467,7 +420,7 @@ Return in this exact format:
       result: {
         basePrompt: parsedResult.basePrompt || basePrompt,
         artifactFormSchema,
-        configuratorFormValues: parsedResult.configuratorFormValues || {},
+        configuratorFormValues: Object.fromEntries((parsedResult.configuratorFormValues ?? []).map(kv => [kv.key, kv.value])),
       },
     };
   } catch (error) {
@@ -482,7 +435,7 @@ Return in this exact format:
 // Helper to convert old field type string to new FieldType
 function convertFieldType(
   type: string,
-  validation?: { options?: string[] },
+  validation?: { options?: unknown[] },
 ): Field["type"] {
   switch (type) {
     case "select":
