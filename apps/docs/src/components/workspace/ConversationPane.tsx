@@ -4,7 +4,7 @@ import type {
   ConflictFix,
   SchemaConflict,
 } from "@/app/actions/conflict-actions";
-import { resolveOpinionInteractionAction } from "@/app/actions/opinion-actions";
+import { resolveDesignProbeAction } from "@/app/actions/design-probe-actions";
 import { Button } from "@/components/ui/button";
 import { MarkdownEditor } from "@/components/ui/markdown-editor";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -14,11 +14,11 @@ import {
   useResolveConflict,
 } from "@/hooks/query/conflicts";
 import {
-  useDismissOpinion,
-  useGenerateOpinions,
-  useOpinions,
-  useResolveOpinion,
-} from "@/hooks/query/opinions";
+  useDismissDesignProbe,
+  useGenerateDesignProbes,
+  useDesignProbes,
+  useResolveDesignProbe,
+} from "@/hooks/query/design-probes";
 import { usePipelineGenerate } from "@/hooks/query/pipeline";
 import { useUpdatePortfolio } from "@/hooks/query/portfolios";
 import {
@@ -39,7 +39,7 @@ import { cn } from "@/lib/utils";
 import { useQueryClient } from "@tanstack/react-query";
 import { Loader2, Shield, Sparkles, XIcon } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { OpinionCardDeck } from "./OpinionCardDeck";
+import { DesignProbeDeck } from "./DesignProbeDeck";
 
 interface ReflectiveConversationPaneProps {
   portfolio: Portfolio;
@@ -73,10 +73,10 @@ export function ReflectiveConversationPane({ portfolio }: ReflectiveConversation
   const skipStandard = useSkipStandard(portfolio.id);
   const { data: skippedStandardIds } = useSkippedStandards(portfolio.id);
 
-  const { data: opinions } = useOpinions(portfolio.id);
-  const generateOpinions = useGenerateOpinions(portfolio.id);
-  const resolveOpinion = useResolveOpinion(portfolio.id);
-  const dismissOpinion = useDismissOpinion(portfolio.id);
+  const { data: designProbes } = useDesignProbes(portfolio.id);
+  const generateDesignProbes = useGenerateDesignProbes(portfolio.id);
+  const resolveDesignProbe = useResolveDesignProbe(portfolio.id);
+  const dismissDesignProbe = useDismissDesignProbe(portfolio.id);
 
   // Pipeline hook replaces the old handleGenerate
   const pipeline = usePipelineGenerate(portfolio.id);
@@ -136,18 +136,18 @@ export function ReflectiveConversationPane({ portfolio }: ReflectiveConversation
   };
 
   // -------------------------------------------------------------------
-  // Opinion interaction: select an option
+  // Design probe interaction: select an option
   // -------------------------------------------------------------------
-  const handleOpinionSelect = async (
-    opinionId: string,
+  const handleProbeSelect = async (
+    probeId: string,
     selectedValue: string,
   ) => {
-    const interaction = (opinions ?? []).find((o) => o.id === opinionId);
-    if (!interaction || interaction.status !== "pending") return;
+    const probe = (designProbes ?? []).find((o) => o.id === probeId);
+    if (!probe || probe.status !== "pending") return;
 
     try {
-      const result = await resolveOpinion.mutateAsync({
-        opinion: interaction,
+      const result = await resolveDesignProbe.mutateAsync({
+        probe,
         selectedValue,
         currentIntent: structuredIntent,
         currentSchema: portfolioSchema,
@@ -155,13 +155,13 @@ export function ReflectiveConversationPane({ portfolio }: ReflectiveConversation
 
       setStructuredIntent(result.newIntent);
     } catch (err) {
-      console.error("[ReflectiveConversationPane] Opinion error:", err);
-      setError(err instanceof Error ? err.message : "Opinion failed");
+      console.error("[ReflectiveConversationPane] Design probe error:", err);
+      setError(err instanceof Error ? err.message : "Design probe failed");
     }
   };
 
-  const handleDismissOpinion = (opinionId: string) => {
-    dismissOpinion.mutate(opinionId);
+  const handleDismissProbe = (probeId: string) => {
+    dismissDesignProbe.mutate(probeId);
   };
 
   // -------------------------------------------------------------------
@@ -174,7 +174,7 @@ export function ReflectiveConversationPane({ portfolio }: ReflectiveConversation
     setError(null);
 
     try {
-      const response = await resolveOpinionInteractionAction({
+      const response = await resolveDesignProbeAction({
         intent: structuredIntent,
         currentSchema: portfolioSchema,
         interactionText: "User requested a direct prompt-based edit",
@@ -269,10 +269,10 @@ export function ReflectiveConversationPane({ portfolio }: ReflectiveConversation
   };
 
   // -------------------------------------------------------------------
-  // Regenerate opinions
+  // Regenerate design probes
   // -------------------------------------------------------------------
-  const handleRegenerateOpinions = () => {
-    if (!structuredIntent.purpose.content.trim() || generateOpinions.isPending)
+  const handleRegenerateProbes = () => {
+    if (!structuredIntent.purpose.content.trim() || generateDesignProbes.isPending)
       return;
 
     const acceptedStandardRefs = portfolioSchema.acceptedStandards ?? [];
@@ -280,7 +280,7 @@ export function ReflectiveConversationPane({ portfolio }: ReflectiveConversation
       acceptedStandardRefs.some((ref) => ref.standardId === s.standard.id),
     );
 
-    generateOpinions.mutate({
+    generateDesignProbes.mutate({
       intent: structuredIntent,
       acceptedStandards: acceptedStds.length > 0 ? acceptedStds : undefined,
     });
@@ -404,7 +404,7 @@ export function ReflectiveConversationPane({ portfolio }: ReflectiveConversation
         </div>
       </div>
 
-      {/* Standards + Card Deck (opinions + conflicts) */}
+      {/* Standards + Card Deck (design probes + conflicts) */}
       <ScrollArea className="flex-1 py-4">
         <div className="space-y-3 min-w-0">
           {/* Suggested Standards */}
@@ -426,30 +426,30 @@ export function ReflectiveConversationPane({ portfolio }: ReflectiveConversation
             </div>
           )}
 
-          {/* Opinion Card Deck (unified: conflicts + opinions) */}
-          {(visibleConflicts.length > 0 || (opinions ?? []).length > 0) && (
+          {/* Design Probe Deck (unified: conflicts + design probes) */}
+          {(visibleConflicts.length > 0 || (designProbes ?? []).length > 0) && (
             <div data-testid="card-deck-section" className="space-y-2">
               <h3 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
                 <Sparkles className="h-3.5 w-3.5 text-violet-500" />
                 Decisions
-                {(generateOpinions.isPending ||
-                  resolveOpinion.isPending ||
+                {(generateDesignProbes.isPending ||
+                  resolveDesignProbe.isPending ||
                   resolveConflict.isPending) && (
                   <Loader2 className="h-3 w-3 animate-spin" />
                 )}
               </h3>
-              <OpinionCardDeck
-                opinions={opinions ?? []}
+              <DesignProbeDeck
+                probes={designProbes ?? []}
                 conflicts={visibleConflicts}
                 anyLoading={
-                  resolveOpinion.isPending || resolveConflict.isPending
+                  resolveDesignProbe.isPending || resolveConflict.isPending
                 }
-                isRegenerating={generateOpinions.isPending}
-                onSelectOpinion={handleOpinionSelect}
-                onDismissOpinion={handleDismissOpinion}
+                isRegenerating={generateDesignProbes.isPending}
+                onSelectProbe={handleProbeSelect}
+                onDismissProbe={handleDismissProbe}
                 onSelectConflictFix={handleConflictFix}
                 onDismissConflict={handleDismissConflict}
-                onRegenerate={handleRegenerateOpinions}
+                onRegenerate={handleRegenerateProbes}
               />
             </div>
           )}

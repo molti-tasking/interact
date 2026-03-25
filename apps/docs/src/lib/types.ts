@@ -294,10 +294,12 @@ export interface FormResponse {
 }
 
 // ---------------------------------------------------------------------------
-// Opinion Interaction (maps to `opinion_interactions` table row)
+// Design Probe (maps to `design_probes` table row)
+// Design probes are system-generated decision prompts that surface design
+// tradeoffs and ask the creator to resolve them — a form of directed backtalk.
 // ---------------------------------------------------------------------------
 
-export interface OpinionInteraction {
+export interface DesignProbe {
   id: string;
   portfolioId: string;
   text: string;

@@ -34,7 +34,7 @@ export type Database = {
   }
   public: {
     Tables: {
-      opinion_interactions: {
+      design_probes: {
         Row: {
           created_at: string | null
           dimension_id: string | null
@@ -79,7 +79,7 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "opinion_interactions_portfolio_id_fkey"
+            foreignKeyName: "design_probes_portfolio_id_fkey"
             columns: ["portfolio_id"]
             isOneToOne: false
             referencedRelation: "portfolios"

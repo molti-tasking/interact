@@ -35,9 +35,9 @@ export const cdnDimensions: CDNDimension[] = [
     evaluationFocus:
       "Look at how intent edits propagate to schema changes. " +
       "Count the steps needed to add/remove/modify a field. " +
-      "Check if opinion resolutions automatically update both intent and schema.",
+      "Check if design probe resolutions automatically update both intent and schema.",
     anchors: {
-      1: "Changes require a single action (e.g., answer one opinion) and propagate automatically to all layers",
+      1: "Changes require a single action (e.g., answer one design probe) and propagate automatically to all layers",
       2: "Most changes are low-effort with automatic propagation; occasional manual adjustment needed",
       3: "Moderate effort — some changes propagate, others require explicit regeneration",
       4: "Significant manual work to make changes; limited automatic propagation",
@@ -53,7 +53,7 @@ export const cdnDimensions: CDNDimension[] = [
     evaluationFocus:
       "Check if the system requires upfront schema specification. " +
       "Look at whether the creator can express vague intent first and refine later. " +
-      "Examine if opinion questions allow deferring decisions.",
+      "Examine if design probes allow deferring decisions.",
     anchors: {
       1: "Creator can start with vague intent; all decisions can be deferred or revised; system guides incrementally",
       2: "Minimal upfront commitment; most decisions are reversible through intent editing",
@@ -70,14 +70,14 @@ export const cdnDimensions: CDNDimension[] = [
       "Can users check their work at any point during the design process?",
     evaluationFocus:
       "Check for live form preview alongside intent editing. " +
-      "Look for intermediate feedback (dimension badges, opinion cards, field count). " +
+      "Look for intermediate feedback (dimension badges, design probe cards, field count). " +
       "Can the creator see the form at every stage of the process?",
     anchors: {
       1: "No feedback until the entire process is complete",
       2: "Limited feedback available only after explicit generation steps",
       3: "Some intermediate feedback (e.g., field list) but no live preview",
       4: "Good intermediate feedback with live preview; minor delays between changes and updates",
-      5: "Continuous, real-time feedback at every stage — live preview, dimension badges, opinion status, field count all update immediately",
+      5: "Continuous, real-time feedback at every stage — live preview, dimension badges, design probe status, field count all update immediately",
     },
   },
   {
@@ -88,14 +88,14 @@ export const cdnDimensions: CDNDimension[] = [
       "Are there relationships between components that are not visible to the user?",
     evaluationFocus:
       "Check provenance logging — can the creator trace why a field exists? " +
-      "Look at opinion-to-schema connections. " +
+      "Look at design-probe-to-schema connections. " +
       "Are dimension-to-field mappings visible? Are standard requirements traceable?",
     anchors: {
-      1: "All dependencies are explicitly visible — provenance log traces every field origin, opinion resolutions show impact, dimension-field mappings are clear",
+      1: "All dependencies are explicitly visible — provenance log traces every field origin, design probe resolutions show impact, dimension-field mappings are clear",
       2: "Most dependencies visible through provenance; a few implicit connections exist",
       3: "Some dependencies visible but others require investigation to understand",
       4: "Many hidden dependencies — unclear why fields exist or how changes propagate",
-      5: "Completely opaque — no traceability between intent, opinions, dimensions, and schema",
+      5: "Completely opaque — no traceability between intent, design probes, dimensions, and schema",
     },
   },
   {
@@ -105,15 +105,15 @@ export const cdnDimensions: CDNDimension[] = [
     description:
       "Can the user easily see all relevant information, or is it hidden behind navigation?",
     evaluationFocus:
-      "Check the workspace layout — are intent, opinions, standards, and form preview all visible simultaneously? " +
-      "Is the resolved opinion history accessible? " +
+      "Check the workspace layout — are intent, design probes, standards, and form preview all visible simultaneously? " +
+      "Is the resolved design probe history accessible? " +
       "Can all schema fields be seen at once?",
     anchors: {
       1: "Critical information is hidden behind multiple clicks or separate pages",
       2: "Some information visible but important elements require navigation",
       3: "Main workspace shows intent and preview; secondary information requires scrolling or expanding",
-      4: "Good visibility — intent, opinions, standards, and preview mostly visible; resolved history accessible on demand",
-      5: "Excellent visibility — all layers (intent, opinions, dimensions, standards, schema, preview) visible or one click away in a coherent workspace",
+      4: "Good visibility — intent, design probes, standards, and preview mostly visible; resolved history accessible on demand",
+      5: "Excellent visibility — all layers (intent, design probes, dimensions, standards, schema, preview) visible or one click away in a coherent workspace",
     },
   },
   {
@@ -124,13 +124,13 @@ export const cdnDimensions: CDNDimension[] = [
       "How closely does the notation correspond to the problem domain?",
     evaluationFocus:
       "Check if the creator works in natural language (their domain language) rather than schema notation. " +
-      "Are opinion questions phrased in domain terms? " +
+      "Are design probes phrased in domain terms? " +
       "Does the system use domain-specific standards (OSHA, medical)?",
     anchors: {
       1: "Creator must work in technical schema notation with no domain mapping",
       2: "Mix of technical and domain language; some translation required",
       3: "Domain language used for input but output shown in technical terms",
-      4: "Good domain mapping — natural language intent, domain-aware opinions, but schema still somewhat technical",
+      4: "Good domain mapping — natural language intent, domain-aware design probes, but schema still somewhat technical",
       5: "Excellent domain mapping — creator works entirely in domain language; system handles all technical translation; standards referenced by domain name",
     },
   },
@@ -142,15 +142,15 @@ export const cdnDimensions: CDNDimension[] = [
       "Can the user easily understand the purpose of each component?",
     evaluationFocus:
       "Check if fields have clear labels and descriptions. " +
-      "Are opinion cards self-explanatory? " +
+      "Are design probe cards self-explanatory? " +
       "Do dimension badges convey their purpose? " +
       "Is the relationship between intent sections and generated fields clear?",
     anchors: {
       1: "Components are cryptic — field keys, types, and constraints have no human-readable explanation",
       2: "Some components labeled but purpose of many elements is unclear",
       3: "Main components are understandable but secondary elements (constraints, groups, tags) are opaque",
-      4: "Good expressiveness — fields have labels+descriptions, opinions have explanations, dimensions are named",
-      5: "Excellent — every component clearly communicates its purpose; layer badges, dimension names, opinion explanations, and field descriptions all contribute to understanding",
+      4: "Good expressiveness — fields have labels+descriptions, design probes have explanations, dimensions are named",
+      5: "Excellent — every component clearly communicates its purpose; layer badges, dimension names, design probe explanations, and field descriptions all contribute to understanding",
     },
   },
   {
@@ -160,16 +160,16 @@ export const cdnDimensions: CDNDimension[] = [
     description:
       "Can the user sketch and explore tentatively, or must every action be definitive?",
     evaluationFocus:
-      "Check if opinions can be dismissed (deferred). " +
+      "Check if design probes can be dismissed (deferred). " +
       "Can intent be edited freely without losing the schema? " +
       "Is there a prompt-edit mode for quick what-if changes? " +
       "Can the creator regenerate/refine without starting over?",
     anchors: {
       1: "Every action is final — no way to explore tentatively or undo",
       2: "Limited provisionality — some actions reversible but exploration is difficult",
-      3: "Moderate — can dismiss opinions and re-edit intent, but regeneration resets progress",
-      4: "Good — opinions dismissable, intent editable, prompt-edit for experiments; refinement builds on existing schema",
-      5: "Excellent — full provisional workflow; dismiss opinions, edit intent incrementally, prompt-edit experiments, regenerate preserves resolved opinions, version history via provenance",
+      3: "Moderate — can dismiss design probes and re-edit intent, but regeneration resets progress",
+      4: "Good — design probes dismissable, intent editable, prompt-edit for experiments; refinement builds on existing schema",
+      5: "Excellent — full provisional workflow; dismiss design probes, edit intent incrementally, prompt-edit experiments, regenerate preserves resolved probes, version history via provenance",
     },
   },
 ];
@@ -188,14 +188,14 @@ Malleable Forms is a web-based form design tool with the following capabilities:
 - **Structured Intent Editor**: Users write natural language descriptions organized into sections (Purpose, Audience, Exclusions, Constraints). The markdown editor is always visible in the left panel.
 - **Smart Pipeline**: When the user clicks "Generate Form", the system detects which sections changed and runs only necessary steps (full generation, filter-only for exclusions, constraint recheck, or noop).
 - **Dimension Discovery**: The system identifies domain dimensions (e.g., "Insurance Requirements", "Medical History") and shows them as badges.
-- **Opinion Cards**: The system generates refinement questions (e.g., "Should we include previous surgeries?") with 2-4 options. Users click an option and the system updates both the intent AND the schema automatically. Cards can be dismissed (deferred). A "New questions" button regenerates opinions at any time.
-- **Live Form Preview**: The right panel shows a real-time preview of the generated form, updating after each opinion resolution or intent change.
+- **Design Probes**: The system generates refinement questions (e.g., "Should we include previous surgeries?") with 2-4 options. Users click an option and the system updates both the intent AND the schema automatically. Cards can be dismissed (deferred). A "New questions" button regenerates design probes at any time.
+- **Live Form Preview**: The right panel shows a real-time preview of the generated form, updating after each design probe resolution or intent change.
 - **Standards Detection**: The system identifies relevant compliance standards (e.g., OSHA, HIPAA) and lets users accept or skip them.
 - **Prompt Edit Mode**: A text input where users describe changes in natural language, applied without regenerating the full form.
-- **Provenance Log**: Every action (intent change, opinion resolution, schema update) is logged with timestamps, diffs, and rationale. Accessible from the workspace.
+- **Provenance Log**: Every action (intent change, design probe resolution, schema update) is logged with timestamps, diffs, and rationale. Accessible from the workspace.
 - **Bidirectional Sync**: Field edits in the schema backpropagate to the intent description.
 - **Conflict Detection**: Schema issues (duplicates, type mismatches) are detected and presented as auto-fix suggestions.
-- **Resolved Opinions Stack**: Answered opinions stack into a clickable summary that opens a grid dialog showing all decisions in order.
+- **Resolved Design Probes Stack**: Answered design probes stack into a clickable summary that opens a grid dialog showing all decisions in order.
 
 ## Dimension: ${dimension.name}
 ${dimension.description}
@@ -229,8 +229,8 @@ ${artifacts.initialIntent}
 ### Final Intent (after system refinement)
 ${artifacts.finalIntent}
 
-### Opinion Interactions (${artifacts.opinions.length} total)
-${artifacts.opinions.map((o, i) => `${i + 1}. Q: "${o.text}" → A: "${o.selectedLabel}" [${o.status}]`).join("\n")}
+### Design Probe Interactions (${artifacts.designProbes.length} total)
+${artifacts.designProbes.map((o, i) => `${i + 1}. Q: "${o.text}" → A: "${o.selectedLabel}" [${o.status}]`).join("\n")}
 
 ### Final Schema (${artifacts.fieldCount} fields)
 ${artifacts.schemaDescription}
@@ -263,7 +263,7 @@ export interface SessionArtifacts {
   };
   initialIntent: string;
   finalIntent: string;
-  opinions: {
+  designProbes: {
     text: string;
     selectedLabel: string;
     status: string;

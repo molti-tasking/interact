@@ -1,6 +1,6 @@
 "use client";
 
-import type { OpinionInteraction } from "@/lib/types";
+import type { DesignProbe } from "@/lib/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,8 +9,8 @@ import { X } from "lucide-react";
 import { useRef } from "react";
 import { ParticleOverlay } from "./ParticleOverlay";
 
-export function OpinionCard({
-  interaction,
+export function DesignProbeCard({
+  probe,
   index,
   isAnimating,
   editorRef,
@@ -18,7 +18,7 @@ export function OpinionCard({
   onSelect,
   onDismiss,
 }: {
-  interaction: OpinionInteraction;
+  probe: DesignProbe;
   index: number;
   isAnimating: boolean;
   editorRef: React.RefObject<HTMLDivElement | null>;
@@ -34,21 +34,21 @@ export function OpinionCard({
       )}
       <Card
         ref={cardRef}
-        data-testid={`opinion-card-${index}`}
-        className={cn(interaction.status === "loading" && "opacity-60")}
+        data-testid={`design-probe-card-${index}`}
+        className={cn(probe.status === "loading" && "opacity-60")}
       >
         <CardHeader className="pb-2">
           <div className="flex items-center justify-between gap-2">
             <CardTitle className="text-sm font-medium">
-              {interaction.text}
+              {probe.text}
             </CardTitle>
             <div className="flex shrink-0 items-center gap-1">
-              {interaction.status === "loading" && (
+              {probe.status === "loading" && (
                 <Badge variant="secondary" className="text-xs">
                   Updating...
                 </Badge>
               )}
-              {interaction.status === "pending" && (
+              {probe.status === "pending" && (
                 <Button
                   variant="ghost"
                   size="icon"
@@ -63,9 +63,9 @@ export function OpinionCard({
               )}
             </div>
           </div>
-          {interaction.explanation && (
+          {probe.explanation && (
             <p className="text-xs text-muted-foreground">
-              {interaction.explanation}
+              {probe.explanation}
             </p>
           )}
           <div className="flex gap-1.5">
@@ -73,35 +73,35 @@ export function OpinionCard({
               variant="outline"
               className={cn(
                 "text-[10px] w-fit",
-                interaction.layer === "intent"
+                probe.layer === "intent"
                   ? "text-blue-600 border-blue-200"
-                  : interaction.layer === "dimensions"
+                  : probe.layer === "dimensions"
                     ? "text-violet-600 border-violet-200"
                     : "text-amber-600 border-amber-200",
               )}
             >
-              {interaction.layer}
+              {probe.layer}
             </Badge>
-            {interaction.dimensionName && (
+            {probe.dimensionName && (
               <Badge variant="outline" className="text-[10px] w-fit">
-                {interaction.dimensionName}
+                {probe.dimensionName}
               </Badge>
             )}
           </div>
         </CardHeader>
         <CardContent>
           <div className="flex flex-wrap gap-2">
-            {interaction.options.map((option) => (
+            {probe.options.map((option) => (
               <Button
                 key={option.value}
-                data-testid={`opinion-option-${option.value}`}
+                data-testid={`design-probe-option-${option.value}`}
                 variant={
-                  interaction.selectedOption === option.value
+                  probe.selectedOption === option.value
                     ? "default"
                     : "outline"
                 }
                 size="sm"
-                disabled={interaction.status !== "pending" || anyLoading}
+                disabled={probe.status !== "pending" || anyLoading}
                 onClick={() => onSelect(index, option.value)}
               >
                 {option.label}

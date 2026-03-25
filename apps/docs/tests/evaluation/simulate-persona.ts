@@ -23,7 +23,7 @@ const env = () => ({
 });
 
 /**
- * Call the LLM to make a persona-driven decision about an opinion card.
+ * Call the LLM to make a persona-driven decision about a design probe card.
  */
 async function personaDecision(
   persona: Persona,
@@ -164,61 +164,61 @@ export async function simulatePersona(
       .first()
       .waitFor({ state: "visible", timeout: 30000 });
 
-    console.log(`[simulate] Form generated, waiting for opinions to be generated...`);
+    console.log(`[simulate] Form generated, waiting for design probes to be generated...`);
 
-    // Step 4: Wait for and resolve opinion cards
-    // Opinions are generated asynchronously (fire-and-forget LLM call after
+    // Step 4: Wait for and resolve design probe cards
+    // Design probes are generated asynchronously (fire-and-forget LLM call after
     // schema generation). We need to poll until they appear in the UI.
-    const resolvedOpinions: SessionArtifacts["opinions"] = [];
+    const resolvedProbes: SessionArtifacts["designProbes"] = [];
 
-    // Poll for opinion cards to appear (up to 60s)
-    const opinionTimeout = 60000;
+    // Poll for design probe cards to appear (up to 60s)
+    const probeTimeout = 60000;
     const pollInterval = 3000;
-    const opinionDeadline = Date.now() + opinionTimeout;
-    let opinionsAppeared = false;
+    const probeDeadline = Date.now() + probeTimeout;
+    let probesAppeared = false;
 
-    while (Date.now() < opinionDeadline) {
+    while (Date.now() < probeDeadline) {
       const deckSection = page.locator('[data-testid="card-deck-section"]');
       const hasDeck = await deckSection.isVisible().catch(() => false);
       if (hasDeck) {
         const cardCount = await page
-          .locator('[data-testid^="opinion-deck-card-"]')
+          .locator('[data-testid^="design-probe-deck-card-"]')
           .count();
         if (cardCount > 0) {
-          opinionsAppeared = true;
-          console.log(`[simulate] ${cardCount} opinion card(s) appeared`);
+          probesAppeared = true;
+          console.log(`[simulate] ${cardCount} design probe card(s) appeared`);
           break;
         }
       }
       console.log(
-        `[simulate] No opinions yet, polling... (${Math.round((opinionDeadline - Date.now()) / 1000)}s remaining)`,
+        `[simulate] No design probes yet, polling... (${Math.round((probeDeadline - Date.now()) / 1000)}s remaining)`,
       );
       await page.waitForTimeout(pollInterval);
     }
 
-    if (!opinionsAppeared) {
-      console.warn(`[simulate] No opinions appeared within ${opinionTimeout / 1000}s — continuing without`);
+    if (!probesAppeared) {
+      console.warn(`[simulate] No design probes appeared within ${probeTimeout / 1000}s — continuing without`);
     }
 
-    // Resolve opinion cards
+    // Resolve design probe cards
     let maxRounds = 8; // Safety limit
-    while (maxRounds > 0 && opinionsAppeared) {
+    while (maxRounds > 0 && probesAppeared) {
       maxRounds--;
 
-      // Find the first pending opinion card's options
-      const opinionCards = page.locator(
-        '[data-testid^="opinion-deck-card-"]',
+      // Find the first pending design probe card's options
+      const probeCards = page.locator(
+        '[data-testid^="design-probe-deck-card-"]',
       );
-      const cardCount = await opinionCards.count();
+      const cardCount = await probeCards.count();
       if (cardCount === 0) break;
 
-      const firstCard = opinionCards.first();
+      const firstCard = probeCards.first();
       const questionText =
         (await firstCard.locator(".font-medium").first().textContent()) ?? "";
 
       // Extract options from buttons
       const optionButtons = firstCard.locator(
-        '[data-testid^="opinion-option-"]',
+        '[data-testid^="design-probe-option-"]',
       );
       const optCount = await optionButtons.count();
       if (optCount === 0) break;
@@ -227,7 +227,7 @@ export async function simulatePersona(
       for (let i = 0; i < optCount; i++) {
         const btn = optionButtons.nth(i);
         const testId = (await btn.getAttribute("data-testid")) ?? "";
-        const value = testId.replace("opinion-option-", "");
+        const value = testId.replace("design-probe-option-", "");
         const label = (await btn.textContent()) ?? value;
         options.push({ value, label });
       }
@@ -242,22 +242,22 @@ export async function simulatePersona(
         options.find((o) => o.value === chosenValue)?.label ?? chosenValue;
 
       console.log(
-        `[simulate] Opinion: "${questionText}" → "${chosenLabel}"`,
+        `[simulate] Design probe: "${questionText}" → "${chosenLabel}"`,
       );
 
       // Click the chosen option
       await page
-        .locator(`[data-testid="opinion-option-${chosenValue}"]`)
+        .locator(`[data-testid="design-probe-option-${chosenValue}"]`)
         .click();
-      resolvedOpinions.push({
+      resolvedProbes.push({
         text: questionText,
         selectedLabel: chosenLabel,
         status: "resolved",
       });
 
-      // Wait for the opinion to be processed and the card to disappear.
+      // Wait for the design probe to be processed and the card to disappear.
       // The resolve triggers a schema update round-trip, so give it time.
-      console.log(`[simulate] Waiting for opinion resolution to process...`);
+      console.log(`[simulate] Waiting for design probe resolution to process...`);
       await page.waitForTimeout(5000);
     }
 
@@ -281,7 +281,7 @@ export async function simulatePersona(
     }
 
     console.log(
-      `[simulate] Done: ${fieldCount} fields, ${resolvedOpinions.length} opinions resolved`,
+      `[simulate] Done: ${fieldCount} fields, ${resolvedProbes.length} design probes resolved`,
     );
 
     return {
@@ -294,11 +294,11 @@ export async function simulatePersona(
       scenario: { name: scenario.name },
       initialIntent,
       finalIntent,
-      opinions: resolvedOpinions,
+      designProbes: resolvedProbes,
       fieldCount,
       schemaDescription: `${fieldCount} fields: ${fieldLabels.join(", ")}`,
-      provenanceEntries: resolvedOpinions.length + 1, // intent update + opinion resolutions
-      provenanceSummary: `Intent updated once. ${resolvedOpinions.length} opinion resolutions recorded.`,
+      provenanceEntries: resolvedProbes.length + 1, // intent update + probe resolutions
+      provenanceSummary: `Intent updated once. ${resolvedProbes.length} design probe resolutions recorded.`,
     };
   } catch (err) {
     // Save a screenshot for debugging failed sessions

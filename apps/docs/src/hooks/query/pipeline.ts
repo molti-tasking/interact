@@ -12,7 +12,7 @@ import { diffSchemas } from "@/lib/engine/schema-ops";
 import { createClient } from "@/lib/supabase/client";
 import type { PortfolioSchema, PipelineStrategy, StructuredIntent } from "@/lib/types";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useGenerateOpinions } from "./opinions";
+import { useGenerateDesignProbes } from "./design-probes";
 import { useGenerateSchema } from "./schema-generation";
 import { useDetectStandards } from "./standards";
 
@@ -31,7 +31,7 @@ export interface PipelineResult {
 export function usePipelineGenerate(portfolioId: string) {
   const queryClient = useQueryClient();
   const generateSchema = useGenerateSchema(portfolioId);
-  const generateOpinions = useGenerateOpinions(portfolioId);
+  const generateDesignProbes = useGenerateDesignProbes(portfolioId);
   const detectStandards = useDetectStandards(portfolioId);
 
   return useMutation({
@@ -97,8 +97,8 @@ export function usePipelineGenerate(portfolioId: string) {
               acceptedStandards.length > 0 ? acceptedStandards : undefined,
           });
 
-          // Step 4: Generate opinions (fire-and-forget)
-          generateOpinions.mutate({
+          // Step 4: Generate design probes (fire-and-forget)
+          generateDesignProbes.mutate({
             intent: schemaResult.intent,
             acceptedStandards:
               acceptedStandards.length > 0 ? acceptedStandards : undefined,

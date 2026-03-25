@@ -18,7 +18,7 @@ Automated evaluation harness for the UIST '26 paper.
 │       ▼              ▼              ▼                 │
 │  Playwright against live/local app                   │
 │  → Creates portfolio, enters intent, resolves        │
-│    opinions based on persona profile                 │
+│    design probes based on persona profile             │
 │  → Collects artifacts: intent, conversation log,     │
 │    final schema, provenance                          │
 │                                                       │
