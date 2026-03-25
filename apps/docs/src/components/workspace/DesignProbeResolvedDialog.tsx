@@ -12,31 +12,31 @@ import {
   LayerBadge,
   layerAccentColors,
 } from "@/components/workspace/DecisionCard";
-import type { OpinionInteraction } from "@/lib/types";
+import type { DesignProbe } from "@/lib/types";
 import { ArrowDown, Check } from "lucide-react";
 import React from "react";
 
-interface OpinionCardResolvedDialogProps {
+interface DesignProbeResolvedDialogProps {
   dialogOpen: boolean;
   setDialogOpen: (open: boolean) => void;
-  resolvedOpinions: OpinionInteraction[];
+  resolvedProbes: DesignProbe[];
 }
 
-export const OpinionCardResolvedDialog = ({
+export const DesignProbeResolvedDialog = ({
   dialogOpen,
   setDialogOpen,
-  resolvedOpinions,
-}: OpinionCardResolvedDialogProps) => {
+  resolvedProbes,
+}: DesignProbeResolvedDialogProps) => {
   return (
     <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
       <DialogContent className="max-w-5xl max-h-[80vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
-            Resolved Decisions ({resolvedOpinions.length})
+            Resolved Decisions ({resolvedProbes.length})
           </DialogTitle>
         </DialogHeader>
         <div className="grid gap-3 mt-2">
-          {resolvedOpinions.map((o, index) => {
+          {resolvedProbes.map((o, index) => {
             const selectedLabel =
               o.options.find((opt) => opt.value === o.selectedOption)?.label ??
               o.selectedOption;
@@ -61,7 +61,7 @@ export const OpinionCardResolvedDialog = ({
                     </span>
                   </div>
                 </DecisionCard>
-                {index < resolvedOpinions.length - 1 && (
+                {index < resolvedProbes.length - 1 && (
                   <div className="flex justify-self-center opacity-20">
                     <ArrowDown />
                   </div>

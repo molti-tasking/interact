@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { InlineEditableTitle } from "@/components/ui/inline-editable-title";
-import { ConversationPane } from "@/components/workspace/ConversationPane";
+import { ReflectiveConversationPane } from "@/components/workspace/ConversationPane";
 import { FieldEditDrawer } from "@/components/workspace/FieldEditDrawer";
 import { usePortfolio, useUpdatePortfolio } from "@/hooks/query/portfolios";
 import { logProvenance } from "@/lib/engine/provenance";
@@ -166,10 +166,10 @@ export default function PortfolioWorkspacePage() {
       >
         {/* Left: Intent + Dimensions */}
         <div
-          data-testid="conversation-pane"
+          data-testid="reflective-conversation-pane"
           className="flex flex-col overflow-hidden"
         >
-          <ConversationPane portfolio={portfolio} />
+          <ReflectiveConversationPane portfolio={portfolio} />
         </div>
 
         {/* Right: Preview */}

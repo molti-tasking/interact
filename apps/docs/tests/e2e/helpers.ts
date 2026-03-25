@@ -22,7 +22,7 @@ export async function resetDatabase(): Promise<void> {
   const client = new Client({ connectionString: DB_URL });
   await client.connect();
   await client.query(
-    "TRUNCATE opinion_interactions, responses, provenance_log, portfolios CASCADE",
+    "TRUNCATE design_probes, responses, provenance_log, portfolios CASCADE",
   );
   await client.end();
 }
@@ -54,20 +54,20 @@ export async function waitForFormFields(page: Page): Promise<void> {
 }
 
 /**
- * Wait for opinion cards to appear.
+ * Wait for design probe cards to appear.
  */
-export async function waitForOpinions(page: Page): Promise<void> {
+export async function waitForDesignProbes(page: Page): Promise<void> {
   await page.locator('[data-testid="card-deck-section"]').waitFor({ state: "visible", timeout: 30000 });
 }
 
 /**
- * Click an opinion option by its value.
+ * Click a design probe option by its value.
  */
-export async function resolveOpinion(
+export async function resolveDesignProbe(
   page: Page,
   optionValue: string,
 ): Promise<void> {
-  await page.locator(`[data-testid="opinion-option-${optionValue}"]`).click();
+  await page.locator(`[data-testid="design-probe-option-${optionValue}"]`).click();
 }
 
 /**

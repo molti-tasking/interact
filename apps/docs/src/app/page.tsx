@@ -29,7 +29,7 @@ export default function Home() {
           </p>
           <p>
             <strong>Interact</strong> empowers system builders to implement{" "}
-            <em>thoughtful, opinionated</em> AI interactions into AI-agnostic
+            <em>thoughtful, probe-driven</em> AI interactions into AI-agnostic
             systems. Our components enhance existing workflows rather than
             replace them, maintaining system reliability while unlocking new
             capabilities.
@@ -176,7 +176,7 @@ export default function Home() {
 
             <div className="border-l-2 pl-4 py-1">
               <h3 className="font-semibold text-sm mb-1">
-                Opinionated Interactions
+                Design Probes
               </h3>
               <p className="text-sm text-muted-foreground">
                 Rather than generic AI capabilities, we provide specific,

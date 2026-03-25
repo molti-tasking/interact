@@ -13,7 +13,7 @@ import type { FixtureEntry } from "./fixture-types";
  * Matching strategy:
  * 1. Read all fixture files for this action in the scenario dir
  * 2. Sort by filename (preserves recording order)
- * 3. For resolveOpinionInteraction: try matchHint-based lookup first
+ * 3. For resolveDesignProbe (fixture key: resolveDesignProbeAction): try matchHint-based lookup first
  * 4. Fallback: return the Nth fixture (N = call count for this action)
  */
 
@@ -60,10 +60,7 @@ function loadScenarioFixtures(scenario: string): Map<string, FixtureEntry[]> {
   const byAction = new Map<string, FixtureEntry[]>();
 
   for (const filename of allFiles) {
-    const content = fs.readFileSync(
-      path.join(scenarioDir, filename),
-      "utf-8",
-    );
+    const content = fs.readFileSync(path.join(scenarioDir, filename), "utf-8");
     const entry: FixtureEntry = JSON.parse(content);
     const existing = byAction.get(entry.actionName) ?? [];
     existing.push(entry);
@@ -74,10 +71,7 @@ function loadScenarioFixtures(scenario: string): Map<string, FixtureEntry[]> {
   return byAction;
 }
 
-export function loadFixture<T>(
-  actionName: string,
-  currentInput?: unknown,
-): T {
+export function loadFixture<T>(actionName: string, currentInput?: unknown): T {
   const { scenario, token } = getActiveScenario();
 
   // Reset counters when scenario token changes (new test started)
@@ -98,7 +92,7 @@ export function loadFixture<T>(
   const callIndex = callCounters.get(actionName) ?? 0;
   callCounters.set(actionName, callIndex + 1);
 
-  // Try hint-based matching first (for resolveOpinionInteraction)
+  // Try hint-based matching first (for resolveDesignProbe / fixture key: resolveDesignProbeAction)
   if (
     currentInput &&
     typeof currentInput === "object" &&

@@ -13,7 +13,7 @@ import {
   layerAccentColors,
   severityConfig,
 } from "@/components/workspace/DecisionCard";
-import type { OpinionInteraction } from "@/lib/types";
+import type { DesignProbe } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import {
   AlertTriangle,
@@ -24,14 +24,14 @@ import {
   RefreshCw,
 } from "lucide-react";
 import { useState } from "react";
-import { OpinionCardResolvedDialog } from "./OpinionCardResolvedDialog";
+import { DesignProbeResolvedDialog } from "./DesignProbeResolvedDialog";
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 
 type DeckItem =
-  | { kind: "opinion"; data: OpinionInteraction }
+  | { kind: "probe"; data: DesignProbe }
   | { kind: "conflict"; data: SchemaConflict };
 
 const severityIcons = {
@@ -44,42 +44,42 @@ const severityIcons = {
 // Main component
 // ---------------------------------------------------------------------------
 
-export function OpinionCardDeck({
-  opinions,
+export function DesignProbeDeck({
+  probes,
   conflicts,
   anyLoading,
   isRegenerating,
-  onSelectOpinion,
-  onDismissOpinion,
+  onSelectProbe,
+  onDismissProbe,
   onSelectConflictFix,
   onDismissConflict,
   onRegenerate,
 }: {
-  opinions: OpinionInteraction[];
+  probes: DesignProbe[];
   conflicts: SchemaConflict[];
   anyLoading: boolean;
   isRegenerating?: boolean;
-  onSelectOpinion: (opinionId: string, value: string) => void;
-  onDismissOpinion: (opinionId: string) => void;
+  onSelectProbe: (probeId: string, value: string) => void;
+  onDismissProbe: (probeId: string) => void;
   onSelectConflictFix: (conflict: SchemaConflict, fix: ConflictFix) => void;
   onDismissConflict: (conflictId: string) => void;
   onRegenerate?: () => void;
 }) {
   const [dialogOpen, setDialogOpen] = useState(false);
 
-  const pendingOpinions = opinions.filter(
+  const pendingProbes = probes.filter(
     (o) => o.status === "pending" || o.status === "loading",
   );
-  const resolvedOpinions = opinions.filter((o) => o.status === "resolved");
+  const resolvedProbes = probes.filter((o) => o.status === "resolved");
 
   const allPendingItems: DeckItem[] = [
     ...conflicts.map((c): DeckItem => ({ kind: "conflict", data: c })),
-    ...pendingOpinions.map((o): DeckItem => ({ kind: "opinion", data: o })),
+    ...pendingProbes.map((o): DeckItem => ({ kind: "probe", data: o })),
   ];
 
   const visibleItems = allPendingItems.slice(0, 3);
   const hiddenCount = allPendingItems.length - visibleItems.length;
-  const resolvedCount = resolvedOpinions.length;
+  const resolvedCount = resolvedProbes.length;
 
   if (allPendingItems.length === 0 && resolvedCount === 0) return null;
 
@@ -112,7 +112,7 @@ export function OpinionCardDeck({
                   />
                 )}
                 {(() => {
-                  const last = resolvedOpinions[resolvedOpinions.length - 1];
+                  const last = resolvedProbes[resolvedProbes.length - 1];
                   if (!last) return null;
                   const selectedLabel =
                     last.options.find(
@@ -212,13 +212,13 @@ export function OpinionCardDeck({
         return (
           <DecisionCard
             key={o.id}
-            data-testid={`opinion-deck-card-${o.id}`}
+            data-testid={`design-probe-deck-card-${o.id}`}
             title={o.text}
             accentColor={layerAccentColors[o.layer] ?? "border-gray-300"}
             description={o.explanation}
             disabled={o.status === "loading"}
             onDismiss={
-              o.status === "pending" ? () => onDismissOpinion(o.id) : undefined
+              o.status === "pending" ? () => onDismissProbe(o.id) : undefined
             }
             badges={
               <>
@@ -231,13 +231,13 @@ export function OpinionCardDeck({
               {o.options.map((option) => (
                 <Button
                   key={option.value}
-                  data-testid={`opinion-option-${option.value}`}
+                  data-testid={`design-probe-option-${option.value}`}
                   variant={
                     o.selectedOption === option.value ? "default" : "outline"
                   }
                   size="sm"
                   disabled={o.status !== "pending" || anyLoading}
-                  onClick={() => onSelectOpinion(o.id, option.value)}
+                  onClick={() => onSelectProbe(o.id, option.value)}
                 >
                   {option.label}
                 </Button>
@@ -261,7 +261,7 @@ export function OpinionCardDeck({
               onClick={onRegenerate}
               disabled={anyLoading || isRegenerating}
               className="text-xs text-muted-foreground"
-              title="Generate new refinement questions"
+              title="Generate new design probes"
             >
               <RefreshCw
                 className={cn(
@@ -275,10 +275,10 @@ export function OpinionCardDeck({
         )}
       </div>
 
-      <OpinionCardResolvedDialog
+      <DesignProbeResolvedDialog
         dialogOpen={dialogOpen}
         setDialogOpen={setDialogOpen}
-        resolvedOpinions={resolvedOpinions}
+        resolvedProbes={resolvedProbes}
       />
     </div>
   );

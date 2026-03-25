@@ -4,8 +4,8 @@ import type {
   ConflictFix,
   SchemaConflict,
 } from "@/app/actions/conflict-actions";
-import { resolveOpinionInteractionAction } from "@/app/actions/opinion-actions";
-import { Badge } from "@/components/ui/badge";
+import { resolveDesignProbeAction } from "@/app/actions/design-probe-actions";
+import { PromptDiff } from "@/components/form/configurator/PromptDiff";
 import { Button } from "@/components/ui/button";
 import { MarkdownEditor } from "@/components/ui/markdown-editor";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -14,15 +14,15 @@ import {
   useDetectConflicts,
   useResolveConflict,
 } from "@/hooks/query/conflicts";
-import { useDimensions } from "@/hooks/query/dimensions";
 import {
-  useDismissOpinion,
-  useGenerateOpinions,
-  useOpinions,
-  useResolveOpinion,
-} from "@/hooks/query/opinions";
+  useDesignProbes,
+  useDismissDesignProbe,
+  useGenerateDesignProbes,
+  useResolveDesignProbe,
+} from "@/hooks/query/design-probes";
 import { usePipelineGenerate } from "@/hooks/query/pipeline";
 import { useUpdatePortfolio } from "@/hooks/query/portfolios";
+import { useProvenance } from "@/hooks/query/provenance";
 import {
   useAcceptStandard,
   useDetectedStandards,
@@ -41,13 +41,22 @@ import { cn } from "@/lib/utils";
 import { useQueryClient } from "@tanstack/react-query";
 import { Loader2, Shield, Sparkles, XIcon } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { OpinionCardDeck } from "./OpinionCardDeck";
+import { Label } from "../ui/label";
+import { DesignProbeDeck } from "./DesignProbeDeck";
 
-interface ConversationPaneProps {
+interface ReflectiveConversationPaneProps {
   portfolio: Portfolio;
 }
 
-export function ConversationPane({ portfolio }: ConversationPaneProps) {
+/**
+ * ReflectiveConversationPane — the primary elicitation workspace.
+ * Named after Rost/Schön's "reflective conversation": interaction as a
+ * sequence of moves (user) and backtalk (system) where meaning emerges
+ * through reciprocal exchange, not upfront specification.
+ */
+export function ReflectiveConversationPane({
+  portfolio,
+}: ReflectiveConversationPaneProps) {
   const portfolioSchema = portfolio.schema as unknown as PortfolioSchema;
 
   const editorRef = useRef<HTMLDivElement>(null);
@@ -64,17 +73,15 @@ export function ConversationPane({ portfolio }: ConversationPaneProps) {
   );
 
   // --- React Query hooks ---
-  const { data: dimensions } = useDimensions(portfolio.id);
-
   const { data: detectedStandards } = useDetectedStandards(portfolio.id);
   const acceptStandard = useAcceptStandard(portfolio.id);
   const skipStandard = useSkipStandard(portfolio.id);
   const { data: skippedStandardIds } = useSkippedStandards(portfolio.id);
 
-  const { data: opinions } = useOpinions(portfolio.id);
-  const generateOpinions = useGenerateOpinions(portfolio.id);
-  const resolveOpinion = useResolveOpinion(portfolio.id);
-  const dismissOpinion = useDismissOpinion(portfolio.id);
+  const { data: designProbes } = useDesignProbes(portfolio.id);
+  const generateDesignProbes = useGenerateDesignProbes(portfolio.id);
+  const resolveDesignProbe = useResolveDesignProbe(portfolio.id);
+  const dismissDesignProbe = useDismissDesignProbe(portfolio.id);
 
   // Pipeline hook replaces the old handleGenerate
   const pipeline = usePipelineGenerate(portfolio.id);
@@ -95,6 +102,13 @@ export function ConversationPane({ portfolio }: ConversationPaneProps) {
   const [promptEditText, setPromptEditText] = useState("");
   const [isPromptEditing, setIsPromptEditing] = useState(false);
   const [error, setError] = useState<string | null | undefined>();
+
+  const { data: provenanceEntries } = useProvenance(portfolio.id);
+
+  // Derive previousIntent from the latest provenance entry
+  const latestEntry = provenanceEntries?.[0] ?? null;
+  const previousIntent = latestEntry?.prev_intent?.purpose.content ?? null;
+  const [showDiff, setShowDiff] = useState(false);
 
   // Sync structured intent from portfolio when it changes externally
   useEffect(() => {
@@ -128,24 +142,21 @@ export function ConversationPane({ portfolio }: ConversationPaneProps) {
 
       setStructuredIntent(result.intent);
     } catch (err) {
-      console.error("[ConversationPane] Generation error:", err);
+      console.error("[ReflectiveConversationPane] Generation error:", err);
       setError(err instanceof Error ? err.message : "Generation failed");
     }
   };
 
   // -------------------------------------------------------------------
-  // Opinion interaction: select an option
+  // Design probe interaction: select an option
   // -------------------------------------------------------------------
-  const handleOpinionSelect = async (
-    opinionId: string,
-    selectedValue: string,
-  ) => {
-    const interaction = (opinions ?? []).find((o) => o.id === opinionId);
-    if (!interaction || interaction.status !== "pending") return;
+  const handleProbeSelect = async (probeId: string, selectedValue: string) => {
+    const probe = (designProbes ?? []).find((o) => o.id === probeId);
+    if (!probe || probe.status !== "pending") return;
 
     try {
-      const result = await resolveOpinion.mutateAsync({
-        opinion: interaction,
+      const result = await resolveDesignProbe.mutateAsync({
+        probe,
         selectedValue,
         currentIntent: structuredIntent,
         currentSchema: portfolioSchema,
@@ -153,13 +164,13 @@ export function ConversationPane({ portfolio }: ConversationPaneProps) {
 
       setStructuredIntent(result.newIntent);
     } catch (err) {
-      console.error("[ConversationPane] Opinion error:", err);
-      setError(err instanceof Error ? err.message : "Opinion failed");
+      console.error("[ReflectiveConversationPane] Design probe error:", err);
+      setError(err instanceof Error ? err.message : "Design probe failed");
     }
   };
 
-  const handleDismissOpinion = (opinionId: string) => {
-    dismissOpinion.mutate(opinionId);
+  const handleDismissProbe = (probeId: string) => {
+    dismissDesignProbe.mutate(probeId);
   };
 
   // -------------------------------------------------------------------
@@ -172,7 +183,7 @@ export function ConversationPane({ portfolio }: ConversationPaneProps) {
     setError(null);
 
     try {
-      const response = await resolveOpinionInteractionAction({
+      const response = await resolveDesignProbeAction({
         intent: structuredIntent,
         currentSchema: portfolioSchema,
         interactionText: "User requested a direct prompt-based edit",
@@ -211,7 +222,7 @@ export function ConversationPane({ portfolio }: ConversationPaneProps) {
         setError(response.error || "Failed to apply edit");
       }
     } catch (err) {
-      console.error("[ConversationPane] Prompt edit error:", err);
+      console.error("[ReflectiveConversationPane] Prompt edit error:", err);
       setError(err instanceof Error ? err.message : "Edit failed");
     } finally {
       setIsPromptEditing(false);
@@ -257,7 +268,7 @@ export function ConversationPane({ portfolio }: ConversationPaneProps) {
       });
       setStructuredIntent(result.updatedIntent);
     } catch (err) {
-      console.error("[ConversationPane] Conflict fix error:", err);
+      console.error("[ReflectiveConversationPane] Conflict fix error:", err);
       setError(err instanceof Error ? err.message : "Conflict fix failed");
     }
   };
@@ -267,24 +278,22 @@ export function ConversationPane({ portfolio }: ConversationPaneProps) {
   };
 
   // -------------------------------------------------------------------
-  // Regenerate opinions
+  // Regenerate design probes
   // -------------------------------------------------------------------
-  const handleRegenerateOpinions = () => {
-    if (!structuredIntent.purpose.content.trim() || generateOpinions.isPending)
+  const handleRegenerateProbes = () => {
+    if (
+      !structuredIntent.purpose.content.trim() ||
+      generateDesignProbes.isPending
+    )
       return;
-
-    const acceptedDims = (dimensions ?? []).filter(
-      (d) => (d.status === "accepted" || d.status === "edited") && d.isActive,
-    );
 
     const acceptedStandardRefs = portfolioSchema.acceptedStandards ?? [];
     const acceptedStds = (detectedStandards ?? []).filter((s) =>
       acceptedStandardRefs.some((ref) => ref.standardId === s.standard.id),
     );
 
-    generateOpinions.mutate({
+    generateDesignProbes.mutate({
       intent: structuredIntent,
-      dimensions: acceptedDims.length > 0 ? acceptedDims : undefined,
       acceptedStandards: acceptedStds.length > 0 ? acceptedStds : undefined,
     });
   };
@@ -293,10 +302,6 @@ export function ConversationPane({ portfolio }: ConversationPaneProps) {
   // Derived state
   // -------------------------------------------------------------------
   const isGenerating = pipeline.isPending || isPromptEditing;
-
-  const visibleOpinions = (opinions ?? []).filter(
-    (o) => o.status !== "resolved" && o.status !== "dismissed",
-  );
 
   const skippedIds = skippedStandardIds ?? new Set<string>();
   const visibleStandards = (detectedStandards ?? []).filter(
@@ -315,6 +320,19 @@ export function ConversationPane({ portfolio }: ConversationPaneProps) {
     <div className="flex flex-col h-full">
       {/* Intent Editor — single field, structured data underneath */}
       <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <Label htmlFor="basePrompt">What you want?</Label>
+          {previousIntent && previousIntent !== editorValue && (
+            <Button
+              onClick={() => setShowDiff(!showDiff)}
+              variant="ghost"
+              size="sm"
+              className="h-5 px-2 text-xs text-muted-foreground"
+            >
+              {!showDiff ? "View" : "Hide"} changes
+            </Button>
+          )}
+        </div>
         <div className="relative overflow-hidden rounded-2xl">
           {/* Animated gradient when processing */}
           <div
@@ -325,19 +343,28 @@ export function ConversationPane({ portfolio }: ConversationPaneProps) {
             )}
           />
 
-          <div data-testid="intent-editor">
-            <MarkdownEditor
-              ref={editorRef}
-              placeholder="Describe what this form is for, who will use it, and what data you need to collect..."
-              value={editorValue}
-              className={cn(
-                "rounded-2xl relative border",
-                isGenerating ? "bg-transparent" : "",
-              )}
-              onChange={handleEditorChange}
-              disabled={isGenerating || promptEditOpen}
-            />
-          </div>
+          {showDiff && previousIntent ? (
+            <div
+              className="border rounded-2xl px-3 py-2 bg-muted/30 cursor-pointer"
+              onClick={() => setShowDiff(false)}
+            >
+              <PromptDiff previous={previousIntent} current={editorValue} />
+            </div>
+          ) : (
+            <div data-testid="intent-editor">
+              <MarkdownEditor
+                ref={editorRef}
+                placeholder="Describe what this form is for, who will use it, and what data you need to collect..."
+                value={editorValue}
+                className={cn(
+                  "rounded-2xl relative border",
+                  isGenerating ? "bg-transparent" : "",
+                )}
+                onChange={handleEditorChange}
+                disabled={isGenerating || promptEditOpen}
+              />
+            </div>
+          )}
         </div>
 
         {/* Error display */}
@@ -411,7 +438,7 @@ export function ConversationPane({ portfolio }: ConversationPaneProps) {
         </div>
       </div>
 
-      {/* Standards + Card Deck (opinions + conflicts) */}
+      {/* Standards + Card Deck (design probes + conflicts) */}
       <ScrollArea className="flex-1 py-4">
         <div className="space-y-3 min-w-0">
           {/* Suggested Standards */}
@@ -433,50 +460,42 @@ export function ConversationPane({ portfolio }: ConversationPaneProps) {
             </div>
           )}
 
-          {/* Opinion Card Deck (unified: conflicts + opinions) */}
-          {(visibleConflicts.length > 0 || (opinions ?? []).length > 0) && (
+          {/* Design Probe Deck (unified: conflicts + design probes) */}
+          {(visibleConflicts.length > 0 || (designProbes ?? []).length > 0) && (
             <div data-testid="card-deck-section" className="space-y-2">
               <h3 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
                 <Sparkles className="h-3.5 w-3.5 text-violet-500" />
                 Decisions
-                {(generateOpinions.isPending ||
-                  resolveOpinion.isPending ||
+                {(generateDesignProbes.isPending ||
+                  resolveDesignProbe.isPending ||
                   resolveConflict.isPending) && (
                   <Loader2 className="h-3 w-3 animate-spin" />
                 )}
               </h3>
-              <OpinionCardDeck
-                opinions={opinions ?? []}
+              {generateDesignProbes.isPending &&
+                (designProbes ?? []).length === 0 && (
+                  <div className="flex items-center gap-2 rounded-lg border border-dashed p-4 text-sm text-muted-foreground animate-pulse">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Generating design probes...
+                  </div>
+                )}
+              <DesignProbeDeck
+                probes={designProbes ?? []}
                 conflicts={visibleConflicts}
                 anyLoading={
-                  resolveOpinion.isPending || resolveConflict.isPending
+                  resolveDesignProbe.isPending || resolveConflict.isPending
                 }
-                isRegenerating={generateOpinions.isPending}
-                onSelectOpinion={handleOpinionSelect}
-                onDismissOpinion={handleDismissOpinion}
+                isRegenerating={generateDesignProbes.isPending}
+                onSelectProbe={handleProbeSelect}
+                onDismissProbe={handleDismissProbe}
                 onSelectConflictFix={handleConflictFix}
                 onDismissConflict={handleDismissConflict}
-                onRegenerate={handleRegenerateOpinions}
+                onRegenerate={handleRegenerateProbes}
               />
             </div>
           )}
         </div>
       </ScrollArea>
-
-      {/* Dimensions (collapsed summary when available) */}
-      {(dimensions ?? []).length > 0 && visibleOpinions.length === 0 && (
-        <div className="px-4 pb-4">
-          <div className="flex flex-wrap gap-1.5">
-            {(dimensions ?? [])
-              .filter((d) => d.status !== "rejected")
-              .map((d) => (
-                <Badge key={d.id} variant="outline" className="text-xs">
-                  {d.name}
-                </Badge>
-              ))}
-          </div>
-        </div>
-      )}
     </div>
   );
 }

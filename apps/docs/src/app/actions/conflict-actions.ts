@@ -4,7 +4,8 @@ import { serializeForLLM } from "@/lib/engine/structured-intent";
 import { withTracing } from "@/lib/telemetry";
 import type { PortfolioSchema, StructuredIntent } from "@/lib/types";
 import { model } from "@/lib/model";
-import { generateText } from "ai";
+import { generateText, Output } from "ai";
+import { z } from "zod";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -23,7 +24,7 @@ export interface SchemaConflict {
   severity: "error" | "warning" | "info";
   description: string;
   fieldIds: string[];
-  /** Auto-fix options presented as opinion choices */
+  /** Auto-fix options presented as design probe choices */
   fixes: ConflictFix[];
 }
 
@@ -49,6 +50,24 @@ export interface ResolveConflictResponse {
   };
   error?: string;
 }
+
+// ---------------------------------------------------------------------------
+// Zod schema for structured output
+// ---------------------------------------------------------------------------
+
+const detectConflictsSchema = z.object({
+  conflicts: z.array(z.object({
+    kind: z.enum(["semantic_overlap", "type_mismatch", "contradictory_constraints", "naming_inconsistency", "missing_required"]),
+    severity: z.enum(["error", "warning", "info"]),
+    description: z.string(),
+    fieldIds: z.array(z.string()),
+    fixes: z.array(z.object({
+      value: z.string(),
+      label: z.string().describe("SHORT label, 2-6 words"),
+      description: z.string(),
+    })),
+  })),
+});
 
 // ---------------------------------------------------------------------------
 // Detect conflicts
@@ -177,25 +196,7 @@ Look for these issues (only report REAL problems, not minor style preferences):
 5. **missing_required**: Fields that should logically be required but aren't, given the form's purpose
 
 For EACH conflict found, provide 2-3 concrete fix options (not generic advice).
-
-Return ONLY valid JSON:
-{
-  "conflicts": [
-    {
-      "kind": "semantic_overlap",
-      "severity": "warning",
-      "description": "Brief description of the issue",
-      "fieldIds": ["field-id-1", "field-id-2"],
-      "fixes": [
-        { "value": "keepFirst", "label": "Keep 'Email Address'", "description": "Remove contactEmail, keep email field" },
-        { "value": "keepSecond", "label": "Keep 'Contact Email'", "description": "Remove email, keep contactEmail" },
-        { "value": "merge", "label": "Merge both fields", "description": "Combine into single comprehensive email field" }
-      ]
-    }
-  ]
-}
-
-If no conflicts found, return: { "conflicts": [] }
+If no conflicts found, return an empty conflicts array.
 Rules:
 - Only real issues, not nitpicks
 - Max 5 conflicts
@@ -209,21 +210,17 @@ Rules:
           model,
           prompt,
           temperature: 0.2,
+          output: Output.object({ schema: detectConflictsSchema }),
           experimental_telemetry: { isEnabled: true, functionId: "detect-conflicts", recordInputs: true, recordOutputs: true },
         }),
     );
 
-    let parsed: { conflicts: Omit<SchemaConflict, "id">[] };
-    try {
-      const jsonMatch = result.text.match(/\{[\s\S]*\}/);
-      if (!jsonMatch) throw new Error("No JSON");
-      parsed = JSON.parse(jsonMatch[0]);
-    } catch {
-      // LLM parse failure — just return deterministic results
+    if (!result.output) {
+      // Structured output parse failure — just return deterministic results
       return { success: true, conflicts: deterministicConflicts };
     }
 
-    const llmConflicts: SchemaConflict[] = (parsed.conflicts ?? [])
+    const llmConflicts: SchemaConflict[] = (result.output.conflicts ?? [])
       .slice(0, 5)
       .map((c, i) => ({
         ...c,

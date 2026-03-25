@@ -1,69 +1,66 @@
 "use client";
 
 import {
-  generateOpinionInteractionsAction,
-  resolveOpinionInteractionAction,
-} from "@/app/actions/opinion-actions";
-import type { DimensionObject } from "@/lib/dimension-types";
+  generateDesignProbesAction,
+  resolveDesignProbeAction,
+} from "@/app/actions/design-probe-actions";
 import type { DetectedStandard } from "@/lib/domain-standards";
 import { logProvenance } from "@/lib/engine/provenance";
 import { diffSchemas } from "@/lib/engine/schema-ops";
 import { createClient } from "@/lib/supabase/client";
-import { rowToOpinion } from "@/lib/supabase/types";
-import type { OpinionInteraction, PortfolioSchema, StructuredIntent } from "@/lib/types";
+import { rowToDesignProbe } from "@/lib/supabase/types";
+import type { DesignProbe, PortfolioSchema, StructuredIntent } from "@/lib/types";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-function opinionsKey(portfolioId: string) {
-  return ["opinions", portfolioId] as const;
+function designProbesKey(portfolioId: string) {
+  return ["design-probes", portfolioId] as const;
 }
 
 /**
- * Fetch persisted opinion interactions for a portfolio.
+ * Fetch persisted design probes for a portfolio.
  */
-export function useOpinions(portfolioId: string | undefined) {
+export function useDesignProbes(portfolioId: string | undefined) {
   return useQuery({
-    queryKey: opinionsKey(portfolioId ?? ""),
-    queryFn: async (): Promise<OpinionInteraction[]> => {
+    queryKey: designProbesKey(portfolioId ?? ""),
+    queryFn: async (): Promise<DesignProbe[]> => {
       if (!portfolioId) return [];
       const supabase = createClient();
       const { data, error } = await supabase
-        .from("opinion_interactions")
+        .from("design_probes")
         .select("*")
         .eq("portfolio_id", portfolioId)
-        .order("created_at", { ascending: true });
+        .order("created_at", { ascending: false });
 
       if (error) throw error;
-      return (data ?? []).map(rowToOpinion);
+      return (data ?? []).map(rowToDesignProbe);
     },
     enabled: !!portfolioId,
   });
 }
 
 /**
- * Generate new opinion interactions and persist them to the DB.
+ * Generate new design probes and persist them to the DB.
  */
-export function useGenerateOpinions(portfolioId: string) {
+export function useGenerateDesignProbes(portfolioId: string) {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async ({
       intent,
-      dimensions,
       acceptedStandards,
     }: {
       intent: StructuredIntent;
-      dimensions?: DimensionObject[];
       acceptedStandards?: DetectedStandard[];
     }) => {
-      const result = await generateOpinionInteractionsAction(
+      const result = await generateDesignProbesAction(
         intent,
         5,
-        dimensions,
+        undefined,
         acceptedStandards?.length ? acceptedStandards : undefined,
       );
 
       if (!result.success || !result.interactions) {
-        throw new Error(result.error ?? "Failed to generate opinions");
+        throw new Error(result.error ?? "Failed to generate design probes");
       }
 
       // Persist to DB
@@ -82,39 +79,39 @@ export function useGenerateOpinions(portfolioId: string) {
       }));
 
       const { data, error } = await supabase
-        .from("opinion_interactions")
+        .from("design_probes")
         .insert(rows)
         .select();
 
       if (error) throw error;
-      return (data ?? []).map(rowToOpinion);
+      return (data ?? []).map(rowToDesignProbe);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: opinionsKey(portfolioId) });
+      queryClient.invalidateQueries({ queryKey: designProbesKey(portfolioId) });
     },
   });
 }
 
 /**
- * Resolve an opinion: call LLM, update portfolio schema/intent,
+ * Resolve a design probe: call LLM, update portfolio schema/intent,
  * persist status change and any follow-ups.
  */
-export function useResolveOpinion(portfolioId: string) {
+export function useResolveDesignProbe(portfolioId: string) {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async ({
-      opinion,
+      probe,
       selectedValue,
       currentIntent,
       currentSchema,
     }: {
-      opinion: OpinionInteraction;
+      probe: DesignProbe;
       selectedValue: string;
       currentIntent: StructuredIntent;
       currentSchema: PortfolioSchema;
     }) => {
-      const selectedOption = opinion.options.find(
+      const selectedOption = probe.options.find(
         (o) => o.value === selectedValue,
       );
       if (!selectedOption) throw new Error("Invalid option selected");
@@ -122,14 +119,14 @@ export function useResolveOpinion(portfolioId: string) {
       // Mark as loading in DB
       const supabase = createClient();
       await supabase
-        .from("opinion_interactions")
+        .from("design_probes")
         .update({ status: "loading", selected_option: selectedValue })
-        .eq("id", opinion.id);
+        .eq("id", probe.id);
 
-      const response = await resolveOpinionInteractionAction({
+      const response = await resolveDesignProbeAction({
         intent: currentIntent,
         currentSchema,
-        interactionText: opinion.text,
+        interactionText: probe.text,
         selectedOptionLabel: selectedOption.label,
         maxFollowUps: 3,
       });
@@ -137,17 +134,24 @@ export function useResolveOpinion(portfolioId: string) {
       if (!response.success || !response.result) {
         // Revert to pending
         await supabase
-          .from("opinion_interactions")
+          .from("design_probes")
           .update({ status: "pending", selected_option: null })
-          .eq("id", opinion.id);
-        throw new Error(response.error ?? "Failed to resolve opinion");
+          .eq("id", probe.id);
+        throw new Error(response.error ?? "Failed to resolve design probe");
       }
 
-      // Intent stays as-is — opinion decisions are tracked in opinion_interactions table
-      const newIntent = currentIntent;
+      // Refine the intent with the probe decision
+      const delta = response.result.refinementDelta;
+      const newIntent: StructuredIntent = {
+        ...currentIntent,
+        purpose: {
+          content: currentIntent.purpose.content.trimEnd() + "\n" + delta,
+          updatedAt: new Date().toISOString(),
+        },
+      };
 
       // Update portfolio
-      const opinionDiff = diffSchemas(
+      const probeDiff = diffSchemas(
         currentSchema,
         response.result.artifactFormSchema,
       );
@@ -169,18 +173,18 @@ export function useResolveOpinion(portfolioId: string) {
       await logProvenance(
         portfolioId,
         "dimensions",
-        "opinion_resolved",
+        "design_probe_resolved",
         "creator",
-        opinionDiff,
-        `"${opinion.text}" → "${selectedOption.label}"`,
+        probeDiff,
+        `"${probe.text}" → "${selectedOption.label}"`,
         { intent: currentIntent, schema: currentSchema },
       );
 
       // Mark resolved in DB
       await supabase
-        .from("opinion_interactions")
+        .from("design_probes")
         .update({ status: "resolved", selected_option: selectedValue })
-        .eq("id", opinion.id);
+        .eq("id", probe.id);
 
       // Insert follow-ups
       if (response.result.followUpInteractions?.length) {
@@ -197,7 +201,7 @@ export function useResolveOpinion(portfolioId: string) {
           dimension_name: f.dimensionName ?? null,
         }));
 
-        await supabase.from("opinion_interactions").insert(followUpRows);
+        await supabase.from("design_probes").insert(followUpRows);
       }
 
       return {
@@ -206,7 +210,7 @@ export function useResolveOpinion(portfolioId: string) {
       };
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: opinionsKey(portfolioId) });
+      queryClient.invalidateQueries({ queryKey: designProbesKey(portfolioId) });
       queryClient.invalidateQueries({
         queryKey: ["portfolios", portfolioId],
       });
@@ -218,23 +222,23 @@ export function useResolveOpinion(portfolioId: string) {
 }
 
 /**
- * Dismiss an opinion interaction.
+ * Dismiss a design probe.
  */
-export function useDismissOpinion(portfolioId: string) {
+export function useDismissDesignProbe(portfolioId: string) {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (opinionId: string) => {
+    mutationFn: async (probeId: string) => {
       const supabase = createClient();
       const { error } = await supabase
-        .from("opinion_interactions")
+        .from("design_probes")
         .update({ status: "dismissed" })
-        .eq("id", opinionId);
+        .eq("id", probeId);
 
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: opinionsKey(portfolioId) });
+      queryClient.invalidateQueries({ queryKey: designProbesKey(portfolioId) });
     },
   });
 }

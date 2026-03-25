@@ -3,7 +3,7 @@
  *
  * - context:     Who / where / when — situational factors
  * - measurement: What to capture and how to quantify it
- * - preference:  Subjective choices, priorities, opinions
+ * - preference:  Subjective choices, priorities, design probes
  * - constraint:  Rules, limits, boundaries, compliance requirements
  */
 export type DimensionScope =
@@ -13,7 +13,7 @@ export type DimensionScope =
   | "constraint";
 
 export type DimensionStatus = "suggested" | "accepted" | "rejected" | "edited";
-export type DimensionSource = "system" | "user" | "opinion" | "standard";
+export type DimensionSource = "system" | "user" | "design_probe" | "standard";
 
 export interface DimensionObject {
   id: string;
@@ -37,7 +37,13 @@ export interface DimensionObject {
 
 export interface DimensionEdit {
   timestamp: string;
-  field: "name" | "description" | "importance" | "scope" | "openQuestions" | "status";
+  field:
+    | "name"
+    | "description"
+    | "importance"
+    | "scope"
+    | "openQuestions"
+    | "status";
   oldValue: unknown;
   newValue: unknown;
 }
