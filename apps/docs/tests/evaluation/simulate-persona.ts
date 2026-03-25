@@ -7,7 +7,7 @@
  * Can run against local (localhost:3000) or deployed (interact-molt.vercel.app).
  */
 
-import { chromium, type Page, type Browser } from "playwright";
+import { chromium, type Page, type Browser } from "@playwright/test";
 import type { Persona, Scenario } from "./personas";
 import type { SessionArtifacts } from "./cdn-rubric";
 
@@ -15,7 +15,7 @@ const BASE_URL =
   process.env.EVAL_BASE_URL ?? "https://interact-molt.vercel.app";
 const LLM_HOST = process.env.LLM_HOST ?? "http://localhost:4000/v1";
 const LLM_API_KEY = process.env.LLM_API_KEY ?? "";
-const LLM_MODEL = process.env.LLM_MODEL_NAME ?? "default";
+const LLM_MODEL = process.env.EVAL_SIM_MODEL ?? process.env.LLM_MODEL_NAME ?? "default";
 
 /**
  * Call the LLM to make a persona-driven decision about an opinion card.

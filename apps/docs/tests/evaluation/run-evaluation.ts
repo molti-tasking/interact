@@ -21,7 +21,8 @@
  *   EVAL_BASE_URL        — App URL (default: https://interact-molt.vercel.app)
  *   LLM_HOST             — LiteLLM proxy for persona decisions
  *   LLM_API_KEY          — API key for LiteLLM
- *   LLM_MODEL_NAME       — Model for persona simulation
+ *   LLM_MODEL_NAME       — Model for persona simulation (fallback)
+ *   EVAL_SIM_MODEL       — Override model for persona simulation
  *   EVAL_JUDGE_HOST      — LLM host for judging (defaults to LLM_HOST)
  *   EVAL_JUDGE_KEY       — API key for judge (defaults to LLM_API_KEY)
  *   EVAL_JUDGE_MODEL     — Model for CDN judging (defaults to LLM_MODEL_NAME)
@@ -29,7 +30,7 @@
  *   EVAL_JUDGE_RUNS      — Number of judge runs per session (default: 1)
  */
 
-import { chromium } from "playwright";
+import { chromium } from "@playwright/test";
 import fs from "fs";
 import path from "path";
 import { personas, scenarios } from "./personas";

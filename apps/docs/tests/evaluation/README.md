@@ -39,27 +39,48 @@ Automated evaluation harness for the UIST '26 paper.
 
 ## Requirements
 
-1. **Playwright** — browser automation for persona simulation
+1. **Playwright** — browser automation for persona simulation (`@playwright/test`)
 2. **LLM API access** — for both persona decisions and CDN judging
-   - Persona simulation: needs the app's LLM backend (LiteLLM proxy)
-   - CDN judging: separate LLM calls (can use any model)
+   - Persona simulation: uses the app's LLM backend (LiteLLM proxy via `LLM_HOST`)
+   - CDN judging: separate LLM calls (can use a different, more capable model)
 3. **Running app** — either local (`localhost:3000`) or deployed (`interact-molt.vercel.app`)
-4. **Supabase access** — to read artifacts after simulation (provenance logs, opinion history)
 
 ## Running
 
 ```bash
-# Against deployed app
-EVAL_BASE_URL=https://interact-molt.vercel.app \
-EVAL_JUDGE_MODEL=claude-sonnet-4-5-20250514 \
-pnpm tsx tests/evaluation/run-evaluation.ts
+# Full evaluation against deployed app (default)
+pnpm eval
 
 # Against local app
-pnpm tsx tests/evaluation/run-evaluation.ts
+EVAL_BASE_URL=http://localhost:3000 pnpm eval
+
+# Skip simulation, re-judge cached artifacts only
+pnpm eval:judge-only
+
+# With separate models for simulation vs judging
+EVAL_SIM_MODEL=gpt-4o-mini \
+EVAL_JUDGE_MODEL=claude-sonnet-4-5-20250514 \
+pnpm eval
 ```
+
+## Environment Variables
+
+| Variable | Description | Default |
+|---|---|---|
+| `LLM_HOST` | LiteLLM proxy URL (shared with app) | `http://localhost:4000/v1` |
+| `LLM_API_KEY` | API key for LiteLLM | — |
+| `LLM_MODEL_NAME` | Model for persona simulation | `default` |
+| `EVAL_BASE_URL` | App URL for Playwright | `https://interact-molt.vercel.app` |
+| `EVAL_SIM_MODEL` | Override model for persona simulation | falls back to `LLM_MODEL_NAME` |
+| `EVAL_JUDGE_HOST` | LLM host for judging | falls back to `LLM_HOST` |
+| `EVAL_JUDGE_KEY` | API key for judge | falls back to `LLM_API_KEY` |
+| `EVAL_JUDGE_MODEL` | Model for CDN judging | falls back to `LLM_MODEL_NAME` |
+| `EVAL_JUDGE_RUNS` | Number of judge runs per session | `1` |
+| `EVAL_SKIP_SIMULATION` | Skip Phase 1, use cached artifacts | `false` |
 
 ## Output
 
-- `tests/evaluation/results/` — JSON artifacts per session
+- `tests/evaluation/results/artifacts/` — JSON artifacts per session
+- `tests/evaluation/results/cdn-scores-raw.json` — raw judge scores
 - `tests/evaluation/results/cdn-scores.json` — aggregated scores
 - `tests/evaluation/results/cdn-table.tex` — LaTeX table for paper
