@@ -9,16 +9,20 @@
  *
  * Usage:
  *   # Against deployed app (default)
- *   pnpm tsx tests/evaluation/run-evaluation.ts
+ *   pnpm eval
  *
  *   # Against local app
- *   EVAL_BASE_URL=http://localhost:3000 pnpm tsx tests/evaluation/run-evaluation.ts
+ *   EVAL_BASE_URL=http://localhost:3000 pnpm eval
  *
  *   # Skip simulation (use cached artifacts)
- *   EVAL_SKIP_SIMULATION=true pnpm tsx tests/evaluation/run-evaluation.ts
+ *   pnpm eval:judge-only
+ *
+ *   # Visual mode (watch the browser)
+ *   EVAL_HEADED=true pnpm eval
  *
  * Environment variables:
  *   EVAL_BASE_URL        — App URL (default: https://interact-molt.vercel.app)
+ *   EVAL_HEADED          — Run browser visibly (default: false)
  *   LLM_HOST             — LiteLLM proxy for persona decisions
  *   LLM_API_KEY          — API key for LiteLLM
  *   LLM_MODEL_NAME       — Model for persona simulation (fallback)
@@ -30,9 +34,14 @@
  *   EVAL_JUDGE_RUNS      — Number of judge runs per session (default: 1)
  */
 
+import path from "path";
+
+// Load .env before other evaluation modules read process.env at import time
+import { loadEnvConfig } from "@next/env";
+loadEnvConfig(path.resolve(__dirname, "../.."), false);
+
 import { chromium } from "@playwright/test";
 import fs from "fs";
-import path from "path";
 import { personas, scenarios } from "./personas";
 import { simulatePersona } from "./simulate-persona";
 import { judgeSession, type SessionScores } from "./judge-cdn";
@@ -42,20 +51,30 @@ import type { SessionArtifacts } from "./cdn-rubric";
 const RESULTS_DIR = path.resolve(__dirname, "results");
 const ARTIFACTS_DIR = path.join(RESULTS_DIR, "artifacts");
 const SKIP_SIMULATION = process.env.EVAL_SKIP_SIMULATION === "true";
+const HEADED = process.env.EVAL_HEADED === "true";
 const JUDGE_RUNS = parseInt(process.env.EVAL_JUDGE_RUNS ?? "1", 10);
 
 async function main() {
   fs.mkdirSync(ARTIFACTS_DIR, { recursive: true });
 
   const baseUrl = process.env.EVAL_BASE_URL ?? "https://interact-molt.vercel.app";
+  const llmHost = process.env.LLM_HOST ?? "(NOT SET)";
+  const simModel = process.env.EVAL_SIM_MODEL ?? process.env.LLM_MODEL_NAME ?? "(NOT SET)";
+  const judgeHost = process.env.EVAL_JUDGE_HOST ?? llmHost;
+  const judgeModel = process.env.EVAL_JUDGE_MODEL ?? process.env.LLM_MODEL_NAME ?? "(NOT SET)";
+
   console.log(`\n🔬 CDN Evaluation Runner`);
-  console.log(`   App: ${baseUrl}`);
-  console.log(`   Personas: ${personas.length}`);
-  console.log(`   Scenarios: ${scenarios.length}`);
-  console.log(`   Total sessions: ${personas.length * scenarios.length}`);
-  console.log(`   CDN dimensions: 8`);
-  console.log(`   Judge runs per session: ${JUDGE_RUNS}`);
-  console.log(`   Total judge prompts: ${personas.length * scenarios.length * 8 * JUDGE_RUNS}\n`);
+  console.log(`   App:         ${baseUrl}`);
+  console.log(`   Headed:      ${HEADED}`);
+  console.log(`   LLM host:    ${llmHost}`);
+  console.log(`   Sim model:   ${simModel}`);
+  console.log(`   Judge host:  ${judgeHost}`);
+  console.log(`   Judge model: ${judgeModel}`);
+  console.log(`   Personas:    ${personas.length}`);
+  console.log(`   Scenarios:   ${scenarios.length}`);
+  console.log(`   Sessions:    ${personas.length * scenarios.length}`);
+  console.log(`   Judge runs:  ${JUDGE_RUNS}`);
+  console.log(`   Judge calls: ${personas.length * scenarios.length * 8 * JUDGE_RUNS}\n`);
 
   // =========================================================================
   // Phase 1: Persona Simulation
@@ -78,7 +97,10 @@ async function main() {
     }
   } else {
     console.log("🎭 Phase 1: Persona Simulation\n");
-    const browser = await chromium.launch({ headless: true });
+    const browser = await chromium.launch({
+      headless: !HEADED,
+      slowMo: HEADED ? 300 : 0,
+    });
 
     for (const persona of personas) {
       for (const scenario of scenarios) {

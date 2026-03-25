@@ -7,9 +7,12 @@
 
 import { cdnDimensions, buildJudgingPrompt, type SessionArtifacts } from "./cdn-rubric";
 
-const JUDGE_HOST = process.env.EVAL_JUDGE_HOST ?? process.env.LLM_HOST ?? "http://localhost:4000/v1";
-const JUDGE_KEY = process.env.EVAL_JUDGE_KEY ?? process.env.LLM_API_KEY ?? "";
-const JUDGE_MODEL = process.env.EVAL_JUDGE_MODEL ?? process.env.LLM_MODEL_NAME ?? "default";
+// Env vars are read lazily so that .env is loaded before access
+const judgeEnv = () => ({
+  JUDGE_HOST: process.env.EVAL_JUDGE_HOST ?? process.env.LLM_HOST ?? "http://localhost:4000/v1",
+  JUDGE_KEY: process.env.EVAL_JUDGE_KEY ?? process.env.LLM_API_KEY ?? "",
+  JUDGE_MODEL: process.env.EVAL_JUDGE_MODEL ?? process.env.LLM_MODEL_NAME ?? "default",
+});
 
 export interface DimensionScore {
   dimensionId: string;
@@ -33,7 +36,10 @@ export async function judgeSession(
   personaId: string,
   scenarioId: string,
 ): Promise<SessionScores> {
+  const { JUDGE_HOST, JUDGE_KEY, JUDGE_MODEL } = judgeEnv();
   const dimensions: DimensionScore[] = [];
+
+  console.log(`[judge] ${personaId} × ${scenarioId} → ${JUDGE_HOST} (model: ${JUDGE_MODEL})`);
 
   for (const dim of cdnDimensions) {
     const prompt = buildJudgingPrompt(dim, artifacts);

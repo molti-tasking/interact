@@ -7,15 +7,17 @@
  * Can run against local (localhost:3000) or deployed (interact-molt.vercel.app).
  */
 
-import { chromium, type Page, type Browser } from "@playwright/test";
+import { chromium, type Browser } from "@playwright/test";
 import type { Persona, Scenario } from "./personas";
 import type { SessionArtifacts } from "./cdn-rubric";
 
-const BASE_URL =
-  process.env.EVAL_BASE_URL ?? "https://interact-molt.vercel.app";
-const LLM_HOST = process.env.LLM_HOST ?? "http://localhost:4000/v1";
-const LLM_API_KEY = process.env.LLM_API_KEY ?? "";
-const LLM_MODEL = process.env.EVAL_SIM_MODEL ?? process.env.LLM_MODEL_NAME ?? "default";
+// Env vars are read lazily so that .env is loaded before access
+const env = () => ({
+  BASE_URL: process.env.EVAL_BASE_URL ?? "https://interact-molt.vercel.app",
+  LLM_HOST: process.env.LLM_HOST ?? "http://localhost:4000/v1",
+  LLM_API_KEY: process.env.LLM_API_KEY ?? "",
+  LLM_MODEL: process.env.EVAL_SIM_MODEL ?? process.env.LLM_MODEL_NAME ?? "default",
+});
 
 /**
  * Call the LLM to make a persona-driven decision about an opinion card.
@@ -38,6 +40,9 @@ ${options.map((o, i) => `${i + 1}. "${o.label}" (value: ${o.value})`).join("\n")
 
 Based on your persona's expertise and decision style, which option would you choose?
 Return ONLY the value string of your chosen option, nothing else.`;
+
+  const { LLM_HOST, LLM_API_KEY, LLM_MODEL } = env();
+  console.log(`[persona] LLM call → ${LLM_HOST} (model: ${LLM_MODEL})`);
 
   const response = await fetch(`${LLM_HOST}/chat/completions`, {
     method: "POST",
@@ -101,7 +106,10 @@ export async function simulatePersona(
       `[simulate] ${persona.name} (${persona.skillLevel}) × ${scenario.name}`,
     );
 
+    const { BASE_URL } = env();
+
     // Step 1: Create portfolio
+    console.log(`[simulate] Navigating to ${BASE_URL}/portfolios/new`);
     await page.goto(`${BASE_URL}/portfolios/new`);
     await page.locator("#title").fill(scenario.title);
     await page.locator('[data-testid="create-portfolio-btn"]').click();
@@ -119,16 +127,19 @@ export async function simulatePersona(
     const initialIntent = scenario.intent;
 
     // Step 3: Generate form
+    console.log(`[simulate] Clicking generate-form-btn...`);
     await page.locator('[data-testid="generate-form-btn"]').click();
 
     // Wait for form fields to appear
+    console.log(`[simulate] Waiting for form-renderer to become visible (timeout: 90s)...`);
     await page
       .locator('[data-testid="form-renderer"]')
-      .waitFor({ state: "visible", timeout: 60000 });
+      .waitFor({ state: "visible", timeout: 90000 });
+    console.log(`[simulate] form-renderer visible, waiting for first form field...`);
     await page
       .locator('[data-testid^="form-field-"]')
       .first()
-      .waitFor({ state: "visible", timeout: 60000 });
+      .waitFor({ state: "visible", timeout: 30000 });
 
     console.log(`[simulate] Form generated, waiting for opinions...`);
 
