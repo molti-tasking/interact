@@ -17,7 +17,6 @@ import {
 import {
   useDesignProbes,
   useDismissDesignProbe,
-  useGenerateDesignProbes,
   useResolveDesignProbe,
 } from "@/hooks/query/design-probes";
 import { usePipelineGenerate } from "@/hooks/query/pipeline";
@@ -42,7 +41,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Loader2, Shield, Sparkles, XIcon } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Label } from "../ui/label";
-import { DesignProbeDeck } from "./DesignProbeDeck";
+import { DesignProbeStackResolved } from "./DesignProbeStackResolved";
 
 interface ReflectiveConversationPaneProps {
   portfolio: Portfolio;
@@ -79,7 +78,6 @@ export function ReflectiveConversationPane({
   const { data: skippedStandardIds } = useSkippedStandards(portfolio.id);
 
   const { data: designProbes } = useDesignProbes(portfolio.id);
-  const generateDesignProbes = useGenerateDesignProbes(portfolio.id);
   const resolveDesignProbe = useResolveDesignProbe(portfolio.id);
   const dismissDesignProbe = useDismissDesignProbe(portfolio.id);
 
@@ -278,27 +276,6 @@ export function ReflectiveConversationPane({
   };
 
   // -------------------------------------------------------------------
-  // Regenerate design probes
-  // -------------------------------------------------------------------
-  const handleRegenerateProbes = () => {
-    if (
-      !structuredIntent.purpose.content.trim() ||
-      generateDesignProbes.isPending
-    )
-      return;
-
-    const acceptedStandardRefs = portfolioSchema.acceptedStandards ?? [];
-    const acceptedStds = (detectedStandards ?? []).filter((s) =>
-      acceptedStandardRefs.some((ref) => ref.standardId === s.standard.id),
-    );
-
-    generateDesignProbes.mutate({
-      intent: structuredIntent,
-      acceptedStandards: acceptedStds.length > 0 ? acceptedStds : undefined,
-    });
-  };
-
-  // -------------------------------------------------------------------
   // Derived state
   // -------------------------------------------------------------------
   const isGenerating = pipeline.isPending || isPromptEditing;
@@ -459,41 +436,14 @@ export function ReflectiveConversationPane({
               ))}
             </div>
           )}
-
-          {/* Design Probe Deck (unified: conflicts + design probes) */}
-          {(visibleConflicts.length > 0 || (designProbes ?? []).length > 0) && (
-            <div data-testid="card-deck-section" className="space-y-2">
-              <h3 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                <Sparkles className="h-3.5 w-3.5 text-violet-500" />
-                Decisions
-                {(generateDesignProbes.isPending ||
-                  resolveDesignProbe.isPending ||
-                  resolveConflict.isPending) && (
-                  <Loader2 className="h-3 w-3 animate-spin" />
-                )}
-              </h3>
-              {generateDesignProbes.isPending &&
-                (designProbes ?? []).length === 0 && (
-                  <div className="flex items-center gap-2 rounded-lg border border-dashed p-4 text-sm text-muted-foreground animate-pulse">
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Generating design probes...
-                  </div>
-                )}
-              <DesignProbeDeck
-                probes={designProbes ?? []}
-                conflicts={visibleConflicts}
-                anyLoading={
-                  resolveDesignProbe.isPending || resolveConflict.isPending
-                }
-                isRegenerating={generateDesignProbes.isPending}
-                onSelectProbe={handleProbeSelect}
-                onDismissProbe={handleDismissProbe}
-                onSelectConflictFix={handleConflictFix}
-                onDismissConflict={handleDismissConflict}
-                onRegenerate={handleRegenerateProbes}
-              />
-            </div>
-          )}
+          <DesignProbeStackResolved
+            probes={designProbes ?? []}
+            conflicts={visibleConflicts}
+            onSelectProbe={handleProbeSelect}
+            onDismissProbe={handleDismissProbe}
+            onSelectConflictFix={handleConflictFix}
+            onDismissConflict={handleDismissConflict}
+          />
         </div>
       </ScrollArea>
     </div>

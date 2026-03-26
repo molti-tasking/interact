@@ -88,9 +88,7 @@ export default function RootLayout({
                 </div>
               </header>
               <main className="flex-1">
-                <div className="container max-w-7xl mx-auto px-6 py-8">
-                  {children}
-                </div>
+                <div className="container mx-auto px-6 py-8">{children}</div>
               </main>
             </SidebarInset>
           </SidebarProvider>

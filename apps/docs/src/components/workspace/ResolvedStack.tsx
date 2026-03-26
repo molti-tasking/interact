@@ -15,7 +15,10 @@ interface ResolvedStackProps {
   onViewAll: () => void;
 }
 
-export function ResolvedStack({ resolvedProbes, onViewAll }: ResolvedStackProps) {
+export function ResolvedStack({
+  resolvedProbes,
+  onViewAll,
+}: ResolvedStackProps) {
   const count = resolvedProbes.length;
   if (count === 0) return null;
 
