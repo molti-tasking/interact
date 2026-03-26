@@ -9,9 +9,20 @@ import type { CardItem } from "@/components/workspace/DesignProbeCard";
 import { DesignProbeCard } from "@/components/workspace/DesignProbeCard";
 import { ResolvedStack } from "@/components/workspace/ResolvedStack";
 import { ScrollFadeContainer } from "@/components/workspace/ScrollFadeContainer";
-import type { DesignProbe } from "@/lib/types";
+import {
+  useDetectConflicts,
+  useResolveConflict,
+} from "@/hooks/query/conflicts";
+import {
+  useDesignProbes,
+  useDismissDesignProbe,
+  useGenerateDesignProbes,
+  useResolveDesignProbe,
+} from "@/hooks/query/design-probes";
+import { useDetectedStandards } from "@/hooks/query/standards";
+import type { DesignProbe, Portfolio, StructuredIntent } from "@/lib/types";
 import { cn } from "@/lib/utils";
-import { RefreshCw } from "lucide-react";
+import { Loader2, RefreshCw } from "lucide-react";
 import { useState } from "react";
 import { DesignProbeResolvedDialog } from "./DesignProbeResolvedDialog";
 
@@ -168,8 +179,7 @@ export function DesignProbeDeck({ portfolio }: { portfolio: Portfolio }) {
     (visibleConflicts.length > 0 || (designProbes ?? []).length > 0) && (
       <div data-testid="card-deck-section" className="space-y-2">
         <h3 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-          <Sparkles className="h-3.5 w-3.5 text-violet-500" />
-          Decisions
+          Design Probes
           {(generateDesignProbes.isPending ||
             resolveDesignProbe.isPending ||
             resolveConflict.isPending) && (
