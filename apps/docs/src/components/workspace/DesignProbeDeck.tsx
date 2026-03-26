@@ -179,12 +179,12 @@ export function DesignProbeDeck({ portfolio }: { portfolio: Portfolio }) {
   return (
     (visibleConflicts.length > 0 || (designProbes ?? []).length > 0) && (
       <div data-testid="card-deck-section" className="space-y-2">
-        <h3 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+        <h3 className="text-md uppercase font-semibold text-muted-foreground">
           Design Probes
           {(generateDesignProbes.isPending ||
             resolveDesignProbe.isPending ||
             resolveConflict.isPending) && (
-            <Loader2 className="h-3 w-3 animate-spin" />
+            <Loader2 className="h-3 w-3 animate-spin ml-2" />
           )}
         </h3>
         {generateDesignProbes.isPending &&

@@ -3,10 +3,7 @@
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { usePortfolio } from "@/hooks/query/portfolios";
-import {
-  useResponse,
-  useUpdateResponse,
-} from "@/hooks/query/responses-new";
+import { useResponse, useUpdateResponse } from "@/hooks/query/responses-new";
 import { FormRenderer } from "@/lib/form-renderer/FormRenderer";
 import type { PortfolioSchema } from "@/lib/types";
 import { ArrowLeft, Loader2 } from "lucide-react";
@@ -72,12 +69,9 @@ export default function ResponseDetailPage() {
           </Link>
         </Button>
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">
-            Edit Response
-          </h1>
+          <h1 className="text-2xl font-bold tracking-tight">Edit Response</h1>
           <p className="text-sm text-muted-foreground">
-            Submitted{" "}
-            {new Date(response.submittedAt).toLocaleString()}
+            Submitted {new Date(response.submittedAt).toLocaleString()}
           </p>
         </div>
       </div>

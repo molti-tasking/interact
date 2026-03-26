@@ -1,7 +1,6 @@
 import { AppSidebar } from "@/components/app-sidebar";
 import { ReactQueryClientProvider } from "@/components/tools/ReactQueryClientProvider";
 import { ReactQueryDevTools } from "@/components/tools/ReactQueryDevTools";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   SidebarInset,
@@ -10,7 +9,7 @@ import {
 } from "@/components/ui/sidebar";
 import { cn } from "@/lib/utils";
 import "interact/styles.css";
-import { Crown, Github } from "lucide-react";
+import { Github } from "lucide-react";
 import type { Metadata } from "next";
 import { Delius, Geist, Geist_Mono } from "next/font/google";
 import Link from "next/link";
@@ -70,10 +69,6 @@ export default function RootLayout({
                     </h2>
                   </div>
                   <div className="flex items-center gap-3">
-                    <Badge variant="default" className="hidden md:inline-flex">
-                      <Crown className="h-3 w-3" />
-                      Human Coded
-                    </Badge>
                     <Button variant={"ghost"} size="sm" asChild>
                       <Link
                         href={"https://github.com/molti-tasking/interact"}

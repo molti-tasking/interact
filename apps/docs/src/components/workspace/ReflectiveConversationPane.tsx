@@ -170,7 +170,7 @@ export function ReflectiveConversationPane({
       {/* Intent Editor — single field, structured data underneath */}
       <div className="space-y-3">
         <div className="flex items-center justify-between mb-2">
-          <h3 className="text-sm font-medium text-muted-foreground ">
+          <h3 className="text-md uppercase font-semibold text-muted-foreground ">
             Artifact
           </h3>
           {previousIntent && previousIntent !== editorValue && (
