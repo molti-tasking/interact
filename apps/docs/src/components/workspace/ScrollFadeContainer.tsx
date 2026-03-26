@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 interface ScrollFadeContainerProps {
   children: React.ReactNode;
   className?: string;
+  "data-testid"?: string;
 }
 
 /**
@@ -14,6 +15,7 @@ interface ScrollFadeContainerProps {
 export function ScrollFadeContainer({
   children,
   className,
+  ...props
 }: ScrollFadeContainerProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [canScrollUp, setCanScrollUp] = useState(false);
@@ -31,11 +33,14 @@ export function ScrollFadeContainer({
   });
 
   return (
-    <div className="relative">
+    <div className="relative" {...props}>
       <div
         ref={scrollRef}
         onScroll={updateScrollState}
-        className={className ?? "flex flex-col gap-3 overflow-y-auto max-h-[60vh] pr-1 py-2"}
+        className={
+          className ??
+          "flex flex-col gap-3 overflow-y-auto max-h-[80vh] pr-1 py-2"
+        }
       >
         {children}
       </div>

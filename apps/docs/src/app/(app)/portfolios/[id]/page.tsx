@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { InlineEditableTitle } from "@/components/ui/inline-editable-title";
 import { ReflectiveConversationPane } from "@/components/workspace/ConversationPane";
+import { DesignProbeDeck } from "@/components/workspace/DesignProbeDeck";
 import { FieldEditDrawer } from "@/components/workspace/FieldEditDrawer";
 import { usePortfolio, useUpdatePortfolio } from "@/hooks/query/portfolios";
 import { logProvenance } from "@/lib/engine/provenance";
@@ -159,9 +160,9 @@ export default function PortfolioWorkspacePage() {
         </div>
       </div>
 
-      {/* Split pane workspace */}
+      {/* Three-column workspace */}
       <div
-        className="grid grid-cols-1 lg:grid-cols-2 gap-4"
+        className="grid grid-cols-1 xl:grid-cols-3 gap-4"
         style={{ minHeight: "70vh" }}
       >
         {/* Left: Intent + Dimensions */}
@@ -170,6 +171,10 @@ export default function PortfolioWorkspacePage() {
           className="flex flex-col overflow-hidden"
         >
           <ReflectiveConversationPane portfolio={portfolio} />
+        </div>
+
+        <div>
+          <DesignProbeDeck portfolio={portfolio} />
         </div>
 
         {/* Right: Preview */}
