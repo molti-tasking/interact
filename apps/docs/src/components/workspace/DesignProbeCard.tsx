@@ -42,7 +42,7 @@ export function DesignProbeCard({ item, anyLoading }: DesignProbeCardProps) {
         <>
           {item.layer && <LayerBadge layer={item.layer} />}
           {item.dimensionName && <DimensionBadge name={item.dimensionName} />}
-          <DimensionBadge name={item.status} />
+          {/* <DimensionBadge name={item.status} /> */}
         </>
       }
     >

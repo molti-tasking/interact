@@ -44,7 +44,10 @@ export function DesignProbeDeck({ portfolio }: { portfolio: Portfolio }) {
   const { data: detectedStandards } = useDetectedStandards(portfolio.id);
 
   const { data: designProbes } = useDesignProbes(portfolio.id);
-  const openDesignProbes = designProbes?.filter((d) => d.status === "pending");
+  const pendingDesignProbes = designProbes?.filter(
+    (d) => d.status === "pending",
+  );
+
   const generateDesignProbes = useGenerateDesignProbes(portfolio.id);
   const resolveDesignProbe = useResolveDesignProbe(portfolio.id);
   const dismissDesignProbe = useDismissDesignProbe(portfolio.id);
@@ -177,7 +180,7 @@ export function DesignProbeDeck({ portfolio }: { portfolio: Portfolio }) {
   );
 
   return (
-    (visibleConflicts.length > 0 || (openDesignProbes ?? []).length > 0) && (
+    (visibleConflicts.length > 0 || (pendingDesignProbes ?? []).length > 0) && (
       <div data-testid="card-deck-section">
         <div className="flex items-center justify-between mb-2">
           <h3 className="text-md uppercase font-semibold text-muted-foreground ">
@@ -201,7 +204,7 @@ export function DesignProbeDeck({ portfolio }: { portfolio: Portfolio }) {
 
         <div className="flex flex-col w-full gap-3">
           <ScrollFadeContainer>
-            {openDesignProbes?.map((probe) => (
+            {pendingDesignProbes?.map((probe) => (
               <DesignProbeCard
                 key={probe.id}
                 item={{

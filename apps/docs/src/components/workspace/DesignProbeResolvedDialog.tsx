@@ -48,6 +48,7 @@ export const DesignProbeResolvedDialog = ({
                       {o.dimensionName && (
                         <DimensionBadge name={o.dimensionName} />
                       )}
+                      {/* <DimensionBadge name={o.status} /> */}
                     </>
                   }
                   description={o.explanation}

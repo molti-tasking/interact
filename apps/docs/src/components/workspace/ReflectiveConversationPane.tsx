@@ -226,7 +226,7 @@ export function ReflectiveConversationPane({
         )}
 
         {/* Action buttons */}
-        <div className="flex gap-2">
+        <div className="flex gap-2 mb-8">
           {promptEditOpen ? (
             <div className="flex-1 space-y-2">
               <textarea
