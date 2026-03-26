@@ -17,8 +17,7 @@ interface DateFieldProps {
 }
 
 export function DateField({ field, formField }: DateFieldProps) {
-  const range =
-    field.type.kind === "date" ? field.type.range : undefined;
+  const range = field.type.kind === "date" ? field.type.range : undefined;
 
   return (
     <FormItem>
@@ -29,14 +28,16 @@ export function DateField({ field, formField }: DateFieldProps) {
       <FormControl>
         <Input
           type="date"
-          placeholder={field.description}
+          // placeholder={field.description}
           min={range?.min}
           max={range?.max}
           {...formField}
           value={(formField.value as string) ?? ""}
         />
       </FormControl>
-      {field.description && <FormDescription>{field.description}</FormDescription>}
+      {field.description && (
+        <FormDescription>{field.description}</FormDescription>
+      )}
       <FormMessage />
     </FormItem>
   );

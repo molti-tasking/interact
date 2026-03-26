@@ -2,24 +2,16 @@
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { InlineEditableTitle } from "@/components/ui/inline-editable-title";
-import { ReflectiveConversationPane } from "@/components/workspace/ConversationPane";
+import { ArtifactPane } from "@/components/workspace/ArtifactPane";
 import { DesignProbeDeck } from "@/components/workspace/DesignProbeDeck";
 import { FieldEditDrawer } from "@/components/workspace/FieldEditDrawer";
+import { ReflectiveConversationPane } from "@/components/workspace/ReflectiveConversationPane";
 import { usePortfolio, useUpdatePortfolio } from "@/hooks/query/portfolios";
 import { logProvenance } from "@/lib/engine/provenance";
 import { diffSchemas, removeField, updateField } from "@/lib/engine/schema-ops";
-import { FormRenderer } from "@/lib/form-renderer/FormRenderer";
 import type { Field, PortfolioSchema } from "@/lib/types";
-import {
-  BarChart3,
-  ClipboardList,
-  FormInput,
-  History,
-  Loader2,
-  Network,
-} from "lucide-react";
+import { BarChart3, ClipboardList, History, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useCallback, useState } from "react";
@@ -134,12 +126,6 @@ export default function PortfolioWorkspacePage() {
             </Link>
           </Button>
           <Button variant="outline" size="sm" asChild>
-            <Link href={`/forms/${id}`}>
-              <FormInput className="h-4 w-4 mr-1" />
-              Fill Form
-            </Link>
-          </Button>
-          <Button variant="outline" size="sm" asChild>
             <Link href={`/responses/${id}`}>
               <ClipboardList className="h-4 w-4 mr-1" />
               Responses
@@ -151,18 +137,12 @@ export default function PortfolioWorkspacePage() {
               History
             </Link>
           </Button>
-          <Button variant="outline" size="sm" asChild>
-            <Link href={`/portfolios/${id}/derive`}>
-              <Network className="h-4 w-4 mr-1" />
-              Derive
-            </Link>
-          </Button>
         </div>
       </div>
 
       {/* Three-column workspace */}
       <div
-        className="grid grid-cols-1 xl:grid-cols-3 gap-4"
+        className="grid grid-cols-1 xl:grid-cols-3 gap-8"
         style={{ minHeight: "70vh" }}
       >
         {/* Left: Intent + Dimensions */}
@@ -177,25 +157,9 @@ export default function PortfolioWorkspacePage() {
           <DesignProbeDeck portfolio={portfolio} />
         </div>
 
-        {/* Right: Preview */}
-        <div>
-          <h3 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-            Artifact
-          </h3>
-
-          <Card
-            data-testid="preview-pane"
-            className="flex flex-col overflow-hidden"
-          >
-            <div className="flex-1 p-4 overflow-auto">
-              <FormRenderer
-                schema={portfolioSchema}
-                mode="preview"
-                onFieldClick={handleFieldClick}
-                className="space-y-4"
-              />
-            </div>
-          </Card>
+        {/* Right: Artifact (form preview + responses) */}
+        <div data-testid="preview-pane">
+          <ArtifactPane portfolio={portfolio} onFieldClick={handleFieldClick} />
         </div>
       </div>
       <pre data-testid="field-count">

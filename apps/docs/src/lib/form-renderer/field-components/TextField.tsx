@@ -31,20 +31,22 @@ export function TextField({ field, formField }: TextFieldProps) {
       <FormControl>
         {useTextarea ? (
           <Textarea
-            placeholder={field.description}
+            // placeholder={field.description}
             {...formField}
             value={(formField.value as string) ?? ""}
           />
         ) : (
           <Input
             type="text"
-            placeholder={field.description}
+            // placeholder={field.description}
             {...formField}
             value={(formField.value as string) ?? ""}
           />
         )}
       </FormControl>
-      {field.description && <FormDescription>{field.description}</FormDescription>}
+      {field.description && (
+        <FormDescription>{field.description}</FormDescription>
+      )}
       <FormMessage />
     </FormItem>
   );

@@ -8,7 +8,7 @@ import {
   layerAccentColors,
 } from "@/components/workspace/DecisionCard";
 import type { DesignProbe } from "@/lib/types";
-import { ArrowDown, Check } from "lucide-react";
+import { Check } from "lucide-react";
 
 interface ResolvedStackProps {
   resolvedProbes: DesignProbe[];
@@ -74,9 +74,9 @@ export function ResolvedStack({
           </DecisionCard>
         </div>
       </button>
-      <div className="flex justify-self-center opacity-40">
+      {/* <div className="flex justify-self-center opacity-40">
         <ArrowDown />
-      </div>
+      </div> */}
     </div>
   );
 }

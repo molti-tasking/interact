@@ -222,6 +222,94 @@ export function useResolveDesignProbe(portfolioId: string) {
 }
 
 /**
+ * Insert detected standards as design probes (source="standard").
+ * Skips standards that already have a corresponding probe in the DB.
+ */
+export function useInsertStandardProbes(portfolioId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (
+      standards: { standard: { id: string; name: string; description: string }; confidence: number }[],
+    ) => {
+      if (!standards.length) return;
+
+      const supabase = createClient();
+
+      // Check for existing standard probes to avoid duplicates
+      const { data: existing } = await supabase
+        .from("design_probes")
+        .select("dimension_id")
+        .eq("portfolio_id", portfolioId)
+        .eq("source", "standard");
+
+      const existingIds = new Set(
+        (existing ?? []).map((r: { dimension_id: string | null }) => r.dimension_id),
+      );
+
+      const newRows = standards
+        .filter((s) => !existingIds.has(s.standard.id))
+        .map((s) => ({
+          portfolio_id: portfolioId,
+          text: `Apply standard: ${s.standard.name}?`,
+          explanation: `${s.standard.description} (${Math.round(s.confidence * 100)}% confidence match)`,
+          layer: "dimensions",
+          source: "standard",
+          options: JSON.parse(
+            JSON.stringify([
+              { value: "accept", label: "Apply Standard" },
+              { value: "skip", label: "Skip" },
+            ]),
+          ),
+          selected_option: null,
+          status: "pending",
+          dimension_id: s.standard.id,
+          dimension_name: s.standard.name,
+        }));
+
+      if (!newRows.length) return;
+
+      const { error } = await supabase
+        .from("design_probes")
+        .insert(newRows);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: designProbesKey(portfolioId) });
+    },
+  });
+}
+
+/**
+ * Mark a standard probe as resolved in the DB (after accept/skip is handled externally).
+ */
+export function useResolveStandardProbe(portfolioId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      probeId,
+      selectedOption,
+    }: {
+      probeId: string;
+      selectedOption: string;
+    }) => {
+      const supabase = createClient();
+      const { error } = await supabase
+        .from("design_probes")
+        .update({ status: "resolved", selected_option: selectedOption })
+        .eq("id", probeId);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: designProbesKey(portfolioId) });
+    },
+  });
+}
+
+/**
  * Dismiss a design probe.
  */
 export function useDismissDesignProbe(portfolioId: string) {

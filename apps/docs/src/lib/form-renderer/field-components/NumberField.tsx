@@ -32,14 +32,16 @@ export function NumberField({ field, formField }: NumberFieldProps) {
       <FormControl>
         <Input
           type="number"
-          placeholder={field.description}
+          // placeholder={field.description}
           min={min}
           max={max}
           {...formField}
           value={(formField.value as number) ?? ""}
         />
       </FormControl>
-      {field.description && <FormDescription>{field.description}</FormDescription>}
+      {field.description && (
+        <FormDescription>{field.description}</FormDescription>
+      )}
       <FormMessage />
     </FormItem>
   );

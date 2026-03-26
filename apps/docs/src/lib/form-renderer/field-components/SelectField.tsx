@@ -75,8 +75,8 @@ export function SelectField({ field, formField }: SelectFieldProps) {
           onValueChange={formField.onChange}
           value={formField.value as string}
         >
-          <SelectTrigger>
-            <SelectValue placeholder={`Select ${field.label}`} />
+          <SelectTrigger className="min-w-40 w-full">
+            <SelectValue />
           </SelectTrigger>
           <SelectContent>
             {options.map((option) => (

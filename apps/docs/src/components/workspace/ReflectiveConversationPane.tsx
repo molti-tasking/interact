@@ -1,34 +1,13 @@
 "use client";
 
-import type {
-  ConflictFix,
-  SchemaConflict,
-} from "@/app/actions/conflict-actions";
 import { resolveDesignProbeAction } from "@/app/actions/design-probe-actions";
 import { PromptDiff } from "@/components/form/configurator/PromptDiff";
 import { Button } from "@/components/ui/button";
 import { MarkdownEditor } from "@/components/ui/markdown-editor";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { StandardCard } from "@/components/workspace/StandardCard";
-import {
-  useDetectConflicts,
-  useResolveConflict,
-} from "@/hooks/query/conflicts";
-import {
-  useDesignProbes,
-  useDismissDesignProbe,
-  useResolveDesignProbe,
-} from "@/hooks/query/design-probes";
+import { useDesignProbes } from "@/hooks/query/design-probes";
 import { usePipelineGenerate } from "@/hooks/query/pipeline";
 import { useUpdatePortfolio } from "@/hooks/query/portfolios";
 import { useProvenance } from "@/hooks/query/provenance";
-import {
-  useAcceptStandard,
-  useDetectedStandards,
-  useSkippedStandards,
-  useSkipStandard,
-} from "@/hooks/query/standards";
-import type { DetectedStandard } from "@/lib/domain-standards";
 import { logProvenance } from "@/lib/engine/provenance";
 import { diffSchemas } from "@/lib/engine/schema-ops";
 import {
@@ -38,10 +17,10 @@ import {
 import type { Portfolio, PortfolioSchema, StructuredIntent } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { useQueryClient } from "@tanstack/react-query";
-import { Loader2, Shield, Sparkles, XIcon } from "lucide-react";
+import { Loader2, Sparkles, XIcon } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Label } from "../ui/label";
-import { DesignProbeStackResolved } from "./DesignProbeStackResolved";
+import { DesignProbeResolvedDialog } from "./DesignProbeResolvedDialog";
+import { ResolvedStack } from "./ResolvedStack";
 
 interface ReflectiveConversationPaneProps {
   portfolio: Portfolio;
@@ -71,29 +50,8 @@ export function ReflectiveConversationPane({
     [structuredIntent],
   );
 
-  // --- React Query hooks ---
-  const { data: detectedStandards } = useDetectedStandards(portfolio.id);
-  const acceptStandard = useAcceptStandard(portfolio.id);
-  const skipStandard = useSkipStandard(portfolio.id);
-  const { data: skippedStandardIds } = useSkippedStandards(portfolio.id);
-
-  const { data: designProbes } = useDesignProbes(portfolio.id);
-  const resolveDesignProbe = useResolveDesignProbe(portfolio.id);
-  const dismissDesignProbe = useDismissDesignProbe(portfolio.id);
-
   // Pipeline hook replaces the old handleGenerate
   const pipeline = usePipelineGenerate(portfolio.id);
-
-  // Conflict detection + resolution
-  const { data: conflicts } = useDetectConflicts(
-    portfolio.id,
-    portfolioSchema,
-    structuredIntent,
-  );
-  const resolveConflict = useResolveConflict(portfolio.id);
-  const [dismissedConflicts, setDismissedConflicts] = useState<Set<string>>(
-    new Set(),
-  );
 
   // Prompt-based edit state
   const [promptEditOpen, setPromptEditOpen] = useState(false);
@@ -104,10 +62,11 @@ export function ReflectiveConversationPane({
   const { data: provenanceEntries } = useProvenance(portfolio.id);
 
   // Derive previousIntent from the latest provenance entry
+  // TODO Here we might have a bug: sometimes I have to search for provenanceEntries?.[1]?.prev_intent?.purpose.content in order to get the actual last change, because there will not always be changes for this entity as of now. I do not know, if we need to dix the processing somewhere else or if we need to fix the retrieval right here.
   const latestEntry = provenanceEntries?.[0] ?? null;
   const previousIntent = latestEntry?.prev_intent?.purpose.content ?? null;
   const [showDiff, setShowDiff] = useState(false);
-
+  console.log(previousIntent, promptEditText);
   // Sync structured intent from portfolio when it changes externally
   useEffect(() => {
     setStructuredIntent(portfolio.intent);
@@ -143,32 +102,6 @@ export function ReflectiveConversationPane({
       console.error("[ReflectiveConversationPane] Generation error:", err);
       setError(err instanceof Error ? err.message : "Generation failed");
     }
-  };
-
-  // -------------------------------------------------------------------
-  // Design probe interaction: select an option
-  // -------------------------------------------------------------------
-  const handleProbeSelect = async (probeId: string, selectedValue: string) => {
-    const probe = (designProbes ?? []).find((o) => o.id === probeId);
-    if (!probe || probe.status !== "pending") return;
-
-    try {
-      const result = await resolveDesignProbe.mutateAsync({
-        probe,
-        selectedValue,
-        currentIntent: structuredIntent,
-        currentSchema: portfolioSchema,
-      });
-
-      setStructuredIntent(result.newIntent);
-    } catch (err) {
-      console.error("[ReflectiveConversationPane] Design probe error:", err);
-      setError(err instanceof Error ? err.message : "Design probe failed");
-    }
-  };
-
-  const handleDismissProbe = (probeId: string) => {
-    dismissDesignProbe.mutate(probeId);
   };
 
   // -------------------------------------------------------------------
@@ -228,77 +161,18 @@ export function ReflectiveConversationPane({
   };
 
   // -------------------------------------------------------------------
-  // Standard accept/skip
-  // -------------------------------------------------------------------
-  const handleAcceptStandard = async (standardId: string) => {
-    const detected = (detectedStandards ?? []).find(
-      (s) => s.standard.id === standardId,
-    );
-    if (!detected) return;
-
-    acceptStandard.mutate({
-      detected,
-      portfolio: {
-        id: portfolio.id,
-        intent: structuredIntent,
-        schema: portfolioSchema,
-      },
-    });
-  };
-
-  const handleSkipStandard = (standardId: string) => {
-    skipStandard.mutate(standardId);
-  };
-
-  // -------------------------------------------------------------------
-  // Conflict resolution
-  // -------------------------------------------------------------------
-  const handleConflictFix = async (
-    conflict: SchemaConflict,
-    fix: ConflictFix,
-  ) => {
-    try {
-      const result = await resolveConflict.mutateAsync({
-        conflict,
-        fix,
-        currentSchema: portfolioSchema,
-        currentIntent: structuredIntent,
-      });
-      setStructuredIntent(result.updatedIntent);
-    } catch (err) {
-      console.error("[ReflectiveConversationPane] Conflict fix error:", err);
-      setError(err instanceof Error ? err.message : "Conflict fix failed");
-    }
-  };
-
-  const handleDismissConflict = (conflictId: string) => {
-    setDismissedConflicts((prev) => new Set([...prev, conflictId]));
-  };
-
-  // -------------------------------------------------------------------
   // Derived state
   // -------------------------------------------------------------------
   const isGenerating = pipeline.isPending || isPromptEditing;
-
-  const skippedIds = skippedStandardIds ?? new Set<string>();
-  const visibleStandards = (detectedStandards ?? []).filter(
-    (s: DetectedStandard) => !skippedIds.has(s.standard.id),
-  );
-
-  const acceptedStandardIds = new Set(
-    (portfolioSchema.acceptedStandards ?? []).map((s) => s.standardId),
-  );
-
-  const visibleConflicts = (conflicts ?? []).filter(
-    (c) => !dismissedConflicts.has(c.id),
-  );
-
+  console.log("Prev intent: ", previousIntent);
   return (
     <div className="flex flex-col h-full">
       {/* Intent Editor — single field, structured data underneath */}
       <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <Label htmlFor="basePrompt">Design Intent & Specification</Label>
+        <div className="flex items-center justify-between mb-2">
+          <h3 className="text-sm font-medium text-muted-foreground ">
+            Artifact
+          </h3>
           {previousIntent && previousIntent !== editorValue && (
             <Button
               onClick={() => setShowDiff(!showDiff)}
@@ -413,39 +287,33 @@ export function ReflectiveConversationPane({
             </Button>
           )}
         </div>
+        <ResolvedSection portfolioId={portfolio.id} />
       </div>
-
-      {/* Standards + Card Deck (design probes + conflicts) */}
-      <ScrollArea className="flex-1 py-4">
-        <div className="space-y-3 min-w-0">
-          {/* Suggested Standards */}
-          {visibleStandards.length > 0 && (
-            <div data-testid="standards-section">
-              <h3 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                <Shield className="h-3.5 w-3.5 text-blue-500" />
-                Suggested Standards
-              </h3>
-              {visibleStandards.map((detected: DetectedStandard) => (
-                <StandardCard
-                  key={detected.standard.id}
-                  detected={detected}
-                  isAccepted={acceptedStandardIds.has(detected.standard.id)}
-                  onAccept={handleAcceptStandard}
-                  onSkip={handleSkipStandard}
-                />
-              ))}
-            </div>
-          )}
-          <DesignProbeStackResolved
-            probes={designProbes ?? []}
-            conflicts={visibleConflicts}
-            onSelectProbe={handleProbeSelect}
-            onDismissProbe={handleDismissProbe}
-            onSelectConflictFix={handleConflictFix}
-            onDismissConflict={handleDismissConflict}
-          />
-        </div>
-      </ScrollArea>
     </div>
   );
 }
+
+const ResolvedSection = ({ portfolioId }: { portfolioId: string }) => {
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const { data: designProbes } = useDesignProbes(portfolioId);
+
+  if (!designProbes?.length) return null;
+
+  // Resolved probes in chronological order (oldest first) for the history stack
+  const resolvedProbes = [
+    ...designProbes.filter((o) => o.status === "resolved"),
+  ].reverse();
+  return (
+    <>
+      <ResolvedStack
+        resolvedProbes={resolvedProbes}
+        onViewAll={() => setDialogOpen(true)}
+      />
+      <DesignProbeResolvedDialog
+        dialogOpen={dialogOpen}
+        setDialogOpen={setDialogOpen}
+        resolvedProbes={resolvedProbes}
+      />
+    </>
+  );
+};

@@ -5,9 +5,7 @@ import type {
   SchemaConflict,
 } from "@/app/actions/conflict-actions";
 import { Button } from "@/components/ui/button";
-import type { CardItem } from "@/components/workspace/DesignProbeCard";
 import { DesignProbeCard } from "@/components/workspace/DesignProbeCard";
-import { ResolvedStack } from "@/components/workspace/ResolvedStack";
 import { ScrollFadeContainer } from "@/components/workspace/ScrollFadeContainer";
 import {
   useDetectConflicts,
@@ -17,59 +15,21 @@ import {
   useDesignProbes,
   useDismissDesignProbe,
   useGenerateDesignProbes,
+  useInsertStandardProbes,
   useResolveDesignProbe,
+  useResolveStandardProbe,
 } from "@/hooks/query/design-probes";
-import { useDetectedStandards } from "@/hooks/query/standards";
+import {
+  useAcceptStandard,
+  useDetectedStandards,
+  useSkipStandard,
+} from "@/hooks/query/standards";
 import type { DesignProbe, Portfolio, StructuredIntent } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { Loader2, RefreshCw } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { DesignProbeResolvedDialog } from "./DesignProbeResolvedDialog";
-
-// ---------------------------------------------------------------------------
-// Normalize conflicts + probes into a unified CardItem list
-// ---------------------------------------------------------------------------
-
-function normalizeItems(
-  probes: DesignProbe[],
-  conflicts: SchemaConflict[],
-  onSelectProbe: (probeId: string, value: string) => void,
-  onDismissProbe: (probeId: string) => void,
-  onSelectConflictFix: (conflict: SchemaConflict, fix: ConflictFix) => void,
-  onDismissConflict: (conflictId: string) => void,
-): CardItem[] {
-  const probeItems: CardItem[] = probes
-    .filter((o) => o.status === "pending" || o.status === "loading")
-    .map((o) => ({
-      id: o.id,
-      text: o.text,
-      explanation: o.explanation,
-      layer: o.layer,
-      dimensionName: o.dimensionName,
-      options: o.options,
-      status: o.status as "pending" | "loading",
-      onSelect: (value: string) => onSelectProbe(o.id, value),
-      onDismiss: () => onDismissProbe(o.id),
-    }));
-
-  const conflictItems: CardItem[] = conflicts.map((c) => ({
-    id: c.id,
-    text: c.description,
-    options: c.fixes.map((f) => ({
-      value: f.value,
-      label: f.label,
-      description: f.description,
-    })),
-    status: "pending" as const,
-    onSelect: (value: string) => {
-      const fix = c.fixes.find((f) => f.value === value);
-      if (fix) onSelectConflictFix(c, fix);
-    },
-    onDismiss: () => onDismissConflict(c.id),
-  }));
-
-  return [...conflictItems, ...probeItems];
-}
+import { normalizeItems } from "./normalizeItems";
 
 // ---------------------------------------------------------------------------
 // Main component
@@ -89,6 +49,10 @@ export function DesignProbeDeck({ portfolio }: { portfolio: Portfolio }) {
   const generateDesignProbes = useGenerateDesignProbes(portfolio.id);
   const resolveDesignProbe = useResolveDesignProbe(portfolio.id);
   const dismissDesignProbe = useDismissDesignProbe(portfolio.id);
+  const insertStandardProbes = useInsertStandardProbes(portfolio.id);
+  const resolveStandardProbe = useResolveStandardProbe(portfolio.id);
+  const acceptStandard = useAcceptStandard(portfolio.id);
+  const skipStandard = useSkipStandard(portfolio.id);
 
   // Conflict detection + resolution
   const { data: conflicts } = useDetectConflicts(
@@ -101,12 +65,49 @@ export function DesignProbeDeck({ portfolio }: { portfolio: Portfolio }) {
     new Set(),
   );
 
+  // Insert detected standards as design probes (once)
+  const hasInsertedStandards = useRef(false);
+  useEffect(() => {
+    if (detectedStandards?.length && !hasInsertedStandards.current) {
+      hasInsertedStandards.current = true;
+      insertStandardProbes.mutate(detectedStandards);
+    }
+  }, [detectedStandards]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // -------------------------------------------------------------------
   // Design probe interaction: select an option
   // -------------------------------------------------------------------
   const handleProbeSelect = async (probeId: string, selectedValue: string) => {
     const probe = (designProbes ?? []).find((o) => o.id === probeId);
     if (!probe || probe.status !== "pending") return;
+
+    // Special handling for standard probes
+    if (probe.source === "standard") {
+      const standardId = probe.dimensionId;
+      if (selectedValue === "accept" && standardId) {
+        const detected = (detectedStandards ?? []).find(
+          (s) => s.standard.id === standardId,
+        );
+        if (detected) {
+          await acceptStandard.mutateAsync({
+            detected,
+            portfolio: {
+              id: portfolio.id,
+              intent: structuredIntent,
+              schema: portfolioSchema,
+            },
+          });
+          await resolveStandardProbe.mutateAsync({
+            probeId,
+            selectedOption: "accept",
+          });
+        }
+      } else {
+        if (standardId) skipStandard.mutate(standardId);
+        dismissDesignProbe.mutate(probeId);
+      }
+      return;
+    }
 
     try {
       const result = await resolveDesignProbe.mutateAsync({
@@ -118,7 +119,7 @@ export function DesignProbeDeck({ portfolio }: { portfolio: Portfolio }) {
 
       setStructuredIntent(result.newIntent);
     } catch (err) {
-      console.error("[ReflectiveConversationPane] Design probe error:", err);
+      console.error("[DesignProbeDeck] Design probe error:", err);
     }
   };
 
@@ -250,11 +251,6 @@ function DesignProbeDeckWrapped({
 
   return (
     <div className="flex flex-col w-full gap-3">
-      <ResolvedStack
-        resolvedProbes={resolvedProbes}
-        onViewAll={() => setDialogOpen(true)}
-      />
-
       <ScrollFadeContainer>
         {items.map((item) => (
           <DesignProbeCard key={item.id} item={item} anyLoading={anyLoading} />
