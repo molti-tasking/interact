@@ -81,14 +81,29 @@ const layerColorMap: Record<string, { text: string; border: string }> = {
   both: { text: "text-amber-600", border: "border-amber-200" },
 };
 
+const layerLabelMap: Record<string, string> = {
+  intent: "Intent",
+  dimensions: "Structure",
+};
+
 export function LayerBadge({ layer }: { layer: string }) {
+  if (layer === "both") {
+    return (
+      <>
+        <LayerBadge layer="intent" />
+        <LayerBadge layer="dimensions" />
+      </>
+    );
+  }
+  const label = layerLabelMap[layer];
+  if (!label) return null;
   const colors = layerColorMap[layer];
   return (
     <Badge
       variant="outline"
       className={cn("text-[10px] w-fit", colors?.text, colors?.border)}
     >
-      {layer}
+      {label}
     </Badge>
   );
 }
