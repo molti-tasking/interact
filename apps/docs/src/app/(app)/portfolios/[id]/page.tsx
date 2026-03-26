@@ -178,19 +178,25 @@ export default function PortfolioWorkspacePage() {
         </div>
 
         {/* Right: Preview */}
-        <Card
-          data-testid="preview-pane"
-          className="flex flex-col overflow-hidden"
-        >
-          <div className="flex-1 p-4 overflow-auto">
-            <FormRenderer
-              schema={portfolioSchema}
-              mode="preview"
-              onFieldClick={handleFieldClick}
-              className="space-y-4"
-            />
-          </div>
-        </Card>
+        <div>
+          <h3 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+            Artifact
+          </h3>
+
+          <Card
+            data-testid="preview-pane"
+            className="flex flex-col overflow-hidden"
+          >
+            <div className="flex-1 p-4 overflow-auto">
+              <FormRenderer
+                schema={portfolioSchema}
+                mode="preview"
+                onFieldClick={handleFieldClick}
+                className="space-y-4"
+              />
+            </div>
+          </Card>
+        </div>
       </div>
       <pre data-testid="field-count">
         Amount of fields: {portfolioSchema?.fields?.length}

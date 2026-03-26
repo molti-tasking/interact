@@ -36,8 +36,7 @@ export function ScrollFadeContainer({
         ref={scrollRef}
         onScroll={updateScrollState}
         className={
-          className ??
-          "flex flex-col gap-3 overflow-y-auto max-h-[60vh] pr-1 py-2"
+          className ?? "flex flex-col gap-3 overflow-y-auto max-h-[80vh] pr-1"
         }
       >
         {children}

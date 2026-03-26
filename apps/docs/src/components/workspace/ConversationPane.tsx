@@ -298,7 +298,7 @@ export function ReflectiveConversationPane({
       {/* Intent Editor — single field, structured data underneath */}
       <div className="space-y-3">
         <div className="flex items-center justify-between">
-          <Label htmlFor="basePrompt">What you want?</Label>
+          <Label htmlFor="basePrompt">Design Intent & Specification</Label>
           {previousIntent && previousIntent !== editorValue && (
             <Button
               onClick={() => setShowDiff(!showDiff)}
