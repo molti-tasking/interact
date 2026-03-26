@@ -10,6 +10,7 @@ import {
 import { Input } from "@/components/ui/input";
 import type { Field } from "@/lib/types";
 import type { ControllerRenderProps } from "react-hook-form";
+import { FieldTooltip } from "./FieldTooltip";
 
 interface ScaleFieldProps {
   field: Field;
@@ -24,6 +25,7 @@ export function ScaleField({ field, formField }: ScaleFieldProps) {
     <FormItem>
       <FormLabel>
         {field.label}
+        {field.tooltip && <FieldTooltip text={field.tooltip} />}
         {field.required && <span className="text-destructive ml-1">*</span>}
       </FormLabel>
       <FormControl>

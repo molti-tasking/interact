@@ -24,6 +24,7 @@ const deriveFieldsSchema = z.object({
     options: z.array(z.object({ label: z.string(), value: z.string() })).optional().describe("Options for select fields"),
     required: z.boolean().optional(),
     description: z.string().optional(),
+    tooltip: z.string().optional(),
   })),
 });
 
@@ -175,6 +176,7 @@ Rules:
       required: f.required ?? false,
       constraints: [],
       description: f.description,
+      tooltip: f.tooltip,
       origin: "system" as const,
       tags: ["column-action"],
       derivedFrom: field.id,

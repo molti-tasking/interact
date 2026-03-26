@@ -8,6 +8,7 @@ import {
 } from "@/components/ui/form";
 import type { Field } from "@/lib/types";
 import type { Control } from "react-hook-form";
+import { FieldTooltip } from "./FieldTooltip";
 import { renderFieldComponent } from "./index";
 
 interface GroupFieldProps {
@@ -22,6 +23,7 @@ export function GroupField({ field, control }: GroupFieldProps) {
     <FormItem>
       <FormLabel className="text-base font-semibold">
         {field.label}
+        {field.tooltip && <FieldTooltip text={field.tooltip} />}
       </FormLabel>
       {field.description && (
         <FormDescription>{field.description}</FormDescription>

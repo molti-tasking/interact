@@ -109,6 +109,7 @@ export const fieldZ: z.ZodType<Field> = z.lazy(() =>
     required: z.boolean(),
     constraints: z.array(constraintZ),
     description: z.string().optional(),
+    tooltip: z.string().optional(),
     origin: z.enum(["creator", "system"]),
     tags: z.array(z.string()),
     derivedFrom: z.string().optional(),
@@ -123,6 +124,7 @@ export interface Field {
   required: boolean;
   constraints: Constraint[];
   description?: string;
+  tooltip?: string;
   origin: "creator" | "system";
   tags: string[];
   derivedFrom?: string;

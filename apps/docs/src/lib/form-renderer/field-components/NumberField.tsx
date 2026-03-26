@@ -10,6 +10,7 @@ import {
 import { Input } from "@/components/ui/input";
 import type { Field } from "@/lib/types";
 import type { ControllerRenderProps } from "react-hook-form";
+import { FieldTooltip } from "./FieldTooltip";
 
 interface NumberFieldProps {
   field: Field;
@@ -27,6 +28,7 @@ export function NumberField({ field, formField }: NumberFieldProps) {
       <FormLabel>
         {field.label}
         {unit && <span className="text-muted-foreground ml-1">({unit})</span>}
+        {field.tooltip && <FieldTooltip text={field.tooltip} />}
         {field.required && <span className="text-destructive ml-1">*</span>}
       </FormLabel>
       <FormControl>

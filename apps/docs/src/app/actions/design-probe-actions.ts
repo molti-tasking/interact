@@ -36,19 +36,30 @@ export interface GenerateDesignProbesResponse {
 const probeResponseSchema = z.object({
   interactions: z.array(
     z.object({
-      text: z.string().describe("Short question, one sentence"),
-      explanation: z.string().optional().describe("Brief context if needed"),
+      text: z.string().describe("Very short headline question, max ~8 words"),
+      explanation: z
+        .string()
+        .optional()
+        .describe("One-sentence subheadline adding context if needed"),
       layer: z.enum(["intent", "dimensions", "both"]),
       dimensionName: z
         .string()
         .optional()
         .describe("Exact dimension name if applicable"),
-      options: z.array(z.object({ value: z.string(), label: z.string() })),
+      options: z.array(
+        z.object({
+          value: z.string().describe("camelCase identifier"),
+          label: z.string().describe("2-5 words max"),
+        }),
+      ),
     }),
   ),
 });
 
-const optionSchema = z.object({ label: z.string(), value: z.string() });
+const optionSchema = z.object({
+  label: z.string().describe("2-5 words max"),
+  value: z.string(),
+});
 
 const resolveProbeSchema = z.object({
   refinementDelta: z
@@ -61,7 +72,14 @@ const resolveProbeSchema = z.object({
       z.object({
         key: z.string().describe("camelCase field key"),
         label: z.string(),
-        description: z.string().optional(),
+        description: z
+          .string()
+          .optional()
+          .describe("Brief help text — omit if the label is self-explanatory"),
+        tooltip: z
+          .string()
+          .optional()
+          .describe("Extra hover guidance — omit if not needed"),
         type: z.enum([
           "string",
           "number",
@@ -86,8 +104,13 @@ const resolveProbeSchema = z.object({
   followUpInteractions: z
     .array(
       z.object({
-        text: z.string(),
-        options: z.array(z.object({ value: z.string(), label: z.string() })),
+        text: z.string().describe("Very short headline, max ~8 words"),
+        options: z.array(
+          z.object({
+            value: z.string().describe("camelCase identifier"),
+            label: z.string().describe("2-5 words max"),
+          }),
+        ),
       }),
     )
     .optional(),
@@ -171,9 +194,9 @@ Each question must be classified by layer:
 - "both": spans both intent and concrete form structure
 
 Rules:
-- Question text must be SHORT — one sentence, no preamble
-- "explanation" is OPTIONAL — only include if the question truly needs clarification. Most questions should NOT have one.
-- Options: short labels (2-5 words each), mutually exclusive
+- Question "text" must be VERY SHORT — max ~8 words, like a headline. No preamble.
+- "explanation" is a brief subheadline that adds context ONLY when the headline isn't self-explanatory. Keep it to one sentence.
+- Option labels must be SHORT: 2-5 words max, mutually exclusive
 - Mix of intent-level and dimension-level questions
 - Values should be camelCase identifiers`;
 
@@ -307,7 +330,9 @@ Based on this choice, you must:
 RULES:
 - Use valid field types: "string", "number", "boolean", "date", "email", "select"
 - For select fields, ALWAYS include options in validation.options as [{label, value}] objects
-- Field keys MUST be camelCase and descriptive`;
+- Field keys MUST be camelCase and descriptive
+- "description" should be SHORT (a few words) — omit entirely if the label already makes the field obvious
+- "tooltip" is for extra guidance that helps the user fill in the field correctly — omit if not needed`;
 
     const result = await withTracing(
       { tags: ["design-probes", "resolve"] },
@@ -341,6 +366,7 @@ RULES:
       required: f.required,
       constraints: [],
       description: f.description,
+      tooltip: f.tooltip,
       origin: "system" as const,
       tags: [],
     }));

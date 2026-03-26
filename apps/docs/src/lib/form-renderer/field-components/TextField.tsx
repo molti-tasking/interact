@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import type { Field } from "@/lib/types";
 import type { ControllerRenderProps } from "react-hook-form";
+import { FieldTooltip } from "./FieldTooltip";
 
 interface TextFieldProps {
   field: Field;
@@ -26,6 +27,7 @@ export function TextField({ field, formField }: TextFieldProps) {
     <FormItem>
       <FormLabel>
         {field.label}
+        {field.tooltip && <FieldTooltip text={field.tooltip} />}
         {field.required && <span className="text-destructive ml-1">*</span>}
       </FormLabel>
       <FormControl>

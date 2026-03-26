@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/form";
 import type { Field } from "@/lib/types";
 import type { ControllerRenderProps } from "react-hook-form";
+import { FieldTooltip } from "./FieldTooltip";
 
 interface BooleanFieldProps {
   field: Field;
@@ -29,6 +30,7 @@ export function BooleanField({ field, formField }: BooleanFieldProps) {
       <div className="space-y-1 leading-none">
         <FormLabel>
           {field.label}
+          {field.tooltip && <FieldTooltip text={field.tooltip} />}
           {field.required && <span className="text-destructive ml-1">*</span>}
         </FormLabel>
         {field.description && (

@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/select";
 import type { Field, SelectOption } from "@/lib/types";
 import type { ControllerRenderProps } from "react-hook-form";
+import { FieldTooltip } from "./FieldTooltip";
 
 interface SelectFieldProps {
   field: Field;
@@ -33,6 +34,7 @@ export function SelectField({ field, formField }: SelectFieldProps) {
       <FormItem>
         <FormLabel>
           {field.label}
+          {field.tooltip && <FieldTooltip text={field.tooltip} />}
           {field.required && <span className="text-destructive ml-1">*</span>}
         </FormLabel>
         <div className="space-y-2">

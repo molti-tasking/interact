@@ -45,7 +45,8 @@ const optionSchema = z.object({
 
 const fieldSchema = z.object({
   label: z.string().describe("Human-readable field label"),
-  description: z.string().optional().describe("Short help text for the field"),
+  description: z.string().optional().describe("Brief help text shown below the field — omit if the label is self-explanatory"),
+  tooltip: z.string().optional().describe("Extra guidance shown on hover — omit if not needed"),
   type: z
     .enum(["string", "number", "boolean", "date", "email", "select"])
     .describe("Field input type"),
@@ -142,7 +143,9 @@ Design the form fields using these types:
 - "email" for email addresses
 
 RULES:
-- Field keys MUST be camelCase and descriptive${acceptedStandards && acceptedStandards.length > 0 ? '\n- For standard-sourced fields, include "standardReference"' : ""}`;
+- Field keys MUST be camelCase and descriptive
+- "description" should be SHORT (a few words) — omit entirely if the label already makes the field obvious
+- "tooltip" is for extra guidance that helps the user fill in the field correctly — omit if not needed${acceptedStandards && acceptedStandards.length > 0 ? '\n- For standard-sourced fields, include "standardReference"' : ""}`;
 
     const result = await withTracing({ tags: ["schema", "generate"] }, () =>
       generateText({
@@ -181,6 +184,7 @@ RULES:
           required: f.required,
           constraints: [],
           description: f.description,
+          tooltip: f.tooltip,
           origin: "system" as const,
           tags: [],
         };

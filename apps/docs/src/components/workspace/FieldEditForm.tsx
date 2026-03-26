@@ -50,6 +50,7 @@ const fieldEditSchema = z
     kind: z.enum(fieldKindValues as unknown as [string, ...string[]]),
     required: z.boolean(),
     description: z.string(),
+    tooltip: z.string(),
     options: z.string(),
   })
   .refine(
@@ -91,6 +92,7 @@ export function FieldEditForm({
       kind: field.type.kind,
       required: field.required,
       description: field.description ?? "",
+      tooltip: field.tooltip ?? "",
       options:
         field.type.kind === "select"
           ? field.type.options.map((o) => o.label).join("\n")
@@ -105,6 +107,7 @@ export function FieldEditForm({
       kind: field.type.kind,
       required: field.required,
       description: field.description ?? "",
+      tooltip: field.tooltip ?? "",
       options:
         field.type.kind === "select"
           ? field.type.options.map((o) => o.label).join("\n")
@@ -121,6 +124,7 @@ export function FieldEditForm({
       type: newType,
       required: values.required,
       description: values.description || undefined,
+      tooltip: values.tooltip || undefined,
     });
     onClose();
   };
@@ -204,6 +208,21 @@ export function FieldEditForm({
                 <FormLabel>Description</FormLabel>
                 <FormControl>
                   <Input {...f} placeholder="Help text shown below the field" />
+                </FormControl>
+                <FormDescription />
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="tooltip"
+            render={({ field: f }) => (
+              <FormItem>
+                <FormLabel>Tooltip</FormLabel>
+                <FormControl>
+                  <Input {...f} placeholder="Extra guidance shown on hover" />
                 </FormControl>
                 <FormDescription />
                 <FormMessage />
