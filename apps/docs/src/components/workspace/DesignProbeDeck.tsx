@@ -178,15 +178,18 @@ export function DesignProbeDeck({ portfolio }: { portfolio: Portfolio }) {
 
   return (
     (visibleConflicts.length > 0 || (designProbes ?? []).length > 0) && (
-      <div data-testid="card-deck-section" className="space-y-2">
-        <h3 className="text-md uppercase font-semibold text-muted-foreground">
-          Design Probes
+      <div data-testid="card-deck-section">
+        <div className="flex items-center justify-between mb-2">
+          <h3 className="text-md uppercase font-semibold text-muted-foreground ">
+            Design Probes
+          </h3>
           {(generateDesignProbes.isPending ||
             resolveDesignProbe.isPending ||
             resolveConflict.isPending) && (
             <Loader2 className="h-3 w-3 animate-spin ml-2" />
           )}
-        </h3>
+        </div>
+
         {generateDesignProbes.isPending &&
           (designProbes ?? []).length === 0 && (
             <div className="flex items-center gap-2 rounded-lg border border-dashed p-4 text-sm text-muted-foreground animate-pulse">
@@ -212,7 +215,6 @@ export function DesignProbeDeck({ portfolio }: { portfolio: Portfolio }) {
 
 function DesignProbeDeckWrapped({
   probes,
-  conflicts,
   anyLoading,
   isRegenerating,
   onSelectProbe,
@@ -235,7 +237,7 @@ function DesignProbeDeckWrapped({
 
   const items = normalizeItems(
     probes,
-    conflicts,
+    [], // TODO conflicts ignored now
     onSelectProbe,
     onDismissProbe,
     onSelectConflictFix,
