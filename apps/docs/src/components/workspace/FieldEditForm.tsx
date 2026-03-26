@@ -258,7 +258,7 @@ export function FieldEditForm({
         <SheetFooter className="flex gap-2">
           <Button
             type="button"
-            variant="destructive"
+            variant="destructiveSoft"
             size="sm"
             onClick={handleRemove}
           >
