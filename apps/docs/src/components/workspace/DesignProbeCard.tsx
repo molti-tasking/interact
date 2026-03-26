@@ -15,7 +15,7 @@ export interface CardItem {
   layer?: string;
   dimensionName?: string | null;
   options: { value: string; label: string; description?: string }[];
-  status: "pending" | "loading";
+  status: "pending" | "loading" | "resolved" | "dismissed";
   onSelect: (value: string) => void;
   onDismiss: () => void;
 }
@@ -42,6 +42,7 @@ export function DesignProbeCard({ item, anyLoading }: DesignProbeCardProps) {
         <>
           {item.layer && <LayerBadge layer={item.layer} />}
           {item.dimensionName && <DimensionBadge name={item.dimensionName} />}
+          <DimensionBadge name={item.status} />
         </>
       }
     >
