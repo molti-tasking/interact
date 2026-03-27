@@ -20,9 +20,9 @@ import {
   BarChart3,
   ClipboardList,
   FileText,
+  FlaskConical,
   FormInput,
   GalleryVerticalEnd,
-  HeartIcon,
   History,
   Home,
   Pencil,
@@ -67,17 +67,17 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
               </SidebarMenuItem>
               <SidebarMenuItem>
                 <SidebarMenuButton asChild>
-                  <Link href="/portfolios/new">
-                    <Plus className="h-4 w-4" />
-                    <span>New Portfolio</span>
+                  <Link href="/evaluation">
+                    <FlaskConical className="h-4 w-4" />
+                    <span>Evaluation</span>
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
               <SidebarMenuItem>
                 <SidebarMenuButton asChild>
-                  <Link href="/hi-mum">
-                    <HeartIcon className="h-4 w-4" />
-                    <span>Hi Mum</span>
+                  <Link href="/portfolios/new">
+                    <Plus className="h-4 w-4" />
+                    <span>New Portfolio</span>
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
