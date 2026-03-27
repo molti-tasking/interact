@@ -25,9 +25,10 @@ export function ResolvedStack({
   const last = resolvedProbes[count - 1];
   if (!last) return null;
 
-  const selectedLabel =
-    last.options.find((opt) => opt.value === last.selectedOption)?.label ??
-    last.selectedOption;
+  const selectedLabel = last.selectedOption?.startsWith("custom:")
+    ? last.selectedOption.slice("custom:".length)
+    : last.options.find((opt) => opt.value === last.selectedOption)?.label ??
+      last.selectedOption;
 
   return (
     <div className="space-y-2 opacity-50 hover:opacity-70 transition-opacity duration-300 px-2">

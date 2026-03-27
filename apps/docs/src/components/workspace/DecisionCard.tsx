@@ -14,6 +14,7 @@ interface DecisionCardProps {
   badges?: React.ReactNode;
   description?: string;
   onDismiss?: () => void;
+  onClick?: () => void;
   children?: React.ReactNode;
   disabled?: boolean;
   className?: string;
@@ -28,6 +29,7 @@ export function DecisionCard({
   badges,
   description,
   onDismiss,
+  onClick,
   children,
   disabled,
   className,
@@ -36,6 +38,7 @@ export function DecisionCard({
   return (
     <Card
       data-testid={testId}
+      onClick={onClick}
       className={cn(
         "card-hover-lift py-2.5 gap-1.5",
         accentColor && "border-l-[3px]",

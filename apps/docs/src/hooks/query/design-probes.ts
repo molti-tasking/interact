@@ -111,10 +111,21 @@ export function useResolveDesignProbe(portfolioId: string) {
       currentIntent: StructuredIntent;
       currentSchema: PortfolioSchema;
     }) => {
-      const selectedOption = probe.options.find(
-        (o) => o.value === selectedValue,
-      );
-      if (!selectedOption) throw new Error("Invalid option selected");
+      // Handle custom answers (prefixed with "custom:")
+      const isCustom = selectedValue.startsWith("custom:");
+      const customText = isCustom ? selectedValue.slice("custom:".length) : null;
+
+      const selectedOption = isCustom
+        ? null
+        : probe.options.find((o) => o.value === selectedValue);
+
+      if (!isCustom && !selectedOption) {
+        throw new Error("Invalid option selected");
+      }
+
+      const optionLabel = isCustom
+        ? customText!
+        : selectedOption!.label;
 
       // Mark as loading in DB
       const supabase = createClient();
@@ -127,7 +138,7 @@ export function useResolveDesignProbe(portfolioId: string) {
         intent: currentIntent,
         currentSchema,
         interactionText: probe.text,
-        selectedOptionLabel: selectedOption.label,
+        selectedOptionLabel: optionLabel,
         maxFollowUps: 3,
       });
 
@@ -140,12 +151,17 @@ export function useResolveDesignProbe(portfolioId: string) {
         throw new Error(response.error ?? "Failed to resolve design probe");
       }
 
-      // Refine the intent with the probe decision
-      const delta = response.result.refinementDelta;
+      // Replace purpose with the LLM's coherent rewrite (falls back to append if missing)
+      const newPurpose = response.result.updatedPurpose
+        ? response.result.updatedPurpose
+        : currentIntent.purpose.content.trimEnd() +
+          "\n" +
+          response.result.refinementDelta;
+
       const newIntent: StructuredIntent = {
         ...currentIntent,
         purpose: {
-          content: currentIntent.purpose.content.trimEnd() + "\n" + delta,
+          content: newPurpose,
           updatedAt: new Date().toISOString(),
         },
       };
@@ -176,7 +192,7 @@ export function useResolveDesignProbe(portfolioId: string) {
         "design_probe_resolved",
         "creator",
         probeDiff,
-        `"${probe.text}" → "${selectedOption.label}"`,
+        `"${probe.text}" → "${optionLabel}"`,
         { intent: currentIntent, schema: currentSchema },
       );
 

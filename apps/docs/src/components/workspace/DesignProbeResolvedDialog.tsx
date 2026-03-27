@@ -29,6 +29,7 @@ export const DesignProbeResolvedDialog = ({
   setDialogOpen,
   resolvedProbes,
 }: DesignProbeResolvedDialogProps) => {
+  // TODO these cards have to displayed chronologically! We maybe have to add a trigger setting a "answered_at" field, whenever it has been changed.
   return (
     <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
       <DialogContent className="max-w-7xl w-full max-h-[90vh] overflow-y-auto">
@@ -59,7 +60,10 @@ export const DesignProbeResolvedDialog = ({
                   >
                     <div className="flex flex-wrap gap-1.5">
                       {o.options.map((opt) => {
-                        const isSelected = opt.value === o.selectedOption;
+                        const isCustom =
+                          o.selectedOption?.startsWith("custom:");
+                        const isSelected =
+                          !isCustom && opt.value === o.selectedOption;
                         return (
                           <div
                             key={opt.value}
@@ -77,6 +81,12 @@ export const DesignProbeResolvedDialog = ({
                           </div>
                         );
                       })}
+                      {o.selectedOption?.startsWith("custom:") && (
+                        <div className="flex items-center gap-1 text-xs rounded-md px-2 py-1 font-sans bg-green-50 border border-green-200 font-medium text-green-800">
+                          <Check className="h-3 w-3 text-green-600 shrink-0" />
+                          {o.selectedOption.slice("custom:".length)}
+                        </div>
+                      )}
                     </div>
                   </DecisionCard>
                   {index < resolvedProbes.length - 1 && (

@@ -5,7 +5,7 @@ import type { DetectedStandard } from "@/lib/domain-standards";
 import { serializeForLLM } from "@/lib/engine/structured-intent";
 import { model } from "@/lib/model";
 import { withTracing } from "@/lib/telemetry";
-import type { PortfolioSchema, StructuredIntent } from "@/lib/types";
+import type { Field, PortfolioSchema, StructuredIntent } from "@/lib/types";
 import { generateText, Output } from "ai";
 import { z } from "zod";
 
@@ -61,46 +61,55 @@ const optionSchema = z.object({
   value: z.string(),
 });
 
+const schemaPatchFieldSchema = z.object({
+  key: z.string().describe("camelCase field key"),
+  label: z.string(),
+  description: z
+    .string()
+    .optional()
+    .describe("Brief help text — omit if the label is self-explanatory"),
+  tooltip: z
+    .string()
+    .optional()
+    .describe("Extra hover guidance — omit if not needed"),
+  type: z.enum(["string", "number", "boolean", "date", "email", "select"]),
+  required: z.boolean(),
+  validation: z
+    .object({ options: z.array(optionSchema).optional() })
+    .optional(),
+});
+
 const resolveProbeSchema = z.object({
   refinementDelta: z
     .string()
-    .describe("Single sentence summarizing the design decision"),
-  artifactFormSchema: z.object({
-    name: z.string(),
-    description: z.string(),
-    fields: z.array(
-      z.object({
-        key: z.string().describe("camelCase field key"),
-        label: z.string(),
-        description: z
-          .string()
-          .optional()
-          .describe("Brief help text — omit if the label is self-explanatory"),
-        tooltip: z
-          .string()
-          .optional()
-          .describe("Extra hover guidance — omit if not needed"),
-        type: z.enum([
-          "string",
-          "number",
-          "boolean",
-          "date",
-          "email",
-          "select",
-        ]),
-        required: z.boolean(),
-        validation: z
-          .object({ options: z.array(optionSchema).optional() })
-          .optional(),
-      }),
+    .describe(
+      "One tight sentence for the changelog, e.g. 'Added recurring booking fields.'",
     ),
-  }),
-  configuratorFormValues: z.array(
-    z.object({
-      key: z.string(),
-      value: z.union([z.string(), z.number(), z.boolean()]),
-    }),
-  ),
+  updatedPurpose: z
+    .string()
+    .describe(
+      "Rewritten purpose section: a concise 2-4 sentence paragraph that incorporates the new decision into the existing purpose. Not a list of decisions — a coherent description of what the form does.",
+    ),
+  schemaPatch: z
+    .object({
+      addFields: z
+        .array(schemaPatchFieldSchema)
+        .optional()
+        .describe("New fields to add to the schema"),
+      removeFieldKeys: z
+        .array(z.string())
+        .optional()
+        .describe("camelCase keys of fields to remove"),
+      updateFields: z
+        .array(schemaPatchFieldSchema)
+        .optional()
+        .describe(
+          "Fields to update — include the full field definition with the same key",
+        ),
+    })
+    .describe(
+      "Only the changes to apply to the current schema. Omit sections with no changes.",
+    ),
   followUpInteractions: z
     .array(
       z.object({
@@ -277,6 +286,7 @@ export interface ResolveDesignProbeResponse {
   success: boolean;
   result?: {
     refinementDelta: string;
+    updatedPurpose: string;
     artifactFormSchema: PortfolioSchema;
     followUpInteractions: DesignProbeRaw[];
   };
@@ -323,16 +333,22 @@ The user was asked: "${interactionText}"
 They chose: "${selectedOptionLabel}"
 
 Based on this choice, you must:
-1. Write a SHORT "refinementDelta" — a single sentence summarizing the design decision made
-2. Update the form schemas to reflect this choice
-3. Optionally generate 0-${maxFollowUps} follow-up design probes if the choice opens up new design decisions${maxFollowUps === 0 ? ". Do NOT generate any follow-up questions, return an empty followUpInteractions array." : ""}
+1. Write a SHORT "refinementDelta" — one tight changelog sentence (e.g. "Added recurring booking fields.")
+2. Write "updatedPurpose" — rewrite the ENTIRE purpose section as a concise 2-4 sentence paragraph that incorporates this decision. Do NOT list each decision as a bullet or separate sentence. Synthesize into a coherent description of what the form is for, who uses it, and its key characteristics. Remove redundant or superseded details.
+3. Return a "schemaPatch" with ONLY the changes — do NOT regenerate the entire schema. Use:
+   - "addFields": new fields to add
+   - "removeFieldKeys": camelCase keys of fields to remove
+   - "updateFields": existing fields to modify (include full field definition with the same key)
+   - Omit any section that has no changes.
+4. Optionally generate 0-${maxFollowUps} follow-up design probes if the choice opens up new design decisions${maxFollowUps === 0 ? ". Do NOT generate any follow-up questions, return an empty followUpInteractions array." : ""}
 
 RULES:
 - Use valid field types: "string", "number", "boolean", "date", "email", "select"
 - For select fields, ALWAYS include options in validation.options as [{label, value}] objects
 - Field keys MUST be camelCase and descriptive
 - "description" should be SHORT (a few words) — omit entirely if the label already makes the field obvious
-- "tooltip" is for extra guidance that helps the user fill in the field correctly — omit if not needed`;
+- "tooltip" is for extra guidance that helps the user fill in the field correctly — omit if not needed
+- IMPORTANT: Only include fields that CHANGE in schemaPatch. Leave unchanged fields alone.`;
 
     const result = await withTracing(
       { tags: ["design-probes", "resolve"] },
@@ -357,24 +373,56 @@ RULES:
 
     const parsedResult = result.output;
 
-    // Convert to PortfolioSchema
-    const fields = parsedResult.artifactFormSchema.fields.map((f, index) => ({
-      id: `field-${Date.now()}-${index}`,
-      name: f.key,
-      label: f.label,
-      type: convertOldFieldType(f.type, f.validation),
-      required: f.required,
-      constraints: [],
-      description: f.description,
-      tooltip: f.tooltip,
-      origin: "system" as const,
-      tags: [],
-    }));
+    // Apply schema patch to current schema
+    const patch = parsedResult.schemaPatch;
+    let patchedFields = [...currentSchema.fields];
+
+    // Remove fields
+    if (patch.removeFieldKeys?.length) {
+      const removeSet = new Set(patch.removeFieldKeys);
+      patchedFields = patchedFields.filter((f) => !removeSet.has(f.name));
+    }
+
+    // Update fields
+    if (patch.updateFields?.length) {
+      const updateMap = new Map(
+        patch.updateFields.map((f) => [f.key, f]),
+      );
+      patchedFields = patchedFields.map((existing) => {
+        const update = updateMap.get(existing.name);
+        if (!update) return existing;
+        return {
+          ...existing,
+          label: update.label,
+          type: convertOldFieldType(update.type, update.validation),
+          required: update.required,
+          description: update.description,
+          tooltip: update.tooltip,
+        };
+      });
+    }
+
+    // Add fields
+    if (patch.addFields?.length) {
+      const newFields = patch.addFields.map((f, index) => ({
+        id: `field-${Date.now()}-${index}`,
+        name: f.key,
+        label: f.label,
+        type: convertOldFieldType(f.type, f.validation),
+        required: f.required,
+        constraints: [] as Field["constraints"],
+        description: f.description,
+        tooltip: f.tooltip,
+        origin: "system" as const,
+        tags: [] as string[],
+      }));
+      patchedFields = [...patchedFields, ...newFields];
+    }
 
     const artifactFormSchema: PortfolioSchema = {
-      fields,
-      groups: [],
-      version: 1,
+      ...currentSchema,
+      fields: patchedFields,
+      version: currentSchema.version + 1,
     };
 
     const followUpInteractions: DesignProbeRaw[] = (
@@ -398,6 +446,7 @@ RULES:
       success: true,
       result: {
         refinementDelta: parsedResult.refinementDelta,
+        updatedPurpose: parsedResult.updatedPurpose,
         artifactFormSchema,
         followUpInteractions,
       },
