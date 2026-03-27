@@ -1,6 +1,6 @@
 "use client";
 
-import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import {
   Dialog,
@@ -14,7 +14,7 @@ import { usePortfolio } from "@/hooks/query/portfolios";
 import { useCreateResponse } from "@/hooks/query/responses-new";
 import { FormRenderer } from "@/lib/form-renderer/FormRenderer";
 import { PortfolioSchema } from "@/lib/types";
-import { Info, Loader2 } from "lucide-react";
+import { FileText, Info, Loader2 } from "lucide-react";
 import { useParams } from "next/navigation";
 import { toast } from "sonner";
 
@@ -53,30 +53,52 @@ export default function PublishedFormPage() {
     );
   }
 
+  const portfolioSchema = portfolio.schema as unknown as PortfolioSchema;
+  const fieldCount = portfolioSchema.fields.length;
+
   return (
-    <div className="max-w-2xl mx-auto space-y-6">
-      <div className="flex items-center gap-2">
-        <h1 className="text-2xl font-bold tracking-tight">{portfolio.title}</h1>
-        {portfolio.intent && (
-          <Dialog>
-            <DialogTrigger asChild>
-              <Button variant="ghost" size="sm" className="h-7 w-7 p-0">
-                <Info className="h-4 w-4 text-muted-foreground" />
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>About this form</DialogTitle>
-                <DialogDescription>{portfolio.intent.purpose.content || "No description"}</DialogDescription>
-              </DialogHeader>
-            </DialogContent>
-          </Dialog>
-        )}
+    <div className="max-w-2xl mx-auto">
+      {/* Hero header */}
+      <div className="text-center space-y-3 mb-8">
+        <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-primary/10 mb-2">
+          <FileText className="h-7 w-7 text-primary" />
+        </div>
+        <h1 className="text-3xl tracking-tight">{portfolio.title}</h1>
+
+        <div className="flex items-center justify-center gap-2 pt-1">
+          <Badge variant="secondary" className="text-xs">
+            {fieldCount} field{fieldCount !== 1 ? "s" : ""}
+          </Badge>
+          {portfolio.base_id && (
+            <Badge variant="outline" className="text-xs">
+              Derived
+            </Badge>
+          )}
+          {portfolio.intent && (
+            <Dialog>
+              <DialogTrigger asChild>
+                <button className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors cursor-pointer">
+                  <Info className="h-3 w-3" />
+                  About
+                </button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>About this form</DialogTitle>
+                  <DialogDescription>
+                    {portfolio.intent.purpose.content || "No description"}
+                  </DialogDescription>
+                </DialogHeader>
+              </DialogContent>
+            </Dialog>
+          )}
+        </div>
       </div>
 
-      <Card className="p-6">
+      {/* Form card */}
+      <Card className="p-6 md:p-8">
         <FormRenderer
-          schema={portfolio.schema as unknown as PortfolioSchema}
+          schema={portfolioSchema}
           mode="live"
           onSubmit={handleSubmit}
         />

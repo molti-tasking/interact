@@ -6,7 +6,13 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useCreatePortfolio, usePortfolio } from "@/hooks/query/portfolios";
 import { emptyStructuredIntent, PortfolioSchema } from "@/lib/types";
-import { ArrowLeft, Loader2 } from "lucide-react";
+import {
+  ArrowLeft,
+  FileText,
+  GitBranch,
+  Loader2,
+  Sparkles,
+} from "lucide-react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useState } from "react";
@@ -38,7 +44,10 @@ export default function DerivePage() {
         title: `${portfolio.title} — ${scenario.trim().slice(0, 50)}`,
         intent: {
           ...emptyStructuredIntent(),
-          purpose: { content: scenario.trim(), updatedAt: new Date().toISOString() },
+          purpose: {
+            content: scenario.trim(),
+            updatedAt: new Date().toISOString(),
+          },
         },
         schema: portfolio.schema,
         base_id: portfolio.id,
@@ -62,45 +71,79 @@ export default function DerivePage() {
     }
   };
 
+  const fieldCount = (portfolio.schema as unknown as PortfolioSchema).fields
+    .length;
+
   return (
-    <div className="max-w-2xl mx-auto space-y-6">
-      <div className="flex items-center gap-4">
-        <Button variant="ghost" size="sm" asChild>
-          <Link href={`/portfolios/${id}`}>
-            <ArrowLeft className="h-4 w-4 mr-1" />
-            Back
-          </Link>
-        </Button>
-        <h1 className="text-2xl font-bold tracking-tight">Derive New View</h1>
+    <div className="max-w-2xl mx-auto">
+      {/* Back link */}
+      <Button variant="ghost" size="sm" asChild className="mb-6 -ml-2">
+        <Link href={`/portfolios/${id}`}>
+          <ArrowLeft className="h-4 w-4" />
+          Back to design
+        </Link>
+      </Button>
+
+      {/* Hero header */}
+      <div className="text-center space-y-3 mb-10">
+        <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-primary/10 mb-2">
+          <GitBranch className="h-7 w-7 text-primary" />
+        </div>
+        <h1 className="text-3xl tracking-tight">Derive a New Sub Schema</h1>
       </div>
 
-      <Card className="p-6 space-y-4">
-        <div>
-          <p className="text-sm text-muted-foreground">
-            Deriving from: <strong>{portfolio.title}</strong> (
-            {(portfolio.schema as unknown as PortfolioSchema).fields.length}{" "}
-            fields)
+      {/* Source form context */}
+      <Card className="p-4 mb-6 border-dashed flex items-center gap-4">
+        <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-muted shrink-0">
+          <FileText className="h-5 w-5 text-muted-foreground" />
+        </div>
+        <div className="min-w-0">
+          <p className="text-sm font-medium truncate">{portfolio.title}</p>
+          <p className="text-xs text-muted-foreground">
+            Source form &middot; {fieldCount} field{fieldCount !== 1 ? "s" : ""}
           </p>
         </div>
+      </Card>
 
+      {/* Main action area */}
+      <div className="space-y-4">
         <div className="space-y-2">
-          <Label htmlFor="scenario">Scenario Description</Label>
+          <Label htmlFor="scenario" className="text-sm">
+            What&apos;s this view for?
+          </Label>
           <Textarea
             id="scenario"
-            placeholder="Describe who will use this view and for what purpose. The system will determine which fields to include, exclude, or add..."
-            rows={4}
+            placeholder="e.g. A simplified intake form for new patients, focusing only on demographics and insurance..."
+            rows={5}
             value={scenario}
             onChange={(e) => setScenario(e.target.value)}
+            className="text-base bg-white"
           />
+          <p className="text-xs text-muted-foreground">
+            Describe the audience and purpose. The system will determine which
+            fields to include, adapt, or add.
+          </p>
         </div>
 
         <Button
           onClick={handleDerive}
           disabled={!scenario.trim() || isCreating}
+          size="lg"
+          className="w-full btn-brand"
         >
-          {isCreating ? "Creating..." : "Create Derived View"}
+          {isCreating ? (
+            <>
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Creating view...
+            </>
+          ) : (
+            <>
+              <Sparkles className="h-4 w-4" />
+              Create Derived View
+            </>
+          )}
         </Button>
-      </Card>
+      </div>
     </div>
   );
 }
