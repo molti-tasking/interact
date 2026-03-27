@@ -246,6 +246,7 @@ export async function simulatePersona(
       );
 
       // Click the chosen option
+      const cardCountBefore = await probeCards.count();
       await page
         .locator(`[data-testid="deck-option-${chosenValue}"]`)
         .click();
@@ -255,10 +256,26 @@ export async function simulatePersona(
         status: "resolved",
       });
 
-      // Wait for the design probe to be processed and the card to disappear.
-      // The resolve triggers a schema update round-trip, so give it time.
+      // Wait for the resolved probe card to disappear from the DOM.
+      // The resolve triggers an LLM round-trip (schema update), after which
+      // the probe status changes from "pending" → "resolved" and the card
+      // is removed from the filtered list. Also wait for buttons to re-enable
+      // (anyLoading becomes false when the mutation completes).
       console.log(`[simulate] Waiting for design probe resolution to process...`);
-      await page.waitForTimeout(5000);
+      try {
+        await page.waitForFunction(
+          (expectedCount) => {
+            const cards = document.querySelectorAll('[data-testid^="deck-card-"]');
+            return cards.length < expectedCount;
+          },
+          cardCountBefore,
+          { timeout: 120000 },
+        );
+        // Small buffer for React re-render after card removal
+        await page.waitForTimeout(1000);
+      } catch {
+        console.warn(`[simulate] Probe resolution timed out — continuing`);
+      }
     }
 
     // Step 5: Collect final state
