@@ -19,6 +19,7 @@ interface DecisionCardProps {
   disabled?: boolean;
   className?: string;
   "data-testid"?: string;
+  "data-status"?: string;
 }
 
 export function DecisionCard({
@@ -34,10 +35,12 @@ export function DecisionCard({
   disabled,
   className,
   "data-testid": testId,
+  "data-status": status,
 }: DecisionCardProps) {
   return (
     <Card
       data-testid={testId}
+      data-status={status}
       onClick={onClick}
       className={cn(
         "card-hover-lift py-2.5 gap-1.5",

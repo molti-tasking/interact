@@ -181,7 +181,11 @@ export function DesignProbeDeck({ portfolio }: { portfolio: Portfolio }) {
 
   return (
     (visibleConflicts.length > 0 || (pendingDesignProbes ?? []).length > 0) && (
-      <div data-testid="card-deck-section">
+      <div
+        data-testid="card-deck-section"
+        data-loading={isLoading ? "true" : undefined}
+        data-generating={generateDesignProbes.isPending ? "true" : undefined}
+      >
         <div className="flex items-center justify-between h-8 mb-3">
           <div className="flex items-center gap-2">
             <h3 className="workspace-section-label">Design Probes</h3>
@@ -195,7 +199,10 @@ export function DesignProbeDeck({ portfolio }: { portfolio: Portfolio }) {
 
         {generateDesignProbes.isPending &&
           (designProbes ?? []).length === 0 && (
-            <div className="flex items-center gap-2 rounded-xl border border-dashed p-4 text-sm text-muted-foreground/70 animate-pulse">
+            <div
+              data-testid="probes-generating"
+              className="flex items-center gap-2 rounded-xl border border-dashed p-4 text-sm text-muted-foreground/70 animate-pulse"
+            >
               <Loader2 className="h-4 w-4 animate-spin" />
               Generating design probes...
             </div>

@@ -65,22 +65,21 @@ pnpm eval
 
 ## Environment Variables
 
-| Variable | Description | Default |
-|---|---|---|
-| `LLM_HOST` | LiteLLM proxy URL (shared with app) | `http://localhost:4000/v1` |
-| `LLM_API_KEY` | API key for LiteLLM | — |
-| `LLM_MODEL_NAME` | Model for persona simulation | `default` |
-| `EVAL_BASE_URL` | App URL for Playwright | `https://interact-molt.vercel.app` |
-| `EVAL_SIM_MODEL` | Override model for persona simulation | falls back to `LLM_MODEL_NAME` |
-| `EVAL_JUDGE_HOST` | LLM host for judging | falls back to `LLM_HOST` |
-| `EVAL_JUDGE_KEY` | API key for judge | falls back to `LLM_API_KEY` |
-| `EVAL_JUDGE_MODEL` | Model for CDN judging | falls back to `LLM_MODEL_NAME` |
-| `EVAL_JUDGE_RUNS` | Number of judge runs per session | `1` |
-| `EVAL_SKIP_SIMULATION` | Skip Phase 1, use cached artifacts | `false` |
+| Variable               | Description                           | Default                            |
+| ---------------------- | ------------------------------------- | ---------------------------------- |
+| `LLM_HOST`             | LiteLLM proxy URL (shared with app)   | `http://localhost:4000/v1`         |
+| `LLM_API_KEY`          | API key for LiteLLM                   | —                                  |
+| `LLM_MODEL_NAME`       | Model for persona simulation          | `default`                          |
+| `EVAL_BASE_URL`        | App URL for Playwright                | `https://interact-molt.vercel.app` |
+| `EVAL_SIM_MODEL`       | Override model for persona simulation | falls back to `LLM_MODEL_NAME`     |
+| `EVAL_JUDGE_HOST`      | LLM host for judging                  | falls back to `LLM_HOST`           |
+| `EVAL_JUDGE_KEY`       | API key for judge                     | falls back to `LLM_API_KEY`        |
+| `EVAL_JUDGE_MODEL`     | Model for CDN judging                 | falls back to `LLM_MODEL_NAME`     |
+| `EVAL_JUDGE_RUNS`      | Number of judge runs per session      | `1`                                |
+| `EVAL_SKIP_SIMULATION` | Skip Phase 1, use cached artifacts    | `false`                            |
 
 ## Output
 
 - `tests/evaluation/results/artifacts/` — JSON artifacts per session
 - `tests/evaluation/results/cdn-scores-raw.json` — raw judge scores
 - `tests/evaluation/results/cdn-scores.json` — aggregated scores
-- `tests/evaluation/results/cdn-table.tex` — LaTeX table for paper

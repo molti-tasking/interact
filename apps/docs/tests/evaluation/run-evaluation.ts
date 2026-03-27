@@ -40,11 +40,11 @@ loadEnvConfig(path.resolve(__dirname, "../.."), false);
 
 import { chromium } from "@playwright/test";
 import fs from "fs";
+import { aggregateScores } from "./aggregate";
+import type { SessionArtifacts } from "./cdn-rubric";
+import { judgeSession, type SessionScores } from "./judge-cdn";
 import { personas, scenarios } from "./personas";
 import { simulatePersona } from "./simulate-persona";
-import { judgeSession, type SessionScores } from "./judge-cdn";
-import { aggregateScores, generateLatexTable } from "./aggregate";
-import type { SessionArtifacts } from "./cdn-rubric";
 
 // ---------------------------------------------------------------------------
 // Run directory setup
@@ -57,7 +57,11 @@ const JUDGE_RUNS = parseInt(process.env.EVAL_JUDGE_RUNS ?? "1", 10);
 
 function createRunDir(): string {
   const now = new Date();
-  const ts = now.toISOString().replace(/[T]/g, "_").replace(/[:]/g, "").slice(0, 15);
+  const ts = now
+    .toISOString()
+    .replace(/[T]/g, "_")
+    .replace(/[:]/g, "")
+    .slice(0, 15);
   const dir = path.join(RESULTS_BASE, `run-${ts}`);
   fs.mkdirSync(path.join(dir, "artifacts"), { recursive: true });
   fs.mkdirSync(path.join(dir, "screenshots"), { recursive: true });
@@ -96,11 +100,14 @@ function linkLatest(runDir: string): void {
 }
 
 async function main() {
-  const baseUrl = process.env.EVAL_BASE_URL ?? "https://interact-molt.vercel.app";
+  const baseUrl =
+    process.env.EVAL_BASE_URL ?? "https://interact-molt.vercel.app";
   const llmHost = process.env.LLM_HOST ?? "(NOT SET)";
-  const simModel = process.env.EVAL_SIM_MODEL ?? process.env.LLM_MODEL_NAME ?? "(NOT SET)";
+  const simModel =
+    process.env.EVAL_SIM_MODEL ?? process.env.LLM_MODEL_NAME ?? "(NOT SET)";
   const judgeHost = process.env.EVAL_JUDGE_HOST ?? llmHost;
-  const judgeModel = process.env.EVAL_JUDGE_MODEL ?? process.env.LLM_MODEL_NAME ?? "(NOT SET)";
+  const judgeModel =
+    process.env.EVAL_JUDGE_MODEL ?? process.env.LLM_MODEL_NAME ?? "(NOT SET)";
 
   // Determine run directory
   const runDir = SKIP_SIMULATION ? resolveRunDir() : createRunDir();
@@ -119,7 +126,9 @@ async function main() {
   console.log(`   Scenarios:   ${scenarios.length}`);
   console.log(`   Sessions:    ${personas.length * scenarios.length}`);
   console.log(`   Judge runs:  ${JUDGE_RUNS}`);
-  console.log(`   Judge calls: ${personas.length * scenarios.length * 8 * JUDGE_RUNS}\n`);
+  console.log(
+    `   Judge calls: ${personas.length * scenarios.length * 8 * JUDGE_RUNS}\n`,
+  );
 
   // Save run metadata
   if (!SKIP_SIMULATION) {
@@ -149,7 +158,9 @@ async function main() {
   const allArtifacts: Map<string, SessionArtifacts> = new Map();
 
   if (SKIP_SIMULATION) {
-    console.log(`⏩ Skipping simulation — loading artifacts from ${path.relative(process.cwd(), artifactsDir)}`);
+    console.log(
+      `⏩ Skipping simulation — loading artifacts from ${path.relative(process.cwd(), artifactsDir)}`,
+    );
     for (const persona of personas) {
       for (const scenario of scenarios) {
         const key = `${persona.id}-${scenario.id}`;
@@ -226,7 +237,9 @@ async function main() {
     path.join(runDir, "cdn-scores-raw.json"),
     JSON.stringify(allScores, null, 2),
   );
-  console.log(`\n   ✅ Judging complete: ${allScores.length} scored sessions\n`);
+  console.log(
+    `\n   ✅ Judging complete: ${allScores.length} scored sessions\n`,
+  );
 
   // =========================================================================
   // Phase 3: Aggregation
@@ -239,12 +252,6 @@ async function main() {
     path.join(runDir, "cdn-scores.json"),
     JSON.stringify(results.table, null, 2),
   );
-
-  // Generate LaTeX table
-  const latexTable = generateLatexTable(results, scenarios);
-  fs.writeFileSync(path.join(runDir, "cdn-table.tex"), latexTable);
-  console.log("   Generated cdn-table.tex:\n");
-  console.log(latexTable);
 
   // Summary
   console.log("\n\n📋 Summary:\n");
@@ -276,7 +283,9 @@ async function main() {
   // Symlink latest
   linkLatest(runDir);
 
-  console.log(`\n✅ Done. Results saved to ${path.relative(process.cwd(), runDir)}/`);
+  console.log(
+    `\n✅ Done. Results saved to ${path.relative(process.cwd(), runDir)}/`,
+  );
 }
 
 main().catch((err) => {

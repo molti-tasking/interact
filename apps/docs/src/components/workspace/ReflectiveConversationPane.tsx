@@ -249,6 +249,7 @@ export function ReflectiveConversationPane({
           ) : (
             <Button
               data-testid="generate-form-btn"
+              data-loading={isGenerating ? "true" : undefined}
               onClick={handleGenerate}
               disabled={
                 !structuredIntent.purpose.content.trim() || isGenerating

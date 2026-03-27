@@ -35,6 +35,7 @@ export function DesignProbeCard({ item, anyLoading }: DesignProbeCardProps) {
     <>
       <DecisionCard
         data-testid={`deck-card-${item.id}`}
+        data-status={item.status}
         title={item.text}
         accentColor={
           item.layer

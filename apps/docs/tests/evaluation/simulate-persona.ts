@@ -10,16 +10,16 @@
 import { chromium, type Browser } from "@playwright/test";
 import fs from "fs";
 import path from "path";
-import type { Persona, Scenario } from "./personas";
 import type { SessionArtifacts } from "./cdn-rubric";
-
+import type { Persona, Scenario } from "./personas";
 
 // Env vars are read lazily so that .env is loaded before access
 const env = () => ({
   BASE_URL: process.env.EVAL_BASE_URL ?? "https://interact-molt.vercel.app",
   LLM_HOST: process.env.LLM_HOST ?? "http://localhost:4000/v1",
   LLM_API_KEY: process.env.LLM_API_KEY ?? "",
-  LLM_MODEL: process.env.EVAL_SIM_MODEL ?? process.env.LLM_MODEL_NAME ?? "default",
+  LLM_MODEL:
+    process.env.EVAL_SIM_MODEL ?? process.env.LLM_MODEL_NAME ?? "default",
 });
 
 /**
@@ -127,14 +127,18 @@ export async function simulatePersona(
     // React's onChange fires and structuredIntent updates.
     const intentEditor = page.locator('[data-testid="intent-editor"]');
     await intentEditor.waitFor({ state: "visible" });
-    console.log(`[simulate] Intent editor visible, waiting for textarea to mount...`);
+    console.log(
+      `[simulate] Intent editor visible, waiting for textarea to mount...`,
+    );
     const textarea = intentEditor.locator("textarea").first();
     await textarea.waitFor({ state: "visible", timeout: 10000 });
     await textarea.click();
     // Use pressSequentially instead of fill() — fill() may not trigger React onChange
     // for the MDEditor component. pressSequentially dispatches real keyboard events.
     await textarea.pressSequentially(scenario.intent, { delay: 5 });
-    console.log(`[simulate] Intent entered: "${scenario.intent.slice(0, 60)}..."`);
+    console.log(
+      `[simulate] Intent entered: "${scenario.intent.slice(0, 60)}..."`,
+    );
 
     const initialIntent = scenario.intent;
 
@@ -145,26 +149,44 @@ export async function simulatePersona(
     const isDisabled = await generateBtn.isDisabled();
     console.log(`[simulate] generate-form-btn disabled=${isDisabled}`);
     if (isDisabled) {
-      console.error(`[simulate] Generate button is disabled — intent may not have been registered`);
+      console.error(
+        `[simulate] Generate button is disabled — intent may not have been registered`,
+      );
       const currentValue = await textarea.inputValue();
-      console.error(`[simulate] Textarea value: "${currentValue.slice(0, 80)}..."`);
+      console.error(
+        `[simulate] Textarea value: "${currentValue.slice(0, 80)}..."`,
+      );
       throw new Error("Generate button is disabled after entering intent");
     }
     console.log(`[simulate] Clicking generate-form-btn...`);
     await generateBtn.click();
 
+    // Wait for generation to start (button shows loading state)
+    console.log(
+      `[simulate] Waiting for form generation to complete (timeout: 120s)...`,
+    );
+    await page
+      .locator('[data-testid="generate-form-btn"][data-loading="true"]')
+      .waitFor({ state: "attached", timeout: 5000 })
+      .catch(() => {
+        /* may already be done */
+      });
+
     // Wait for form fields to appear
-    console.log(`[simulate] Waiting for form-renderer to become visible (timeout: 90s)...`);
     await page
       .locator('[data-testid="form-renderer"]')
-      .waitFor({ state: "visible", timeout: 90000 });
-    console.log(`[simulate] form-renderer visible, waiting for first form field...`);
+      .waitFor({ state: "visible", timeout: 120000 });
+    console.log(
+      `[simulate] form-renderer visible, waiting for first form field...`,
+    );
     await page
       .locator('[data-testid^="form-field-"]')
       .first()
       .waitFor({ state: "visible", timeout: 30000 });
 
-    console.log(`[simulate] Form generated, waiting for design probes to be generated...`);
+    console.log(
+      `[simulate] Form generated, waiting for design probes to be generated...`,
+    );
 
     // Step 4: Wait for and resolve design probe cards
     // Design probes are generated asynchronously (fire-and-forget LLM call after
@@ -197,7 +219,9 @@ export async function simulatePersona(
     }
 
     if (!probesAppeared) {
-      console.warn(`[simulate] No design probes appeared within ${probeTimeout / 1000}s — continuing without`);
+      console.warn(
+        `[simulate] No design probes appeared within ${probeTimeout / 1000}s — continuing without`,
+      );
     }
 
     // Resolve design probe cards
@@ -206,9 +230,7 @@ export async function simulatePersona(
       maxRounds--;
 
       // Find the first pending design probe card's options
-      const probeCards = page.locator(
-        '[data-testid^="deck-card-"]',
-      );
+      const probeCards = page.locator('[data-testid^="deck-card-"]');
       const cardCount = await probeCards.count();
       if (cardCount === 0) break;
 
@@ -217,9 +239,7 @@ export async function simulatePersona(
         (await firstCard.locator(".font-medium").first().textContent()) ?? "";
 
       // Extract options from buttons
-      const optionButtons = firstCard.locator(
-        '[data-testid^="deck-option-"]',
-      );
+      const optionButtons = firstCard.locator('[data-testid^="deck-option-"]');
       const optCount = await optionButtons.count();
       if (optCount === 0) break;
 
@@ -233,11 +253,7 @@ export async function simulatePersona(
       }
 
       // Ask the persona's LLM which option to choose
-      const chosenValue = await personaDecision(
-        persona,
-        questionText,
-        options,
-      );
+      const chosenValue = await personaDecision(persona, questionText, options);
       const chosenLabel =
         options.find((o) => o.value === chosenValue)?.label ?? chosenValue;
 
@@ -247,9 +263,7 @@ export async function simulatePersona(
 
       // Click the chosen option
       const cardCountBefore = await probeCards.count();
-      await page
-        .locator(`[data-testid="deck-option-${chosenValue}"]`)
-        .click();
+      await page.locator(`[data-testid="deck-option-${chosenValue}"]`).click();
       resolvedProbes.push({
         text: questionText,
         selectedLabel: chosenLabel,
@@ -261,25 +275,39 @@ export async function simulatePersona(
       // the probe status changes from "pending" → "resolved" and the card
       // is removed from the filtered list. Also wait for buttons to re-enable
       // (anyLoading becomes false when the mutation completes).
-      console.log(`[simulate] Waiting for design probe resolution to process...`);
+      console.log(
+        `[simulate] Waiting for design probe resolution to process...`,
+      );
       try {
+        // Wait for card count to decrease (resolved probe removed from DOM)
         await page.waitForFunction(
           (expectedCount) => {
-            const cards = document.querySelectorAll('[data-testid^="deck-card-"]');
+            const cards = document.querySelectorAll(
+              '[data-testid^="deck-card-"]',
+            );
             return cards.length < expectedCount;
           },
           cardCountBefore,
           { timeout: 120000 },
         );
-        // Small buffer for React re-render after card removal
-        await page.waitForTimeout(1000);
+        // Wait for the deck to finish loading (mutation complete, buttons re-enabled)
+        await page
+          .locator(
+            '[data-testid="card-deck-section"]:not([data-loading="true"])',
+          )
+          .waitFor({ state: "attached", timeout: 10000 })
+          .catch(() => {
+            /* deck may have been removed entirely */
+          });
       } catch {
         console.warn(`[simulate] Probe resolution timed out — continuing`);
       }
     }
 
     // Step 5: Collect final state
-    const finalIntentEl = page.locator('[data-testid="intent-editor"] textarea');
+    const finalIntentEl = page.locator(
+      '[data-testid="intent-editor"] textarea',
+    );
     const finalIntent =
       (await finalIntentEl.inputValue().catch(() => "")) || initialIntent;
 
@@ -319,7 +347,8 @@ export async function simulatePersona(
     };
   } catch (err) {
     // Save a screenshot for debugging failed sessions
-    const outDir = screenshotsDir ?? path.join(__dirname, "results", "screenshots");
+    const outDir =
+      screenshotsDir ?? path.join(__dirname, "results", "screenshots");
     fs.mkdirSync(outDir, { recursive: true });
     const slug = `${persona.id ?? persona.name}-${scenario.id ?? scenario.name}`;
     const screenshotPath = path.join(outDir, `${slug}-failure.png`);

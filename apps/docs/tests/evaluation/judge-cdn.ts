@@ -37,70 +37,68 @@ export async function judgeSession(
   scenarioId: string,
 ): Promise<SessionScores> {
   const { JUDGE_HOST, JUDGE_KEY, JUDGE_MODEL } = judgeEnv();
-  const dimensions: DimensionScore[] = [];
 
   console.log(`[judge] ${personaId} × ${scenarioId} → ${JUDGE_HOST} (model: ${JUDGE_MODEL})`);
 
-  for (const dim of cdnDimensions) {
+  const judgeDimension = async (dim: (typeof cdnDimensions)[number]): Promise<DimensionScore> => {
     const prompt = buildJudgingPrompt(dim, artifacts);
-
     console.log(`[judge] ${personaId} × ${scenarioId} — ${dim.name}...`);
 
-    const response = await fetch(`${JUDGE_HOST}/chat/completions`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${JUDGE_KEY}`,
-      },
-      body: JSON.stringify({
-        model: JUDGE_MODEL,
-        messages: [{ role: "user", content: prompt }],
-        temperature: 0.1, // Low temp for consistent judging
-        max_tokens: 500,
-      }),
-    });
-
-    if (!response.ok) {
-      console.error(`[judge] LLM error for ${dim.name}: ${response.status}`);
-      dimensions.push({
-        dimensionId: dim.id,
-        dimensionName: dim.name,
-        score: -1,
-        observations: ["LLM judge request failed"],
-        justification: `HTTP ${response.status}`,
-      });
-      continue;
-    }
-
-    const data = await response.json();
-    const text = data.choices?.[0]?.message?.content?.trim() ?? "";
-
     try {
+      const response = await fetch(`${JUDGE_HOST}/chat/completions`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${JUDGE_KEY}`,
+        },
+        body: JSON.stringify({
+          model: JUDGE_MODEL,
+          messages: [{ role: "user", content: prompt }],
+          temperature: 0.1,
+          max_tokens: 500,
+        }),
+      });
+
+      if (!response.ok) {
+        console.error(`[judge] LLM error for ${dim.name}: ${response.status}`);
+        return {
+          dimensionId: dim.id,
+          dimensionName: dim.name,
+          score: -1,
+          observations: ["LLM judge request failed"],
+          justification: `HTTP ${response.status}`,
+        };
+      }
+
+      const data = await response.json();
+      const text = data.choices?.[0]?.message?.content?.trim() ?? "";
+
       const jsonMatch = text.match(/\{[\s\S]*\}/);
       if (!jsonMatch) throw new Error("No JSON in response");
       const parsed = JSON.parse(jsonMatch[0]);
 
-      dimensions.push({
+      console.log(`[judge] ${personaId} × ${scenarioId} — ${dim.name} ✓ score=${parsed.score}`);
+      return {
         dimensionId: dim.id,
         dimensionName: dim.name,
         score: Math.min(5, Math.max(1, Math.round(parsed.score))),
         observations: parsed.observations ?? [],
         justification: parsed.justification ?? "",
-      });
-    } catch {
-      console.error(`[judge] Parse error for ${dim.name}: ${text.slice(0, 100)}`);
-      dimensions.push({
+      };
+    } catch (err) {
+      console.error(`[judge] Error for ${dim.name}:`, err);
+      return {
         dimensionId: dim.id,
         dimensionName: dim.name,
         score: -1,
         observations: ["Failed to parse judge response"],
-        justification: text.slice(0, 200),
-      });
+        justification: String(err),
+      };
     }
+  };
 
-    // Rate limit buffer
-    await new Promise((r) => setTimeout(r, 500));
-  }
+  // Judge all 8 dimensions in parallel
+  const dimensions = await Promise.all(cdnDimensions.map(judgeDimension));
 
   return { personaId, scenarioId, dimensions };
 }
