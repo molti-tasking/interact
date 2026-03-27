@@ -182,7 +182,7 @@ export async function simulatePersona(
       const hasDeck = await deckSection.isVisible().catch(() => false);
       if (hasDeck) {
         const cardCount = await page
-          .locator('[data-testid^="design-probe-deck-card-"]')
+          .locator('[data-testid^="deck-card-"]')
           .count();
         if (cardCount > 0) {
           probesAppeared = true;
@@ -207,7 +207,7 @@ export async function simulatePersona(
 
       // Find the first pending design probe card's options
       const probeCards = page.locator(
-        '[data-testid^="design-probe-deck-card-"]',
+        '[data-testid^="deck-card-"]',
       );
       const cardCount = await probeCards.count();
       if (cardCount === 0) break;
@@ -218,7 +218,7 @@ export async function simulatePersona(
 
       // Extract options from buttons
       const optionButtons = firstCard.locator(
-        '[data-testid^="design-probe-option-"]',
+        '[data-testid^="deck-option-"]',
       );
       const optCount = await optionButtons.count();
       if (optCount === 0) break;
@@ -227,7 +227,7 @@ export async function simulatePersona(
       for (let i = 0; i < optCount; i++) {
         const btn = optionButtons.nth(i);
         const testId = (await btn.getAttribute("data-testid")) ?? "";
-        const value = testId.replace("design-probe-option-", "");
+        const value = testId.replace("deck-option-", "");
         const label = (await btn.textContent()) ?? value;
         options.push({ value, label });
       }
@@ -247,7 +247,7 @@ export async function simulatePersona(
 
       // Click the chosen option
       await page
-        .locator(`[data-testid="design-probe-option-${chosenValue}"]`)
+        .locator(`[data-testid="deck-option-${chosenValue}"]`)
         .click();
       resolvedProbes.push({
         text: questionText,
