@@ -17,7 +17,7 @@ import {
 import type { Portfolio, PortfolioSchema, StructuredIntent } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { useQueryClient } from "@tanstack/react-query";
-import { Loader2, Sparkles, XIcon } from "lucide-react";
+import { Loader2, Sparkles } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { DesignProbeResolvedDialog } from "./DesignProbeResolvedDialog";
 import { ResolvedStack } from "./ResolvedStack";
@@ -169,16 +169,14 @@ export function ReflectiveConversationPane({
     <div className="flex flex-col h-full">
       {/* Intent Editor — single field, structured data underneath */}
       <div className="space-y-3">
-        <div className="flex items-center justify-between mb-2">
-          <h3 className="text-md uppercase font-semibold text-muted-foreground ">
-            Artifact
-          </h3>
+        <div className="flex items-center justify-between h-8 mb-3">
+          <h3 className="workspace-section-label">Intent</h3>
           {previousIntent && previousIntent !== editorValue && (
             <Button
               onClick={() => setShowDiff(!showDiff)}
               variant="ghost"
               size="sm"
-              className="h-5 px-2 text-xs text-muted-foreground"
+              className="h-6 px-2 text-[11px] text-muted-foreground/60 hover:text-foreground"
             >
               {!showDiff ? "View" : "Hide"} changes
             </Button>
@@ -189,14 +187,14 @@ export function ReflectiveConversationPane({
           <div
             className={cn(
               isGenerating
-                ? "pointer-events-none absolute inset-0 bg-[linear-gradient(120deg,#ff6ec4,#7873f5,#4ade80,#60a5fa)] bg-size-[400%_400%] animate-[gradient_3s_ease_infinite] opacity-35 z-10"
+                ? "pointer-events-none absolute inset-0 bg-[linear-gradient(120deg,#ff6ec4,#7873f5,#4ade80,#60a5fa)] bg-size-[400%_400%] animate-[gradient_3s_ease_infinite] opacity-30 z-10 rounded-2xl"
                 : "",
             )}
           />
 
           {showDiff && previousIntent ? (
             <div
-              className="border rounded-2xl px-3 py-2 bg-muted/30 cursor-pointer"
+              className="border rounded-2xl p-2.5 bg-muted/30 cursor-pointer transition-colors hover:bg-muted/50"
               onClick={() => setShowDiff(false)}
             >
               <PromptDiff previous={previousIntent} current={editorValue} />
@@ -208,8 +206,10 @@ export function ReflectiveConversationPane({
                 placeholder="Describe what this form is for, who will use it, and what data you need to collect..."
                 value={editorValue}
                 className={cn(
-                  "rounded-2xl relative border",
-                  isGenerating ? "bg-transparent" : "",
+                  "rounded-2xl relative border shadow-sm",
+                  isGenerating
+                    ? "bg-transparent"
+                    : "focus-within:shadow-md focus-within:border-ring/30 transition-shadow duration-200",
                 )}
                 onChange={handleEditorChange}
                 disabled={isGenerating || promptEditOpen}
@@ -220,13 +220,13 @@ export function ReflectiveConversationPane({
 
         {/* Error display */}
         {error && (
-          <div className="rounded-md bg-destructive/10 text-destructive p-3 text-sm">
+          <div className="rounded-lg bg-destructive/8 text-destructive px-4 py-3 text-sm border border-destructive/15">
             {error}
           </div>
         )}
 
         {/* Action buttons */}
-        <div className="flex gap-2 mb-8">
+        <div className="flex gap-2 pb-6">
           {promptEditOpen ? (
             <div className="flex-1 space-y-2">
               <textarea
@@ -234,14 +234,14 @@ export function ReflectiveConversationPane({
                 value={promptEditText}
                 onChange={(e) => setPromptEditText(e.target.value)}
                 rows={2}
-                className="w-full rounded-md border px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-ring"
+                className="w-full rounded-lg border px-3 py-2 text-sm resize-none shadow-sm focus:outline-none focus:ring-2 focus:ring-ring/30 focus:border-ring/30 transition-shadow"
                 disabled={isGenerating}
               />
               <Button
                 size="sm"
                 onClick={handlePromptEdit}
                 disabled={!promptEditText.trim() || isGenerating}
-                className="w-full"
+                className="w-full btn-brand font-sans"
               >
                 Apply Edit
               </Button>
@@ -253,7 +253,7 @@ export function ReflectiveConversationPane({
               disabled={
                 !structuredIntent.purpose.content.trim() || isGenerating
               }
-              className="flex-1"
+              className="flex-1 btn-brand font-sans"
             >
               {isGenerating ? (
                 <>
@@ -270,11 +270,12 @@ export function ReflectiveConversationPane({
               )}
             </Button>
           )}
-          {portfolioSchema.fields.length > 0 && (
+          {/* {portfolioSchema.fields.length > 0 && (
             <Button
               variant="outline"
               onClick={() => setPromptEditOpen(!promptEditOpen)}
               disabled={isGenerating}
+              className="shadow-sm font-sans"
             >
               {!promptEditOpen ? (
                 "Prompt Edit"
@@ -285,7 +286,7 @@ export function ReflectiveConversationPane({
                 </>
               )}
             </Button>
-          )}
+          )} */}
         </div>
         <ResolvedSection portfolioId={portfolio.id} />
       </div>

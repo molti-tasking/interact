@@ -37,16 +37,17 @@ export function DecisionCard({
     <Card
       data-testid={testId}
       className={cn(
-        accentColor && "border-l-4",
+        "card-hover-lift py-2.5 gap-1.5",
+        accentColor && "border-l-[3px]",
         accentColor,
         bgTint,
-        disabled && "opacity-60",
+        disabled && "opacity-50 pointer-events-none",
         className,
       )}
     >
-      <CardHeader className="pb-2">
-        <div className="flex items-center justify-between gap-2">
-          <CardTitle className="text-sm font-medium flex items-center gap-1.5">
+      <CardHeader className="pb-0 px-3.5 gap-1">
+        <div className="flex items-start justify-between gap-2">
+          <CardTitle className="text-[13px] font-medium leading-snug flex items-center gap-1.5">
             {icon}
             {title}
           </CardTitle>
@@ -54,7 +55,7 @@ export function DecisionCard({
             <Button
               variant="ghost"
               size="icon"
-              className="h-5 w-5 shrink-0 text-muted-foreground hover:text-foreground"
+              className="h-5 w-5 shrink-0 text-muted-foreground/50 hover:text-foreground transition-colors"
               onClick={onDismiss}
             >
               <X className="h-3 w-3" />
@@ -62,11 +63,15 @@ export function DecisionCard({
           )}
         </div>
         {description && (
-          <p className="text-xs text-muted-foreground">{description}</p>
+          <p className="text-xs text-muted-foreground/80 leading-normal line-clamp-2">
+            {description}
+          </p>
         )}
-        {badges && <div className="flex gap-1.5">{badges}</div>}
+        {badges && <div className="flex flex-wrap gap-1">{badges}</div>}
       </CardHeader>
-      {children && <CardContent>{children}</CardContent>}
+      {children && (
+        <CardContent className="pt-0 px-3.5">{children}</CardContent>
+      )}
     </Card>
   );
 }
@@ -75,10 +80,25 @@ export function DecisionCard({
 // Reusable badge helpers
 // ---------------------------------------------------------------------------
 
-const layerColorMap: Record<string, { text: string; border: string }> = {
-  intent: { text: "text-blue-600", border: "border-blue-200" },
-  dimensions: { text: "text-violet-600", border: "border-violet-200" },
-  both: { text: "text-amber-600", border: "border-amber-200" },
+const layerColorMap: Record<
+  string,
+  { text: string; border: string; bg: string }
+> = {
+  intent: {
+    text: "text-blue-600",
+    border: "border-blue-200",
+    bg: "bg-blue-50/50",
+  },
+  dimensions: {
+    text: "text-violet-600",
+    border: "border-violet-200",
+    bg: "bg-violet-50/50",
+  },
+  both: {
+    text: "text-amber-600",
+    border: "border-amber-200",
+    bg: "bg-amber-50/50",
+  },
 };
 
 const layerLabelMap: Record<string, string> = {
@@ -101,7 +121,12 @@ export function LayerBadge({ layer }: { layer: string }) {
   return (
     <Badge
       variant="outline"
-      className={cn("text-[10px] w-fit", colors?.text, colors?.border)}
+      className={cn(
+        "text-[10px] w-fit font-medium",
+        colors?.text,
+        colors?.border,
+        colors?.bg,
+      )}
     >
       {label}
     </Badge>
@@ -110,7 +135,10 @@ export function LayerBadge({ layer }: { layer: string }) {
 
 export function DimensionBadge({ name }: { name: string }) {
   return (
-    <Badge variant="outline" className="text-[10px] w-fit">
+    <Badge
+      variant="outline"
+      className="text-[10px] w-fit font-medium text-muted-foreground"
+    >
       {name}
     </Badge>
   );

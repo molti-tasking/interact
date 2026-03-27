@@ -38,13 +38,17 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     <Sidebar {...props}>
       <SidebarHeader>
         <Link href={"/"}>
-          <div className="p-2 flex flex-row items-center gap-4 bg-sidebar-primary-foreground rounded-2xl">
-            <div className="bg-sidebar-primary text-sidebar-primary-foreground flex aspect-square size-8 items-center justify-center rounded-lg">
+          <div className="p-2.5 flex flex-row items-center gap-3 rounded-xl transition-colors hover:bg-sidebar-accent">
+            <div className="bg-primary text-primary-foreground flex aspect-square size-8 items-center justify-center rounded-lg shadow-sm">
               <GalleryVerticalEnd className="size-4" />
             </div>
-            <div className="flex flex-col gap-0.5 leading-none">
-              <span className="font-semibold">Interact</span>
-              <span className="font-sm">Malleable Forms</span>
+            <div className="flex flex-col gap-0 leading-none">
+              <span className="text-[15px] text-primary tracking-tight">
+                Interact
+              </span>
+              <span className="text-[11px] font-sans text-muted-foreground/70">
+                Malleable Forms
+              </span>
             </div>
           </div>
         </Link>

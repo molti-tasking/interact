@@ -17,28 +17,36 @@ export function ArtifactPane({ portfolio, onFieldClick }: ArtifactPaneProps) {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex flex-row justify-between items-center mb-2">
-        <h3 className="text-md uppercase font-semibold text-muted-foreground ">
-          Artifact
-        </h3>
+      <div className="flex flex-row justify-between items-center h-8 mb-3">
+        <h3 className="workspace-section-label">Artifact</h3>
         <div className="flex gap-1">
-          <Button variant="outline" size="sm" className="flex-1" asChild>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-muted-foreground h-7 text-xs"
+            asChild
+          >
             <Link href={`/forms/${portfolio.id}`}>
-              <ShareIcon className="h-4 w-4 mr-1" />
+              <ShareIcon className="h-3.5 w-3.5" />
               Publish
             </Link>
           </Button>
-          <Button variant="outline" size="sm" className="flex-1" asChild>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-muted-foreground h-7 text-xs"
+            asChild
+          >
             <Link href={`/portfolios/${portfolio.id}/derive`}>
-              <Network className="h-4 w-4 mr-1" />
+              <Network className="h-3.5 w-3.5" />
               Branch
             </Link>
           </Button>
         </div>
       </div>
 
-      <Card className="flex flex-col overflow-hidden p-0">
-        <div className="flex-1 p-4 overflow-auto">
+      <Card className="flex flex-col overflow-hidden p-0 shadow-none">
+        <div className="flex-1 p-5 overflow-auto">
           <FormRenderer
             schema={portfolioSchema}
             mode="preview"

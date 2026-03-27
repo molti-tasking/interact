@@ -1,6 +1,5 @@
 import { AppSidebar } from "@/components/app-sidebar";
 import { ReactQueryClientProvider } from "@/components/tools/ReactQueryClientProvider";
-import { ReactQueryDevTools } from "@/components/tools/ReactQueryDevTools";
 import { Button } from "@/components/ui/button";
 import {
   SidebarInset,
@@ -50,26 +49,32 @@ export default function RootLayout({
           className={cn(
             geistSans.variable,
             geistMono.variable,
+            delius.variable,
             "antialiased",
             delius.className,
           )}
         >
-          <ReactQueryDevTools />
+          {/* <ReactQueryDevTools  /> */}
           <Toaster position="bottom-right" />
 
           <SidebarProvider>
             <AppSidebar />
             <SidebarInset>
-              <header className="flex h-16 items-center gap-2 border-b px-6 bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/60 sticky top-0 z-50">
+              <header className="flex h-14 items-center gap-2 border-b border-border/60 px-6 bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/60 sticky top-0 z-50">
                 <div className="flex flex-row justify-between w-full items-center">
-                  <div className="flex flex-row items-center gap-4">
+                  <div className="flex flex-row items-center gap-3">
                     <SidebarTrigger className="-ml-1" />
-                    <h2 className="text-lg font-semibold tracking-tight">
+                    <h2 className="text-lg tracking-tight text-primary">
                       Malleable Forms
                     </h2>
                   </div>
                   <div className="flex items-center gap-3">
-                    <Button variant={"ghost"} size="sm" asChild>
+                    <Button
+                      variant={"ghost"}
+                      size="sm"
+                      asChild
+                      className="text-muted-foreground font-sans"
+                    >
                       <Link
                         href={"https://github.com/molti-tasking/interact"}
                         target="_blank"
@@ -82,7 +87,7 @@ export default function RootLayout({
                   </div>
                 </div>
               </header>
-              <main className="flex-1">
+              <main className="flex-1 bg-muted/30">
                 <div className="container mx-auto px-6 py-8">{children}</div>
               </main>
             </SidebarInset>

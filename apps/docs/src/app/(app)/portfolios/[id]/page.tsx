@@ -106,34 +106,56 @@ export default function PortfolioWorkspacePage() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
           <InlineEditableTitle
             value={portfolio.title}
             onSave={(title) =>
               updatePortfolio.mutate({ id: portfolio.id, title })
             }
           />
-          {portfolio.base_id && <Badge variant="outline">Derived</Badge>}
+          {portfolio.base_id && (
+            <Badge
+              variant="outline"
+              className="text-[10px] tracking-wide uppercase"
+            >
+              Derived
+            </Badge>
+          )}
         </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" asChild>
+        <div className="flex items-center gap-1.5">
+          <Button
+            variant="ghost"
+            size="sm"
+            asChild
+            className="text-muted-foreground"
+          >
             <Link href={`/portfolios/${id}/dashboard`}>
-              <BarChart3 className="h-4 w-4 mr-1" />
+              <BarChart3 className="h-3.5 w-3.5" />
               Dashboard
             </Link>
           </Button>
-          <Button variant="outline" size="sm" asChild>
+          <Button
+            variant="ghost"
+            size="sm"
+            asChild
+            className="text-muted-foreground"
+          >
             <Link href={`/responses/${id}`}>
-              <ClipboardList className="h-4 w-4 mr-1" />
+              <ClipboardList className="h-3.5 w-3.5" />
               Responses
             </Link>
           </Button>
-          <Button variant="outline" size="sm" asChild>
+          <Button
+            variant="ghost"
+            size="sm"
+            asChild
+            className="text-muted-foreground"
+          >
             <Link href={`/portfolios/${id}/provenance`}>
-              <History className="h-4 w-4 mr-1" />
+              <History className="h-3.5 w-3.5" />
               History
             </Link>
           </Button>
@@ -142,7 +164,7 @@ export default function PortfolioWorkspacePage() {
 
       {/* Three-column workspace */}
       <div
-        className="grid grid-cols-1 xl:grid-cols-3 gap-8"
+        className="grid grid-cols-1 xl:grid-cols-3 gap-6 xl:gap-8"
         style={{ minHeight: "70vh" }}
       >
         {/* Left: Intent + Dimensions */}
@@ -162,9 +184,13 @@ export default function PortfolioWorkspacePage() {
           <ArtifactPane portfolio={portfolio} onFieldClick={handleFieldClick} />
         </div>
       </div>
-      <pre data-testid="field-count">
-        Amount of fields: {portfolioSchema?.fields?.length}
-      </pre>
+      <p
+        data-testid="field-count"
+        className="text-xs text-muted-foreground/50 text-center"
+      >
+        {portfolioSchema?.fields?.length} field
+        {portfolioSchema?.fields?.length !== 1 ? "s" : ""}
+      </p>
 
       {/* Field edit drawer */}
       <FieldEditDrawer

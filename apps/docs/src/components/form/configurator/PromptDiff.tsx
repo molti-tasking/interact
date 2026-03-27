@@ -12,7 +12,7 @@ export const PromptDiff = ({
   const diff = computeWordDiff(previous, current);
 
   return (
-    <div className="whitespace-pre-wrap">
+    <div className="whitespace-pre-wrap text-sm leading-[18px]">
       {diff.map((segment, i) => {
         if (segment.type === "removed") {
           return (

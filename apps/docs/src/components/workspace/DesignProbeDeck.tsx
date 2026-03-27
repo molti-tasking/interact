@@ -182,27 +182,26 @@ export function DesignProbeDeck({ portfolio }: { portfolio: Portfolio }) {
   return (
     (visibleConflicts.length > 0 || (pendingDesignProbes ?? []).length > 0) && (
       <div data-testid="card-deck-section">
-        <div className="flex items-center justify-between mb-2">
-          <h3 className="text-md uppercase font-semibold text-muted-foreground ">
-            Design Probes
-          </h3>
-          {(generateDesignProbes.isPending ||
-            resolveDesignProbe.isPending ||
-            resolveConflict.isPending) && (
-            <Loader2 className="h-3 w-3 animate-spin ml-2" />
-          )}
+        <div className="flex items-center justify-between h-8 mb-3">
+          <div className="flex items-center gap-2">
+            <h3 className="workspace-section-label">Design Probes</h3>
+            {(generateDesignProbes.isPending ||
+              resolveDesignProbe.isPending ||
+              resolveConflict.isPending) && (
+              <Loader2 className="h-3 w-3 animate-spin text-muted-foreground/50" />
+            )}
+          </div>
         </div>
-        {/* AW: I feel like we do not properly load and display the detected standards right now. */}
-        {/* <pre>{JSON.stringify(detectedStandards, null, 2)}</pre> */}
+
         {generateDesignProbes.isPending &&
           (designProbes ?? []).length === 0 && (
-            <div className="flex items-center gap-2 rounded-lg border border-dashed p-4 text-sm text-muted-foreground animate-pulse">
+            <div className="flex items-center gap-2 rounded-xl border border-dashed p-4 text-sm text-muted-foreground/70 animate-pulse">
               <Loader2 className="h-4 w-4 animate-spin" />
               Generating design probes...
             </div>
           )}
 
-        <div className="flex flex-col w-full gap-3">
+        <div className="flex flex-col w-full gap-2">
           <ScrollFadeContainer>
             {pendingDesignProbes?.map((probe) => (
               <DesignProbeCard
@@ -241,18 +240,18 @@ export function DesignProbeDeck({ portfolio }: { portfolio: Portfolio }) {
           </ScrollFadeContainer>
 
           {handleRegenerateProbes && (
-            <div className="flex justify-center">
+            <div className="flex justify-center pt-1">
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={handleRegenerateProbes}
                 disabled={isLoading || generateDesignProbes.isPending}
-                className="text-xs text-muted-foreground"
+                className="text-[11px] text-muted-foreground/60 hover:text-foreground"
                 title="Generate new design probes"
               >
                 <RefreshCw
                   className={cn(
-                    "h-3.5 w-3.5 mr-1",
+                    "h-3 w-3 mr-1",
                     generateDesignProbes.isPending && "animate-spin",
                   )}
                 />

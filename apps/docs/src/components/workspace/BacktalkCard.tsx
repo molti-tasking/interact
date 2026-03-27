@@ -23,11 +23,15 @@ export function BacktalkCard({
   const isPending = backtalk.status === "pending";
 
   return (
-    <Card className="p-4 space-y-3">
+    <Card className="p-3 space-y-2 card-hover-lift">
       <div className="flex items-start justify-between">
         <div className="space-y-1">
-          <p className="text-sm font-medium">{backtalk.description}</p>
-          <p className="text-xs text-muted-foreground">{backtalk.rationale}</p>
+          <p className="text-[13px] font-medium leading-snug">
+            {backtalk.description}
+          </p>
+          <p className="text-xs text-muted-foreground/80 leading-relaxed">
+            {backtalk.rationale}
+          </p>
         </div>
         {!isPending && (
           <Badge

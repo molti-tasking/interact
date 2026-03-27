@@ -8,8 +8,8 @@ export default function Home() {
       <main className="flex w-full flex-col gap-12">
         {/* Hero Section */}
         <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="text-4xl font-bold tracking-tight">Interact</h1>
-          <p className="text-xl text-muted-foreground max-w-3xl">
+          <h1 className="text-4xl tracking-tight text-primary">Interact</h1>
+          <p className="text-xl text-muted-foreground max-w-3xl font-sans">
             An open source library for building reusable, interactive UI
             components that thoughtfully integrate generative AI into web forms.
             Going beyond chat interfaces to support sophisticated, AI-agnostic

@@ -15,12 +15,12 @@ export default function PortfoliosPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Portfolios</h1>
-          <p className="text-muted-foreground">
+          <h1 className="text-2xl tracking-tight text-primary">Portfolios</h1>
+          <p className="text-sm text-muted-foreground font-sans">
             Your intent portfolios and form schemas.
           </p>
         </div>
-        <Button asChild>
+        <Button asChild className="btn-brand font-sans">
           <Link href="/portfolios/new">
             <Plus className="h-4 w-4 mr-2" />
             New Portfolio
@@ -41,7 +41,7 @@ export default function PortfoliosPage() {
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {portfolios.map((portfolio) => (
             <Link key={portfolio.id} href={`/portfolios/${portfolio.id}`}>
-              <Card className="p-6 hover:border-primary/50 transition-colors cursor-pointer">
+              <Card className="p-5 hover:border-primary/40 card-hover-lift cursor-pointer">
                 <div className="flex items-start justify-between mb-2">
                   <h3 className="font-semibold truncate">{portfolio.title}</h3>
                   <Badge

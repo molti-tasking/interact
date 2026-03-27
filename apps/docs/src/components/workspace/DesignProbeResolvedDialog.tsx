@@ -13,8 +13,10 @@ import {
   layerAccentColors,
 } from "@/components/workspace/DecisionCard";
 import type { DesignProbe } from "@/lib/types";
+import { cn } from "@/lib/utils";
 import { ArrowDown, Check } from "lucide-react";
 import React from "react";
+import { ScrollFadeContainer } from "./ScrollFadeContainer";
 
 interface DesignProbeResolvedDialogProps {
   dialogOpen: boolean;
@@ -29,60 +31,64 @@ export const DesignProbeResolvedDialog = ({
 }: DesignProbeResolvedDialogProps) => {
   return (
     <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-      <DialogContent className="max-w-5xl max-h-[80vh] overflow-y-auto">
+      <DialogContent className="max-w-7xl w-full max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
-            Resolved Decisions ({resolvedProbes.length})
+            Resolved Design Probes ({resolvedProbes.length})
           </DialogTitle>
         </DialogHeader>
-        <div className="grid gap-3 mt-2">
-          {resolvedProbes.map((o, index) => {
-            return (
-              <React.Fragment key={o.id}>
-                <DecisionCard
-                  title={o.text}
-                  accentColor={layerAccentColors[o.layer] ?? "border-gray-300"}
-                  badges={
-                    <>
-                      <LayerBadge layer={o.layer} />
-                      {o.dimensionName && (
-                        <DimensionBadge name={o.dimensionName} />
-                      )}
-                      {/* <DimensionBadge name={o.status} /> */}
-                    </>
-                  }
-                  description={o.explanation}
-                >
-                  <div className="flex flex-wrap gap-2">
-                    {o.options.map((opt) => {
-                      const isSelected = opt.value === o.selectedOption;
-                      return (
-                        <div
-                          key={opt.value}
-                          className={
-                            isSelected
-                              ? "flex items-center gap-1.5 text-sm bg-green-50 border border-green-200 rounded-md px-3 py-1.5 font-medium text-green-800"
-                              : "flex items-center gap-1.5 text-sm bg-muted/40 border border-transparent rounded-md px-3 py-1.5 text-muted-foreground line-through"
-                          }
-                        >
-                          {isSelected && (
-                            <Check className="h-3.5 w-3.5 text-green-600 shrink-0" />
-                          )}
-                          {opt.label}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </DecisionCard>
-                {index < resolvedProbes.length - 1 && (
-                  <div className="flex justify-self-center opacity-20">
-                    <ArrowDown />
-                  </div>
-                )}
-              </React.Fragment>
-            );
-          })}
-        </div>
+        <ScrollFadeContainer>
+          <div className="grid gap-2 mt-2">
+            {resolvedProbes.map((o, index) => {
+              return (
+                <React.Fragment key={o.id}>
+                  <DecisionCard
+                    title={o.text}
+                    accentColor={
+                      layerAccentColors[o.layer] ?? "border-gray-300"
+                    }
+                    badges={
+                      <>
+                        <LayerBadge layer={o.layer} />
+                        {o.dimensionName && (
+                          <DimensionBadge name={o.dimensionName} />
+                        )}
+                      </>
+                    }
+                    description={o.explanation}
+                  >
+                    <div className="flex flex-wrap gap-1.5">
+                      {o.options.map((opt) => {
+                        const isSelected = opt.value === o.selectedOption;
+                        return (
+                          <div
+                            key={opt.value}
+                            className={cn(
+                              "flex items-center gap-1 text-xs rounded-md px-2 py-1 font-sans",
+                              isSelected
+                                ? "bg-green-50 border border-green-200 font-medium text-green-800"
+                                : "bg-muted/40 border border-transparent text-muted-foreground line-through",
+                            )}
+                          >
+                            {isSelected && (
+                              <Check className="h-3 w-3 text-green-600 shrink-0" />
+                            )}
+                            {opt.label}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </DecisionCard>
+                  {index < resolvedProbes.length - 1 && (
+                    <div className="flex justify-self-center opacity-15">
+                      <ArrowDown className="h-4 w-4" />
+                    </div>
+                  )}
+                </React.Fragment>
+              );
+            })}
+          </div>
+        </ScrollFadeContainer>
       </DialogContent>
     </Dialog>
   );

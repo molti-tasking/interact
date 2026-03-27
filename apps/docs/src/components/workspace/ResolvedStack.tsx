@@ -30,7 +30,7 @@ export function ResolvedStack({
     last.selectedOption;
 
   return (
-    <div className="space-y-2 opacity-60 px-2">
+    <div className="space-y-2 opacity-50 hover:opacity-70 transition-opacity duration-300 px-2">
       <button
         type="button"
         onClick={onViewAll}
@@ -65,8 +65,8 @@ export function ResolvedStack({
               </>
             }
           >
-            <div className="flex items-center gap-2 text-sm bg-green-50 rounded-md px-3 py-2">
-              <Check className="h-3.5 w-3.5 text-green-600 shrink-0" />
+            <div className="flex items-center gap-1.5 text-xs bg-green-50 rounded-md px-2.5 py-1.5 font-sans">
+              <Check className="h-3 w-3 text-green-600 shrink-0" />
               <span className="font-medium text-green-800">
                 {selectedLabel}
               </span>

@@ -39,8 +39,6 @@ export const MarkdownEditor = forwardRef<HTMLDivElement, MarkdownEditorProps>(
           style={{
             borderRadius: "1rem",
             border: "none",
-            boxShadow: "none",
-            background: "transparent",
           }}
           textareaProps={{
             disabled,

@@ -46,7 +46,7 @@ export function DesignProbeCard({ item, anyLoading }: DesignProbeCardProps) {
         </>
       }
     >
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap gap-1.5">
         {item.options.map((option) => (
           <Button
             key={option.value}
@@ -56,6 +56,7 @@ export function DesignProbeCard({ item, anyLoading }: DesignProbeCardProps) {
             disabled={item.status !== "pending" || anyLoading}
             onClick={() => item.onSelect(option.value)}
             title={option.description}
+            className="text-xs shadow-none hover:shadow-sm transition-shadow font-sans"
           >
             {option.label}
           </Button>
