@@ -6,8 +6,8 @@
  */
 
 import {
-  olsenCriteria,
   buildOlsenJudgingPrompt,
+  olsenCriteria,
   type OlsenCriterion,
 } from "./olsen-rubric";
 import { SYSTEM_DESCRIPTION } from "./olsen-system-description";
@@ -24,9 +24,11 @@ export const JUDGE_MODELS = [
   "openai/o3-mini",
   "gemini/gemini-2.5-pro",
   "gemini/gemini-2.5-flash",
-  "deepseek/deepseek-chat",
-  "meta-llama/llama-4-maverick",
   "mistral/mistral-large-latest",
+  "devstral:latest",
+  "devstral-small-2-32k",
+  "gemma3:27b",
+  "MiniMaxAI/MiniMax-M2.5",
 ];
 
 // Env vars read lazily so .env is loaded first
@@ -35,8 +37,7 @@ const judgeEnv = () => ({
     process.env.EVAL_JUDGE_HOST ??
     process.env.LLM_HOST ??
     "http://localhost:4000/v1",
-  JUDGE_KEY:
-    process.env.EVAL_JUDGE_KEY ?? process.env.LLM_API_KEY ?? "",
+  JUDGE_KEY: process.env.EVAL_JUDGE_KEY ?? process.env.LLM_API_KEY ?? "",
 });
 
 // ---------------------------------------------------------------------------
@@ -85,9 +86,16 @@ async function judgeCriterion(
         model,
         messages: [{ role: "user", content: prompt }],
         // O-series models (o1, o3) don't support temperature
-        ...(model.includes("/o3") || model.includes("/o1") ? {} : { temperature: 0.1 }),
-        // O-series need higher token budget (reasoning tokens count against max_tokens)
-        max_tokens: model.includes("/o3") || model.includes("/o1") ? 4096 : 800,
+        ...(model.includes("/o3") || model.includes("/o1")
+          ? {}
+          : { temperature: 0.1 }),
+        // O-series and Gemini need higher token budget (reasoning/thinking tokens count against max_tokens)
+        max_tokens:
+          model.includes("/o3") ||
+          model.includes("/o1") ||
+          model.includes("gemini")
+            ? 4096
+            : 1200,
       }),
     });
 
@@ -112,7 +120,9 @@ async function judgeCriterion(
     if (!rawResponse) {
       const errorMsg = "Empty response from LLM";
       console.error(`  [${model}] ERROR ${criterion.name}: ${errorMsg}`);
-      console.error(`  [${model}] Full API response: ${JSON.stringify(data).slice(0, 300)}`);
+      console.error(
+        `  [${model}] Full API response: ${JSON.stringify(data).slice(0, 300)}`,
+      );
       return {
         criterionId: criterion.id,
         criterionName: criterion.name,
@@ -124,7 +134,11 @@ async function judgeCriterion(
       };
     }
 
-    const jsonMatch = rawResponse.match(/\{[\s\S]*\}/);
+    // Strip markdown code fences if present (e.g. ```json ... ```)
+    const stripped = rawResponse
+      .replace(/^```(?:json)?\s*\n?/m, "")
+      .replace(/\n?```\s*$/m, "");
+    const jsonMatch = stripped.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
       const errorMsg = `No JSON found in response: "${rawResponse.slice(0, 200)}"`;
       console.error(`  [${model}] PARSE ERROR ${criterion.name}: ${errorMsg}`);
@@ -156,7 +170,11 @@ async function judgeCriterion(
       };
     }
 
-    if (typeof parsed.score !== "number" || parsed.score < 1 || parsed.score > 5) {
+    if (
+      typeof parsed.score !== "number" ||
+      parsed.score < 1 ||
+      parsed.score > 5
+    ) {
       console.warn(
         `  [${model}] WARNING ${criterion.name}: score=${parsed.score} (clamping to 1-5)`,
       );
@@ -169,7 +187,9 @@ async function judgeCriterion(
       criterionId: criterion.id,
       criterionName: criterion.name,
       score,
-      observations: Array.isArray(parsed.observations) ? parsed.observations : [],
+      observations: Array.isArray(parsed.observations)
+        ? parsed.observations
+        : [],
       justification: parsed.justification ?? "",
       rawResponse: rawResponse.slice(0, 1000),
     };
