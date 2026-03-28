@@ -54,6 +54,7 @@ const RESULTS_BASE = path.resolve(__dirname, "results");
 const SKIP_SIMULATION = process.env.EVAL_SKIP_SIMULATION === "true";
 const HEADED = process.env.EVAL_HEADED === "true";
 const JUDGE_RUNS = parseInt(process.env.EVAL_JUDGE_RUNS ?? "1", 10);
+const EVAL_MODE = process.env.EVAL_MODE ?? "full"; // "full" | "cdn-evidence"
 
 function createRunDir(): string {
   const now = new Date();
@@ -62,9 +63,13 @@ function createRunDir(): string {
     .replace(/[T]/g, "_")
     .replace(/[:]/g, "")
     .slice(0, 15);
-  const dir = path.join(RESULTS_BASE, `run-${ts}`);
+  const prefix = EVAL_MODE === "cdn-evidence" ? "cdn-run" : "run";
+  const dir = path.join(RESULTS_BASE, `${prefix}-${ts}`);
   fs.mkdirSync(path.join(dir, "artifacts"), { recursive: true });
   fs.mkdirSync(path.join(dir, "screenshots"), { recursive: true });
+  if (EVAL_MODE === "cdn-evidence") {
+    fs.mkdirSync(path.join(dir, "videos"), { recursive: true });
+  }
   return dir;
 }
 
@@ -136,6 +141,7 @@ async function main() {
       path.join(runDir, "run-meta.json"),
       JSON.stringify(
         {
+          evalType: EVAL_MODE === "cdn-evidence" ? "cdn-evidence" : "cdn",
           startedAt: new Date().toISOString(),
           baseUrl,
           simModel,
@@ -184,11 +190,13 @@ async function main() {
       for (const scenario of scenarios) {
         const key = `${persona.id}-${scenario.id}`;
         try {
+          const videosDir = EVAL_MODE === "cdn-evidence"
+            ? path.join(runDir, "videos")
+            : undefined;
           const artifacts = await simulatePersona(
             persona,
             scenario,
-            browser,
-            screenshotsDir,
+            { browser, screenshotsDir, videosDir },
           );
           allArtifacts.set(key, artifacts);
 
@@ -205,6 +213,25 @@ async function main() {
 
     await browser.close();
     console.log(`\n   ✅ Simulation complete: ${allArtifacts.size} sessions\n`);
+  }
+
+  // In cdn-evidence mode, skip judging — evidence is for human raters
+  if (EVAL_MODE === "cdn-evidence") {
+    // Update run metadata
+    const metaPath = path.join(runDir, "run-meta.json");
+    if (fs.existsSync(metaPath)) {
+      const meta = JSON.parse(fs.readFileSync(metaPath, "utf-8"));
+      meta.evalType = "cdn-evidence";
+      meta.completedAt = new Date().toISOString();
+      meta.sessionsCompleted = allArtifacts.size;
+      fs.writeFileSync(metaPath, JSON.stringify(meta, null, 2));
+    }
+    linkLatest(runDir);
+    console.log(`\n✅ CDN evidence collection complete. ${allArtifacts.size} sessions recorded.`);
+    console.log(`   Videos: ${path.relative(process.cwd(), path.join(runDir, "videos"))}/`);
+    console.log(`   Artifacts: ${path.relative(process.cwd(), path.join(runDir, "artifacts"))}/`);
+    console.log(`\n   Next: run 'pnpm eval:cdn-sheets' to generate scoring templates for human raters.\n`);
+    return;
   }
 
   // =========================================================================

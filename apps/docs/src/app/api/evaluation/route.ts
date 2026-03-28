@@ -4,6 +4,13 @@ import path from "path";
 
 const RESULTS_DIR = path.resolve(process.cwd(), "tests/evaluation/results");
 
+const OLSEN_CRITERIA = [
+  { id: "expressive-match", name: "Expressive Match" },
+  { id: "expressive-leverage", name: "Expressive Leverage" },
+  { id: "flexibility", name: "Flexibility" },
+  { id: "reducing-skill-barrier", name: "Reducing Skill Barrier" },
+];
+
 /** Dimension metadata for the UI (avoids importing from test code). */
 const CDN_DIMENSIONS = [
   { id: "viscosity", name: "Viscosity", lowerIsBetter: true },
@@ -50,7 +57,9 @@ function getRunDirs(): string[] {
     .readdirSync(RESULTS_DIR)
     .filter(
       (d) =>
-        d.startsWith("run-") &&
+        (d.startsWith("run-") ||
+          d.startsWith("olsen-run-") ||
+          d.startsWith("cdn-run-")) &&
         fs.statSync(path.join(RESULTS_DIR, d)).isDirectory(),
     )
     .sort()
@@ -68,7 +77,11 @@ export async function GET(request: NextRequest) {
       ) as Record<string, unknown> | null;
       return { id: dir, meta };
     });
-    return NextResponse.json({ runs, dimensions: CDN_DIMENSIONS });
+    return NextResponse.json({
+      runs,
+      dimensions: CDN_DIMENSIONS,
+      olsenCriteria: OLSEN_CRITERIA,
+    });
   }
 
   // Single run detail
@@ -103,6 +116,24 @@ export async function GET(request: NextRequest) {
     }
   }
 
+  // Olsen-specific scores (for olsen-run-* directories)
+  const olsenScores = readJson(path.join(runDir, "olsen-scores.json"));
+  const olsenRaw = readJson(path.join(runDir, "olsen-scores-raw.json"));
+  const olsenPerModel = readJson(path.join(runDir, "olsen-per-model.json"));
+
+  // Human CDN scores (for cdn-run-* directories with completed ratings)
+  const humanScores = readJson(path.join(runDir, "cdn-scores-human.json"));
+  const agreement = readJson(path.join(runDir, "cdn-agreement.json"));
+
+  // List available videos
+  const videosDir = path.join(runDir, "videos");
+  const videos: string[] = [];
+  if (fs.existsSync(videosDir)) {
+    for (const f of fs.readdirSync(videosDir).filter((f) => f.endsWith(".webm"))) {
+      videos.push(f);
+    }
+  }
+
   return NextResponse.json({
     id: runId,
     meta,
@@ -110,5 +141,12 @@ export async function GET(request: NextRequest) {
     rawScores,
     artifacts,
     dimensions: CDN_DIMENSIONS,
+    olsenCriteria: OLSEN_CRITERIA,
+    olsenScores,
+    olsenRaw,
+    olsenPerModel,
+    humanScores,
+    agreement,
+    videos,
   });
 }

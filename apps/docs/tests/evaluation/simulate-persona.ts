@@ -93,18 +93,46 @@ Return ONLY the value string of your chosen option, nothing else.`;
  * Run a single persona through a scenario on the live app.
  * Returns collected artifacts for CDN evaluation.
  */
+export interface SimulateOptions {
+  browser?: Browser;
+  screenshotsDir?: string;
+  videosDir?: string;
+}
+
 export async function simulatePersona(
   persona: Persona,
   scenario: Scenario,
-  browser?: Browser,
+  browserOrOpts?: Browser | SimulateOptions,
   screenshotsDir?: string,
 ): Promise<SessionArtifacts> {
+  // Support both old signature (browser, screenshotsDir) and new options object
+  let browser: Browser | undefined;
+  let opts: SimulateOptions = {};
+  if (browserOrOpts && "newContext" in browserOrOpts) {
+    browser = browserOrOpts;
+    opts = { browser, screenshotsDir };
+  } else if (browserOrOpts) {
+    opts = browserOrOpts as SimulateOptions;
+    browser = opts.browser;
+  }
+
   const ownBrowser = !browser;
   if (!browser) {
     browser = await chromium.launch({ headless: true });
   }
 
-  const context = await browser.newContext();
+  // Enable video recording if videosDir is provided
+  const contextOptions: Parameters<Browser["newContext"]>[0] = {};
+  if (opts.videosDir) {
+    fs.mkdirSync(opts.videosDir, { recursive: true });
+    contextOptions.recordVideo = {
+      dir: opts.videosDir,
+      size: { width: 1280, height: 720 },
+    };
+  }
+
+  const context = await browser.newContext(contextOptions);
+  const interactionLog: { timestamp: string; elapsed: number; event: string; detail: string }[] = [];
   const page = await context.newPage();
 
   // Session-scoped timer for elapsed-time logging
@@ -113,6 +141,16 @@ export async function simulatePersona(
     const elapsed = ((Date.now() - t0) / 1000).toFixed(1);
     console.log(`[${elapsed.padStart(5)}s] ${msg}`);
   };
+  const logInteraction = (event: string, detail: string) => {
+    const elapsed = (Date.now() - t0) / 1000;
+    interactionLog.push({
+      timestamp: new Date().toISOString(),
+      elapsed: Math.round(elapsed * 10) / 10,
+      event,
+      detail,
+    });
+  };
+  const slug = `${persona.id ?? persona.name}-${scenario.id ?? scenario.name}`;
 
   try {
     log(
@@ -148,6 +186,7 @@ export async function simulatePersona(
     // for the MDEditor component. pressSequentially dispatches real keyboard events.
     await textarea.pressSequentially(scenario.intent, { delay: 5 });
     log(`[simulate] Intent entered: "${scenario.intent.slice(0, 60)}..."`);
+    logInteraction("intent-entered", scenario.intent.slice(0, 100));
 
     const initialIntent = scenario.intent;
 
@@ -187,7 +226,15 @@ export async function simulatePersona(
       .waitFor({ state: "visible", timeout: 30000 });
 
     const genDuration = ((Date.now() - genStart) / 1000).toFixed(1);
-    log(`[simulate] Form generated in ${genDuration}s, waiting for design probes...`);
+    const initialFieldCount = await page.locator('[data-testid^="form-field-"]').count();
+    log(`[simulate] Form generated in ${genDuration}s (${initialFieldCount} fields), waiting for design probes...`);
+    logInteraction("form-generated", `${initialFieldCount} fields in ${genDuration}s`);
+
+    // Screenshot after form generation
+    if (opts.screenshotsDir) {
+      const ssPath = path.join(opts.screenshotsDir, `${slug}-after-gen.png`);
+      await page.screenshot({ path: ssPath, fullPage: true });
+    }
 
     // Step 4: Wait for and resolve design probe cards
     // Design probes are generated asynchronously (fire-and-forget LLM call after
@@ -260,7 +307,12 @@ export async function simulatePersona(
       const chosenLabel =
         options.find((o) => o.value === chosenValue)?.label ?? chosenValue;
 
+      const rejectedLabels = options
+        .filter((o) => o.value !== chosenValue)
+        .map((o) => o.label);
+
       log(`[simulate] Design probe: "${questionText}" → "${chosenLabel}"`);
+      logInteraction("probe-resolved", `"${questionText}" → "${chosenLabel}" (rejected: ${rejectedLabels.join(", ")})`);
 
       // Click the chosen option
       const cardCountBefore = await probeCards.count();
@@ -271,6 +323,15 @@ export async function simulatePersona(
         selectedLabel: chosenLabel,
         status: "resolved",
       });
+
+      // Screenshot after probe resolution
+      if (opts.screenshotsDir) {
+        const probeIndex = resolvedProbes.length;
+        const ssPath = path.join(opts.screenshotsDir, `${slug}-probe-${probeIndex}.png`);
+        // Wait briefly for UI to settle, then capture
+        await page.waitForTimeout(500);
+        await page.screenshot({ path: ssPath, fullPage: true }).catch(() => {});
+      }
 
       // Wait for the resolved probe card to disappear from the DOM.
       // The resolve triggers an LLM round-trip (schema update), after which
@@ -328,10 +389,56 @@ export async function simulatePersona(
       if (label) fieldLabels.push(label);
     }
 
+    // Final screenshot
+    if (opts.screenshotsDir) {
+      const ssPath = path.join(opts.screenshotsDir, `${slug}-final.png`);
+      await page.screenshot({ path: ssPath, fullPage: true });
+    }
+    logInteraction("session-complete", `${fieldCount} fields, ${resolvedProbes.length} probes resolved`);
+
+    // Fetch enriched data from Supabase (schema JSON + provenance log)
+    let schemaJson: object | null = null;
+    let provenanceLog: object[] = [];
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    if (supabaseUrl && supabaseKey && portfolioId) {
+      try {
+        // Fetch schema
+        const schemaRes = await fetch(
+          `${supabaseUrl}/rest/v1/portfolios?id=eq.${portfolioId}&select=schema`,
+          { headers: { apikey: supabaseKey, Authorization: `Bearer ${supabaseKey}` } },
+        );
+        if (schemaRes.ok) {
+          const rows = await schemaRes.json();
+          schemaJson = rows[0]?.schema ?? null;
+        }
+
+        // Fetch provenance
+        const provRes = await fetch(
+          `${supabaseUrl}/rest/v1/provenance_log?portfolio_id=eq.${portfolioId}&order=created_at.asc`,
+          { headers: { apikey: supabaseKey, Authorization: `Bearer ${supabaseKey}` } },
+        );
+        if (provRes.ok) {
+          provenanceLog = await provRes.json();
+        }
+      } catch (err) {
+        log(`[simulate] ⚠️ Supabase fetch failed: ${err}`);
+      }
+    }
+
     const totalDuration = ((Date.now() - t0) / 1000).toFixed(1);
     log(
       `[simulate] Done: ${fieldCount} fields, ${resolvedProbes.length} probes resolved (total: ${totalDuration}s)`,
     );
+
+    // Save video path if recording
+    let videoPath: string | undefined;
+    if (opts.videosDir) {
+      const video = page.video();
+      if (video) {
+        videoPath = await video.path();
+      }
+    }
 
     return {
       persona: {
@@ -346,15 +453,19 @@ export async function simulatePersona(
       designProbes: resolvedProbes,
       fieldCount,
       schemaDescription: `${fieldCount} fields: ${fieldLabels.join(", ")}`,
-      provenanceEntries: resolvedProbes.length + 1, // intent update + probe resolutions
+      provenanceEntries: provenanceLog.length || resolvedProbes.length + 1,
       provenanceSummary: `Intent updated once. ${resolvedProbes.length} design probe resolutions recorded.`,
+      // Enriched fields (for CDN evidence collection)
+      ...(interactionLog.length > 0 && { interactionLog }),
+      ...(schemaJson && { schemaJson }),
+      ...(provenanceLog.length > 0 && { provenanceLog }),
+      ...(videoPath && { videoPath }),
     };
   } catch (err) {
     // Save a screenshot for debugging failed sessions
     const outDir =
-      screenshotsDir ?? path.join(__dirname, "results", "screenshots");
+      opts.screenshotsDir ?? path.join(__dirname, "results", "screenshots");
     fs.mkdirSync(outDir, { recursive: true });
-    const slug = `${persona.id ?? persona.name}-${scenario.id ?? scenario.name}`;
     const screenshotPath = path.join(outDir, `${slug}-failure.png`);
     await page.screenshot({ path: screenshotPath, fullPage: true });
     log(`[simulate] ❌ Screenshot saved: ${screenshotPath}`);
