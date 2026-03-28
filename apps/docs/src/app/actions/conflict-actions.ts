@@ -167,26 +167,19 @@ async function detectSchemaConflictsReal(
 
   // --- Phase 2: LLM semantic analysis ---
   try {
-    const fieldsJson = JSON.stringify(
-      schema.fields.map((f) => ({
-        id: f.id,
-        name: f.name,
-        label: f.label,
-        type: f.type.kind,
-        required: f.required,
-        description: f.description,
-        constraints: f.constraints,
-      })),
-      null,
-      2,
-    );
+    // Compact field summary to reduce token count (~50% fewer tokens vs full JSON)
+    const fieldLines = schema.fields.map((f) => {
+      const req = f.required ? "*" : "";
+      const desc = f.description ? ` — ${f.description}` : "";
+      return `  ${f.id} | ${f.name}${req} (${f.type.kind}): "${f.label}"${desc}`;
+    });
 
     const prompt = `You are a form schema quality analyzer. Detect conflicts, inconsistencies, and issues in this form schema.
 
 Form intent: ${intent}
 
-Schema fields:
-${fieldsJson}
+Schema fields (* = required):
+${fieldLines.join("\n")}
 
 Look for these issues (only report REAL problems, not minor style preferences):
 1. **semantic_overlap**: Fields that capture the same information differently (e.g., "email" and "contactEmail")

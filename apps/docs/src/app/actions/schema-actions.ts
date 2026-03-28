@@ -147,20 +147,39 @@ RULES:
 - "description" should be SHORT (a few words) — omit entirely if the label already makes the field obvious
 - "tooltip" is for extra guidance that helps the user fill in the field correctly — omit if not needed${acceptedStandards && acceptedStandards.length > 0 ? '\n- For standard-sourced fields, include "standardReference"' : ""}`;
 
-    const result = await withTracing({ tags: ["schema", "generate"] }, () =>
-      generateText({
-        model,
-        output: Output.object({ schema: schemaResponseSchema }),
-        prompt,
-        temperature: 0.3,
-        experimental_telemetry: {
-          isEnabled: true,
-          functionId: "schema-action",
-          recordInputs: true,
-          recordOutputs: true,
-        },
-      }),
-    );
+    const LLM_TIMEOUT_MS = 45_000; // 45s timeout (avoids 240s hangs)
+
+    async function callWithTimeout() {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), LLM_TIMEOUT_MS);
+      try {
+        return await withTracing({ tags: ["schema", "generate"] }, () =>
+          generateText({
+            model,
+            output: Output.object({ schema: schemaResponseSchema }),
+            prompt,
+            temperature: 0.3,
+            abortSignal: controller.signal,
+            experimental_telemetry: {
+              isEnabled: true,
+              functionId: "schema-action",
+              recordInputs: true,
+              recordOutputs: true,
+            },
+          }),
+        );
+      } finally {
+        clearTimeout(timer);
+      }
+    }
+
+    let result;
+    try {
+      result = await callWithTimeout();
+    } catch (err) {
+      console.warn(`[schema-action] First attempt failed (${err instanceof Error ? err.message : err}), retrying...`);
+      result = await callWithTimeout();
+    }
 
     if (!result.output) {
       console.error("No structured output from schema generation");

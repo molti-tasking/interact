@@ -45,6 +45,7 @@ Based on your persona's expertise and decision style, which option would you cho
 Return ONLY the value string of your chosen option, nothing else.`;
 
   const { LLM_HOST, LLM_API_KEY, LLM_MODEL } = env();
+  const llmStart = Date.now();
   console.log(`[persona] LLM call → ${LLM_HOST} (model: ${LLM_MODEL})`);
 
   const response = await fetch(`${LLM_HOST}/chat/completions`, {
@@ -66,6 +67,7 @@ Return ONLY the value string of your chosen option, nothing else.`;
   }
 
   const data = await response.json();
+  console.log(`[persona] LLM responded in ${((Date.now() - llmStart) / 1000).toFixed(1)}s`);
   const choice = data.choices?.[0]?.message?.content?.trim() ?? "";
 
   // Try to match the response to a valid option value
@@ -105,21 +107,32 @@ export async function simulatePersona(
   const context = await browser.newContext();
   const page = await context.newPage();
 
+  // Session-scoped timer for elapsed-time logging
+  const t0 = Date.now();
+  const log = (msg: string) => {
+    const elapsed = ((Date.now() - t0) / 1000).toFixed(1);
+    console.log(`[${elapsed.padStart(5)}s] ${msg}`);
+  };
+
   try {
-    console.log(
+    log(
       `[simulate] ${persona.name} (${persona.skillLevel}) × ${scenario.name}`,
     );
 
     const { BASE_URL } = env();
 
     // Step 1: Create portfolio
-    console.log(`[simulate] Navigating to ${BASE_URL}/portfolios/new`);
+    log(`[simulate] Navigating to ${BASE_URL}/portfolios/new`);
     await page.goto(`${BASE_URL}/portfolios/new`);
     await page.locator("#title").fill(scenario.title);
     await page.locator('[data-testid="create-portfolio-btn"]').click();
-    await page.waitForURL(/\/portfolios\/[a-f0-9-]+$/, { timeout: 15000 });
-    const portfolioId = page.url().split("/portfolios/")[1];
-    console.log(`[simulate] Created portfolio: ${portfolioId}`);
+    await page.waitForURL(/\/portfolios\/[a-f0-9-]+/, { timeout: 15000 });
+    const portfolioId = page.url().split("/portfolios/")[1]?.split("?")[0];
+    log(`[simulate] Created portfolio: ${portfolioId}`);
+
+    // Re-navigate with ?skipConflicts=true to disable the 25s conflict detection LLM call
+    await page.goto(`${BASE_URL}/portfolios/${portfolioId}?skipConflicts=true`);
+    await page.waitForLoadState("domcontentloaded");
 
     // Step 2: Enter intent
     // The intent editor is a dynamically-loaded @uiw/react-md-editor.
@@ -127,18 +140,14 @@ export async function simulatePersona(
     // React's onChange fires and structuredIntent updates.
     const intentEditor = page.locator('[data-testid="intent-editor"]');
     await intentEditor.waitFor({ state: "visible" });
-    console.log(
-      `[simulate] Intent editor visible, waiting for textarea to mount...`,
-    );
+    log(`[simulate] Intent editor visible, waiting for textarea to mount...`);
     const textarea = intentEditor.locator("textarea").first();
     await textarea.waitFor({ state: "visible", timeout: 10000 });
     await textarea.click();
     // Use pressSequentially instead of fill() — fill() may not trigger React onChange
     // for the MDEditor component. pressSequentially dispatches real keyboard events.
     await textarea.pressSequentially(scenario.intent, { delay: 5 });
-    console.log(
-      `[simulate] Intent entered: "${scenario.intent.slice(0, 60)}..."`,
-    );
+    log(`[simulate] Intent entered: "${scenario.intent.slice(0, 60)}..."`);
 
     const initialIntent = scenario.intent;
 
@@ -147,24 +156,19 @@ export async function simulatePersona(
     const generateBtn = page.locator('[data-testid="generate-form-btn"]');
     await generateBtn.waitFor({ state: "visible" });
     const isDisabled = await generateBtn.isDisabled();
-    console.log(`[simulate] generate-form-btn disabled=${isDisabled}`);
+    log(`[simulate] generate-form-btn disabled=${isDisabled}`);
     if (isDisabled) {
-      console.error(
-        `[simulate] Generate button is disabled — intent may not have been registered`,
-      );
+      log(`[simulate] ❌ Generate button is disabled — intent may not have been registered`);
       const currentValue = await textarea.inputValue();
-      console.error(
-        `[simulate] Textarea value: "${currentValue.slice(0, 80)}..."`,
-      );
+      log(`[simulate] Textarea value: "${currentValue.slice(0, 80)}..."`);
       throw new Error("Generate button is disabled after entering intent");
     }
-    console.log(`[simulate] Clicking generate-form-btn...`);
+    log(`[simulate] Clicking generate-form-btn...`);
+    const genStart = Date.now();
     await generateBtn.click();
 
     // Wait for generation to start (button shows loading state)
-    console.log(
-      `[simulate] Waiting for form generation to complete (timeout: 120s)...`,
-    );
+    log(`[simulate] Waiting for form generation (timeout: 120s)...`);
     await page
       .locator('[data-testid="generate-form-btn"][data-loading="true"]')
       .waitFor({ state: "attached", timeout: 5000 })
@@ -176,17 +180,14 @@ export async function simulatePersona(
     await page
       .locator('[data-testid="form-renderer"]')
       .waitFor({ state: "visible", timeout: 120000 });
-    console.log(
-      `[simulate] form-renderer visible, waiting for first form field...`,
-    );
+    log(`[simulate] form-renderer visible, waiting for first form field...`);
     await page
       .locator('[data-testid^="form-field-"]')
       .first()
       .waitFor({ state: "visible", timeout: 30000 });
 
-    console.log(
-      `[simulate] Form generated, waiting for design probes to be generated...`,
-    );
+    const genDuration = ((Date.now() - genStart) / 1000).toFixed(1);
+    log(`[simulate] Form generated in ${genDuration}s, waiting for design probes...`);
 
     // Step 4: Wait for and resolve design probe cards
     // Design probes are generated asynchronously (fire-and-forget LLM call after
@@ -197,6 +198,7 @@ export async function simulatePersona(
     const probeTimeout = 60000;
     const pollInterval = 3000;
     const probeDeadline = Date.now() + probeTimeout;
+    const probePollStart = Date.now();
     let probesAppeared = false;
 
     while (Date.now() < probeDeadline) {
@@ -208,19 +210,20 @@ export async function simulatePersona(
           .count();
         if (cardCount > 0) {
           probesAppeared = true;
-          console.log(`[simulate] ${cardCount} design probe card(s) appeared`);
+          const pollDuration = ((Date.now() - probePollStart) / 1000).toFixed(1);
+          log(`[simulate] ${cardCount} design probe card(s) appeared (waited ${pollDuration}s)`);
           break;
         }
       }
-      console.log(
+      log(
         `[simulate] No design probes yet, polling... (${Math.round((probeDeadline - Date.now()) / 1000)}s remaining)`,
       );
       await page.waitForTimeout(pollInterval);
     }
 
     if (!probesAppeared) {
-      console.warn(
-        `[simulate] No design probes appeared within ${probeTimeout / 1000}s — continuing without`,
+      log(
+        `[simulate] ⚠️ No design probes appeared within ${probeTimeout / 1000}s — continuing without`,
       );
     }
 
@@ -257,12 +260,11 @@ export async function simulatePersona(
       const chosenLabel =
         options.find((o) => o.value === chosenValue)?.label ?? chosenValue;
 
-      console.log(
-        `[simulate] Design probe: "${questionText}" → "${chosenLabel}"`,
-      );
+      log(`[simulate] Design probe: "${questionText}" → "${chosenLabel}"`);
 
       // Click the chosen option
       const cardCountBefore = await probeCards.count();
+      const resolveStart = Date.now();
       await page.locator(`[data-testid="deck-option-${chosenValue}"]`).click();
       resolvedProbes.push({
         text: questionText,
@@ -275,9 +277,7 @@ export async function simulatePersona(
       // the probe status changes from "pending" → "resolved" and the card
       // is removed from the filtered list. Also wait for buttons to re-enable
       // (anyLoading becomes false when the mutation completes).
-      console.log(
-        `[simulate] Waiting for design probe resolution to process...`,
-      );
+      log(`[simulate] Waiting for probe resolution...`);
       try {
         // Wait for card count to decrease (resolved probe removed from DOM)
         await page.waitForFunction(
@@ -299,8 +299,11 @@ export async function simulatePersona(
           .catch(() => {
             /* deck may have been removed entirely */
           });
+        const resolveDuration = ((Date.now() - resolveStart) / 1000).toFixed(1);
+        log(`[simulate] Probe resolved (${resolveDuration}s)`);
       } catch {
-        console.warn(`[simulate] Probe resolution timed out — continuing`);
+        const resolveDuration = ((Date.now() - resolveStart) / 1000).toFixed(1);
+        log(`[simulate] ⚠️ Probe resolution timed out after ${resolveDuration}s — continuing`);
       }
     }
 
@@ -325,8 +328,9 @@ export async function simulatePersona(
       if (label) fieldLabels.push(label);
     }
 
-    console.log(
-      `[simulate] Done: ${fieldCount} fields, ${resolvedProbes.length} design probes resolved`,
+    const totalDuration = ((Date.now() - t0) / 1000).toFixed(1);
+    log(
+      `[simulate] Done: ${fieldCount} fields, ${resolvedProbes.length} probes resolved (total: ${totalDuration}s)`,
     );
 
     return {
@@ -353,7 +357,7 @@ export async function simulatePersona(
     const slug = `${persona.id ?? persona.name}-${scenario.id ?? scenario.name}`;
     const screenshotPath = path.join(outDir, `${slug}-failure.png`);
     await page.screenshot({ path: screenshotPath, fullPage: true });
-    console.error(`[simulate] Screenshot saved: ${screenshotPath}`);
+    log(`[simulate] ❌ Screenshot saved: ${screenshotPath}`);
     throw err;
   } finally {
     await context.close();

@@ -11,6 +11,7 @@ import { diffSchemas } from "@/lib/engine/schema-ops";
 import { createClient } from "@/lib/supabase/client";
 import type { PortfolioSchema, StructuredIntent } from "@/lib/types";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useSearchParams } from "next/navigation";
 
 function conflictsKey(portfolioId: string) {
   return ["conflicts", portfolioId] as const;
@@ -19,12 +20,18 @@ function conflictsKey(portfolioId: string) {
 /**
  * Detect conflicts in the current schema.
  * Automatically runs when schema changes (via queryKey including version).
+ *
+ * Pass `?skipConflicts=true` in the URL to disable conflict detection
+ * (used during automated evaluation to save ~25s per probe resolution).
  */
 export function useDetectConflicts(
   portfolioId: string,
   schema: PortfolioSchema | undefined,
   intent: StructuredIntent,
 ) {
+  const searchParams = useSearchParams();
+  const skipConflicts = searchParams.get("skipConflicts") === "true";
+
   return useQuery({
     queryKey: [...conflictsKey(portfolioId), schema?.version ?? 0],
     queryFn: async () => {
@@ -33,8 +40,12 @@ export function useDetectConflicts(
       if (!result.success) throw new Error(result.error);
       return result.conflicts ?? [];
     },
-    enabled: !!portfolioId && !!schema && schema.fields.length > 0,
-    staleTime: 60_000, // Don't re-check for 1 minute
+    enabled:
+      !skipConflicts &&
+      !!portfolioId &&
+      !!schema &&
+      schema.fields.length > 0,
+    staleTime: 60_000,
     refetchOnWindowFocus: false,
   });
 }
