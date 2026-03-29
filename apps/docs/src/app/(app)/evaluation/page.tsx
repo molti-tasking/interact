@@ -60,6 +60,7 @@ interface RunMeta {
   criteria?: string[];
   modelsCompleted?: number;
   modelsFailed?: number;
+  wallClockMs?: number;
 }
 
 interface RunSummary {
@@ -88,12 +89,14 @@ interface SessionArtifact {
 
 interface OlsenModelRun {
   model: string;
+  role: string;
   criteria: {
     criterionId: string;
     criterionName: string;
     score: number;
     observations: string[];
     justification: string;
+    limitations?: string[];
     error?: string;
   }[];
 }
@@ -109,6 +112,17 @@ interface RunDetail {
   olsenScores: Record<string, number> | null;
   olsenRaw: OlsenModelRun[] | null;
   olsenPerModel: Record<string, Record<string, number>> | null;
+  olsenPerRole: Record<string, Record<string, number>> | null;
+  olsenLimitations: Record<string, string[]> | null;
+  olsenBaselines: Record<string, Record<string, number>> | null;
+  olsenMetrics: {
+    totalLatencyMs: number;
+    totalInputTokens: number;
+    totalOutputTokens: number;
+    totalTokens: number;
+    totalCalls: number;
+    avgLatencyMs: number;
+  } | null;
   humanScores: Record<string, Record<string, number>> | null;
   agreement: { alphas: Record<string, number>; overallAlpha: number; raters: number } | null;
   videos: string[];
@@ -342,14 +356,24 @@ function shortModelName(m: string | undefined) {
     .replace(/-20\d{6}/, "");
 }
 
+const ROLE_LABELS: Record<string, { label: string; color: string }> = {
+  neutral: { label: "N", color: "bg-slate-100 text-slate-700" },
+  skeptical: { label: "S", color: "bg-red-100 text-red-700" },
+  comparative: { label: "C", color: "bg-blue-100 text-blue-700" },
+};
+
 function OlsenScoresTable({
   scores,
-  perModel,
+  perRole,
+  baselines,
+  limitations,
   criteria,
   raw,
 }: {
   scores: Record<string, number>;
-  perModel: Record<string, Record<string, number>> | null;
+  perRole: Record<string, Record<string, number>> | null;
+  baselines: Record<string, Record<string, number>> | null;
+  limitations: Record<string, string[]> | null;
   criteria: OlsenCriterionMeta[];
   raw: OlsenModelRun[] | null;
 }) {
@@ -357,44 +381,58 @@ function OlsenScoresTable({
     null,
   );
 
-  const models = perModel
-    ? [...new Set(Object.values(perModel).flatMap((m) => Object.keys(m)))]
-    : [];
+  const hasRoles = perRole && Object.values(perRole).some((r) => Object.keys(r).length > 1);
+  const hasBaselines = baselines && Object.keys(baselines).length > 0;
+  const roles = hasRoles ? ["neutral", "skeptical", "comparative"] : [];
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-base">Olsen Criteria Scores</CardTitle>
-        <CardDescription>
-          {models.length > 1
-            ? `Scored by ${models.length} independent LLM judges (1-5, higher is better). Click a row to see per-model reasoning.`
-            : "Mean scores across judge runs (1-5 scale, higher is better)."}
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {/* Summary table with per-model columns */}
-        <div className="overflow-x-auto">
+    <div className="space-y-4">
+      {/* Main scores table: roles + baselines */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Olsen Criteria Scores</CardTitle>
+          <CardDescription>
+            {hasRoles
+              ? "Scored by 10 LLM judges under 3 roles: Neutral (N), Skeptical (S), Comparative (C). Click a row for per-model reasoning."
+              : "Mean scores across judge runs (1-5, higher is better). Click a row for details."}
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead className="w-[180px]">Criterion</TableHead>
-                {models.map((m) => (
-                  <TableHead
-                    key={m}
-                    className="text-center text-[10px] font-normal px-1 min-w-[50px]"
-                  >
-                    {shortModelName(m)}
+                {roles.map((r) => (
+                  <TableHead key={r} className="text-center w-[50px]">
+                    <Badge
+                      variant="outline"
+                      className={`text-[10px] ${ROLE_LABELS[r]?.color}`}
+                    >
+                      {ROLE_LABELS[r]?.label}
+                    </Badge>
                   </TableHead>
                 ))}
                 <TableHead className="text-center font-bold w-[60px]">
                   Mean
                 </TableHead>
+                {hasBaselines && (
+                  <>
+                    <TableHead className="text-center text-xs w-[60px]">
+                      G. Forms
+                    </TableHead>
+                    <TableHead className="text-center text-xs w-[60px]">
+                      Airtable
+                    </TableHead>
+                  </>
+                )}
               </TableRow>
             </TableHeader>
             <TableBody>
               {criteria.map((c) => {
                 const mean = scores[c.id] ?? -1;
                 const isExpanded = expandedCriterion === c.id;
+                const colSpan =
+                  1 + roles.length + 1 + (hasBaselines ? 2 : 0);
                 return (
                   <Fragment key={c.id}>
                     <TableRow
@@ -413,14 +451,14 @@ function OlsenScoresTable({
                           {c.name}
                         </div>
                       </TableCell>
-                      {models.map((m) => {
-                        const s = perModel?.[c.id]?.[m] ?? -1;
+                      {roles.map((r) => {
+                        const s = perRole?.[c.id]?.[r] ?? -1;
                         return (
                           <TableCell
-                            key={m}
+                            key={r}
                             className={`text-center font-mono text-xs ${scoreColorHigherBetter(s)}`}
                           >
-                            {s > 0 ? s : "--"}
+                            {s > 0 ? s.toFixed(1) : "--"}
                           </TableCell>
                         );
                       })}
@@ -429,70 +467,145 @@ function OlsenScoresTable({
                       >
                         {mean > 0 ? mean.toFixed(1) : "--"}
                       </TableCell>
+                      {hasBaselines && (
+                        <>
+                          <TableCell
+                            className={`text-center font-mono text-xs ${scoreColorHigherBetter(baselines?.["google-forms"]?.[c.id] ?? -1)}`}
+                          >
+                            {(baselines?.["google-forms"]?.[c.id] ?? -1) > 0
+                              ? baselines!["google-forms"][c.id].toFixed(1)
+                              : "--"}
+                          </TableCell>
+                          <TableCell
+                            className={`text-center font-mono text-xs ${scoreColorHigherBetter(baselines?.["airtable"]?.[c.id] ?? -1)}`}
+                          >
+                            {(baselines?.["airtable"]?.[c.id] ?? -1) > 0
+                              ? baselines!["airtable"][c.id].toFixed(1)
+                              : "--"}
+                          </TableCell>
+                        </>
+                      )}
                     </TableRow>
-                    {/* Expanded reasoning per model */}
-                    {isExpanded && raw && (
-                      <TableRow key={`${c.id}-detail`}>
+
+                    {/* Expanded: per-model reasoning grouped by role */}
+                    {isExpanded && (
+                      <TableRow>
                         <TableCell
-                          colSpan={models.length + 2}
+                          colSpan={colSpan}
                           className="bg-muted/30 p-0"
                         >
-                          <div className="p-3 space-y-3 max-h-96 overflow-y-auto">
-                            {raw.map((run) => {
-                              const dim = run.criteria.find(
-                                (d) => d.criterionId === c.id,
-                              );
-                              if (!dim) return null;
-                              return (
-                                <div
-                                  key={run.model}
-                                  className="text-xs border rounded p-3 bg-background"
-                                >
-                                  <div className="flex items-center justify-between mb-2">
-                                    <span className="font-medium">
-                                      {shortModelName(run.model)}
-                                    </span>
-                                    <Badge
-                                      variant={
-                                        dim.score > 0 ? "outline" : "destructive"
-                                      }
-                                      className="font-mono"
-                                    >
-                                      {dim.score > 0
-                                        ? `${dim.score}/5`
-                                        : "FAILED"}
-                                    </Badge>
+                          <div className="p-3 space-y-4 max-h-[500px] overflow-y-auto">
+                            {/* Limitations */}
+                            {limitations?.[c.id] &&
+                              limitations[c.id].length > 0 && (
+                                <div className="border rounded p-3 bg-amber-50 text-xs">
+                                  <div className="font-medium text-amber-800 mb-1">
+                                    Identified Limitations:
                                   </div>
-                                  {dim.error && (
-                                    <div className="text-red-600 bg-red-50 rounded p-2 mb-2 text-[11px] font-mono">
-                                      {dim.error}
-                                    </div>
-                                  )}
-                                  {dim.observations.length > 0 && (
-                                    <div className="mb-2">
-                                      <div className="font-medium text-muted-foreground mb-1">
-                                        Observations:
-                                      </div>
-                                      <ul className="list-disc list-inside space-y-0.5 text-muted-foreground">
-                                        {dim.observations.map((obs, i) => (
-                                          <li key={i}>{obs}</li>
-                                        ))}
-                                      </ul>
-                                    </div>
-                                  )}
-                                  {dim.justification && (
-                                    <div>
-                                      <div className="font-medium text-muted-foreground mb-1">
-                                        Justification:
-                                      </div>
-                                      <p className="text-muted-foreground italic">
-                                        {dim.justification}
-                                      </p>
-                                    </div>
-                                  )}
+                                  <ul className="list-disc list-inside space-y-0.5 text-amber-700">
+                                    {limitations[c.id].map((lim, i) => (
+                                      <li key={i}>{lim}</li>
+                                    ))}
+                                  </ul>
                                 </div>
-                              );
-                            })}
+                              )}
+
+                            {/* Per-model reasoning */}
+                            {raw &&
+                              (hasRoles
+                                ? ["neutral", "skeptical", "comparative"]
+                                : [undefined]
+                              ).map((roleFilter) => {
+                                const filtered = roleFilter
+                                  ? raw.filter((r) => r.role === roleFilter)
+                                  : raw;
+                                if (filtered.length === 0) return null;
+                                return (
+                                  <div key={roleFilter ?? "all"}>
+                                    {roleFilter && (
+                                      <div className="flex items-center gap-2 mb-2">
+                                        <Badge
+                                          variant="outline"
+                                          className={`text-[10px] ${ROLE_LABELS[roleFilter]?.color}`}
+                                        >
+                                          {ROLE_LABELS[roleFilter]?.label}
+                                        </Badge>
+                                        <span className="text-xs text-muted-foreground">
+                                          {roleFilter === "neutral"
+                                            ? "Neutral Evaluators"
+                                            : roleFilter === "skeptical"
+                                              ? "Skeptical Reviewers"
+                                              : "Comparative (vs. existing tools)"}
+                                        </span>
+                                      </div>
+                                    )}
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                      {filtered.map((run) => {
+                                        const dim = run.criteria.find(
+                                          (d) => d.criterionId === c.id,
+                                        );
+                                        if (!dim) return null;
+                                        return (
+                                          <div
+                                            key={`${run.model}-${run.role}`}
+                                            className="text-xs border rounded p-2.5 bg-background"
+                                          >
+                                            <div className="flex items-center justify-between mb-1.5">
+                                              <span className="font-medium truncate mr-2">
+                                                {shortModelName(run.model)}
+                                              </span>
+                                              <Badge
+                                                variant={
+                                                  dim.score > 0
+                                                    ? "outline"
+                                                    : "destructive"
+                                                }
+                                                className="font-mono shrink-0"
+                                              >
+                                                {dim.score > 0
+                                                  ? `${dim.score}/5`
+                                                  : "FAIL"}
+                                              </Badge>
+                                            </div>
+                                            {dim.error && (
+                                              <div className="text-red-600 bg-red-50 rounded p-1.5 mb-1.5 text-[10px] font-mono">
+                                                {dim.error}
+                                              </div>
+                                            )}
+                                            {dim.justification && (
+                                              <p className="text-muted-foreground italic mb-1">
+                                                {dim.justification}
+                                              </p>
+                                            )}
+                                            {dim.observations.length > 0 && (
+                                              <ul className="list-disc list-inside space-y-0.5 text-muted-foreground">
+                                                {dim.observations.map(
+                                                  (obs, i) => (
+                                                    <li key={i}>{obs}</li>
+                                                  ),
+                                                )}
+                                              </ul>
+                                            )}
+                                            {dim.limitations &&
+                                              dim.limitations.length > 0 && (
+                                                <div className="mt-1.5 pt-1.5 border-t">
+                                                  <span className="text-amber-600 font-medium">
+                                                    Limitations:{" "}
+                                                  </span>
+                                                  <span className="text-muted-foreground">
+                                                    {dim.limitations.join(
+                                                      "; ",
+                                                    )}
+                                                  </span>
+                                                </div>
+                                              )}
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                  </div>
+                                );
+                              })}
                           </div>
                         </TableCell>
                       </TableRow>
@@ -502,9 +615,9 @@ function OlsenScoresTable({
               })}
             </TableBody>
           </Table>
-        </div>
-      </CardContent>
-    </Card>
+        </CardContent>
+      </Card>
+    </div>
   );
 }
 
@@ -775,10 +888,76 @@ function RunDetailView({
       {evalType === "olsen" && run.olsenScores && (
         <OlsenScoresTable
           scores={run.olsenScores}
-          perModel={run.olsenPerModel}
+          perRole={run.olsenPerRole}
+          baselines={run.olsenBaselines}
+          limitations={run.olsenLimitations}
           criteria={run.olsenCriteria}
           raw={run.olsenRaw}
         />
+      )}
+
+      {/* Olsen Metrics */}
+      {evalType === "olsen" && run.olsenMetrics && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">Run Metrics</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 text-center">
+              <div>
+                <div className="text-lg font-bold">
+                  {run.olsenMetrics.totalCalls}
+                </div>
+                <div className="text-xs text-muted-foreground">LLM Calls</div>
+              </div>
+              <div>
+                <div className="text-lg font-bold">
+                  {(run.olsenMetrics.totalLatencyMs / 60000).toFixed(1)}m
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  Total Runtime
+                </div>
+              </div>
+              <div>
+                <div className="text-lg font-bold">
+                  {(run.olsenMetrics.avgLatencyMs / 1000).toFixed(1)}s
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  Avg Latency
+                </div>
+              </div>
+              <div>
+                <div className="text-lg font-bold">
+                  {(run.olsenMetrics.totalInputTokens / 1000).toFixed(0)}k
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  Input Tokens
+                </div>
+              </div>
+              <div>
+                <div className="text-lg font-bold">
+                  {(run.olsenMetrics.totalOutputTokens / 1000).toFixed(0)}k
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  Output Tokens
+                </div>
+              </div>
+              <div>
+                <div className="text-lg font-bold">
+                  {(run.olsenMetrics.totalTokens / 1000).toFixed(0)}k
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  Total Tokens
+                </div>
+              </div>
+            </div>
+            {run.meta?.wallClockMs && (
+              <div className="mt-3 text-xs text-muted-foreground text-center">
+                Wall clock: {(run.meta.wallClockMs / 60000).toFixed(1)} minutes
+              </div>
+            )}
+          </CardContent>
+        </Card>
       )}
 
       {/* CDN Scores (LLM judge) */}

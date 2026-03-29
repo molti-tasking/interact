@@ -185,16 +185,16 @@ export function buildJudgingPrompt(
 
 ## System Description
 Malleable Forms is a web-based form design tool with the following capabilities:
-- **Structured Intent Editor**: Users write natural language descriptions organized into sections (Purpose, Audience, Exclusions, Constraints). The markdown editor is always visible in the left panel.
-- **Smart Pipeline**: When the user clicks "Generate Form", the system detects which sections changed and runs only necessary steps (full generation, filter-only for exclusions, constraint recheck, or noop).
-- **Dimension Discovery**: The system identifies domain dimensions (e.g., "Insurance Requirements", "Medical History") and shows them as badges.
+- **Intent Editor**: Users write natural language descriptions organized into structured sections (Purpose, Audience, Exclusions, Constraints). The markdown editor is always visible in the left panel.
+- **Generation Pipeline**: When the user clicks "Generate Form", the pipeline detects which sections changed and runs only necessary steps (full generation, filter-only for exclusions, constraint recheck, or noop).
+- **Domain Dimensions**: The system identifies domain dimensions (e.g., "Insurance Requirements", "Medical History") and shows them as badges.
 - **Design Probes**: The system generates refinement questions (e.g., "Should we include previous surgeries?") with 2-4 options. Users click an option and the system updates both the intent AND the schema automatically. Cards can be dismissed (deferred). A "New questions" button regenerates design probes at any time.
 - **Live Form Preview**: The right panel shows a real-time preview of the generated form, updating after each design probe resolution or intent change.
 - **Standards Detection**: The system identifies relevant compliance standards (e.g., OSHA, HIPAA) and lets users accept or skip them.
 - **Prompt Edit Mode**: A text input where users describe changes in natural language, applied without regenerating the full form.
 - **Provenance Log**: Every action (intent change, design probe resolution, schema update) is logged with timestamps, diffs, and rationale. Accessible from the workspace.
 - **Bidirectional Sync**: Field edits in the schema backpropagate to the intent description.
-- **Conflict Detection**: Schema issues (duplicates, type mismatches) are detected and presented as auto-fix suggestions.
+- **Schema Conflict Resolution**: Schema inconsistencies (duplicates, type mismatches) are detected and presented as auto-fix suggestions.
 - **Resolved Design Probes Stack**: Answered design probes stack into a clickable summary that opens a grid dialog showing all decisions in order.
 
 ## Dimension: ${dimension.name}

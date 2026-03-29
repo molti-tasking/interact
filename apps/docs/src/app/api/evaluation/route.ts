@@ -120,6 +120,10 @@ export async function GET(request: NextRequest) {
   const olsenScores = readJson(path.join(runDir, "olsen-scores.json"));
   const olsenRaw = readJson(path.join(runDir, "olsen-scores-raw.json"));
   const olsenPerModel = readJson(path.join(runDir, "olsen-per-model.json"));
+  const olsenPerRole = readJson(path.join(runDir, "olsen-per-role.json"));
+  const olsenLimitations = readJson(path.join(runDir, "olsen-limitations.json"));
+  const olsenBaselines = readJson(path.join(runDir, "olsen-baselines.json"));
+  const olsenMetrics = readJson(path.join(runDir, "olsen-metrics.json"));
 
   // Human CDN scores (for cdn-run-* directories with completed ratings)
   const humanScores = readJson(path.join(runDir, "cdn-scores-human.json"));
@@ -145,6 +149,10 @@ export async function GET(request: NextRequest) {
     olsenScores,
     olsenRaw,
     olsenPerModel,
+    olsenPerRole,
+    olsenLimitations,
+    olsenBaselines,
+    olsenMetrics,
     humanScores,
     agreement,
     videos,

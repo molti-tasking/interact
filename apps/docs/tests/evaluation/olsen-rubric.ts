@@ -61,7 +61,7 @@ export const olsenCriteria: OlsenCriterion[] = [
       "How many fields does a single intent paragraph generate? " +
       "Does one design probe resolution update both intent AND schema simultaneously? " +
       "Does accepting a domain standard add multiple fields at once? " +
-      "How much specification is amplified by the Smart Pipeline's " +
+      "How much specification is amplified by the pipeline's " +
       "dimension discovery and design probe generation?",
     anchors: {
       1: "No leverage — each field must be individually specified with type, label, validation, and constraints; 1:1 ratio of effort to output",
@@ -89,7 +89,7 @@ export const olsenCriteria: OlsenCriterion[] = [
       2: "Limited flexibility — can edit individual fields but changing the overall design requires regeneration which resets all progress",
       3: "Moderate flexibility — intent edits trigger partial regeneration; some design probe history preserved; manual adjustments may be lost",
       4: "Good flexibility — intent freely editable; design probes dismissable and regenerable; prompt-edit mode for targeted changes; schema refinement builds on existing work",
-      5: "Excellent flexibility — full iterative refinement; intent, probes, and schema all independently editable; prompt-edit for experiments; Smart Pipeline detects which sections changed and runs only necessary steps; resolved probes and provenance preserved across iterations",
+      5: "Excellent flexibility — full iterative refinement; intent, probes, and schema all independently editable; prompt-edit for experiments; pipeline detects which sections changed and runs only necessary steps; resolved probes and provenance preserved across iterations",
     },
   },
   {
@@ -117,16 +117,58 @@ export const olsenCriteria: OlsenCriterion[] = [
   },
 ];
 
+// ---------------------------------------------------------------------------
+// Judge roles — different personas for adversarial evaluation
+// ---------------------------------------------------------------------------
+
+export type JudgeRole = "neutral" | "skeptical" | "comparative";
+
+export const JUDGE_ROLES: { id: JudgeRole; name: string; preamble: string }[] = [
+  {
+    id: "neutral",
+    name: "Neutral Evaluator",
+    preamble:
+      "You are an expert evaluator of user interface systems research, applying Dan Olsen's evaluation framework from \"Evaluating User Interface Systems Research\" (UIST 2007).",
+  },
+  {
+    id: "skeptical",
+    name: "Skeptical UIST Reviewer",
+    preamble:
+      "You are a skeptical UIST program committee member reviewing a systems paper. You apply Dan Olsen's evaluation framework from \"Evaluating User Interface Systems Research\" (UIST 2007) with high standards. " +
+      "Score conservatively: a 4 requires strong evidence, a 5 is exceptional and rare. " +
+      "Actively look for gaps between claimed and actual capability, missing edge cases, and features that sound good in a description but may not work in practice. " +
+      "Do NOT give the benefit of the doubt — if the description does not explicitly address something, assume it is missing.",
+  },
+  {
+    id: "comparative",
+    name: "Existing Tools Advocate",
+    preamble:
+      "You are an expert practitioner who has extensive experience with existing form builders (Google Forms, Typeform, Airtable, JotForm). You apply Dan Olsen's evaluation framework from \"Evaluating User Interface Systems Research\" (UIST 2007). " +
+      "Score based on what this system achieves BEYOND what existing tools already provide. " +
+      "Features that are standard in existing tools (drag-and-drop fields, templates, basic validation) should not count as novel contributions. " +
+      "Only capabilities that are genuinely new or significantly better than the state of practice should raise the score. " +
+      "A score of 3 means 'roughly equivalent to existing tools'; below 3 means existing tools do it better.",
+  },
+];
+
+// ---------------------------------------------------------------------------
+// Prompt builders
+// ---------------------------------------------------------------------------
+
 /**
- * Build the Olsen judging prompt for a specific criterion.
+ * Build the Olsen judging prompt for a specific criterion and judge role.
  */
 export function buildOlsenJudgingPrompt(
   criterion: OlsenCriterion,
   systemDescription: string,
+  role: JudgeRole = "neutral",
+  systemName: string = "Malleable Forms",
 ): string {
-  return `You are an expert evaluator of user interface systems research, applying Dan Olsen's evaluation framework from "Evaluating User Interface Systems Research" (UIST 2007).
+  const roleConfig = JUDGE_ROLES.find((r) => r.id === role) ?? JUDGE_ROLES[0];
 
-You are evaluating a system called "Malleable Forms" — a web-based toolkit for conversational form creation using large language models. The system implements "lazy data space elicitation," where creators discover their data schema through a structured conversational process rather than specifying it upfront.
+  return `${roleConfig.preamble}
+
+You are evaluating a system called "${systemName}" for form and structured data collection creation.
 
 ## System Description
 ${systemDescription}
@@ -161,3 +203,35 @@ Return ONLY valid JSON:
   "justification": "Explanation referencing the anchor for the chosen score."
 }`;
 }
+
+/**
+ * Build a limitation prompt: what prevents a perfect score?
+ */
+export function buildLimitationPrompt(
+  criterion: OlsenCriterion,
+  systemDescription: string,
+  score: number,
+): string {
+  return `You are an expert evaluator of user interface systems research. You just scored the system below ${score}/5 on the criterion "${criterion.name}".
+
+## System Description
+${systemDescription}
+
+## Criterion: ${criterion.name}
+${criterion.description}
+
+## Your Task
+Identify 2-3 specific limitations or missing capabilities that prevent this system from achieving a perfect score of 5 on ${criterion.name}. Focus on:
+- Concrete gaps in the described functionality
+- Edge cases the system likely cannot handle
+- Assumptions that may not hold in practice
+- Features that would need to exist for a score of 5
+
+Return ONLY valid JSON:
+{
+  "limitations": ["limitation 1", "limitation 2", "limitation 3"]
+}`;
+}
+
+// Baselines reuse buildOlsenJudgingPrompt with a different systemName + description.
+// No separate prompt builder needed — same template ensures comparable scoring.
