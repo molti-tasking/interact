@@ -33,17 +33,17 @@ export const JUDGE_MODELS = [
   "anthropic/claude-sonnet-4-6",
   "anthropic/claude-haiku-4-5-20251001",
   "openai/gpt-4o",
-  "openai/gpt-4o-mini",
   "openai/o3-mini",
   "gemini/gemini-2.5-pro",
-  "gemini/gemini-2.5-flash",
   "mistral/mistral-large-latest",
-  "deepseek/deepseek-chat",
-  "meta-llama/llama-4-maverick",
 ];
 
 export const BASELINES = [
-  { id: "google-forms", name: "Google Forms", description: GOOGLE_FORMS_DESCRIPTION },
+  {
+    id: "google-forms",
+    name: "Google Forms",
+    description: GOOGLE_FORMS_DESCRIPTION,
+  },
   { id: "airtable", name: "Airtable", description: AIRTABLE_DESCRIPTION },
 ];
 
@@ -61,8 +61,12 @@ const judgeEnv = () => ({
  * Set via setLangfuseRunId() before starting evaluations.
  */
 let _langfuseRunId = `olsen-${Date.now()}`;
-export function setLangfuseRunId(id: string) { _langfuseRunId = id; }
-export function getLangfuseRunId() { return _langfuseRunId; }
+export function setLangfuseRunId(id: string) {
+  _langfuseRunId = id;
+}
+export function getLangfuseRunId() {
+  return _langfuseRunId;
+}
 
 // ---------------------------------------------------------------------------
 // Types
@@ -153,7 +157,11 @@ async function callLLM(
       const body = await response.text().catch(() => "");
       const errorMsg = `HTTP ${response.status}: ${body.slice(0, 300)}`;
       console.error(`  [${model}] ERROR ${label}: ${errorMsg}`);
-      return { error: errorMsg, raw: body.slice(0, 500), metrics: { latencyMs, inputTokens: 0, outputTokens: 0, totalTokens: 0 } };
+      return {
+        error: errorMsg,
+        raw: body.slice(0, 500),
+        metrics: { latencyMs, inputTokens: 0, outputTokens: 0, totalTokens: 0 },
+      };
     }
 
     const data = await response.json();
@@ -171,7 +179,11 @@ async function callLLM(
 
     if (!raw) {
       console.error(`  [${model}] ERROR ${label}: Empty response`);
-      return { error: "Empty response from LLM", raw: JSON.stringify(data).slice(0, 500), metrics };
+      return {
+        error: "Empty response from LLM",
+        raw: JSON.stringify(data).slice(0, 500),
+        metrics,
+      };
     }
 
     const stripped = raw
@@ -179,8 +191,14 @@ async function callLLM(
       .replace(/\n?```\s*$/m, "");
     const jsonMatch = stripped.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
-      console.error(`  [${model}] PARSE ERROR ${label}: No JSON in "${raw.slice(0, 150)}"`);
-      return { error: `No JSON found in response`, raw: raw.slice(0, 500), metrics };
+      console.error(
+        `  [${model}] PARSE ERROR ${label}: No JSON in "${raw.slice(0, 150)}"`,
+      );
+      return {
+        error: `No JSON found in response`,
+        raw: raw.slice(0, 500),
+        metrics,
+      };
     }
 
     const parsed = JSON.parse(jsonMatch[0]);
@@ -188,7 +206,16 @@ async function callLLM(
   } catch (err) {
     const errorMsg = `Fetch error: ${err instanceof Error ? err.message : String(err)}`;
     console.error(`  [${model}] FATAL ${label}: ${errorMsg}`);
-    return { error: errorMsg, raw: "", metrics: { latencyMs: Date.now() - startTime, inputTokens: 0, outputTokens: 0, totalTokens: 0 } };
+    return {
+      error: errorMsg,
+      raw: "",
+      metrics: {
+        latencyMs: Date.now() - startTime,
+        inputTokens: 0,
+        outputTokens: 0,
+        totalTokens: 0,
+      },
+    };
   }
 }
 
@@ -207,13 +234,24 @@ async function judgeCriterion(
   console.log(`  [${model}] (${roleLabel}) ${criterion.name}...`);
 
   const traceCtx = { callType: "scoring", criterion: criterion.id, role };
-  const result = await callLLM(model, prompt, `${criterion.name} [${role}]`, traceCtx);
+  const result = await callLLM(
+    model,
+    prompt,
+    `${criterion.name} [${role}]`,
+    traceCtx,
+  );
 
   if ("error" in result) {
     logEvalGeneration(
       { runId: _langfuseRunId, model, ...traceCtx },
-      prompt, result.raw,
-      result.metrics ?? { latencyMs: 0, inputTokens: 0, outputTokens: 0, totalTokens: 0 },
+      prompt,
+      result.raw,
+      result.metrics ?? {
+        latencyMs: 0,
+        inputTokens: 0,
+        outputTokens: 0,
+        totalTokens: 0,
+      },
       { error: result.error },
     );
     return {
@@ -230,23 +268,36 @@ async function judgeCriterion(
 
   const { parsed, raw, metrics } = result;
 
-  if (typeof parsed.score !== "number" || parsed.score < 1 || parsed.score > 5) {
-    console.warn(`  [${model}] WARNING ${criterion.name}: score=${parsed.score} (clamping)`);
+  if (
+    typeof parsed.score !== "number" ||
+    parsed.score < 1 ||
+    parsed.score > 5
+  ) {
+    console.warn(
+      `  [${model}] WARNING ${criterion.name}: score=${parsed.score} (clamping)`,
+    );
   }
 
   const score = Math.min(5, Math.max(1, Math.round(parsed.score as number)));
-  console.log(`  [${model}] (${role}) ${criterion.name} = ${score}/5 (${metrics.latencyMs}ms, ${metrics.inputTokens}+${metrics.outputTokens} tokens)`);
+  console.log(
+    `  [${model}] (${role}) ${criterion.name} = ${score}/5 (${metrics.latencyMs}ms, ${metrics.inputTokens}+${metrics.outputTokens} tokens)`,
+  );
 
   logEvalGeneration(
     { runId: _langfuseRunId, model, ...traceCtx },
-    prompt, raw, metrics, { score },
+    prompt,
+    raw,
+    metrics,
+    { score },
   );
 
   return {
     criterionId: criterion.id,
     criterionName: criterion.name,
     score,
-    observations: Array.isArray(parsed.observations) ? parsed.observations as string[] : [],
+    observations: Array.isArray(parsed.observations)
+      ? (parsed.observations as string[])
+      : [],
     justification: (parsed.justification as string) ?? "",
     rawResponse: raw,
     metrics,
@@ -264,16 +315,29 @@ async function getLimitations(
 ): Promise<{ limitations: string[]; metrics?: LLMCallMetrics }> {
   const prompt = buildLimitationPrompt(criterion, SYSTEM_DESCRIPTION, score);
 
-  console.log(`  [${model}] Limitations for ${criterion.name} (scored ${score})...`);
+  console.log(
+    `  [${model}] Limitations for ${criterion.name} (scored ${score})...`,
+  );
 
   const traceCtx = { callType: "limitation", criterion: criterion.id };
-  const result = await callLLM(model, prompt, `limitations:${criterion.name}`, traceCtx);
+  const result = await callLLM(
+    model,
+    prompt,
+    `limitations:${criterion.name}`,
+    traceCtx,
+  );
 
   if ("error" in result) {
     logEvalGeneration(
       { runId: _langfuseRunId, model, ...traceCtx },
-      prompt, result.raw,
-      result.metrics ?? { latencyMs: 0, inputTokens: 0, outputTokens: 0, totalTokens: 0 },
+      prompt,
+      result.raw,
+      result.metrics ?? {
+        latencyMs: 0,
+        inputTokens: 0,
+        outputTokens: 0,
+        totalTokens: 0,
+      },
       { error: result.error },
     );
     return { limitations: [], metrics: result.metrics };
@@ -281,12 +345,14 @@ async function getLimitations(
 
   logEvalGeneration(
     { runId: _langfuseRunId, model, ...traceCtx },
-    prompt, result.raw, result.metrics,
+    prompt,
+    result.raw,
+    result.metrics,
   );
 
   const limitations = result.parsed.limitations;
   return {
-    limitations: Array.isArray(limitations) ? limitations as string[] : [],
+    limitations: Array.isArray(limitations) ? (limitations as string[]) : [],
     metrics: result.metrics,
   };
 }
@@ -301,18 +367,38 @@ async function judgeBaseline(
   baseline: { id: string; name: string; description: string },
 ): Promise<OlsenDimensionScore> {
   // Use the exact same prompt template as the main evaluation, just with a different system name + description
-  const prompt = buildOlsenJudgingPrompt(criterion, baseline.description, "neutral", baseline.name);
+  const prompt = buildOlsenJudgingPrompt(
+    criterion,
+    baseline.description,
+    "neutral",
+    baseline.name,
+  );
 
   console.log(`  [${model}] Baseline: ${baseline.name} × ${criterion.name}...`);
 
-  const traceCtx = { callType: "baseline", criterion: criterion.id, baseline: baseline.id };
-  const result = await callLLM(model, prompt, `baseline:${baseline.name}:${criterion.name}`, traceCtx);
+  const traceCtx = {
+    callType: "baseline",
+    criterion: criterion.id,
+    baseline: baseline.id,
+  };
+  const result = await callLLM(
+    model,
+    prompt,
+    `baseline:${baseline.name}:${criterion.name}`,
+    traceCtx,
+  );
 
   if ("error" in result) {
     logEvalGeneration(
       { runId: _langfuseRunId, model, ...traceCtx },
-      prompt, result.raw,
-      result.metrics ?? { latencyMs: 0, inputTokens: 0, outputTokens: 0, totalTokens: 0 },
+      prompt,
+      result.raw,
+      result.metrics ?? {
+        latencyMs: 0,
+        inputTokens: 0,
+        outputTokens: 0,
+        totalTokens: 0,
+      },
       { error: result.error },
     );
     return {
@@ -329,18 +415,25 @@ async function judgeBaseline(
 
   const { parsed, raw, metrics } = result;
   const score = Math.min(5, Math.max(1, Math.round(parsed.score as number)));
-  console.log(`  [${model}] ${baseline.name} × ${criterion.name} = ${score}/5 (${metrics.latencyMs}ms)`);
+  console.log(
+    `  [${model}] ${baseline.name} × ${criterion.name} = ${score}/5 (${metrics.latencyMs}ms)`,
+  );
 
   logEvalGeneration(
     { runId: _langfuseRunId, model, ...traceCtx },
-    prompt, raw, metrics, { score },
+    prompt,
+    raw,
+    metrics,
+    { score },
   );
 
   return {
     criterionId: criterion.id,
     criterionName: criterion.name,
     score,
-    observations: Array.isArray(parsed.observations) ? parsed.observations as string[] : [],
+    observations: Array.isArray(parsed.observations)
+      ? (parsed.observations as string[])
+      : [],
     justification: (parsed.justification as string) ?? "",
     rawResponse: raw,
     metrics,
@@ -387,9 +480,7 @@ export async function judgeOlsenWithModel(
 /**
  * Run baseline evaluation for one model (all criteria for each baseline).
  */
-export async function judgeBaselines(
-  model: string,
-): Promise<BaselineScores[]> {
+export async function judgeBaselines(model: string): Promise<BaselineScores[]> {
   const results: BaselineScores[] = [];
 
   for (const baseline of BASELINES) {
