@@ -1,6 +1,8 @@
 import type { DetectedStandard, DomainStandard } from "../domain-standards";
 import { esrsE1Climate } from "./esrs-e1-climate";
 import { fhirPatientIntake } from "./fhir-patient-intake";
+import { gs1Gtin } from "./gs1-gtin";
+import { schemaOrgJobPosting } from "./schema-org-job-posting";
 
 /**
  * Registry of all domain standard profiles.
@@ -9,6 +11,8 @@ import { fhirPatientIntake } from "./fhir-patient-intake";
 const standardRegistry: DomainStandard[] = [
   fhirPatientIntake,
   esrsE1Climate,
+  gs1Gtin,
+  schemaOrgJobPosting,
 ];
 
 /** Returns all registered domain standards. */

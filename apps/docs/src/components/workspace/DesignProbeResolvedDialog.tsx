@@ -14,7 +14,7 @@ import {
 } from "@/components/workspace/DecisionCard";
 import type { DesignProbe } from "@/lib/types";
 import { cn } from "@/lib/utils";
-import { ArrowDown, Check } from "lucide-react";
+import { ArrowUp, Check } from "lucide-react";
 import React from "react";
 import { ScrollFadeContainer } from "./ScrollFadeContainer";
 
@@ -29,7 +29,7 @@ export const DesignProbeResolvedDialog = ({
   setDialogOpen,
   resolvedProbes,
 }: DesignProbeResolvedDialogProps) => {
-  // TODO these cards have to displayed chronologically! We maybe have to add a trigger setting a "answered_at" field, whenever it has been changed.
+  // TODO these cards have to displayed chronologically! We maybe have to add a trigger setting a "answered_at" field, whenever it has been changed. Also I want to see the latest at the top and the oldest at the bottom.
   return (
     <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
       <DialogContent className="max-w-7xl w-full max-h-[90vh] overflow-y-auto">
@@ -91,7 +91,7 @@ export const DesignProbeResolvedDialog = ({
                   </DecisionCard>
                   {index < resolvedProbes.length - 1 && (
                     <div className="flex justify-self-center opacity-15">
-                      <ArrowDown className="h-4 w-4" />
+                      <ArrowUp className="h-4 w-4" />
                     </div>
                   )}
                 </React.Fragment>
