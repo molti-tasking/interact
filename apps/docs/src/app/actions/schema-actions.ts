@@ -74,7 +74,7 @@ const schemaResponseSchema = z.object({
     name: z.string(),
     description: z.string(),
     appliedStandards: z.array(z.string()).optional(),
-    fields: z.array(namedFieldSchema).describe("Form fields"),
+    fields: z.array(namedFieldSchema).max(7).describe("Form fields — only the 3-5 most essential"),
   }),
   configuratorFormValues: z
     .array(
@@ -119,6 +119,8 @@ You MUST include all MANDATORY fields listed below in the artifact form schema. 
 
 For each standard-sourced field, include "standardReference" in the field definition (e.g., "standardReference": "FHIR Patient.birthDate").
 
+When mandatory standard fields bring the total above 5, that is acceptable — but do not add non-essential fields beyond those required by the standard.
+
 Standard field constraints:
 ${constraintLines.join("\n")}
 `;
@@ -131,6 +133,7 @@ ${standardsSection}
 Analyze the description to identify:
 - What data needs to be collected
 - Who will fill out the form and in what context
+- Which 3-5 fields are the MINIMUM VIABLE set for this form's core purpose (additional fields will be added iteratively through follow-up questions)
 - What field types and options are most appropriate
 - What validation or constraints apply
 
@@ -143,6 +146,7 @@ Design the form fields using these types:
 - "email" for email addresses
 
 RULES:
+- Generate ONLY 3-5 essential fields. This is the INITIAL version of the form — additional fields will be discovered through follow-up design probes. Prioritize fields that are core to the form's stated purpose. Do NOT try to be exhaustive.
 - Field keys MUST be camelCase and descriptive
 - "description" should be SHORT (a few words) — omit entirely if the label already makes the field obvious
 - "tooltip" is for extra guidance that helps the user fill in the field correctly — omit if not needed${acceptedStandards && acceptedStandards.length > 0 ? '\n- For standard-sourced fields, include "standardReference"' : ""}`;
