@@ -67,7 +67,7 @@ export async function resolveDesignProbe(
   page: Page,
   optionValue: string,
 ): Promise<void> {
-  await page.locator(`[data-testid="design-probe-option-${optionValue}"]`).click();
+  await page.locator(`[data-testid="deck-option-${optionValue}"]`).click();
 }
 
 /**

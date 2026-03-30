@@ -58,8 +58,8 @@ test.describe("Fitness Coaching Scenario", () => {
     await waitForDesignProbes(page);
 
     // Verify design probe cards rendered
-    await expect(page.locator('[data-testid="design-probe-card-0"]')).toBeVisible();
-    await expect(page.locator('[data-testid="design-probe-card-1"]')).toBeVisible();
+    await expect(page.locator('[data-testid="deck-card-opinion-fix-0"]')).toBeVisible();
+    await expect(page.locator('[data-testid="deck-card-opinion-fix-1"]')).toBeVisible();
 
     // Step 5: Resolve design probe 1 — include nutrition
     await resolveDesignProbe(page, "includeNutrition");
