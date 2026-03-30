@@ -132,21 +132,25 @@ export async function generateDesignProbesAction(
   maxProbes: number = 5,
   dimensions?: DimensionObject[],
   acceptedStandards?: DetectedStandard[],
+  externalPrompt?: string,
+  currentSchema?: PortfolioSchema,
 ): Promise<GenerateDesignProbesResponse> {
   const basePrompt = serializeForLLM(intent);
   if (process.env.USE_FIXTURES || process.env.RECORD_FIXTURES) {
     const { fixtureGuard } = await import("@/lib/testing/fixture-guard");
     return fixtureGuard(
       "generateDesignProbesAction",
-      { basePrompt, maxProbes, dimensions, acceptedStandards },
+      { basePrompt, maxProbes, dimensions, acceptedStandards, externalPrompt },
       () =>
         generateDesignProbesReal(
           basePrompt,
           maxProbes,
           dimensions,
           acceptedStandards,
+          externalPrompt,
+          currentSchema,
         ),
-      { prompt: basePrompt },
+      { prompt: externalPrompt || basePrompt },
     );
   }
   return generateDesignProbesReal(
@@ -154,6 +158,8 @@ export async function generateDesignProbesAction(
     maxProbes,
     dimensions,
     acceptedStandards,
+    externalPrompt,
+    currentSchema,
   );
 }
 
@@ -162,21 +168,33 @@ async function generateDesignProbesReal(
   maxProbes: number,
   dimensions?: DimensionObject[],
   acceptedStandards?: DetectedStandard[],
+  externalPrompt?: string,
+  currentSchema?: PortfolioSchema,
 ): Promise<GenerateDesignProbesResponse> {
   if (maxProbes <= 0) return { success: true, interactions: [] };
 
   try {
+    const source = externalPrompt ? "external" : "llm";
+
     const acceptedDims = dimensions?.filter(
       (d) => (d.status === "accepted" || d.status === "edited") && d.isActive,
     );
 
-    const dimensionContext =
-      acceptedDims && acceptedDims.length > 0
-        ? `\n\nThe form is structured around these confirmed domain dimensions:\n${acceptedDims.map((d) => `- "${d.name}" [${d.scope}]: ${d.description}. Why it matters: ${d.importance}`).join("\n")}\n\nEach design probe should refine a SPECIFIC dimension — making concrete field-level decisions (what fields, what options, what validation). Include a "dimensionName" field that exactly matches one of the dimension names above.`
-        : "";
+    // Build optional context sections
+    const sections: string[] = [];
 
-    // Build standard-aware context for optional/recommended fields
-    let standardsContext = "";
+    if (currentSchema && currentSchema.fields.length > 0) {
+      sections.push(
+        `CURRENT FORM SCHEMA:\n${JSON.stringify(currentSchema.fields.map((f) => ({ name: f.name, label: f.label, type: f.type, required: f.required })), null, 2)}`,
+      );
+    }
+
+    if (acceptedDims && acceptedDims.length > 0) {
+      sections.push(
+        `The form is structured around these confirmed domain dimensions:\n${acceptedDims.map((d) => `- "${d.name}" [${d.scope}]: ${d.description}. Why it matters: ${d.importance}`).join("\n")}\n\nEach design probe should refine a SPECIFIC dimension — making concrete field-level decisions (what fields, what options, what validation). Include a "dimensionName" field that exactly matches one of the dimension names above.`,
+      );
+    }
+
     if (acceptedStandards && acceptedStandards.length > 0) {
       const optionalFields = acceptedStandards.flatMap((detected) =>
         detected.relevantConstraints
@@ -189,13 +207,24 @@ async function generateDesignProbesReal(
           ),
       );
       if (optionalFields.length > 0) {
-        standardsContext = `\n\nDOMAIN STANDARD CONTEXT:\nThe form is being built to comply with: ${acceptedStandards.map((s) => s.standard.name).join(", ")}.\nThe following optional/recommended fields from the standard(s) could be included. Generate design probes that ask the user whether to include these:\n${optionalFields.join("\n")}\n\nFor standard-related probes, frame them as "The [Standard Name] standard recommends including [field]. Should this form include it?" with options like "Yes, include it" / "No, not needed for this form".`;
+        sections.push(
+          `DOMAIN STANDARD CONTEXT:\nThe form is being built to comply with: ${acceptedStandards.map((s) => s.standard.name).join(", ")}.\nThe following optional/recommended fields from the standard(s) could be included. Generate design probes that ask the user whether to include these:\n${optionalFields.join("\n")}\n\nFor standard-related probes, frame them as "The [Standard Name] standard recommends including [field]. Should this form include it?" with options like "Yes, include it" / "No, not needed for this form".`,
+        );
       }
     }
 
+    if (externalPrompt) {
+      sections.push(
+        `ADDITIONAL INPUT (from a collaborator):\n${externalPrompt}\n\nSurface the collaborator's concerns as concrete decisions. Always include an option that preserves the current design (e.g. "Keep as is").`,
+      );
+    }
+
+    const contextBlock =
+      sections.length > 0 ? `\n\n${sections.join("\n\n")}` : "";
+
     const prompt = `You are a form design assistant. Generate ${Math.min(maxProbes, 3)}-${maxProbes} refinement questions to improve this form design. Each question has 2-4 options.
 
-User's form description: ${basePrompt}${dimensionContext}${standardsContext}
+User's form description: ${basePrompt}${contextBlock}
 
 Each question must be classified by layer:
 - "intent": about the form's purpose, audience, or high-level goals
@@ -210,7 +239,7 @@ Rules:
 - Values should be camelCase identifiers`;
 
     const result = await withTracing(
-      { tags: ["design-probes", "generate"] },
+      { tags: ["design-probes", externalPrompt ? "external-prompt" : "generate"] },
       () =>
         generateText({
           model,
@@ -255,7 +284,7 @@ Rules:
           text: interaction.text,
           explanation: interaction.explanation || undefined,
           layer,
-          source: "llm",
+          source,
           options: interaction.options,
           selectedOption: null,
           status: "pending" as const,

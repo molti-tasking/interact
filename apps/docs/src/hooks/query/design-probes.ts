@@ -40,6 +40,8 @@ export function useDesignProbes(portfolioId: string | undefined) {
 
 /**
  * Generate new design probes and persist them to the DB.
+ * Optionally accepts an external prompt + current schema to generate
+ * probes from a collaborator's perspective.
  */
 export function useGenerateDesignProbes(portfolioId: string) {
   const queryClient = useQueryClient();
@@ -48,15 +50,21 @@ export function useGenerateDesignProbes(portfolioId: string) {
     mutationFn: async ({
       intent,
       acceptedStandards,
+      externalPrompt,
+      currentSchema,
     }: {
       intent: StructuredIntent;
       acceptedStandards?: DetectedStandard[];
+      externalPrompt?: string;
+      currentSchema?: PortfolioSchema;
     }) => {
       const result = await generateDesignProbesAction(
         intent,
         5,
         undefined,
         acceptedStandards?.length ? acceptedStandards : undefined,
+        externalPrompt,
+        currentSchema,
       );
 
       if (!result.success || !result.interactions) {

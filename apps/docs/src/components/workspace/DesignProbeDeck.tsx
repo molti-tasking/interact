@@ -5,6 +5,15 @@ import type {
   SchemaConflict,
 } from "@/app/actions/conflict-actions";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { DesignProbeCard } from "@/components/workspace/DesignProbeCard";
 import { ScrollFadeContainer } from "@/components/workspace/ScrollFadeContainer";
 import {
@@ -55,6 +64,10 @@ export function DesignProbeDeck({ portfolio }: { portfolio: Portfolio }) {
   const resolveStandardProbe = useResolveStandardProbe(portfolio.id);
   const acceptStandard = useAcceptStandard(portfolio.id);
   const skipStandard = useSkipStandard(portfolio.id);
+
+  // "New questions" dialog state
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [externalPromptText, setExternalPromptText] = useState("");
 
   // Conflict detection + resolution
   const { data: conflicts } = useDetectConflicts(
@@ -154,61 +167,120 @@ export function DesignProbeDeck({ portfolio }: { portfolio: Portfolio }) {
   };
 
   // -------------------------------------------------------------------
-  // Regenerate design probes
+  // Generate probes — with optional external prompt
   // -------------------------------------------------------------------
-  const handleRegenerateProbes = () => {
-    if (
-      !structuredIntent.purpose.content.trim() ||
-      generateDesignProbes.isPending
-    )
-      return;
+  const handleGenerateProbes = () => {
+    if (!structuredIntent.purpose.content.trim()) return;
 
+    const prompt = externalPromptText.trim();
     const acceptedStandardRefs = portfolioSchema.acceptedStandards ?? [];
     const acceptedStds = (detectedStandards ?? []).filter((s) =>
       acceptedStandardRefs.some((ref) => ref.standardId === s.standard.id),
     );
 
-    generateDesignProbes.mutate({
-      intent: structuredIntent,
-      acceptedStandards: acceptedStds.length > 0 ? acceptedStds : undefined,
-    });
+    generateDesignProbes.mutate(
+      {
+        intent: structuredIntent,
+        acceptedStandards: acceptedStds.length > 0 ? acceptedStds : undefined,
+        externalPrompt: prompt || undefined,
+        currentSchema: prompt ? portfolioSchema : undefined,
+      },
+      {
+        onSuccess: () => {
+          setExternalPromptText("");
+          setDialogOpen(false);
+        },
+      },
+    );
   };
 
+  const isGenerating = generateDesignProbes.isPending;
   const isLoading = resolveDesignProbe.isPending || resolveConflict.isPending;
   const visibleConflicts = (conflicts ?? []).filter(
     (c) => !dismissedConflicts.has(c.id),
   );
 
+  const hasCards =
+    visibleConflicts.length > 0 || (pendingDesignProbes ?? []).length > 0;
+
   return (
-    (visibleConflicts.length > 0 || (pendingDesignProbes ?? []).length > 0) && (
-      <div
-        data-testid="card-deck-section"
-        data-loading={isLoading ? "true" : undefined}
-        data-generating={generateDesignProbes.isPending ? "true" : undefined}
-      >
+    <div
+      data-testid="card-deck-section"
+      data-loading={isLoading ? "true" : undefined}
+      data-generating={isGenerating ? "true" : undefined}
+    >
+      {hasCards && (
         <div className="flex items-center justify-between h-8 mb-3">
-          <div className="flex items-center gap-2">
-            <h3 className="workspace-section-label">Design Probes</h3>
-            {(generateDesignProbes.isPending ||
-              resolveDesignProbe.isPending ||
-              resolveConflict.isPending) && (
-              <Loader2 className="h-3 w-3 animate-spin text-muted-foreground/50" />
-            )}
+          <h3 className="workspace-section-label">Design Probes</h3>
+          <div className="flex justify-center pt-1">
+            <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+              <DialogTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  disabled={isLoading || isGenerating}
+                  className="text-muted-foreground h-7 text-xs"
+                >
+                  <RefreshCw
+                    className={cn(
+                      "h-3 w-3 mr-1",
+                      isGenerating && "animate-spin",
+                    )}
+                  />
+                  {isGenerating ? "Generating..." : "New questions"}
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                  <DialogTitle>Generate design probes</DialogTitle>
+                  <DialogDescription>
+                    Optionally add a prompt to guide the questions — paste
+                    requirements, feedback, or context from a collaborator.
+                  </DialogDescription>
+                </DialogHeader>
+                <textarea
+                  data-testid="external-prompt-input"
+                  value={externalPromptText}
+                  onChange={(e) => setExternalPromptText(e.target.value)}
+                  placeholder="(optional) e.g. We also need GDPR consent fields..."
+                  className="w-full rounded-lg border border-border bg-background p-3 text-sm resize-none focus:outline-none focus:ring-1 focus:ring-ring min-h-20"
+                  rows={3}
+                  disabled={isGenerating}
+                />
+                <DialogFooter>
+                  <Button
+                    onClick={handleGenerateProbes}
+                    disabled={isGenerating}
+                    size="sm"
+                  >
+                    {isGenerating ? (
+                      <>
+                        <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                        Generating...
+                      </>
+                    ) : (
+                      "Generate"
+                    )}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
           </div>
         </div>
+      )}
 
-        {generateDesignProbes.isPending &&
-          (designProbes ?? []).length === 0 && (
-            <div
-              data-testid="probes-generating"
-              className="flex items-center gap-2 rounded-xl border border-dashed p-4 text-sm text-muted-foreground/70 animate-pulse"
-            >
-              <Loader2 className="h-4 w-4 animate-spin" />
-              Generating design probes...
-            </div>
-          )}
+      {generateDesignProbes.isPending && (designProbes ?? []).length === 0 && (
+        <div
+          data-testid="probes-generating"
+          className="flex items-center gap-2 rounded-xl border border-dashed p-4 text-sm text-muted-foreground/70 animate-pulse"
+        >
+          <Loader2 className="h-4 w-4 animate-spin" />
+          Generating design probes...
+        </div>
+      )}
 
-        <div className="flex flex-col w-full gap-2">
+      <div className="flex flex-col w-full gap-2">
+        {hasCards && (
           <ScrollFadeContainer>
             {pendingDesignProbes?.map((probe) => (
               <DesignProbeCard
@@ -245,31 +317,8 @@ export function DesignProbeDeck({ portfolio }: { portfolio: Portfolio }) {
               />
             ))}
           </ScrollFadeContainer>
-
-          {handleRegenerateProbes && (
-            <div className="flex justify-center pt-1">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleRegenerateProbes}
-                disabled={isLoading || generateDesignProbes.isPending}
-                className="text-[11px] text-muted-foreground/60 hover:text-foreground"
-                title="Generate new design probes"
-              >
-                <RefreshCw
-                  className={cn(
-                    "h-3 w-3 mr-1",
-                    generateDesignProbes.isPending && "animate-spin",
-                  )}
-                />
-                {generateDesignProbes.isPending
-                  ? "Generating..."
-                  : "New questions"}
-              </Button>
-            </div>
-          )}
-        </div>
+        )}
       </div>
-    )
+    </div>
   );
 }
