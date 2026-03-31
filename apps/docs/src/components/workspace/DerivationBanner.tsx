@@ -45,7 +45,7 @@ export function DerivationBanner({ portfolio }: DerivationBannerProps) {
             ({parentFieldCount} fields)
           </span>
           {projection && (
-            <Badge variant="outline" className="text-[10px]">
+            <Badge variant="outline">
               {projection.type === "sub"
                 ? `subset — ${ownFieldCount} of ${parentFieldCount} fields`
                 : projection.type === "super"
@@ -67,7 +67,9 @@ export function DerivationBanner({ portfolio }: DerivationBannerProps) {
 
       {hasChildren && (
         <div
-          className={isDerived && parent ? "mt-2 pt-2 border-t border-dashed" : ""}
+          className={
+            isDerived && parent ? "mt-2 pt-2 border-t border-dashed" : ""
+          }
         >
           <div className="flex items-center gap-2 flex-wrap">
             <Network className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
