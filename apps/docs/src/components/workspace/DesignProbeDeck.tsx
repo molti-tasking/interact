@@ -209,65 +209,60 @@ export function DesignProbeDeck({ portfolio }: { portfolio: Portfolio }) {
       data-loading={isLoading ? "true" : undefined}
       data-generating={isGenerating ? "true" : undefined}
     >
-      {hasCards && (
-        <div className="flex items-center justify-between h-8 mb-3">
-          <h3 className="workspace-section-label">Design Probes</h3>
-          <div className="flex justify-center pt-1">
-            <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-              <DialogTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  disabled={isLoading || isGenerating}
-                  className="text-muted-foreground h-7 text-xs"
-                >
-                  <RefreshCw
-                    className={cn(
-                      "h-3 w-3 mr-1",
-                      isGenerating && "animate-spin",
-                    )}
-                  />
-                  {isGenerating ? "Generating..." : "New questions"}
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="sm:max-w-md">
-                <DialogHeader>
-                  <DialogTitle>Generate design probes</DialogTitle>
-                  <DialogDescription>
-                    Optionally add a prompt to guide the questions — paste
-                    requirements, feedback, or context from a collaborator.
-                  </DialogDescription>
-                </DialogHeader>
-                <textarea
-                  data-testid="external-prompt-input"
-                  value={externalPromptText}
-                  onChange={(e) => setExternalPromptText(e.target.value)}
-                  placeholder="(optional) e.g. We also need GDPR consent fields..."
-                  className="w-full rounded-lg border border-border bg-background p-3 text-sm resize-none focus:outline-none focus:ring-1 focus:ring-ring min-h-20"
-                  rows={3}
-                  disabled={isGenerating}
+      <div className="flex items-center justify-between h-8 mb-3">
+        <h3 className="workspace-section-label">Design Probes</h3>
+        <div className="flex justify-center pt-1">
+          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+            <DialogTrigger asChild>
+              <Button
+                variant="ghost"
+                size="sm"
+                disabled={isLoading || isGenerating}
+                className="text-muted-foreground h-7 text-xs"
+              >
+                <RefreshCw
+                  className={cn("h-3 w-3 mr-1", isGenerating && "animate-spin")}
                 />
-                <DialogFooter>
-                  <Button
-                    onClick={handleGenerateProbes}
-                    disabled={isGenerating}
-                    size="sm"
-                  >
-                    {isGenerating ? (
-                      <>
-                        <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-                        Generating...
-                      </>
-                    ) : (
-                      "Generate"
-                    )}
-                  </Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
-          </div>
+                {isGenerating ? "Generating..." : "New questions"}
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-md">
+              <DialogHeader>
+                <DialogTitle>Generate design probes</DialogTitle>
+                <DialogDescription>
+                  Optionally add a prompt to guide the questions — paste
+                  requirements, feedback, or context from a collaborator.
+                </DialogDescription>
+              </DialogHeader>
+              <textarea
+                data-testid="external-prompt-input"
+                value={externalPromptText}
+                onChange={(e) => setExternalPromptText(e.target.value)}
+                placeholder="(optional) e.g. We also need GDPR consent fields..."
+                className="w-full rounded-lg border border-border bg-background p-3 text-sm resize-none focus:outline-none focus:ring-1 focus:ring-ring min-h-20"
+                rows={3}
+                disabled={isGenerating}
+              />
+              <DialogFooter>
+                <Button
+                  onClick={handleGenerateProbes}
+                  disabled={isGenerating}
+                  size="sm"
+                >
+                  {isGenerating ? (
+                    <>
+                      <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                      Generating...
+                    </>
+                  ) : (
+                    "Generate"
+                  )}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </div>
-      )}
+      </div>
 
       {generateDesignProbes.isPending && (designProbes ?? []).length === 0 && (
         <div
