@@ -1,9 +1,9 @@
 "use client";
 
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { InlineEditableTitle } from "@/components/ui/inline-editable-title";
 import { ArtifactPane } from "@/components/workspace/ArtifactPane";
+import { DerivationBanner } from "@/components/workspace/DerivationBanner";
 import { DesignProbeDeck } from "@/components/workspace/DesignProbeDeck";
 import { FieldEditDrawer } from "@/components/workspace/FieldEditDrawer";
 import { ReflectiveConversationPane } from "@/components/workspace/ReflectiveConversationPane";
@@ -116,14 +116,6 @@ export default function PortfolioWorkspacePage() {
               updatePortfolio.mutate({ id: portfolio.id, title })
             }
           />
-          {portfolio.base_id && (
-            <Badge
-              variant="outline"
-              className="text-[10px] tracking-wide uppercase"
-            >
-              Derived
-            </Badge>
-          )}
         </div>
         <div className="flex items-center gap-1.5">
           <Button
@@ -161,6 +153,8 @@ export default function PortfolioWorkspacePage() {
           </Button>
         </div>
       </div>
+
+      <DerivationBanner portfolio={portfolio} />
 
       {/* Three-column workspace */}
       <div

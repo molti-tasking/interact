@@ -1,5 +1,6 @@
 "use client";
 
+import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import {
   Table,
@@ -9,6 +10,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import type { ResponseWithOrigin } from "@/hooks/query/responses-lineage";
 import type { FormResponse, Portfolio, PortfolioSchema } from "@/lib/types";
 import {
   flexRender,
@@ -36,6 +38,8 @@ export function ResponsesDataTable({
   const schema = portfolio.schema as unknown as PortfolioSchema;
   const fields = schema.fields ?? [];
 
+  const isDerived = !!portfolio.base_id;
+
   const columns = useMemo<ColumnDef<FormResponse>[]>(() => {
     const cols: ColumnDef<FormResponse>[] = [
       {
@@ -50,6 +54,26 @@ export function ResponsesDataTable({
         enableHiding: false,
       },
     ];
+
+    if (isDerived) {
+      cols.push({
+        id: "origin",
+        header: "Source",
+        accessorFn: (row) => (row as ResponseWithOrigin).origin ?? "own",
+        cell: ({ getValue }) => {
+          const origin = getValue<string>();
+          return (
+            <Badge
+              variant={origin === "parent" ? "outline" : "secondary"}
+              className="text-[10px]"
+            >
+              {origin === "parent" ? "Parent" : "Own"}
+            </Badge>
+          );
+        },
+        enableHiding: false,
+      });
+    }
 
     for (const field of fields) {
       cols.push({
