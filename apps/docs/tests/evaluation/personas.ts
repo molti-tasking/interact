@@ -70,51 +70,51 @@ export interface Scenario {
 
 export const scenarios: Scenario[] = [
   {
-    id: "rental",
-    name: "Construction Equipment Rental",
-    paperLabel: "Rental",
-    title: "Construction Equipment Rental Agreement",
+    id: "wholesaler-order",
+    name: "Paper Wholesaler Order Form",
+    paperLabel: "Order",
+    title: "Client Order Form",
     intent:
       "## Purpose\n" +
-      "Create a rental agreement form for construction equipment. " +
-      "Need to capture equipment details, rental period, pricing, " +
-      "insurance requirements, and operator certification.\n\n" +
+      "I need a client order form for our paper and office supply wholesale business. " +
+      "We use volume-based pricing with quantity breaks at 10, 50, and 100 cases. " +
+      "Products include copy paper, cardstock, envelopes, binders, pens and markers, and toner.\n\n" +
       "## Audience\n" +
-      "Construction company managers renting heavy equipment " +
-      "(excavators, cranes, bulldozers) from our fleet.\n\n" +
+      "Regional manager, office administrator, sales representatives.\n\n" +
       "## Constraints\n" +
-      "Must comply with OSHA equipment operation requirements. " +
-      "Insurance documentation is mandatory.",
+      "Products should be identified using GS1 GTINs. " +
+      "Tax-exempt status should be stored as a client-level default with per-order override.",
   },
   {
-    id: "fitness",
-    name: "Fitness Coaching Client Intake",
-    paperLabel: "Fitness",
-    title: "Fitness Coaching Client Intake",
+    id: "sales-rep-hiring",
+    name: "Sales Rep Job Application",
+    paperLabel: "Hiring",
+    title: "Job Application — Sales Representative",
     intent:
       "## Purpose\n" +
-      "Collect intake information from new fitness coaching clients " +
-      "including their health history, fitness goals, and availability.\n\n" +
+      "I need a job application form for a new sales representative. " +
+      "We want to capture applicant details, sales experience, industry background, " +
+      "CRM proficiency, territory willingness, and communication skills.\n\n" +
       "## Audience\n" +
-      "New clients signing up for personal training or group fitness coaching.\n\n" +
-      "## Exclusions\n" +
-      "Do not collect detailed medical records — only relevant health conditions " +
-      "that affect exercise safety.",
+      "Job applicants responding to a sales representative posting.\n\n" +
+      "## Constraints\n" +
+      "Should use Schema.org/JobPosting vocabulary for machine-readable output. " +
+      "Include self-assessment fields for communication and customer orientation.",
   },
   {
-    id: "orthopedic",
-    name: "Orthopedic Patient Records",
-    paperLabel: "Orthopedic",
-    title: "Orthopedic Patient Intake Form",
+    id: "quarterly-review",
+    name: "Quarterly Business Review",
+    paperLabel: "QBR",
+    title: "Quarterly Business Review",
     intent:
       "## Purpose\n" +
-      "Create a patient intake form for our orthopedic clinic " +
-      "with insurance details and medical history focused on " +
-      "musculoskeletal conditions.\n\n" +
+      "I need a quarterly business review form covering all our sales, " +
+      "operations, and financial data for three audiences: sales reps, " +
+      "warehouse operations, and corporate oversight.\n\n" +
       "## Audience\n" +
-      "Patients visiting the orthopedic clinic for the first time.\n\n" +
+      "Regional manager, sales representatives, warehouse foreman, corporate supervisor.\n\n" +
       "## Constraints\n" +
-      "Must capture insurance provider and policy details. " +
-      "Pain assessment using a standardized scale is required.",
+      "Must support derived views for different roles with fundamentally different " +
+      "information needs. Revenue and expense categories should follow consistent taxonomy.",
   },
 ];

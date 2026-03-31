@@ -39,7 +39,7 @@ export const olsenCriteria: OlsenCriterion[] = [
       "Does the creator work in natural language (their domain language) " +
       "rather than JSON schemas or database notation? Do design probes use " +
       "domain-specific terminology? Does the system surface domain standards " +
-      "(OSHA, HIPAA) by name? Is the structured intent format " +
+      "(GS1 GTINs, Schema.org/JobPosting) by name? Is the structured intent format " +
       "(Purpose/Audience/Constraints) a natural way to describe a form?",
     anchors: {
       1: "Creator must work entirely in technical schema notation (field types, keys, constraints) with no domain language support",

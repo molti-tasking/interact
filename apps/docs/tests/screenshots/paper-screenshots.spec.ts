@@ -25,14 +25,15 @@ import {
   seedProvenance,
 } from "./helpers";
 import {
-  RENTAL_PORTFOLIO_ID,
-  rentalPortfolio,
-  rentalDesignProbes,
-  rentalProvenance,
-  orthoBasePortfolio,
-  orthoSurgeonPortfolio,
-  orthoPatientPortfolio,
-  orthoBaseFields,
+  ORDER_PORTFOLIO_ID,
+  orderPortfolio,
+  orderDesignProbes,
+  orderProvenance,
+  orderDwightPortfolio,
+  qbrBasePortfolio,
+  qbrBaseFields,
+  qbrSalesPortfolio,
+  qbrCorporatePortfolio,
 } from "./scenarios";
 
 test.use({
@@ -49,68 +50,68 @@ test.describe("Paper Screenshots", () => {
   });
 
   // =========================================================================
-  // Scenario 1: Construction Machine Rental (Section 5.1)
+  // Scenario 1: Paper Wholesaler Order Form (Episode 1)
   // =========================================================================
-  test("scenario 1 — construction machine rental", async ({ page }) => {
+  test("scenario 1 — paper wholesaler order form", async ({ page }) => {
     await resetDatabase();
 
-    await seedPortfolio(rentalPortfolio);
-    await seedDesignProbes(RENTAL_PORTFOLIO_ID, rentalDesignProbes);
+    await seedPortfolio(orderPortfolio);
+    await seedDesignProbes(ORDER_PORTFOLIO_ID, orderDesignProbes);
 
-    // Screenshot 1a: Workspace with design probes
-    await page.goto(`/portfolios/${RENTAL_PORTFOLIO_ID}`);
+    // Screenshot 1a: Workspace with GS1 standard detection probe
+    await page.goto(`/portfolios/${ORDER_PORTFOLIO_ID}`);
     await page.locator('[data-testid="form-renderer"]').waitFor({ state: "visible", timeout: 15000 });
     await page.waitForTimeout(1500);
     await cropScreenshot(page, "scenario1-a-workspace.png");
 
     // Seed provenance for next screenshot
-    await seedProvenance(RENTAL_PORTFOLIO_ID, rentalProvenance);
+    await seedProvenance(ORDER_PORTFOLIO_ID, orderProvenance);
 
-    // Screenshot 1b: Provenance timeline
-    await page.goto(`/portfolios/${RENTAL_PORTFOLIO_ID}/provenance`);
+    // Screenshot 1b: Provenance timeline showing multi-role edits
+    await page.goto(`/portfolios/${ORDER_PORTFOLIO_ID}/provenance`);
     await page.locator("text=Provenance Timeline").waitFor({ state: "visible", timeout: 15000 });
     await page.locator(".space-y-3 .p-4").first().waitFor({ state: "visible", timeout: 15000 });
     await page.waitForTimeout(500);
     await cropScreenshot(page, "scenario1-b-provenance.png");
 
-    // Screenshot 1c: Derive page (Dwight's delivery sub-schema)
-    await page.goto(`/portfolios/${RENTAL_PORTFOLIO_ID}/derive`);
+    // Screenshot 1c: Derive page (Dwight's quick order capture sub-schema)
+    await page.goto(`/portfolios/${ORDER_PORTFOLIO_ID}/derive`);
     await page.locator("text=Derive a New Sub Schema").waitFor({ state: "visible", timeout: 15000 });
     await page.locator("#scenario").fill(
-      "I just need the delivery info \u2014 machine identifier, delivery address, site access restrictions, and delivery time window.",
+      "I just need a quick order capture for client visits — client name, product selection, quantity, and delivery date.",
     );
     await page.waitForTimeout(500);
     await cropScreenshot(page, "scenario1-c-derive.png");
   });
 
   // =========================================================================
-  // Scenario 2: Fitness Coaching (Section 5.2)
+  // Scenario 2: Sales Rep Hiring (Episode 2)
   // =========================================================================
-  test("scenario 2 — fitness coaching", async ({ page }) => {
+  test("scenario 2 — sales rep hiring", async ({ page }) => {
     await resetDatabase();
-    setScenario("fitness-coaching");
+    setScenario("sales-rep-hiring");
 
-    const portfolioId = await createPortfolio(page, "Fitness Coaching Client Intake");
+    const portfolioId = await createPortfolio(page, "Job Application — Sales Representative");
     expect(portfolioId).toBeTruthy();
 
     const textarea = page.locator('[data-testid="intent-editor"] textarea').first();
     await textarea.click();
     await textarea.fill(
-      "I want to collect patient intake information from new fitness coaching clients including their medical history, health conditions, fitness goals, and availability.",
+      "I need a job application form for a new sales representative. We want to capture applicant details, experience, and skills relevant to outside sales in our paper and office supply wholesale business.",
     );
     await page.locator('[data-testid="generate-form-btn"]').click();
 
     await waitForFormFields(page);
     await waitForDesignProbes(page);
-    await page.waitForTimeout(3000); // wait for FHIR standard probe
+    await page.waitForTimeout(3000); // wait for Schema.org/JobPosting standard probe
 
-    // Screenshot 2a: Workspace with probes + FHIR standard
+    // Screenshot 2a: Workspace with probes + Schema.org/JobPosting standard
     await cropScreenshot(page, "scenario2-a-workspace.png");
 
-    // Resolve both design probes
-    await page.locator('[data-testid="deck-option-includeNutrition"]').click();
+    // Resolve design probes
+    await page.locator('[data-testid^="deck-option-"]').first().click();
     await page.waitForTimeout(2000);
-    await page.locator('[data-testid="deck-option-selfRated"]').click();
+    await page.locator('[data-testid^="deck-option-"]').first().click();
     await page.waitForTimeout(2000);
 
     // Screenshot 2b: Workspace after probes resolved
@@ -124,37 +125,37 @@ test.describe("Paper Screenshots", () => {
   });
 
   // =========================================================================
-  // Scenario 3: Orthopedic Patient Records (Section 5.3)
+  // Scenario 3: Quarterly Business Review (Episode 3)
   // =========================================================================
-  test("scenario 3 — orthopedic patient records", async ({ page }) => {
+  test("scenario 3 — quarterly business review", async ({ page }) => {
     await resetDatabase();
 
-    await seedPortfolio(orthoBasePortfolio);
-    await seedProvenance(orthoBasePortfolio.id, [
-      { layer: "intent", action: "intent_updated", actor: "creator", rationale: "Sections changed: purpose, audience" },
-      { layer: "configuration", action: "schema_generated", actor: "system", rationale: "Generated 15 fields from intent", diff: { added: orthoBaseFields.map(f => ({ name: f.name })), removed: [], modified: [] } },
+    await seedPortfolio(qbrBasePortfolio);
+    await seedProvenance(qbrBasePortfolio.id, [
+      { layer: "intent", action: "intent_updated", actor: "Michael (Regional Manager)", rationale: "Sections changed: purpose, audience" },
+      { layer: "configuration", action: "schema_generated", actor: "system", rationale: "Generated 7 fields from intent: client data, revenue, delivery, inventory, expenses, activity logs", diff: { added: qbrBaseFields.map(f => ({ name: f.name })), removed: [], modified: [] } },
     ]);
 
-    // Screenshot 3a: Base schema workspace
-    await page.goto(`/portfolios/${orthoBasePortfolio.id}`);
+    // Screenshot 3a: Base QBR schema workspace
+    await page.goto(`/portfolios/${qbrBasePortfolio.id}`);
     await page.locator('[data-testid="form-renderer"]').waitFor({ state: "visible", timeout: 15000 });
     await page.waitForTimeout(1000);
     await cropScreenshot(page, "scenario3-a-base.png");
 
     // Seed derived portfolios
-    await seedPortfolio(orthoSurgeonPortfolio);
-    await seedPortfolio(orthoPatientPortfolio);
+    await seedPortfolio(qbrSalesPortfolio);
+    await seedPortfolio(qbrCorporatePortfolio);
 
-    // Screenshot 3b: Surgeon super-schema (19 fields, "Derived" badge)
-    await page.goto(`/portfolios/${orthoSurgeonPortfolio.id}`);
+    // Screenshot 3b: Dwight's sales performance view (mixed derivation)
+    await page.goto(`/portfolios/${qbrSalesPortfolio.id}`);
     await page.locator('[data-testid="form-renderer"]').waitFor({ state: "visible", timeout: 15000 });
     await page.waitForTimeout(1000);
-    await cropScreenshot(page, "scenario3-b-surgeon.png");
+    await cropScreenshot(page, "scenario3-b-sales.png");
 
-    // Screenshot 3c: Patient portal sub-schema (8 fields, "Derived" badge)
-    await page.goto(`/portfolios/${orthoPatientPortfolio.id}`);
+    // Screenshot 3c: Jan's corporate oversight view (super derivation)
+    await page.goto(`/portfolios/${qbrCorporatePortfolio.id}`);
     await page.locator('[data-testid="form-renderer"]').waitFor({ state: "visible", timeout: 15000 });
     await page.waitForTimeout(1000);
-    await cropScreenshot(page, "scenario3-c-patient.png");
+    await cropScreenshot(page, "scenario3-c-corporate.png");
   });
 });
