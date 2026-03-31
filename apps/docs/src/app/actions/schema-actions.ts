@@ -74,7 +74,7 @@ const schemaResponseSchema = z.object({
     name: z.string(),
     description: z.string(),
     appliedStandards: z.array(z.string()).optional(),
-    fields: z.array(namedFieldSchema).max(7).describe("Form fields — only the 3-5 most essential"),
+    fields: z.array(namedFieldSchema).max(15).describe("Form fields — the minimum viable set for this domain"),
   }),
   configuratorFormValues: z
     .array(
@@ -119,7 +119,7 @@ You MUST include all MANDATORY fields listed below in the artifact form schema. 
 
 For each standard-sourced field, include "standardReference" in the field definition (e.g., "standardReference": "FHIR Patient.birthDate").
 
-When mandatory standard fields bring the total above 5, that is acceptable — but do not add non-essential fields beyond those required by the standard.
+Include all mandatory standard fields alongside the minimum viable set. Do not add non-essential fields beyond those required by the standard and the domain.
 
 Standard field constraints:
 ${constraintLines.join("\n")}
@@ -133,7 +133,7 @@ ${standardsSection}
 Analyze the description to identify:
 - What data needs to be collected
 - Who will fill out the form and in what context
-- Which 3-5 fields are the MINIMUM VIABLE set for this form's core purpose (additional fields will be added iteratively through follow-up questions)
+- What is the MINIMUM VIABLE set of fields for this form's core purpose — the number depends on the domain (a simple signup may need 3-4 fields; a clinical record or complex intake may need 8-12). Use your domain knowledge to judge the right number. Additional fields can still be added iteratively through follow-up design probes, so do not be exhaustive — but do not artificially limit yourself to a small number when the domain clearly requires more.
 - What field types and options are most appropriate
 - What validation or constraints apply
 
@@ -146,7 +146,7 @@ Design the form fields using these types:
 - "email" for email addresses
 
 RULES:
-- Generate ONLY 3-5 essential fields. This is the INITIAL version of the form — additional fields will be discovered through follow-up design probes. Prioritize fields that are core to the form's stated purpose. Do NOT try to be exhaustive.
+- Generate the MINIMUM VIABLE set of fields for this domain. For simple forms (signups, RSVPs) that may be 3-5 fields; for complex domains (clinical records, regulatory forms) it may be 8-12. Use your judgment — include what a domain expert would consider essential, but do not pad with nice-to-haves. Additional fields can be added through follow-up design probes.
 - Field keys MUST be camelCase and descriptive
 - "description" should be SHORT (a few words) — omit entirely if the label already makes the field obvious
 - "tooltip" is for extra guidance that helps the user fill in the field correctly — omit if not needed${acceptedStandards && acceptedStandards.length > 0 ? '\n- For standard-sourced fields, include "standardReference"' : ""}`;

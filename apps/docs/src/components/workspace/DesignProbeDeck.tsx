@@ -200,8 +200,15 @@ export function DesignProbeDeck({ portfolio }: { portfolio: Portfolio }) {
     (c) => !dismissedConflicts.has(c.id),
   );
 
+  // Standards always render at the top of the deck
+  const sortedPendingProbes = [...(pendingDesignProbes ?? [])].sort((a, b) => {
+    const aIsStandard = a.source === "standard" ? 0 : 1;
+    const bIsStandard = b.source === "standard" ? 0 : 1;
+    return aIsStandard - bIsStandard;
+  });
+
   const hasCards =
-    visibleConflicts.length > 0 || (pendingDesignProbes ?? []).length > 0;
+    visibleConflicts.length > 0 || sortedPendingProbes.length > 0;
 
   return (
     <div
@@ -277,7 +284,7 @@ export function DesignProbeDeck({ portfolio }: { portfolio: Portfolio }) {
       <div className="flex flex-col w-full gap-2">
         {hasCards && (
           <ScrollFadeContainer>
-            {pendingDesignProbes?.map((probe) => (
+            {sortedPendingProbes.map((probe) => (
               <DesignProbeCard
                 key={probe.id}
                 item={{
