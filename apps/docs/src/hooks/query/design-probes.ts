@@ -113,11 +113,13 @@ export function useResolveDesignProbe(portfolioId: string) {
       selectedValue,
       currentIntent,
       currentSchema,
+      resolvedBy,
     }: {
       probe: DesignProbe;
       selectedValue: string;
       currentIntent: StructuredIntent;
       currentSchema: PortfolioSchema;
+      resolvedBy?: string;
     }) => {
       // Handle custom answers (prefixed with "custom:")
       const isCustom = selectedValue.startsWith("custom:");
@@ -207,7 +209,12 @@ export function useResolveDesignProbe(portfolioId: string) {
       // Mark resolved in DB
       await supabase
         .from("design_probes")
-        .update({ status: "resolved", selected_option: selectedValue })
+        .update({
+          status: "resolved",
+          selected_option: selectedValue,
+          resolved_at: new Date().toISOString(),
+          resolved_by: resolvedBy ?? null,
+        })
         .eq("id", probe.id);
 
       // Insert follow-ups
@@ -227,6 +234,152 @@ export function useResolveDesignProbe(portfolioId: string) {
 
         await supabase.from("design_probes").insert(followUpRows);
       }
+
+      return {
+        newIntent,
+        newSchema: response.result.artifactFormSchema,
+      };
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: designProbesKey(portfolioId) });
+      queryClient.invalidateQueries({
+        queryKey: ["portfolios", portfolioId],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["provenance", portfolioId],
+      });
+    },
+  });
+}
+
+/**
+ * Re-resolve an already-resolved design probe with a different answer.
+ * Updates edit history metadata, then runs resolution from the current state.
+ */
+export function useReResolveDesignProbe(portfolioId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      probe,
+      newSelectedValue,
+      currentIntent,
+      currentSchema,
+      editedBy,
+    }: {
+      probe: DesignProbe;
+      newSelectedValue: string;
+      currentIntent: StructuredIntent;
+      currentSchema: PortfolioSchema;
+      editedBy: string;
+    }) => {
+      const isCustom = newSelectedValue.startsWith("custom:");
+      const customText = isCustom
+        ? newSelectedValue.slice("custom:".length)
+        : null;
+
+      const selectedOption = isCustom
+        ? null
+        : probe.options.find((o) => o.value === newSelectedValue);
+
+      if (!isCustom && !selectedOption) {
+        throw new Error("Invalid option selected");
+      }
+
+      const optionLabel = isCustom ? customText! : selectedOption!.label;
+
+      const supabase = createClient();
+
+      // Store previous answer and update edit metadata
+      await supabase
+        .from("design_probes")
+        .update({
+          status: "loading",
+          previous_selected_option: probe.selectedOption,
+          edited_by: editedBy,
+          edited_at: new Date().toISOString(),
+          edit_count: (probe.editCount ?? 0) + 1,
+        })
+        .eq("id", probe.id);
+
+      const response = await resolveDesignProbeAction({
+        intent: currentIntent,
+        currentSchema,
+        interactionText: probe.text,
+        selectedOptionLabel: optionLabel,
+        maxFollowUps: 0, // No follow-ups on re-edits
+      });
+
+      if (!response.success || !response.result) {
+        // Revert to resolved with previous answer
+        await supabase
+          .from("design_probes")
+          .update({
+            status: "resolved",
+            edited_at: null,
+            edited_by: null,
+            edit_count: probe.editCount ?? 0,
+            previous_selected_option: probe.previousSelectedOption ?? null,
+          })
+          .eq("id", probe.id);
+        throw new Error(response.error ?? "Failed to re-resolve design probe");
+      }
+
+      // Update intent
+      const newPurpose = response.result.updatedPurpose
+        ? response.result.updatedPurpose
+        : currentIntent.purpose.content.trimEnd() +
+          "\n" +
+          response.result.refinementDelta;
+
+      const newIntent: StructuredIntent = {
+        ...currentIntent,
+        purpose: {
+          content: newPurpose,
+          updatedAt: new Date().toISOString(),
+        },
+      };
+
+      // Update portfolio
+      const probeDiff = diffSchemas(
+        currentSchema,
+        response.result.artifactFormSchema,
+      );
+
+      const { error: updateError } = await supabase
+        .from("portfolios")
+        .update({
+          intent: JSON.parse(JSON.stringify(newIntent)),
+          schema: JSON.parse(
+            JSON.stringify(response.result.artifactFormSchema),
+          ),
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", portfolioId);
+
+      if (updateError) throw updateError;
+
+      // Log provenance
+      await logProvenance(
+        portfolioId,
+        "dimensions",
+        "design_probe_re_resolved",
+        "creator",
+        probeDiff,
+        `Re-edited: "${probe.text}" → "${optionLabel}" (was: "${probe.selectedOption}")`,
+        { intent: currentIntent, schema: currentSchema },
+      );
+
+      // Mark resolved with new answer
+      await supabase
+        .from("design_probes")
+        .update({
+          status: "resolved",
+          selected_option: newSelectedValue,
+          resolved_at: new Date().toISOString(),
+          resolved_by: editedBy,
+        })
+        .eq("id", probe.id);
 
       return {
         newIntent,

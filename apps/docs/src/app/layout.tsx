@@ -6,6 +6,8 @@ import {
   SidebarProvider,
   SidebarTrigger,
 } from "@/components/ui/sidebar";
+import { UserImpersonationSelect } from "@/components/workspace/UserImpersonationSelect";
+import { UserProvider } from "@/context/user-context";
 import { cn } from "@/lib/utils";
 import "interact/styles.css";
 import { Github } from "lucide-react";
@@ -44,6 +46,7 @@ export default function RootLayout({
 }>) {
   return (
     <ReactQueryClientProvider>
+      <UserProvider>
       <html lang="en">
         <body
           className={cn(
@@ -69,6 +72,7 @@ export default function RootLayout({
                     </h2>
                   </div>
                   <div className="flex items-center gap-3">
+                    <UserImpersonationSelect />
                     <Button
                       variant={"ghost"}
                       size="sm"
@@ -94,6 +98,7 @@ export default function RootLayout({
           </SidebarProvider>
         </body>
       </html>
+    </UserProvider>
     </ReactQueryClientProvider>
   );
 }

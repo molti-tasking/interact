@@ -374,6 +374,7 @@ Based on this choice, you must:
 RULES:
 - Use valid field types: "string", "number", "boolean", "date", "email", "select"
 - For select fields, ALWAYS include options in validation.options as [{label, value}] objects
+- CRITICAL: When updating a select field (even if only changing its label), you MUST re-include the full validation.options array. Omitting options will erase them.
 - Field keys MUST be camelCase and descriptive
 - "description" should be SHORT (a few words) — omit entirely if the label already makes the field obvious
 - "tooltip" is for extra guidance that helps the user fill in the field correctly — omit if not needed
@@ -420,10 +421,24 @@ RULES:
       patchedFields = patchedFields.map((existing) => {
         const update = updateMap.get(existing.name);
         if (!update) return existing;
+
+        let newType = convertOldFieldType(update.type, update.validation);
+
+        // Preserve existing select options when the LLM omits them
+        // (e.g. when only updating the label of a select field)
+        if (
+          newType.kind === "select" &&
+          newType.options.length === 0 &&
+          existing.type.kind === "select" &&
+          existing.type.options.length > 0
+        ) {
+          newType = { ...newType, options: existing.type.options };
+        }
+
         return {
           ...existing,
           label: update.label,
-          type: convertOldFieldType(update.type, update.validation),
+          type: newType,
           required: update.required,
           description: update.description,
           tooltip: update.tooltip,
@@ -527,4 +542,89 @@ function normalizeOptions(
     const s = String(o);
     return { label: s, value: s };
   });
+}
+
+// ---------------------------------------------------------------------------
+// Sync intent from direct field edits (backpropagation)
+// ---------------------------------------------------------------------------
+
+const syncIntentSchema = z.object({
+  shouldUpdate: z
+    .boolean()
+    .describe(
+      "Whether the purpose text needs updating. False for trivial changes like typo fixes.",
+    ),
+  updatedPurpose: z
+    .string()
+    .optional()
+    .describe("Minimally updated purpose text, only if shouldUpdate is true"),
+});
+
+export interface SyncIntentResponse {
+  success: boolean;
+  updatedPurpose?: string;
+  shouldUpdate: boolean;
+  error?: string;
+}
+
+export async function syncIntentFromFieldEditAction(request: {
+  intent: StructuredIntent;
+  currentSchema: PortfolioSchema;
+  editDescription: string;
+}): Promise<SyncIntentResponse> {
+  try {
+    const { intent, currentSchema, editDescription } = request;
+    const basePrompt = serializeForLLM(intent);
+
+    const prompt = `You are a form design assistant. The user directly edited a form field. Decide whether the form's purpose description needs a minor update to stay in sync.
+
+Current form description:
+${basePrompt}
+
+Current form schema:
+${JSON.stringify(currentSchema, null, 2)}
+
+The user made this edit: ${editDescription}
+
+RULES:
+- If the edit is trivial (typo fix, minor wording change), set shouldUpdate to false.
+- If the edit meaningfully changes what the form collects (new field type, new options, renamed concept), set shouldUpdate to true.
+- When updating, make MINIMAL changes to the purpose text. Preserve the user's voice and wording.
+- Do NOT add bullet lists of decisions. Keep it as a coherent paragraph.
+- The updated purpose should be 2-4 sentences max.`;
+
+    const result = await withTracing(
+      { tags: ["intent-sync", "field-edit"] },
+      () =>
+        generateText({
+          model,
+          prompt,
+          output: Output.object({ schema: syncIntentSchema }),
+          temperature: 0.2,
+          experimental_telemetry: {
+            isEnabled: true,
+            functionId: "sync-intent-field-edit",
+            recordInputs: true,
+            recordOutputs: true,
+          },
+        }),
+    );
+
+    if (!result.output) {
+      return { success: false, shouldUpdate: false, error: "No LLM output" };
+    }
+
+    return {
+      success: true,
+      shouldUpdate: result.output.shouldUpdate,
+      updatedPurpose: result.output.updatedPurpose,
+    };
+  } catch (error) {
+    console.error("syncIntentFromFieldEdit error:", error);
+    return {
+      success: false,
+      shouldUpdate: false,
+      error: error instanceof Error ? error.message : "Unknown error",
+    };
+  }
 }

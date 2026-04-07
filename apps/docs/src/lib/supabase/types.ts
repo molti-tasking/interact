@@ -99,5 +99,11 @@ export function rowToDesignProbe(row: DesignProbeRow): DesignProbe {
     dimensionId: row.dimension_id,
     dimensionName: row.dimension_name,
     createdAt: row.created_at ?? new Date().toISOString(),
+    resolvedAt: row.resolved_at,
+    resolvedBy: row.resolved_by,
+    editedAt: row.edited_at,
+    editedBy: row.edited_by,
+    editCount: row.edit_count,
+    previousSelectedOption: row.previous_selected_option,
   };
 }

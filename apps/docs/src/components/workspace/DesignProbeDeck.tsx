@@ -33,6 +33,7 @@ import {
   useDetectedStandards,
   useSkipStandard,
 } from "@/hooks/query/standards";
+import { useCurrentUser } from "@/context/user-context";
 import type { Portfolio, StructuredIntent } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { Loader2, RefreshCw } from "lucide-react";
@@ -44,6 +45,7 @@ import { useEffect, useRef, useState } from "react";
 
 export function DesignProbeDeck({ portfolio }: { portfolio: Portfolio }) {
   const portfolioSchema = portfolio.schema;
+  const { currentUser } = useCurrentUser();
 
   const [structuredIntent, setStructuredIntent] = useState<StructuredIntent>(
     portfolio.intent,
@@ -130,6 +132,7 @@ export function DesignProbeDeck({ portfolio }: { portfolio: Portfolio }) {
         selectedValue,
         currentIntent: structuredIntent,
         currentSchema: portfolioSchema,
+        resolvedBy: currentUser.name,
       });
 
       setStructuredIntent(result.newIntent);
