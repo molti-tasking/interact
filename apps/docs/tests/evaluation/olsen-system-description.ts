@@ -9,9 +9,9 @@
  */
 
 export const SYSTEM_DESCRIPTION = `
-## Malleable Forms — System Description
+## System Description
 
-Malleable Forms is an open-source web toolkit for conversational form creation. Creators describe their data collection needs in natural language and iteratively refine the form schema through a structured conversational process.
+Web toolkit for conversational form creation. Creators describe their data collection needs in natural language and iteratively refine the form schema through a structured conversational process.
 
 ### 1. Editor
 A Markdown editor where the creator writes a form description using four sections: Purpose, Audience, Constraints, and Exclusions. The editor accepts free-form natural language.
@@ -44,15 +44,14 @@ Published forms collect responses as JSON matching the schema at submission time
 An append-only provenance log records every schema change with the action, affected layer, a structured diff, an optional rationale, and previous-state snapshots. The log is browsable from the workspace.
 `.trim();
 
-
 // ---------------------------------------------------------------------------
 // Baseline system descriptions
 // ---------------------------------------------------------------------------
 
 export const GOOGLE_FORMS_DESCRIPTION = `
-## Google Forms — System Description
+## System Description
 
-Google Forms is a free, web-based form builder by Google, widely used for surveys, registrations, and data collection.
+Web-based form builder, for surveys, registrations, and data collection.
 
 ### 1. Editor
 A single-page WYSIWYG editor where the creator adds questions one at a time. Each question is configured individually: choose a type, type the question text, and optionally add description text.
@@ -76,17 +75,16 @@ Per-field validation for text fields: number, text, length, and regex constraint
 Real-time collaborative editing. Multiple editors can work simultaneously. Comment threads on individual questions.
 
 ### 8. Data Collection
-Responses stored in a linked Google Sheet. Summary charts auto-generated. Response notifications available.
+Responses stored in a linked Data Sheet. Summary charts auto-generated. Response notifications available.
 
 ### 9. Change Tracking
-Edit history available through Google's version history (same as Google Docs). No structured diff or rationale capture.
+Edit history available through a version history. No structured diff or rationale capture.
 `.trim();
 
-
 export const AIRTABLE_DESCRIPTION = `
-## Airtable — System Description
+## System Description
 
-Airtable is a cloud-based platform combining spreadsheet and database features for structured data collection and management.
+Web platform combining spreadsheet and database features for structured data collection and management.
 
 ### 1. Editor
 A spreadsheet-like interface where each column is a typed field and each row is a record. The creator adds fields by clicking "+" and selecting a type. Fields are configured individually with names, types, and options.
