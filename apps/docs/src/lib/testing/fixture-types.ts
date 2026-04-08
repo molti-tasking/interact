@@ -7,6 +7,7 @@ export interface FixtureEntry {
   matchHints?: {
     selectedOptionLabel?: string;
     prompt?: string;
+    scenario?: string;
   };
 }
 

@@ -5,11 +5,50 @@ import { schemaToZod } from "@/lib/engine/schema-ops";
 import type { Field, PortfolioSchema } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Pencil } from "lucide-react";
-import { useMemo } from "react";
+import { Dices, Pencil } from "lucide-react";
+import { useCallback, useMemo } from "react";
 import { useForm } from "react-hook-form";
 import { renderFieldComponent } from "./field-components";
 import { FormSaveButton } from "./FormSaveButton";
+
+function randomValueForField(field: Field): unknown {
+  const { type } = field;
+  switch (type.kind) {
+    case "text": {
+      const samples = ["Alice", "Acme Corp", "Lorem ipsum", "42B", "hello@example.com", "New York"];
+      return samples[Math.floor(Math.random() * samples.length)];
+    }
+    case "number": {
+      const min = type.min ?? 0;
+      const max = type.max ?? 100;
+      return Math.round((min + Math.random() * (max - min)) * 100) / 100;
+    }
+    case "select": {
+      if (type.options.length === 0) return type.multiple ? [] : "";
+      if (type.multiple) {
+        const count = Math.floor(Math.random() * type.options.length) + 1;
+        const shuffled = [...type.options].sort(() => Math.random() - 0.5);
+        return shuffled.slice(0, count).map((o) => o.value);
+      }
+      return type.options[Math.floor(Math.random() * type.options.length)].value;
+    }
+    case "date": {
+      const start = type.range ? new Date(type.range.min).getTime() : Date.now() - 365 * 86400000;
+      const end = type.range ? new Date(type.range.max).getTime() : Date.now();
+      return new Date(start + Math.random() * (end - start)).toISOString().slice(0, 10);
+    }
+    case "boolean":
+      return Math.random() > 0.5;
+    case "scale":
+      return Math.floor(type.min + Math.random() * (type.max - type.min + 1));
+    case "file":
+      return undefined;
+    case "group":
+      return undefined;
+    default:
+      return undefined;
+  }
+}
 
 interface FormRendererProps {
   schema: PortfolioSchema;
@@ -34,6 +73,15 @@ export function FormRenderer({
     resolver: zodResolver(zodSchema),
     defaultValues: defaultValues ?? {},
   });
+
+  const fillRandom = useCallback(() => {
+    for (const field of schema.fields) {
+      const val = randomValueForField(field);
+      if (val !== undefined) {
+        form.setValue(field.name, val, { shouldValidate: true, shouldDirty: true });
+      }
+    }
+  }, [schema.fields, form]);
 
   const handleSubmit = async (data: Record<string, unknown>) => {
     await onSubmit?.(data);
@@ -91,6 +139,14 @@ export function FormRenderer({
         {mode === "live" && onSubmit && (
           <div className="flex gap-2 pt-4">
             <FormSaveButton />
+            <button
+              type="button"
+              onClick={fillRandom}
+              className="inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs text-muted-foreground hover:bg-muted transition-colors"
+            >
+              <Dices className="h-3.5 w-3.5" />
+              Random
+            </button>
           </div>
         )}
       </form>

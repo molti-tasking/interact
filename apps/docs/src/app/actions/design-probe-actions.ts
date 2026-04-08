@@ -572,9 +572,13 @@ export async function syncIntentFromFieldEditAction(request: {
   currentSchema: PortfolioSchema;
   editDescription: string;
 }): Promise<SyncIntentResponse> {
+  const LOG = "[syncIntentFromFieldEdit]";
   try {
     const { intent, currentSchema, editDescription } = request;
+    console.log(LOG, "called with editDescription:", editDescription);
+
     const basePrompt = serializeForLLM(intent);
+    console.log(LOG, "current purpose (first 120 chars):", basePrompt.slice(0, 120));
 
     const prompt = `You are a form design assistant. The user directly edited a form field. Decide whether the form's purpose description needs a minor update to stay in sync.
 
@@ -593,6 +597,7 @@ RULES:
 - Do NOT add bullet lists of decisions. Keep it as a coherent paragraph.
 - The updated purpose should be 2-4 sentences max.`;
 
+    console.log(LOG, "calling LLM...");
     const result = await withTracing(
       { tags: ["intent-sync", "field-edit"] },
       () =>
@@ -611,8 +616,15 @@ RULES:
     );
 
     if (!result.output) {
+      console.error(LOG, "no structured output from LLM");
       return { success: false, shouldUpdate: false, error: "No LLM output" };
     }
+
+    console.log(LOG, "LLM result:", {
+      shouldUpdate: result.output.shouldUpdate,
+      hasUpdatedPurpose: !!result.output.updatedPurpose,
+      updatedPurposePreview: result.output.updatedPurpose?.slice(0, 120),
+    });
 
     return {
       success: true,
@@ -620,7 +632,7 @@ RULES:
       updatedPurpose: result.output.updatedPurpose,
     };
   } catch (error) {
-    console.error("syncIntentFromFieldEdit error:", error);
+    console.error(LOG, "error:", error);
     return {
       success: false,
       shouldUpdate: false,
