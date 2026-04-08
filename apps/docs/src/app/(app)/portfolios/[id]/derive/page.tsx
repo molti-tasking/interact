@@ -1,5 +1,6 @@
 "use client";
 
+import { deriveSchemaAction } from "@/app/actions/derive-actions";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
@@ -24,6 +25,7 @@ export default function DerivePage() {
   const router = useRouter();
   const [scenario, setScenario] = useState("");
   const [isCreating, setIsCreating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   if (isLoading || !portfolio) {
     return (
@@ -36,36 +38,53 @@ export default function DerivePage() {
   const handleDerive = async () => {
     if (!scenario.trim()) return;
     setIsCreating(true);
+    setError(null);
 
     try {
-      // For now, create a simple sub-schema derivation (copy all fields)
-      // Phase 7 will add LLM-powered classification and field selection
+      const parentSchema = portfolio.schema as unknown as PortfolioSchema;
+
+      // LLM-powered derivation: classify, select fields, add new ones
+      const deriveResult = await deriveSchemaAction({
+        parentIntent: portfolio.intent,
+        parentSchema,
+        scenarioDescription: scenario.trim(),
+      });
+
+      if (!deriveResult.success || !deriveResult.result) {
+        setError(deriveResult.error ?? "Failed to derive schema");
+        return;
+      }
+
+      const { derivationType, includedFieldKeys, additionalFields, schema, derivedPurpose } =
+        deriveResult.result;
+
       const derived = await createPortfolio.mutateAsync({
         title: `${portfolio.title} — ${scenario.trim().slice(0, 50)}`,
         intent: {
           ...emptyStructuredIntent(),
           purpose: {
-            content: scenario.trim(),
+            content: derivedPurpose,
             updatedAt: new Date().toISOString(),
           },
         },
-        schema: portfolio.schema,
+        schema,
         base_id: portfolio.id,
         projection: {
-          type: "sub" as const,
+          type: derivationType,
           scenarioIntent: scenario.trim(),
-          includedFieldIds: (
-            portfolio.schema as unknown as PortfolioSchema
-          ).fields.map((f) => f.id),
-          additionalFields: [],
+          includedFieldIds: parentSchema.fields
+            .filter((f) => includedFieldKeys.includes(f.name))
+            .map((f) => f.id),
+          additionalFields: JSON.parse(JSON.stringify(additionalFields)),
           fieldMappings: {},
-        },
+        } as unknown as undefined,
         status: "draft",
       });
 
       router.push(`/portfolios/${derived.id}`);
     } catch (err) {
       console.error("Derivation error:", err);
+      setError(err instanceof Error ? err.message : "Unknown error");
     } finally {
       setIsCreating(false);
     }
@@ -89,7 +108,7 @@ export default function DerivePage() {
         <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-primary/10 mb-2">
           <GitBranch className="h-7 w-7 text-primary" />
         </div>
-        <h1 className="text-3xl tracking-tight">Derive a New Sub Schema</h1>
+        <h1 className="text-3xl tracking-tight">Derive a New View</h1>
       </div>
 
       {/* Source form context */}
@@ -113,7 +132,7 @@ export default function DerivePage() {
           </Label>
           <Textarea
             id="scenario"
-            placeholder="e.g. A simplified intake form for new patients, focusing only on demographics and insurance..."
+            placeholder="e.g. A surgical planning view with implant details and operative protocols..."
             rows={5}
             value={scenario}
             onChange={(e) => setScenario(e.target.value)}
@@ -121,9 +140,13 @@ export default function DerivePage() {
           />
           <p className="text-xs text-muted-foreground">
             Describe the audience and purpose. The system will determine which
-            fields to include, adapt, or add.
+            fields to include, exclude, or add.
           </p>
         </div>
+
+        {error && (
+          <p className="text-sm text-destructive">{error}</p>
+        )}
 
         <Button
           onClick={handleDerive}
@@ -134,7 +157,7 @@ export default function DerivePage() {
           {isCreating ? (
             <>
               <Loader2 className="h-4 w-4 animate-spin" />
-              Creating view...
+              Deriving view...
             </>
           ) : (
             <>

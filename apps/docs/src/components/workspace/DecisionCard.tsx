@@ -12,7 +12,7 @@ interface DecisionCardProps {
   bgTint?: string;
   icon?: React.ReactNode;
   badges?: React.ReactNode;
-  description?: string;
+  description?: React.ReactNode;
   onDismiss?: () => void;
   onClick?: () => void;
   children?: React.ReactNode;

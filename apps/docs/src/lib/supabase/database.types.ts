@@ -39,11 +39,17 @@ export type Database = {
           created_at: string | null
           dimension_id: string | null
           dimension_name: string | null
+          edit_count: number
+          edited_at: string | null
+          edited_by: string | null
           explanation: string | null
           id: string
           layer: string
           options: Json
           portfolio_id: string
+          previous_selected_option: string | null
+          resolved_at: string | null
+          resolved_by: string | null
           selected_option: string | null
           source: string
           status: string
@@ -53,11 +59,17 @@ export type Database = {
           created_at?: string | null
           dimension_id?: string | null
           dimension_name?: string | null
+          edit_count?: number
+          edited_at?: string | null
+          edited_by?: string | null
           explanation?: string | null
           id?: string
           layer?: string
           options?: Json
           portfolio_id: string
+          previous_selected_option?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
           selected_option?: string | null
           source?: string
           status?: string
@@ -67,11 +79,17 @@ export type Database = {
           created_at?: string | null
           dimension_id?: string | null
           dimension_name?: string | null
+          edit_count?: number
+          edited_at?: string | null
+          edited_by?: string | null
           explanation?: string | null
           id?: string
           layer?: string
           options?: Json
           portfolio_id?: string
+          previous_selected_option?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
           selected_option?: string | null
           source?: string
           status?: string

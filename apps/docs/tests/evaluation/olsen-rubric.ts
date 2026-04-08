@@ -39,7 +39,6 @@ export const olsenCriteria: OlsenCriterion[] = [
       "Does the creator work in natural language (their domain language) " +
       "rather than JSON schemas or database notation? Do design probes use " +
       "domain-specific terminology? Does the system surface domain standards " +
-      "(GS1 GTINs, Schema.org/JobPosting) by name? Is the structured intent format " +
       "(Purpose/Audience/Constraints) a natural way to describe a form?",
     anchors: {
       1: "Creator must work entirely in technical schema notation (field types, keys, constraints) with no domain language support",
@@ -123,33 +122,34 @@ export const olsenCriteria: OlsenCriterion[] = [
 
 export type JudgeRole = "neutral" | "skeptical" | "comparative";
 
-export const JUDGE_ROLES: { id: JudgeRole; name: string; preamble: string }[] = [
-  {
-    id: "neutral",
-    name: "Neutral Evaluator",
-    preamble:
-      "You are an expert evaluator of user interface systems research, applying Dan Olsen's evaluation framework from \"Evaluating User Interface Systems Research\" (UIST 2007).",
-  },
-  {
-    id: "skeptical",
-    name: "Skeptical UIST Reviewer",
-    preamble:
-      "You are a skeptical UIST program committee member reviewing a systems paper. You apply Dan Olsen's evaluation framework from \"Evaluating User Interface Systems Research\" (UIST 2007) with high standards. " +
-      "Score conservatively: a 4 requires strong evidence, a 5 is exceptional and rare. " +
-      "Actively look for gaps between claimed and actual capability, missing edge cases, and features that sound good in a description but may not work in practice. " +
-      "Do NOT give the benefit of the doubt — if the description does not explicitly address something, assume it is missing.",
-  },
-  {
-    id: "comparative",
-    name: "Existing Tools Advocate",
-    preamble:
-      "You are an expert practitioner who has extensive experience with existing form builders (Google Forms, Typeform, Airtable, JotForm). You apply Dan Olsen's evaluation framework from \"Evaluating User Interface Systems Research\" (UIST 2007). " +
-      "Score based on what this system achieves BEYOND what existing tools already provide. " +
-      "Features that are standard in existing tools (drag-and-drop fields, templates, basic validation) should not count as novel contributions. " +
-      "Only capabilities that are genuinely new or significantly better than the state of practice should raise the score. " +
-      "A score of 3 means 'roughly equivalent to existing tools'; below 3 means existing tools do it better.",
-  },
-];
+export const JUDGE_ROLES: { id: JudgeRole; name: string; preamble: string }[] =
+  [
+    {
+      id: "neutral",
+      name: "Neutral Evaluator",
+      preamble:
+        'You are an expert evaluator of user interface systems research, applying Dan Olsen\'s evaluation framework from "Evaluating User Interface Systems Research" (UIST 2007).',
+    },
+    {
+      id: "skeptical",
+      name: "Skeptical UIST Reviewer",
+      preamble:
+        'You are a skeptical UIST program committee member reviewing a systems paper. You apply Dan Olsen\'s evaluation framework from "Evaluating User Interface Systems Research" (UIST 2007) with high standards. ' +
+        "Score conservatively: a 4 requires strong evidence, a 5 is exceptional and rare. " +
+        "Actively look for gaps between claimed and actual capability, missing edge cases, and features that sound good in a description but may not work in practice. " +
+        "Do NOT give the benefit of the doubt — if the description does not explicitly address something, assume it is missing.",
+    },
+    {
+      id: "comparative",
+      name: "Existing Tools Advocate",
+      preamble:
+        'You are an expert practitioner who has extensive experience with existing form builders (Google Forms, Typeform, Airtable, JotForm). You apply Dan Olsen\'s evaluation framework from "Evaluating User Interface Systems Research" (UIST 2007). ' +
+        "Score based on what this system achieves BEYOND what existing tools already provide. " +
+        "Features that are standard in existing tools (drag-and-drop fields, templates, basic validation) should not count as novel contributions. " +
+        "Only capabilities that are genuinely new or significantly better than the state of practice should raise the score. " +
+        "A score of 3 means 'roughly equivalent to existing tools'; below 3 means existing tools do it better.",
+    },
+  ];
 
 // ---------------------------------------------------------------------------
 // Prompt builders

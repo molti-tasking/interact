@@ -5,9 +5,9 @@
  * using multiple LLM models × multiple judge roles for adversarial reliability.
  *
  * Architecture:
- *   10 models × 3 roles (neutral, skeptical, comparative) = 30 evaluations
+ *   6 models × 3 roles (neutral, skeptical, comparative) = 18 evaluations
  *   + limitation pass (what prevents a 5?)
- *   + baseline comparison (Google Forms, Airtable)
+ *   + baseline comparison (Google Forms, Airtable) using 3 models
  */
 
 import { logEvalGeneration } from "./langfuse-eval";

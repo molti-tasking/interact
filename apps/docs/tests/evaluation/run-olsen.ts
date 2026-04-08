@@ -2,7 +2,7 @@
 /**
  * Olsen Evaluation Runner (Multi-Model, Multi-Role, with Baselines)
  *
- * 10 models × 3 roles (neutral, skeptical, comparative) = 30 evaluations
+ * 6 models × 3 roles (neutral, skeptical, comparative) = 18 evaluations
  * + limitation pass for each
  * + baseline comparison (Google Forms, Airtable) using 3 representative models
  *
@@ -194,13 +194,26 @@ function aggregate(
   // Aggregate metrics from all calls (scoring + limitation passes + baselines)
   const allMetrics = [
     ...allRuns.flatMap((r) =>
-      r.criteria.flatMap((c) => [c.metrics, c.limitationMetrics].filter(Boolean)),
+      r.criteria.flatMap((c) =>
+        [c.metrics, c.limitationMetrics].filter(Boolean),
+      ),
     ),
-    ...baselineRuns.flatMap((r) => r.criteria.map((c) => c.metrics).filter(Boolean)),
+    ...baselineRuns.flatMap((r) =>
+      r.criteria.map((c) => c.metrics).filter(Boolean),
+    ),
   ];
-  const totalLatencyMs = allMetrics.reduce((s, m) => s + (m?.latencyMs ?? 0), 0);
-  const totalInputTokens = allMetrics.reduce((s, m) => s + (m?.inputTokens ?? 0), 0);
-  const totalOutputTokens = allMetrics.reduce((s, m) => s + (m?.outputTokens ?? 0), 0);
+  const totalLatencyMs = allMetrics.reduce(
+    (s, m) => s + (m?.latencyMs ?? 0),
+    0,
+  );
+  const totalInputTokens = allMetrics.reduce(
+    (s, m) => s + (m?.inputTokens ?? 0),
+    0,
+  );
+  const totalOutputTokens = allMetrics.reduce(
+    (s, m) => s + (m?.outputTokens ?? 0),
+    0,
+  );
   const totalTokens = allMetrics.reduce((s, m) => s + (m?.totalTokens ?? 0), 0);
   const totalCalls = allMetrics.length;
 
@@ -221,7 +234,8 @@ function aggregate(
       totalOutputTokens,
       totalTokens,
       totalCalls,
-      avgLatencyMs: totalCalls > 0 ? Math.round(totalLatencyMs / totalCalls) : 0,
+      avgLatencyMs:
+        totalCalls > 0 ? Math.round(totalLatencyMs / totalCalls) : 0,
     },
   };
 }
@@ -321,10 +335,16 @@ function printSummary(results: AggregatedOlsen) {
   const m = results.metrics;
   console.log("\n  Performance Metrics:");
   console.log(`    Total LLM calls:    ${m.totalCalls}`);
-  console.log(`    Total runtime:      ${(m.totalLatencyMs / 1000).toFixed(1)}s (${(m.totalLatencyMs / 60000).toFixed(1)}min)`);
+  console.log(
+    `    Total runtime:      ${(m.totalLatencyMs / 1000).toFixed(1)}s (${(m.totalLatencyMs / 60000).toFixed(1)}min)`,
+  );
   console.log(`    Avg latency/call:   ${(m.avgLatencyMs / 1000).toFixed(1)}s`);
-  console.log(`    Total input tokens:  ${m.totalInputTokens.toLocaleString()}`);
-  console.log(`    Total output tokens: ${m.totalOutputTokens.toLocaleString()}`);
+  console.log(
+    `    Total input tokens:  ${m.totalInputTokens.toLocaleString()}`,
+  );
+  console.log(
+    `    Total output tokens: ${m.totalOutputTokens.toLocaleString()}`,
+  );
   console.log(`    Total tokens:        ${m.totalTokens.toLocaleString()}`);
 
   console.log();

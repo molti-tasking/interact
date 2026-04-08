@@ -68,15 +68,18 @@ export function detectStandards(prompt: string): DetectedStandard[] {
 
     if (matchedKeywords.length === 0) continue;
 
-    // Confidence = matched / total keywords, capped at 1.0
-    // Weighted: multi-word matches count more (they're more specific)
+    // Confidence based on absolute weighted match count, not ratio.
+    // This avoids penalizing standards with broad keyword lists.
+    // Multi-word matches count double (they're more specific).
+    // A saturating curve maps score → [0, 1]: score / (score + K)
+    // K=3 means 3 weighted matches ≈ 0.5 confidence, 6 ≈ 0.67, 9 ≈ 0.75
+    const SATURATION_K = 3;
     const multiWordMatches = matchedKeywords.filter((k) =>
       k.includes(" "),
     ).length;
     const singleWordMatches = matchedKeywords.length - multiWordMatches;
     const weightedScore = singleWordMatches + multiWordMatches * 2;
-    const maxPossibleScore = standard.keywords.length;
-    const confidence = Math.min(1.0, weightedScore / maxPossibleScore);
+    const confidence = weightedScore / (weightedScore + SATURATION_K);
 
     if (confidence < DETECTION_THRESHOLD) continue;
 

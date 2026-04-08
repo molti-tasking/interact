@@ -30,6 +30,25 @@ export const fhirPatientIntake: DomainStandard = {
     "doctor",
     "nurse",
     "prescription",
+    "orthopedic",
+    "surgery",
+    "surgical",
+    "rehabilitation",
+    "department",
+    "medication",
+    "allergy",
+    "emergency",
+    "outpatient",
+    "inpatient",
+    "radiology",
+    "laboratory",
+    "oncology",
+    "cardiology",
+    "pediatric",
+    "neurology",
+    "physiotherapy",
+    "therapy",
+    "patient record",
   ],
   fieldConstraints: [
     {
@@ -129,7 +148,8 @@ export const fhirPatientIntake: DomainStandard = {
       label: "Marital Status",
       type: "select",
       required: "optional",
-      description: "Patient's marital status, relevant for next-of-kin and insurance.",
+      description:
+        "Patient's marital status, relevant for next-of-kin and insurance.",
       codeSystemId: "marital-status",
       validationRules: {
         options: [

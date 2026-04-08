@@ -314,6 +314,12 @@ export interface DesignProbe {
   dimensionId?: string | null;
   dimensionName?: string | null;
   createdAt: string;
+  resolvedAt?: string | null;
+  resolvedBy?: string | null;
+  editedAt?: string | null;
+  editedBy?: string | null;
+  editCount: number;
+  previousSelectedOption?: string | null;
 }
 
 // ---------------------------------------------------------------------------

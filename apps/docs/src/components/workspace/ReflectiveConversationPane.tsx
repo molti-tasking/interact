@@ -4,7 +4,10 @@ import { resolveDesignProbeAction } from "@/app/actions/design-probe-actions";
 import { PromptDiff } from "@/components/form/configurator/PromptDiff";
 import { Button } from "@/components/ui/button";
 import { MarkdownEditor } from "@/components/ui/markdown-editor";
-import { useDesignProbes } from "@/hooks/query/design-probes";
+import {
+  useDesignProbes,
+  useReResolveDesignProbe,
+} from "@/hooks/query/design-probes";
 import { usePipelineGenerate } from "@/hooks/query/pipeline";
 import { useUpdatePortfolio } from "@/hooks/query/portfolios";
 import { useProvenance } from "@/hooks/query/provenance";
@@ -18,6 +21,7 @@ import type { Portfolio, PortfolioSchema, StructuredIntent } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { useQueryClient } from "@tanstack/react-query";
 import { Loader2, Sparkles } from "lucide-react";
+import { useCurrentUser } from "@/context/user-context";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { DesignProbeResolvedDialog } from "./DesignProbeResolvedDialog";
 import { ResolvedStack } from "./ResolvedStack";
@@ -61,12 +65,23 @@ export function ReflectiveConversationPane({
 
   const { data: provenanceEntries } = useProvenance(portfolio.id);
 
-  // Derive previousIntent from the latest provenance entry
-  // TODO Here we might have a bug: sometimes I have to search for provenanceEntries?.[1]?.prev_intent?.purpose.content in order to get the actual last change, because there will not always be changes for this entity as of now. I do not know, if we need to dix the processing somewhere else or if we need to fix the retrieval right here.
-  const latestEntry = provenanceEntries?.[0] ?? null;
-  const previousIntent = latestEntry?.prev_intent?.purpose.content ?? null;
+  // Derive previousIntent from the most recent provenance entry whose
+  // prev_intent.purpose differs from the current intent. Entries that only
+  // changed the schema (not the intent) have prev_intent identical to
+  // the current value, so we skip those to find the actual last change.
+  const previousIntent = useMemo(() => {
+    if (!provenanceEntries?.length) return null;
+    const currentPurpose = structuredIntent.purpose.content;
+    for (const entry of provenanceEntries) {
+      const prevPurpose = entry.prev_intent?.purpose?.content;
+      if (prevPurpose && prevPurpose !== currentPurpose) {
+        return prevPurpose;
+      }
+    }
+    return null;
+  }, [provenanceEntries, structuredIntent.purpose.content]);
   const [showDiff, setShowDiff] = useState(false);
-  console.log(previousIntent, promptEditText);
+
   // Sync structured intent from portfolio when it changes externally
   useEffect(() => {
     setStructuredIntent(portfolio.intent);
@@ -164,7 +179,6 @@ export function ReflectiveConversationPane({
   // Derived state
   // -------------------------------------------------------------------
   const isGenerating = pipeline.isPending || isPromptEditing;
-  console.log("Prev intent: ", previousIntent);
   return (
     <div className="flex flex-col h-full">
       {/* Intent Editor — single field, structured data underneath */}
@@ -289,15 +303,29 @@ export function ReflectiveConversationPane({
             </Button>
           )} */}
         </div>
-        <ResolvedSection portfolioId={portfolio.id} />
+        <ResolvedSection
+          portfolioId={portfolio.id}
+          currentIntent={structuredIntent}
+          currentSchema={portfolioSchema}
+        />
       </div>
     </div>
   );
 }
 
-const ResolvedSection = ({ portfolioId }: { portfolioId: string }) => {
+const ResolvedSection = ({
+  portfolioId,
+  currentIntent,
+  currentSchema,
+}: {
+  portfolioId: string;
+  currentIntent: StructuredIntent;
+  currentSchema: PortfolioSchema;
+}) => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const { data: designProbes } = useDesignProbes(portfolioId);
+  const reResolve = useReResolveDesignProbe(portfolioId);
+  const { currentUser } = useCurrentUser();
 
   if (!designProbes?.length) return null;
 
@@ -305,6 +333,20 @@ const ResolvedSection = ({ portfolioId }: { portfolioId: string }) => {
   const resolvedProbes = [
     ...designProbes.filter((o) => o.status === "resolved"),
   ].reverse();
+
+  const handleReResolve = async (probeId: string, newValue: string) => {
+    const probe = resolvedProbes.find((p) => p.id === probeId);
+    if (!probe) return;
+
+    await reResolve.mutateAsync({
+      probe,
+      newSelectedValue: newValue,
+      currentIntent,
+      currentSchema,
+      editedBy: currentUser.name,
+    });
+  };
+
   return (
     <>
       <ResolvedStack
@@ -315,6 +357,8 @@ const ResolvedSection = ({ portfolioId }: { portfolioId: string }) => {
         dialogOpen={dialogOpen}
         setDialogOpen={setDialogOpen}
         resolvedProbes={resolvedProbes}
+        onReResolve={handleReResolve}
+        isReResolving={reResolve.isPending}
       />
     </>
   );
