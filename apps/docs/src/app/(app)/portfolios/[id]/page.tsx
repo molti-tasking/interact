@@ -7,6 +7,10 @@ import { DerivationBanner } from "@/components/workspace/DerivationBanner";
 import { DesignProbeDeck } from "@/components/workspace/DesignProbeDeck";
 import { FieldEditDrawer } from "@/components/workspace/FieldEditDrawer";
 import { ReflectiveConversationPane } from "@/components/workspace/ReflectiveConversationPane";
+import {
+  buildEditDescription,
+  useIntentBackpropagation,
+} from "@/hooks/query/intent-backpropagation";
 import { usePortfolio, useUpdatePortfolio } from "@/hooks/query/portfolios";
 import { logProvenance } from "@/lib/engine/provenance";
 import { diffSchemas, removeField, updateField } from "@/lib/engine/schema-ops";
@@ -26,6 +30,9 @@ export default function PortfolioWorkspacePage() {
   const [editingField, setEditingField] = useState<Field | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
 
+  // Debounced intent backpropagation from field edits
+  const { scheduleSync } = useIntentBackpropagation(portfolio);
+
   const handleFieldClick = useCallback((field: Field) => {
     setEditingField(field);
     setDrawerOpen(true);
@@ -34,14 +41,14 @@ export default function PortfolioWorkspacePage() {
   const handleFieldSave = useCallback(
     async (fieldId: string, updates: Partial<Field>) => {
       if (!portfolio) return;
+      const oldField = portfolioSchema.fields.find((f) => f.id === fieldId);
       const newSchema = updateField(portfolioSchema, fieldId, updates);
       const diff = diffSchemas(portfolioSchema, newSchema);
       try {
-        const updated = await updatePortfolio.mutateAsync({
+        await updatePortfolio.mutateAsync({
           id: portfolio.id,
           schema: newSchema,
         });
-        console.log("Updated: ", updated.id);
         await logProvenance(
           portfolio.id,
           "configuration",
@@ -51,11 +58,14 @@ export default function PortfolioWorkspacePage() {
           `Modified field "${updates.label ?? fieldId}"`,
           { intent: portfolio.intent, schema: portfolioSchema },
         );
+
+        // Queue debounced intent backpropagation
+        scheduleSync(buildEditDescription(oldField, updates));
       } catch (err) {
         console.error("[FieldEdit] Save error:", err);
       }
     },
-    [portfolio, updatePortfolio, portfolioSchema],
+    [portfolio, updatePortfolio, portfolioSchema, scheduleSync],
   );
 
   const handleFieldRemove = useCallback(
@@ -65,11 +75,10 @@ export default function PortfolioWorkspacePage() {
       const newSchema = removeField(portfolioSchema, fieldId);
       const diff = diffSchemas(portfolioSchema, newSchema);
       try {
-        const updated = await updatePortfolio.mutateAsync({
+        await updatePortfolio.mutateAsync({
           id: portfolio.id,
           schema: newSchema,
         });
-        console.log("Updated: ", updated.id);
         await logProvenance(
           portfolio.id,
           "configuration",
@@ -79,11 +88,14 @@ export default function PortfolioWorkspacePage() {
           `Removed field "${removedField?.label ?? fieldId}"`,
           { intent: portfolio.intent, schema: portfolioSchema },
         );
+
+        // Queue debounced intent backpropagation
+        scheduleSync(`Removed field "${removedField?.label ?? fieldId}"`);
       } catch (err) {
         console.error("[FieldEdit] Remove error:", err);
       }
     },
-    [portfolio, updatePortfolio, portfolioSchema],
+    [portfolio, updatePortfolio, portfolioSchema, scheduleSync],
   );
 
   if (isLoading) {
