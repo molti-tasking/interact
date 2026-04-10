@@ -22,7 +22,6 @@ export const fhirPatientIntake: DomainStandard = {
     "ehr",
     "electronic health record",
     "admission",
-    "registration",
     "demographic",
     "diagnosis",
     "treatment",

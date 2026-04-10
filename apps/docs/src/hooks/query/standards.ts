@@ -51,6 +51,7 @@ export function useAcceptStandard(portfolioId: string) {
     mutationFn: async ({
       detected,
       portfolio,
+      actor = "creator",
     }: {
       detected: DetectedStandard;
       portfolio: {
@@ -58,6 +59,7 @@ export function useAcceptStandard(portfolioId: string) {
         intent: StructuredIntent;
         schema: PortfolioSchema;
       };
+      actor?: string;
     }) => {
       const { createClient } = await import("@/lib/supabase/client");
       const supabase = createClient();
@@ -81,24 +83,14 @@ export function useAcceptStandard(portfolioId: string) {
         acceptedStandards: [...existing, newRef],
       };
 
-      // Append standard info to constraints section
-      const standardLine = `- **${detected.standard.name}** (${detected.standard.domain})`;
-      const currentConstraints = portfolio.intent.constraints.content.trim();
-      const updatedIntent: StructuredIntent = {
-        ...portfolio.intent,
-        constraints: {
-          content: currentConstraints
-            ? `${currentConstraints}\n${standardLine}`
-            : standardLine,
-          updatedAt: new Date().toISOString(),
-        },
-      };
+      // Standard is tracked in schema.acceptedStandards — no need to
+      // also append to constraints.content (which would inject markdown
+      // headings into the user-facing editor).
 
       const { error } = await supabase
         .from("portfolios")
         .update({
           schema: JSON.parse(JSON.stringify(updatedSchema)),
-          intent: JSON.parse(JSON.stringify(updatedIntent)),
           updated_at: new Date().toISOString(),
         })
         .eq("id", portfolio.id);
@@ -110,13 +102,13 @@ export function useAcceptStandard(portfolioId: string) {
         portfolio.id,
         "dimensions",
         "standard_accepted",
-        "creator",
+        actor,
         { added: [], removed: [], modified: [] },
         `Applied standard: ${detected.standard.name}`,
         { intent: portfolio.intent, schema: currentSchema },
       );
 
-      return { schema: updatedSchema, intent: updatedIntent };
+      return { schema: updatedSchema, intent: portfolio.intent };
     },
     onSuccess: () => {
       queryClient.invalidateQueries({

@@ -7,6 +7,7 @@ import {
 import type { DetectedStandard } from "@/lib/domain-standards";
 import { logProvenance } from "@/lib/engine/provenance";
 import { diffSchemas } from "@/lib/engine/schema-ops";
+import { sanitizePurposeText } from "@/lib/engine/structured-intent";
 import { createClient } from "@/lib/supabase/client";
 import { rowToDesignProbe } from "@/lib/supabase/types";
 import type { DesignProbe, PortfolioSchema, StructuredIntent } from "@/lib/types";
@@ -163,7 +164,7 @@ export function useResolveDesignProbe(portfolioId: string) {
 
       // Replace purpose with the LLM's coherent rewrite (falls back to append if missing)
       const newPurpose = response.result.updatedPurpose
-        ? response.result.updatedPurpose
+        ? sanitizePurposeText(response.result.updatedPurpose)
         : currentIntent.purpose.content.trimEnd() +
           "\n" +
           response.result.refinementDelta;
@@ -200,7 +201,7 @@ export function useResolveDesignProbe(portfolioId: string) {
         portfolioId,
         "dimensions",
         "design_probe_resolved",
-        "creator",
+        resolvedBy ?? "creator",
         probeDiff,
         `"${probe.text}" → "${optionLabel}"`,
         { intent: currentIntent, schema: currentSchema },
@@ -327,7 +328,7 @@ export function useReResolveDesignProbe(portfolioId: string) {
 
       // Update intent
       const newPurpose = response.result.updatedPurpose
-        ? response.result.updatedPurpose
+        ? sanitizePurposeText(response.result.updatedPurpose)
         : currentIntent.purpose.content.trimEnd() +
           "\n" +
           response.result.refinementDelta;
@@ -364,7 +365,7 @@ export function useReResolveDesignProbe(portfolioId: string) {
         portfolioId,
         "dimensions",
         "design_probe_re_resolved",
-        "creator",
+        editedBy || "creator",
         probeDiff,
         `Re-edited: "${probe.text}" → "${optionLabel}" (was: "${probe.selectedOption}")`,
         { intent: currentIntent, schema: currentSchema },

@@ -39,10 +39,12 @@ export function usePipelineGenerate(portfolioId: string) {
       previousIntent,
       currentIntent,
       currentSchema,
+      actor = "creator",
     }: {
       previousIntent: StructuredIntent;
       currentIntent: StructuredIntent;
       currentSchema: PortfolioSchema;
+      actor?: string;
     }): Promise<PipelineResult> => {
       const delta = computeDelta(previousIntent, currentIntent);
       const hasExistingSchema = currentSchema.fields.length > 0;
@@ -69,7 +71,7 @@ export function usePipelineGenerate(portfolioId: string) {
               portfolioId,
               "intent",
               "intent_updated",
-              "creator",
+              actor,
               { added: [], removed: [], modified: [] },
               `Sections changed: ${delta.changedSections.join(", ")}`,
               { intent: previousIntent, schema: currentSchema },
@@ -134,7 +136,7 @@ export function usePipelineGenerate(portfolioId: string) {
             portfolioId,
             "configuration",
             "exclusions_applied",
-            "creator",
+            actor,
             filterDiff,
             `Applied exclusions: ${currentIntent.exclusions.content.trim()}`,
             { intent: previousIntent, schema: currentSchema },

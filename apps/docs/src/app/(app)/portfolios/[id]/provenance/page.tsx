@@ -47,7 +47,7 @@ export default function ProvenancePage() {
                       <Badge variant="outline">{entry.layer}</Badge>
                       <Badge
                         variant={
-                          entry.actor === "creator" ? "default" : "secondary"
+                          entry.actor === "system" ? "secondary" : "default"
                         }
                       >
                         {entry.actor}

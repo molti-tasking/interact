@@ -22,6 +22,7 @@ import { cn } from "@/lib/utils";
 import { useQueryClient } from "@tanstack/react-query";
 import { Loader2, Sparkles } from "lucide-react";
 import { useCurrentUser } from "@/context/user-context";
+import { formatActor } from "@/lib/mock-users";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { DesignProbeResolvedDialog } from "./DesignProbeResolvedDialog";
 import { ResolvedStack } from "./ResolvedStack";
@@ -40,6 +41,8 @@ export function ReflectiveConversationPane({
   portfolio,
 }: ReflectiveConversationPaneProps) {
   const portfolioSchema = portfolio.schema as unknown as PortfolioSchema;
+  const { currentUser } = useCurrentUser();
+  const actor = formatActor(currentUser);
 
   const editorRef = useRef<HTMLDivElement>(null);
   const [structuredIntent, setStructuredIntent] = useState<StructuredIntent>(
@@ -105,6 +108,7 @@ export function ReflectiveConversationPane({
         previousIntent: portfolio.intent,
         currentIntent: structuredIntent,
         currentSchema: portfolioSchema,
+        actor,
       });
 
       if (result.strategy.kind === "noop") {
@@ -153,7 +157,7 @@ export function ReflectiveConversationPane({
           portfolio.id,
           "configuration",
           "prompt_edit",
-          "creator",
+          actor,
           editDiff,
           promptEditText.trim(),
           { intent: structuredIntent, schema: portfolioSchema },
@@ -343,7 +347,7 @@ const ResolvedSection = ({
       newSelectedValue: newValue,
       currentIntent,
       currentSchema,
-      editedBy: currentUser.name,
+      editedBy: formatActor(currentUser),
     });
   };
 

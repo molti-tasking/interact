@@ -5,14 +5,16 @@ import { Card } from "@/components/ui/card";
 import { FormRenderer } from "@/lib/form-renderer/FormRenderer";
 import type { Field, Portfolio, PortfolioSchema } from "@/lib/types";
 import { Network, ShareIcon } from "lucide-react";
+import { AddFieldInline } from "./AddFieldInline";
 import Link from "next/link";
 
 interface ArtifactPaneProps {
   portfolio: Portfolio;
   onFieldClick?: (field: Field) => void;
+  onFieldsAdded?: (fields: Field[]) => void;
 }
 
-export function ArtifactPane({ portfolio, onFieldClick }: ArtifactPaneProps) {
+export function ArtifactPane({ portfolio, onFieldClick, onFieldsAdded }: ArtifactPaneProps) {
   const portfolioSchema = portfolio.schema as unknown as PortfolioSchema;
 
   return (
@@ -53,6 +55,14 @@ export function ArtifactPane({ portfolio, onFieldClick }: ArtifactPaneProps) {
             onFieldClick={onFieldClick}
             className="space-y-4"
           />
+          {onFieldsAdded && (
+            <div className="mt-4">
+              <AddFieldInline
+                schema={portfolioSchema}
+                onFieldsAdded={onFieldsAdded}
+              />
+            </div>
+          )}
         </div>
       </Card>
     </div>

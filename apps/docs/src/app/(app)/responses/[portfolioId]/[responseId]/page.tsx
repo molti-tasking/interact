@@ -51,7 +51,8 @@ export default function ResponseDetailPage() {
       await updateResponse.mutateAsync({
         id: response.id,
         portfolioId: response.portfolioId,
-        data,
+        // TODO there may be a problem here about the updating of data that was inserted already before; we do not overwrite the pre-existing data
+        data: { ...response, ...data },
       });
       toast.success("Response updated successfully");
     } catch {

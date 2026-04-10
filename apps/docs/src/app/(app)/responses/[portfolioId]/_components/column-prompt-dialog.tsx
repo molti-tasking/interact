@@ -12,6 +12,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { useCurrentUser } from "@/context/user-context";
+import { formatActor } from "@/lib/mock-users";
 import {
   processColumnPromptAction,
   deriveFieldsFromPromptAction,
@@ -50,6 +52,7 @@ export function ColumnPromptDialog({
   const [prompt, setPrompt] = useState("");
   const [remember, setRemember] = useState(false);
   const [isRunning, setIsRunning] = useState(false);
+  const { currentUser } = useCurrentUser();
 
   const bulkUpdate = useBulkUpdateResponses();
   const updatePortfolio = useUpdatePortfolio();
@@ -140,7 +143,7 @@ export function ColumnPromptDialog({
             portfolio.id,
             "configuration",
             "column_action_remembered",
-            "creator",
+            formatActor(currentUser),
             diff,
             prompt.trim(),
             { intent: portfolio.intent, schema },
