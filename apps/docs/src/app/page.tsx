@@ -26,10 +26,6 @@ const problemPairs = [
     problem: "No guidance for domain-specific decisions",
     solution: "Surfaces considerations you hadn\u2019t thought of",
   },
-  {
-    problem: "Changes break existing data",
-    solution: "Full provenance and traceability",
-  },
 ];
 
 const steps = [
@@ -110,7 +106,7 @@ function ProblemSection() {
 }
 
 function HowItWorksSection() {
-  const [activeStep, setActiveStep] = useState(0);
+  const [activeStep, setActiveStep] = useState<number | null>(null);
 
   return (
     <section className="flex flex-col gap-6">
@@ -173,7 +169,7 @@ function HowItWorksSection() {
                 : "opacity-0 absolute inset-6 translate-y-2 pointer-events-none",
             )}
           >
-            <p className="text-sm text-muted-foreground italic">
+            <p className="text-xl text-muted-foreground italic">
               {step.detail}
             </p>
           </div>
@@ -297,12 +293,14 @@ export default function Home() {
           </div>
         </section>
 
-        <Link href="/portfolios/new">
-          <Button variant="outline" className="font-sans w-fit">
-            Let&apos;s try it out
-            <ArrowRight className="h-4 w-4 ml-2" />
-          </Button>
-        </Link>
+        <section className="flex flex-row-reverse">
+          <Link href="/portfolios/new">
+            <Button size={"lg"}>
+              Let&apos;s try it out
+              <ArrowRight className="h-4 w-4 ml-2" />
+            </Button>
+          </Link>
+        </section>
       </main>
     </div>
   );

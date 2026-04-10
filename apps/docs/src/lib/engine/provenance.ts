@@ -18,7 +18,7 @@ async function insertProvenanceEntry(params: {
   portfolioId: string;
   layer: ProvenanceLayer;
   action: string;
-  actor: "creator" | "system";
+  actor: string;
   diff: SchemaDiff;
   rationale?: string | null;
   prevIntent?: StructuredIntent | null;
@@ -50,7 +50,7 @@ export async function mutatePortfolio(
   portfolioId: string,
   layer: ProvenanceLayer,
   action: string,
-  actor: "creator" | "system",
+  actor: string,
   mutationFn: (current: Portfolio) => Portfolio,
   options?: {
     rationale?: string;
@@ -122,7 +122,7 @@ export async function logProvenance(
   portfolioId: string,
   layer: ProvenanceLayer,
   action: string,
-  actor: "creator" | "system",
+  actor: string,
   diff: SchemaDiff,
   rationale?: string,
   prev?: { intent: StructuredIntent; schema: unknown },

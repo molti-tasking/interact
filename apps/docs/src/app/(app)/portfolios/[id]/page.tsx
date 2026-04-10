@@ -13,8 +13,10 @@ import {
 } from "@/hooks/query/intent-backpropagation";
 import { usePortfolio, useUpdatePortfolio } from "@/hooks/query/portfolios";
 import { logProvenance } from "@/lib/engine/provenance";
-import { diffSchemas, removeField, updateField } from "@/lib/engine/schema-ops";
+import { addField, diffSchemas, removeField, updateField } from "@/lib/engine/schema-ops";
 import type { Field, PortfolioSchema } from "@/lib/types";
+import { useCurrentUser } from "@/context/user-context";
+import { formatActor } from "@/lib/mock-users";
 import { BarChart3, ClipboardList, History, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
@@ -25,6 +27,8 @@ export default function PortfolioWorkspacePage() {
   const { data: portfolio, isLoading } = usePortfolio(id);
   const portfolioSchema = portfolio?.schema as unknown as PortfolioSchema;
   const updatePortfolio = useUpdatePortfolio();
+  const { currentUser } = useCurrentUser();
+  const actor = formatActor(currentUser);
 
   // Field edit drawer state
   const [editingField, setEditingField] = useState<Field | null>(null);
@@ -53,7 +57,7 @@ export default function PortfolioWorkspacePage() {
           portfolio.id,
           "configuration",
           "field_modified",
-          "creator",
+          actor,
           diff,
           `Modified field "${updates.label ?? fieldId}"`,
           { intent: portfolio.intent, schema: portfolioSchema },
@@ -83,7 +87,7 @@ export default function PortfolioWorkspacePage() {
           portfolio.id,
           "configuration",
           "field_removed",
-          "creator",
+          actor,
           diff,
           `Removed field "${removedField?.label ?? fieldId}"`,
           { intent: portfolio.intent, schema: portfolioSchema },
@@ -93,6 +97,37 @@ export default function PortfolioWorkspacePage() {
         scheduleSync(`Removed field "${removedField?.label ?? fieldId}"`);
       } catch (err) {
         console.error("[FieldEdit] Remove error:", err);
+      }
+    },
+    [portfolio, updatePortfolio, portfolioSchema, scheduleSync],
+  );
+
+  const handleFieldsAdded = useCallback(
+    async (newFields: Field[]) => {
+      if (!portfolio) return;
+      let newSchema = portfolioSchema;
+      for (const field of newFields) {
+        newSchema = addField(newSchema, field);
+      }
+      const diff = diffSchemas(portfolioSchema, newSchema);
+      try {
+        await updatePortfolio.mutateAsync({
+          id: portfolio.id,
+          schema: newSchema,
+        });
+        const labels = newFields.map((f) => f.label).join(", ");
+        await logProvenance(
+          portfolio.id,
+          "configuration",
+          "field_added_from_prompt",
+          actor,
+          diff,
+          `Added field(s) from prompt: ${labels}`,
+          { intent: portfolio.intent, schema: portfolioSchema },
+        );
+        scheduleSync(`Added new field(s): ${labels}`);
+      } catch (err) {
+        console.error("[AddField] Save error:", err);
       }
     },
     [portfolio, updatePortfolio, portfolioSchema, scheduleSync],
@@ -187,7 +222,7 @@ export default function PortfolioWorkspacePage() {
 
         {/* Right: Artifact (form preview + responses) */}
         <div data-testid="preview-pane">
-          <ArtifactPane portfolio={portfolio} onFieldClick={handleFieldClick} />
+          <ArtifactPane portfolio={portfolio} onFieldClick={handleFieldClick} onFieldsAdded={handleFieldsAdded} />
         </div>
       </div>
       <p

@@ -2,6 +2,7 @@
 
 import { syncIntentFromFieldEditAction } from "@/app/actions/design-probe-actions";
 import { useUpdatePortfolio } from "@/hooks/query/portfolios";
+import { sanitizePurposeText } from "@/lib/engine/structured-intent";
 import type { Field, Portfolio, PortfolioSchema } from "@/lib/types";
 import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useRef } from "react";
@@ -81,7 +82,7 @@ export function useIntentBackpropagation(portfolio: Portfolio | null | undefined
         intent: {
           ...p.intent,
           purpose: {
-            content: syncResult.updatedPurpose,
+            content: sanitizePurposeText(syncResult.updatedPurpose),
             updatedAt: new Date().toISOString(),
           },
         },

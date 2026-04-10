@@ -31,6 +31,33 @@ export function hashSection(content: string): string {
 }
 
 // ---------------------------------------------------------------------------
+// Sanitise LLM-returned purpose text
+// ---------------------------------------------------------------------------
+
+/**
+ * Strip section headings (## Purpose, ## Constraints, …) that the LLM
+ * sometimes echoes back inside `updatedPurpose`.  Only the first heading
+ * is expected to be Purpose — if we find other section headings we strip
+ * everything from that point on, because it belongs to a different section.
+ */
+export function sanitizePurposeText(raw: string): string {
+  let text = raw.trim();
+
+  // Remove a leading "## Purpose" heading if the LLM copied it
+  text = text.replace(/^##\s+Purpose\s*\n+/i, "");
+
+  // If the LLM included other section headings, drop them and everything after
+  const otherHeadingMatch = text.search(
+    /\n##\s+(Audience|Exclusions|Constraints)\b/i,
+  );
+  if (otherHeadingMatch !== -1) {
+    text = text.slice(0, otherHeadingMatch);
+  }
+
+  return text.trim();
+}
+
+// ---------------------------------------------------------------------------
 // Markdown ↔ StructuredIntent (single editor projection)
 // ---------------------------------------------------------------------------
 

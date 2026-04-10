@@ -15,7 +15,14 @@ function randomValueForField(field: Field): unknown {
   const { type } = field;
   switch (type.kind) {
     case "text": {
-      const samples = ["Alice", "Acme Corp", "Lorem ipsum", "42B", "hello@example.com", "New York"];
+      const samples = [
+        "Alice",
+        "Acme Corp",
+        "Lorem ipsum",
+        "42B",
+        "hello@example.com",
+        "New York",
+      ];
       return samples[Math.floor(Math.random() * samples.length)];
     }
     case "number": {
@@ -30,12 +37,17 @@ function randomValueForField(field: Field): unknown {
         const shuffled = [...type.options].sort(() => Math.random() - 0.5);
         return shuffled.slice(0, count).map((o) => o.value);
       }
-      return type.options[Math.floor(Math.random() * type.options.length)].value;
+      return type.options[Math.floor(Math.random() * type.options.length)]
+        .value;
     }
     case "date": {
-      const start = type.range ? new Date(type.range.min).getTime() : Date.now() - 365 * 86400000;
+      const start = type.range
+        ? new Date(type.range.min).getTime()
+        : Date.now() - 365 * 86400000;
       const end = type.range ? new Date(type.range.max).getTime() : Date.now();
-      return new Date(start + Math.random() * (end - start)).toISOString().slice(0, 10);
+      return new Date(start + Math.random() * (end - start))
+        .toISOString()
+        .slice(0, 10);
     }
     case "boolean":
       return Math.random() > 0.5;
@@ -78,7 +90,10 @@ export function FormRenderer({
     for (const field of schema.fields) {
       const val = randomValueForField(field);
       if (val !== undefined) {
-        form.setValue(field.name, val, { shouldValidate: true, shouldDirty: true });
+        form.setValue(field.name, val, {
+          shouldValidate: true,
+          shouldDirty: true,
+        });
       }
     }
   }, [schema.fields, form]);
@@ -89,7 +104,7 @@ export function FormRenderer({
       form.reset(data);
     }
     if (mode === "live" && !defaultValues) {
-      form.reset();
+      form.reset(undefined, { keepTouched: false });
     }
   };
 

@@ -34,6 +34,7 @@ import {
   useSkipStandard,
 } from "@/hooks/query/standards";
 import { useCurrentUser } from "@/context/user-context";
+import { formatActor } from "@/lib/mock-users";
 import type { Portfolio, StructuredIntent } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { Loader2, RefreshCw } from "lucide-react";
@@ -50,6 +51,12 @@ export function DesignProbeDeck({ portfolio }: { portfolio: Portfolio }) {
   const [structuredIntent, setStructuredIntent] = useState<StructuredIntent>(
     portfolio.intent,
   );
+
+  // Keep local intent in sync when portfolio updates externally
+  // (e.g. after pipeline generation or standard acceptance)
+  useEffect(() => {
+    setStructuredIntent(portfolio.intent);
+  }, [portfolio.intent]);
 
   // --- React Query hooks ---
   const { data: detectedStandards } = useDetectedStandards(portfolio.id);
@@ -113,6 +120,7 @@ export function DesignProbeDeck({ portfolio }: { portfolio: Portfolio }) {
               intent: structuredIntent,
               schema: portfolioSchema,
             },
+            actor: formatActor(currentUser),
           });
           await resolveStandardProbe.mutateAsync({
             probeId,
@@ -132,7 +140,7 @@ export function DesignProbeDeck({ portfolio }: { portfolio: Portfolio }) {
         selectedValue,
         currentIntent: structuredIntent,
         currentSchema: portfolioSchema,
-        resolvedBy: currentUser.name,
+        resolvedBy: formatActor(currentUser),
       });
 
       setStructuredIntent(result.newIntent);
