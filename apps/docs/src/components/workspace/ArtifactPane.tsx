@@ -2,26 +2,49 @@
 
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { useCurrentUser } from "@/context/user-context";
 import { FormRenderer } from "@/lib/form-renderer/FormRenderer";
+import { formatActor } from "@/lib/mock-users";
+import type { DesignProbeRaw } from "@/app/actions/design-probe-actions";
 import type { Field, Portfolio, PortfolioSchema } from "@/lib/types";
 import { Network, ShareIcon } from "lucide-react";
 import { AddFieldInline } from "./AddFieldInline";
+import { VoiceRecordButton } from "./VoiceRecordButton";
 import Link from "next/link";
 
 interface ArtifactPaneProps {
   portfolio: Portfolio;
   onFieldClick?: (field: Field) => void;
   onFieldsAdded?: (fields: Field[]) => void;
+  onSchemaPatched?: (newSchema: PortfolioSchema) => void;
+  onVoiceClarifications?: (probes: DesignProbeRaw[], sessionId: string) => void;
 }
 
-export function ArtifactPane({ portfolio, onFieldClick, onFieldsAdded }: ArtifactPaneProps) {
+export function ArtifactPane({
+  portfolio,
+  onFieldClick,
+  onFieldsAdded,
+  onSchemaPatched,
+  onVoiceClarifications,
+}: ArtifactPaneProps) {
   const portfolioSchema = portfolio.schema as unknown as PortfolioSchema;
+  const { currentUser } = useCurrentUser();
+  const userId = formatActor(currentUser);
 
   return (
     <div className="flex flex-col h-full">
       <div className="flex flex-row justify-between items-center h-8 mb-3">
         <h3 className="workspace-section-label">Artifact</h3>
-        <div className="flex gap-1">
+        <div className="flex gap-1 items-center">
+          {onSchemaPatched && onVoiceClarifications && (
+            <VoiceRecordButton
+              portfolio={portfolio}
+              currentSchema={portfolioSchema}
+              userId={userId}
+              onSchemaPatched={onSchemaPatched}
+              onClarifications={onVoiceClarifications}
+            />
+          )}
           <Button
             variant="ghost"
             size="sm"

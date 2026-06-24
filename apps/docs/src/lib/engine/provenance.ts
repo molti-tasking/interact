@@ -23,6 +23,7 @@ async function insertProvenanceEntry(params: {
   rationale?: string | null;
   prevIntent?: StructuredIntent | null;
   prevSchema?: unknown | null;
+  voiceSessionId?: string | null;
 }): Promise<void> {
   const supabase = createClient();
 
@@ -35,6 +36,7 @@ async function insertProvenanceEntry(params: {
     rationale: params.rationale ?? null,
     prev_intent: params.prevIntent ? (params.prevIntent as unknown as Json) : null,
     prev_schema: params.prevSchema ? (params.prevSchema as Json) : null,
+    voice_session_id: params.voiceSessionId ?? null,
   });
 
   if (error) {
@@ -126,6 +128,7 @@ export async function logProvenance(
   diff: SchemaDiff,
   rationale?: string,
   prev?: { intent: StructuredIntent; schema: unknown },
+  voiceSessionId?: string,
 ): Promise<void> {
   await insertProvenanceEntry({
     portfolioId,
@@ -136,5 +139,6 @@ export async function logProvenance(
     rationale,
     prevIntent: prev?.intent,
     prevSchema: prev?.schema,
+    voiceSessionId,
   });
 }

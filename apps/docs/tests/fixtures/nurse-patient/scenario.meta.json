@@ -1,0 +1,15 @@
+{
+  "scenario": "nurse-patient",
+  "description": "A nurse dictates patient intake data via voice. The system maps transcript spans to FHIR-aligned schema fields, adds a new field (chiefComplaint) not in the base schema, and surfaces an ambiguous age value as a voice-sourced design probe.",
+  "portfolioTitle": "Nurse-Patient Voice Intake",
+  "steps": [
+    "Create portfolio with title 'Nurse-Patient Voice Intake'",
+    "Generate base schema from FHIR patient intent (6 fields)",
+    "Click voice-record-btn; fixture replays pre-recorded transcript",
+    "transcribeAudioAction returns fixed transcript",
+    "mapTranscriptToSchemaAction maps known fields and adds chiefComplaint",
+    "Ambiguous age surfaces as a voice design probe",
+    "Resolve voice probe → age confirmed as 45"
+  ],
+  "recordedAt": "2026-06-24T00:00:00.000Z"
+}

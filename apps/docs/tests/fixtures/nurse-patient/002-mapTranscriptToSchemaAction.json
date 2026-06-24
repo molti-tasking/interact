@@ -1,0 +1,76 @@
+{
+  "actionName": "mapTranscriptToSchemaAction",
+  "callIndex": 0,
+  "input": {
+    "transcript": "Patient name is Margaret O'Brien. Date of birth is March 12th 1979. Gender female. She says she's allergic to penicillin. Current medications: metformin 500 milligrams twice daily. Chief complaint is chest pain that started this morning. Patient's age — she said either 45 or 46, not sure which.",
+    "voiceSessionId": "vs-nurse-test-001"
+  },
+  "output": {
+    "success": true,
+    "result": {
+      "schemaPatch": {
+        "addFields": [
+          {
+            "key": "chiefComplaint",
+            "label": "Chief Complaint",
+            "description": "Primary reason for visit",
+            "type": "string",
+            "required": true
+          }
+        ],
+        "fieldValues": [
+          {
+            "fieldKey": "patientName",
+            "value": "Margaret O'Brien",
+            "transcriptSpan": "Patient name is Margaret O'Brien"
+          },
+          {
+            "fieldKey": "dateOfBirth",
+            "value": "1979-03-12",
+            "transcriptSpan": "Date of birth is March 12th 1979"
+          },
+          {
+            "fieldKey": "gender",
+            "value": "female",
+            "transcriptSpan": "Gender female"
+          },
+          {
+            "fieldKey": "allergies",
+            "value": "penicillin",
+            "transcriptSpan": "she's allergic to penicillin"
+          },
+          {
+            "fieldKey": "currentMedications",
+            "value": "metformin 500mg twice daily",
+            "transcriptSpan": "metformin 500 milligrams twice daily"
+          },
+          {
+            "fieldKey": "chiefComplaint",
+            "value": "chest pain that started this morning",
+            "transcriptSpan": "Chief complaint is chest pain that started this morning"
+          }
+        ]
+      },
+      "clarifications": [
+        {
+          "id": "voice-probe-vs-nurse-test-001-0",
+          "text": "Patient age: 45 or 46?",
+          "explanation": "The transcript mentioned two possible ages — confirm which is correct.",
+          "layer": "dimensions",
+          "source": "voice",
+          "options": [
+            { "value": "age45", "label": "45 years old" },
+            { "value": "age46", "label": "46 years old" },
+            { "value": "useDoB", "label": "Calculate from DOB" }
+          ],
+          "selectedOption": null,
+          "status": "pending",
+          "dimensionId": null,
+          "dimensionName": null
+        }
+      ],
+      "llmCompletionId": "cmpl-nurse-fixture-001"
+    }
+  },
+  "timestamp": "2026-06-24T00:01:05.000Z"
+}

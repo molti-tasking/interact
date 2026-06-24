@@ -57,6 +57,22 @@ Test: `tests/e2e/fitness-coaching.spec.ts`
 - [ ] Derive sub-schema for Dispatcher
 - [ ] Verify provenance log shows entries from all roles
 
+### Scenario 4: Nurse-Patient Voice Intake — not started
+
+> Paper: "a nurse dictates patient intake data via voice; the system maps transcript spans to schema fields and surfaces clarifications as design probes"
+
+Fixtures: `tests/fixtures/nurse-patient/`
+Test: `tests/e2e/nurse-patient.spec.ts`
+
+- [ ] Record fixture set: `transcribeAudioAction`, `mapTranscriptToSchemaAction`
+- [ ] E2E test: create portfolio with FHIR patient intake standard accepted
+- [ ] Click `[data-testid="voice-record-btn"]`, simulate recorded transcript
+- [ ] Verify transcript mapped to existing FHIR fields (name, DOB, gender)
+- [ ] Verify new field added (e.g. chiefComplaint) that was not in base schema
+- [ ] Verify ambiguous value (e.g. "she said 45 or 46 years old") surfaces a `source:"voice"` design probe in the deck
+- [ ] Resolve probe → field value confirmed
+- [ ] Open History view → entry tagged with 🎤 voice badge and trace to session ID
+
 ### Scenario 3: Orthopedic Patient Records — not started
 
 > Paper: "a single base schema yields radically different views for surgeons, physiotherapists, and patients"

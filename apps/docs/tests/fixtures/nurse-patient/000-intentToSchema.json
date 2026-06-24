@@ -1,0 +1,95 @@
+{
+  "actionName": "intentToSchema",
+  "callIndex": 0,
+  "input": {
+    "basePrompt": "Patient intake form for a nursing ward. Collect patient demographics, chief complaint, vital signs, and current medications aligned with FHIR Patient resource fields."
+  },
+  "output": {
+    "success": true,
+    "result": {
+      "artifactFormSchema": {
+        "fields": [
+          {
+            "id": "field-np-0",
+            "name": "patientName",
+            "label": "Patient Name",
+            "type": { "kind": "text" },
+            "required": true,
+            "constraints": [],
+            "description": "Full legal name",
+            "origin": "system",
+            "tags": []
+          },
+          {
+            "id": "field-np-1",
+            "name": "dateOfBirth",
+            "label": "Date of Birth",
+            "type": { "kind": "date" },
+            "required": true,
+            "constraints": [],
+            "description": "FHIR Patient.birthDate",
+            "origin": "system",
+            "tags": []
+          },
+          {
+            "id": "field-np-2",
+            "name": "gender",
+            "label": "Gender",
+            "type": {
+              "kind": "select",
+              "options": [
+                { "label": "Male", "value": "male" },
+                { "label": "Female", "value": "female" },
+                { "label": "Other", "value": "other" },
+                { "label": "Unknown", "value": "unknown" }
+              ],
+              "multiple": false
+            },
+            "required": true,
+            "constraints": [],
+            "description": "FHIR Patient.gender",
+            "origin": "system",
+            "tags": []
+          },
+          {
+            "id": "field-np-3",
+            "name": "contactPhone",
+            "label": "Contact Phone",
+            "type": { "kind": "text" },
+            "required": false,
+            "constraints": [],
+            "description": "Primary contact number",
+            "origin": "system",
+            "tags": []
+          },
+          {
+            "id": "field-np-4",
+            "name": "currentMedications",
+            "label": "Current Medications",
+            "type": { "kind": "text", "maxLength": 1000 },
+            "required": false,
+            "constraints": [],
+            "description": "List current medications and dosages",
+            "origin": "system",
+            "tags": []
+          },
+          {
+            "id": "field-np-5",
+            "name": "allergies",
+            "label": "Known Allergies",
+            "type": { "kind": "text" },
+            "required": false,
+            "constraints": [],
+            "description": "Drug, food, or environmental allergies",
+            "origin": "system",
+            "tags": []
+          }
+        ],
+        "groups": [],
+        "version": 1
+      },
+      "configuratorFormValues": {}
+    }
+  },
+  "timestamp": "2026-06-24T00:00:00.000Z"
+}

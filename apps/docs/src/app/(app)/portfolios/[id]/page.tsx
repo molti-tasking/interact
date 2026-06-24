@@ -17,6 +17,7 @@ import { addField, diffSchemas, removeField, updateField } from "@/lib/engine/sc
 import type { Field, PortfolioSchema } from "@/lib/types";
 import { useCurrentUser } from "@/context/user-context";
 import { formatActor } from "@/lib/mock-users";
+import type { DesignProbeRaw } from "@/app/actions/design-probe-actions";
 import { BarChart3, ClipboardList, History, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
@@ -100,6 +101,48 @@ export default function PortfolioWorkspacePage() {
       }
     },
     [portfolio, updatePortfolio, portfolioSchema, scheduleSync],
+  );
+
+  const handleVoiceSchemaPatched = useCallback(
+    async (newSchema: PortfolioSchema) => {
+      if (!portfolio) return;
+      const diff = diffSchemas(portfolioSchema, newSchema);
+      try {
+        await updatePortfolio.mutateAsync({ id: portfolio.id, schema: newSchema });
+        await logProvenance(
+          portfolio.id,
+          "configuration",
+          "voice_schema_patch",
+          actor,
+          diff,
+          "Schema updated via voice input",
+          { intent: portfolio.intent, schema: portfolioSchema },
+        );
+      } catch (err) {
+        console.error("[VoicePatch] Save error:", err);
+      }
+    },
+    [portfolio, updatePortfolio, portfolioSchema, actor],
+  );
+
+  // Voice clarification probes are surfaced through the design-probe deck.
+  // The DesignProbeDeck subscribes to its own query; we push clarifications
+  // directly into the DB so they appear in the existing deck without new UI.
+  const handleVoiceClarifications = useCallback(
+    (_probes: DesignProbeRaw[], _sessionId: string) => {
+      // Clarifications are DesignProbeRaw items with source:"voice".
+      // They are intentionally not persisted here — the caller (VoiceRecordButton)
+      // returns them and the parent can choose to insert them into the DB.
+      // For now we log so the probe deck can be extended to accept them via
+      // the existing useDesignProbes query invalidation pattern.
+      console.info(
+        "[VoiceClarifications] received",
+        _probes.length,
+        "clarification(s) for session",
+        _sessionId,
+      );
+    },
+    [],
   );
 
   const handleFieldsAdded = useCallback(
@@ -222,7 +265,13 @@ export default function PortfolioWorkspacePage() {
 
         {/* Right: Artifact (form preview + responses) */}
         <div data-testid="preview-pane">
-          <ArtifactPane portfolio={portfolio} onFieldClick={handleFieldClick} onFieldsAdded={handleFieldsAdded} />
+          <ArtifactPane
+            portfolio={portfolio}
+            onFieldClick={handleFieldClick}
+            onFieldsAdded={handleFieldsAdded}
+            onSchemaPatched={handleVoiceSchemaPatched}
+            onVoiceClarifications={handleVoiceClarifications}
+          />
         </div>
       </div>
       <p

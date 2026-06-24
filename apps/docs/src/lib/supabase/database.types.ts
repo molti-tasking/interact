@@ -165,6 +165,7 @@ export type Database = {
           prev_intent: Json | null
           prev_schema: Json | null
           rationale: string | null
+          voice_session_id: string | null
         }
         Insert: {
           action: string
@@ -178,6 +179,7 @@ export type Database = {
           prev_intent?: Json | null
           prev_schema?: Json | null
           rationale?: string | null
+          voice_session_id?: string | null
         }
         Update: {
           action?: string
@@ -191,6 +193,7 @@ export type Database = {
           prev_intent?: Json | null
           prev_schema?: Json | null
           rationale?: string | null
+          voice_session_id?: string | null
         }
         Relationships: [
           {
@@ -208,22 +211,99 @@ export type Database = {
           id: string
           portfolio_id: string
           submitted_at: string | null
+          voice_session_id: string | null
         }
         Insert: {
           data: Json
           id?: string
           portfolio_id: string
           submitted_at?: string | null
+          voice_session_id?: string | null
         }
         Update: {
           data?: Json
           id?: string
           portfolio_id?: string
           submitted_at?: string | null
+          voice_session_id?: string | null
         }
         Relationships: [
           {
             foreignKeyName: "responses_portfolio_id_fkey"
+            columns: ["portfolio_id"]
+            isOneToOne: false
+            referencedRelation: "portfolios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "responses_voice_session_id_fkey"
+            columns: ["voice_session_id"]
+            isOneToOne: false
+            referencedRelation: "voice_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      voice_session_entries: {
+        Row: {
+          id: string
+          session_id: string
+          transcript: string
+          field_key: string
+          value: Json | null
+          llm_completion_id: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          session_id: string
+          transcript: string
+          field_key: string
+          value?: Json | null
+          llm_completion_id?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          session_id?: string
+          transcript?: string
+          field_key?: string
+          value?: Json | null
+          llm_completion_id?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "voice_session_entries_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "voice_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      voice_sessions: {
+        Row: {
+          id: string
+          portfolio_id: string
+          user_id: string
+          started_at: string
+        }
+        Insert: {
+          id?: string
+          portfolio_id: string
+          user_id: string
+          started_at?: string
+        }
+        Update: {
+          id?: string
+          portfolio_id?: string
+          user_id?: string
+          started_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "voice_sessions_portfolio_id_fkey"
             columns: ["portfolio_id"]
             isOneToOne: false
             referencedRelation: "portfolios"

@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { useProvenance } from "@/hooks/query/provenance";
 import { SchemaDiff } from "@/lib/types";
-import { ArrowLeft, Loader2 } from "lucide-react";
+import { ArrowLeft, Loader2, Mic } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 
@@ -52,6 +52,16 @@ export default function ProvenancePage() {
                       >
                         {entry.actor}
                       </Badge>
+                      {(entry as unknown as { voice_session_id?: string | null }).voice_session_id && (
+                        <Badge
+                          variant="outline"
+                          className="gap-1 text-violet-600 border-violet-300"
+                          title={`Voice session: ${(entry as unknown as { voice_session_id: string }).voice_session_id}`}
+                        >
+                          <Mic className="h-3 w-3" />
+                          voice
+                        </Badge>
+                      )}
                     </div>
                     <p className="text-sm font-medium">{entry.action}</p>
                     {entry.rationale && (
@@ -85,6 +95,26 @@ export default function ProvenancePage() {
                         ~{diff.modified.length} modified
                       </Badge>
                     )}
+                  </div>
+                )}
+
+                {/* Trace to transcript affordance */}
+                {(entry as unknown as { voice_session_id?: string | null }).voice_session_id && (
+                  <div className="mt-3 pt-3 border-t">
+                    <p className="text-xs text-muted-foreground flex items-center gap-1.5">
+                      <Mic className="h-3 w-3 text-violet-500 shrink-0" />
+                      <span>
+                        Sourced from voice session{" "}
+                        <code className="font-mono text-[10px] bg-muted px-1 rounded">
+                          {(entry as unknown as { voice_session_id: string }).voice_session_id.slice(0, 8)}…
+                        </code>
+                        . Full transcript and per-field values are stored in{" "}
+                        <code className="font-mono text-[10px] bg-muted px-1 rounded">
+                          voice_session_entries
+                        </code>
+                        .
+                      </span>
+                    </p>
                   </div>
                 )}
               </Card>
