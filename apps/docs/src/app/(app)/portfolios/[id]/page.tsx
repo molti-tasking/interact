@@ -17,7 +17,7 @@ import { addField, diffSchemas, removeField, updateField } from "@/lib/engine/sc
 import type { Field, PortfolioSchema } from "@/lib/types";
 import { useCurrentUser } from "@/context/user-context";
 import { formatActor } from "@/lib/mock-users";
-import { BarChart3, ClipboardList, History, Loader2 } from "lucide-react";
+import { BarChart3, ClipboardList, History, Loader2, Mic } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useCallback, useState } from "react";
@@ -165,6 +165,12 @@ export default function PortfolioWorkspacePage() {
           />
         </div>
         <div className="flex items-center gap-1.5">
+          <Button asChild size="sm" className="btn-brand font-sans">
+            <Link href={`/portfolios/${id}/record`}>
+              <Mic className="h-3.5 w-3.5" />
+              Record
+            </Link>
+          </Button>
           <Button
             variant="ghost"
             size="sm"
