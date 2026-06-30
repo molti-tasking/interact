@@ -4,6 +4,7 @@ import { resolveDesignProbeAction } from "@/app/actions/design-probe-actions";
 import { PromptDiff } from "@/components/form/configurator/PromptDiff";
 import { Button } from "@/components/ui/button";
 import { MarkdownEditor } from "@/components/ui/markdown-editor";
+import { MicButton } from "@/components/voice/MicButton";
 import {
   useDesignProbes,
   useReResolveDesignProbe,
@@ -94,6 +95,14 @@ export function ReflectiveConversationPane({
   const handleEditorChange = useCallback((markdown: string) => {
     setStructuredIntent((prev) => parseFromMarkdown(markdown, prev));
   }, []);
+
+  // Dictated text appends to the editor through the same parse path as typing.
+  const handleVoiceTranscript = useCallback(
+    (text: string) => {
+      handleEditorChange(editorValue ? `${editorValue}\n\n${text}` : text);
+    },
+    [editorValue, handleEditorChange],
+  );
 
   // -------------------------------------------------------------------
   // Button: Smart pipeline generate
@@ -189,16 +198,22 @@ export function ReflectiveConversationPane({
       <div className="space-y-3">
         <div className="flex items-center justify-between h-8 mb-3">
           <h3 className="workspace-section-label">Intent</h3>
-          {previousIntent && previousIntent !== editorValue && (
-            <Button
-              onClick={() => setShowDiff(!showDiff)}
-              variant="ghost"
-              size="sm"
-              className="h-6 px-2 text-[11px] text-muted-foreground/60 hover:text-foreground"
-            >
-              {!showDiff ? "View" : "Hide"} changes
-            </Button>
-          )}
+          <div className="flex items-center gap-1">
+            {previousIntent && previousIntent !== editorValue && (
+              <Button
+                onClick={() => setShowDiff(!showDiff)}
+                variant="ghost"
+                size="sm"
+                className="h-6 px-2 text-[11px] text-muted-foreground/60 hover:text-foreground"
+              >
+                {!showDiff ? "View" : "Hide"} changes
+              </Button>
+            )}
+            <MicButton
+              onTranscript={handleVoiceTranscript}
+              disabled={isGenerating || promptEditOpen}
+            />
+          </div>
         </div>
         <div className="relative overflow-hidden rounded-2xl">
           {/* Animated gradient when processing */}

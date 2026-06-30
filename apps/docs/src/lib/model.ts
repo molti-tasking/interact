@@ -17,3 +17,12 @@ const llm = createOpenAI({
 });
 
 export const model = llm(process.env.LLM_MODEL_NAME ?? "default");
+
+/**
+ * Whisper transcription model, routed through the same LiteLLM provider
+ * (OpenAI-compatible `/audio/transcriptions`). Self-hosted, so audio never
+ * leaves the deployment — no cloud ASR dependency.
+ */
+export const whisperModel = llm.transcription(
+  process.env.WHISPER_MODEL_NAME ?? "cavi/faster-whisper-large-v3",
+);

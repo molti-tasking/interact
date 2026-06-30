@@ -25,6 +25,7 @@ import {
   GalleryVerticalEnd,
   History,
   Home,
+  Mic,
   Pencil,
   Plus,
 } from "lucide-react";
@@ -62,6 +63,14 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                   <Link href="/portfolios">
                     <Home className="h-4 w-4" />
                     <span>Home</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild>
+                  <Link href="/record">
+                    <Mic className="h-4 w-4" />
+                    <span>Record mode</span>
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
@@ -106,6 +115,14 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                         <Link href={`/portfolios/${portfolio.id}`}>
                           <Pencil className="h-3 w-3" />
                           <span className="text-xs">Design</span>
+                        </Link>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                    <SidebarMenuItem className="ml-4">
+                      <SidebarMenuButton asChild className="h-7">
+                        <Link href={`/portfolios/${portfolio.id}/record`}>
+                          <Mic className="h-3 w-3" />
+                          <span className="text-xs">Record</span>
                         </Link>
                       </SidebarMenuButton>
                     </SidebarMenuItem>
