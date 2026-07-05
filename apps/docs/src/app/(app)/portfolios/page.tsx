@@ -4,12 +4,30 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { usePortfolios } from "@/hooks/query/portfolios";
+import { useSpaces } from "@/hooks/query/spaces";
 import type { Portfolio, PortfolioSchema } from "@/lib/types";
-import { CornerDownRight, FileText, Plus } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { CornerDownRight, FileText, Folder, Plus } from "lucide-react";
 import Link from "next/link";
+import { useMemo, useState } from "react";
 
 export default function PortfoliosPage() {
-  const { data: portfolios, isLoading } = usePortfolios();
+  const { data: allPortfolios, isLoading } = usePortfolios();
+  const { data: spaces } = useSpaces();
+  const [spaceFilter, setSpaceFilter] = useState<string | null>(null);
+
+  const spaceNames = useMemo(
+    () => new Map((spaces ?? []).map((s) => [s.id, s.name])),
+    [spaces],
+  );
+
+  const portfolios = useMemo(
+    () =>
+      spaceFilter
+        ? (allPortfolios ?? []).filter((p) => p.space_id === spaceFilter)
+        : allPortfolios,
+    [allPortfolios, spaceFilter],
+  );
 
   return (
     <div className="space-y-6">
@@ -28,6 +46,28 @@ export default function PortfoliosPage() {
         </Button>
       </div>
 
+      {/* Space filter chips */}
+      {spaces && spaces.length > 0 && (
+        <div className="flex flex-wrap items-center gap-1.5">
+          <FilterChip
+            active={spaceFilter === null}
+            onClick={() => setSpaceFilter(null)}
+          >
+            All spaces
+          </FilterChip>
+          {spaces.map((space) => (
+            <FilterChip
+              key={space.id}
+              active={spaceFilter === space.id}
+              onClick={() => setSpaceFilter(space.id)}
+            >
+              <Folder className="h-3 w-3 mr-1" />
+              {space.name}
+            </FilterChip>
+          ))}
+        </div>
+      )}
+
       {isLoading ? (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {[1, 2, 3].map((i) => (
@@ -41,12 +81,27 @@ export default function PortfoliosPage() {
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {buildLineageTree(portfolios).map((node) => (
             <div key={node.portfolio.id} className="flex flex-col gap-2">
-              <PortfolioCard portfolio={node.portfolio} />
+              <PortfolioCard
+                portfolio={node.portfolio}
+                spaceName={
+                  node.portfolio.space_id
+                    ? spaceNames.get(node.portfolio.space_id)
+                    : undefined
+                }
+              />
               {node.children.map((child) => (
                 <div key={child.id} className="flex items-start gap-1.5 pl-3">
                   <CornerDownRight className="h-3.5 w-3.5 text-muted-foreground/50 mt-5 shrink-0" />
                   <div className="flex-1">
-                    <PortfolioCard portfolio={child} isDerived />
+                    <PortfolioCard
+                      portfolio={child}
+                      isDerived
+                      spaceName={
+                        child.space_id
+                          ? spaceNames.get(child.space_id)
+                          : undefined
+                      }
+                    />
                   </div>
                 </div>
               ))}
@@ -104,12 +159,40 @@ function buildLineageTree(portfolios: Portfolio[]): LineageNode[] {
   }));
 }
 
+function FilterChip({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={cn(
+        "flex items-center rounded-full border px-3 py-1 text-xs font-medium transition-colors",
+        active
+          ? "border-brand-accent/40 bg-brand-accent/10 text-brand-accent"
+          : "text-muted-foreground hover:text-foreground hover:border-primary/30",
+      )}
+    >
+      {children}
+    </button>
+  );
+}
+
 function PortfolioCard({
   portfolio,
   isDerived,
+  spaceName,
 }: {
   portfolio: Portfolio;
   isDerived?: boolean;
+  spaceName?: string;
 }) {
   const fieldCount = (portfolio.schema as unknown as PortfolioSchema).fields
     .length;
@@ -135,6 +218,12 @@ function PortfolioCard({
           <span>
             {fieldCount} field{fieldCount !== 1 ? "s" : ""}
           </span>
+          {spaceName && (
+            <span className="flex items-center gap-1 truncate">
+              <Folder className="h-3 w-3 shrink-0" />
+              {spaceName}
+            </span>
+          )}
           {isDerived && portfolio.projection && (
             <Badge variant="outline" className="text-[10px]">
               {portfolio.projection.type}

@@ -16,6 +16,7 @@ import type {
   PortfolioSchema,
   ProvenanceEntry,
   SchemaDiff,
+  Space,
   StructuredIntent,
 } from "../types";
 import type { Tables } from "./database.types";
@@ -28,6 +29,7 @@ export type PortfolioRow = Tables<"portfolios">;
 export type ProvenanceRow = Tables<"provenance_log">;
 export type ResponseRow = Tables<"responses">;
 export type DesignProbeRow = Tables<"design_probes">;
+export type SpaceRow = Tables<"spaces">;
 
 // ---------------------------------------------------------------------------
 // Domain-typed insert/update helpers
@@ -39,6 +41,7 @@ export interface PortfolioUpdate {
   intent?: StructuredIntent;
   schema?: PortfolioSchema;
   base_id?: string | null;
+  space_id?: string | null;
   projection?: DerivationSpec | null;
   status?: string;
   creator_role?: string | null;
@@ -62,6 +65,17 @@ export function rowToPortfolio(row: PortfolioRow): Portfolio {
     schema: row.schema as unknown as PortfolioSchema,
     projection: row.projection as unknown as DerivationSpec | null,
     status: (row.status ?? "draft") as "draft" | "published",
+  };
+}
+
+export function rowToSpace(row: SpaceRow): Space {
+  return {
+    id: row.id,
+    name: row.name,
+    description: row.description,
+    origin: (row.origin === "system" ? "system" : "user") as Space["origin"],
+    created_at: row.created_at ?? new Date().toISOString(),
+    updated_at: row.updated_at ?? new Date().toISOString(),
   };
 }
 
