@@ -1,0 +1,96 @@
+name: Apply Supabase migrations
+
+# Applies apps/docs/supabase/migrations/*.sql to the hosted Supabase database.
+#
+# Required repository secret:
+#   SUPABASE_DB_URL — Postgres connection string of the project
+#     (Supabase Dashboard → Project Settings → Database → Connection string → URI)
+#
+# The Supabase CLI tracks applied migrations in the remote
+# supabase_migrations.schema_migrations table. If the database schema was
+# originally created by hand (SQL editor) rather than via the CLI, run this
+# workflow once manually with `baseline_through` set to the last migration
+# version that is already live (e.g. 004) — those are then recorded as applied
+# without being re-run, and everything after is applied normally.
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "apps/docs/supabase/migrations/**"
+      - ".github/workflows/apply-migrations.yml"
+  workflow_dispatch:
+    inputs:
+      baseline_through:
+        description: "Mark migrations up to this version (e.g. 004) as already applied without running them"
+        required: false
+        type: string
+      dry_run:
+        description: "Only print which migrations would be applied"
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: supabase-migrations
+  cancel-in-progress: false
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/docs
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Check database secret
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          if [ -z "$SUPABASE_DB_URL" ]; then
+            echo "::error::Repository secret SUPABASE_DB_URL is not set (Project Settings → Database → Connection string → URI)."
+            exit 1
+          fi
+
+      - name: Baseline already-applied migrations
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.baseline_through != '' }}
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          BASELINE: ${{ inputs.baseline_through }}
+        run: |
+          for f in supabase/migrations/*.sql; do
+            v="$(basename "$f" | cut -d_ -f1)"
+            if [ "$((10#$v))" -le "$((10#$BASELINE))" ]; then
+              echo "Baseline: marking $v as applied"
+              supabase migration repair --status applied "$v" --db-url "$SUPABASE_DB_URL"
+            fi
+          done
+
+      - name: Show pending migrations
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: supabase migration list --db-url "$SUPABASE_DB_URL"
+
+      - name: Apply migrations
+        if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.dry_run) }}
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: supabase db push --db-url "$SUPABASE_DB_URL"
+
+      - name: Dry run
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run }}
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: supabase db push --dry-run --db-url "$SUPABASE_DB_URL"
