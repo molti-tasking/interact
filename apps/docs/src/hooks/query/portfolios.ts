@@ -13,15 +13,19 @@ function portfolioKey(id: string) {
   return [...PORTFOLIOS_KEY, id] as const;
 }
 
-export function usePortfolios() {
+export function usePortfolios(spaceId?: string | null) {
   return useQuery({
-    queryKey: PORTFOLIOS_KEY,
+    // Include the space filter in the key so per-space lists don't collide
+    queryKey: spaceId ? [...PORTFOLIOS_KEY, { spaceId }] : PORTFOLIOS_KEY,
     queryFn: async (): Promise<Portfolio[]> => {
       const supabase = createClient();
-      const { data, error } = await supabase
+      let query = supabase
         .from("portfolios")
         .select("*")
         .order("updated_at", { ascending: false });
+      if (spaceId) query = query.eq("space_id", spaceId);
+
+      const { data, error } = await query;
 
       if (error) throw error;
       return (data ?? []).map(rowToPortfolio);
@@ -64,6 +68,7 @@ export function useCreatePortfolio() {
           intent: input.intent as unknown as Json,
           schema: input.schema as unknown as Json,
           base_id: input.base_id ?? null,
+          space_id: input.space_id ?? null,
           projection: input.projection
             ? (input.projection as unknown as Json)
             : null,

@@ -96,13 +96,20 @@ export function ReflectiveConversationPane({
     setStructuredIntent((prev) => parseFromMarkdown(markdown, prev));
   }, []);
 
-  // Dictated text appends to the editor through the same parse path as typing.
-  const handleVoiceTranscript = useCallback(
-    (text: string) => {
-      handleEditorChange(editorValue ? `${editorValue}\n\n${text}` : text);
-    },
-    [editorValue, handleEditorChange],
-  );
+  // Dictated text is appended to the *purpose* section — not the end of the
+  // markdown document, where it would land in whichever section happens to be
+  // last (e.g. Constraints).
+  const handleVoiceTranscript = useCallback((text: string) => {
+    setStructuredIntent((prev) => ({
+      ...prev,
+      purpose: {
+        content: prev.purpose.content
+          ? `${prev.purpose.content}\n\n${text}`
+          : text,
+        updatedAt: new Date().toISOString(),
+      },
+    }));
+  }, []);
 
   // -------------------------------------------------------------------
   // Button: Smart pipeline generate

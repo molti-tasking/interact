@@ -241,6 +241,21 @@ export interface PortfolioSchema {
 }
 
 // ---------------------------------------------------------------------------
+// Space (maps to `spaces` table row)
+// A grouping context above portfolios: selected by the user at the start of
+// a session, or created automatically by the system.
+// ---------------------------------------------------------------------------
+
+export interface Space {
+  id: string;
+  name: string;
+  description: string | null;
+  origin: "user" | "system";
+  created_at: string;
+  updated_at: string;
+}
+
+// ---------------------------------------------------------------------------
 // Portfolio (maps to `portfolios` table row)
 // ---------------------------------------------------------------------------
 

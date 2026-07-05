@@ -114,6 +114,7 @@ export type Database = {
           intent: Json
           projection: Json | null
           schema: Json
+          space_id: string | null
           status: string | null
           title: string
           updated_at: string | null
@@ -126,6 +127,7 @@ export type Database = {
           intent: Json
           projection?: Json | null
           schema: Json
+          space_id?: string | null
           status?: string | null
           title: string
           updated_at?: string | null
@@ -138,6 +140,7 @@ export type Database = {
           intent?: Json
           projection?: Json | null
           schema?: Json
+          space_id?: string | null
           status?: string | null
           title?: string
           updated_at?: string | null
@@ -148,6 +151,13 @@ export type Database = {
             columns: ["base_id"]
             isOneToOne: false
             referencedRelation: "portfolios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "portfolios_space_id_fkey"
+            columns: ["space_id"]
+            isOneToOne: false
+            referencedRelation: "spaces"
             referencedColumns: ["id"]
           },
         ]
@@ -230,6 +240,33 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      spaces: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          id: string
+          name: string
+          origin: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          name: string
+          origin?: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          name?: string
+          origin?: string
+          updated_at?: string | null
+        }
+        Relationships: []
       }
     }
     Views: {

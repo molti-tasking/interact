@@ -2,32 +2,45 @@
 
 import { Button } from "@/components/ui/button";
 import { useCurrentUser } from "@/context/user-context";
-import { usePipelineGenerate } from "@/hooks/query/pipeline";
 import { usePortfolio } from "@/hooks/query/portfolios";
+import { useSpace } from "@/hooks/query/spaces";
+import {
+  useUtteranceProcessor,
+  type UtteranceEventKind,
+} from "@/hooks/voice/useUtteranceProcessor";
 import { useVoiceCapture } from "@/hooks/voice/useVoiceCapture";
 import { formatActor } from "@/lib/mock-users";
 import {
+  emptyPortfolioSchema,
   emptyStructuredIntent,
   type PortfolioSchema,
-  type StructuredIntent,
 } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import {
+  loadVoiceMode,
+  saveVoiceMode,
+  VOICE_MODES,
+  type VoiceInteractionMode,
+} from "@/lib/voice-modes";
+import {
   BarChart3,
+  Check,
   ClipboardList,
+  Folder,
   History,
   Loader2,
   Mic,
   Pencil,
   Sparkles,
   Square,
+  Trash2,
   X,
 } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 
-type LogKind = "speech" | "processing" | "result" | "system" | "error";
+type LogKind = "speech" | UtteranceEventKind;
 
 interface LogEntry {
   id: string;
@@ -36,27 +49,56 @@ interface LogEntry {
   at: string;
 }
 
+interface PendingReview {
+  id: string;
+  text: string;
+}
+
 /**
  * Record mode — a full-screen, hands-free dictation surface for a single
- * portfolio. Each spoken phrase is transcribed, appended to the form's intent,
- * and run through the same pipeline the workspace uses, with every step echoed
- * into a live tracing log. Detail pages stay one click away in the top bar.
+ * portfolio. Spoken phrases are transcribed and applied through one of three
+ * interaction variants (smart routing, raw append, or review-first); all
+ * processing is serialized through an utterance queue so phrases spoken while
+ * the pipeline is busy are queued instead of lost.
  */
 export default function RecordModePage() {
   const { id } = useParams<{ id: string }>();
   const { data: portfolio, isLoading } = usePortfolio(id);
+  const { data: space } = useSpace(portfolio?.space_id);
   const { currentUser } = useCurrentUser();
   const actor = formatActor(currentUser);
-  const pipeline = usePipelineGenerate(id);
+
+  const [mode, setMode] = useState<VoiceInteractionMode>("smart");
+  useEffect(() => setMode(loadVoiceMode()), []);
+  const changeMode = (next: VoiceInteractionMode) => {
+    setMode(next);
+    saveVoiceMode(next);
+  };
 
   const [log, setLog] = useState<LogEntry[]>([]);
   const logSeq = useRef(0);
   const logEndRef = useRef<HTMLDivElement>(null);
 
-  // Always patch onto the freshest persisted intent, even mid-flight.
-  const latestIntentRef = useRef<StructuredIntent>(emptyStructuredIntent());
+  const [pendingReviews, setPendingReviews] = useState<PendingReview[]>([]);
+  const reviewSeq = useRef(0);
+
+  const processor = useUtteranceProcessor(id, {
+    intent: portfolio?.intent ?? emptyStructuredIntent(),
+    schema:
+      (portfolio?.schema as unknown as PortfolioSchema) ??
+      emptyPortfolioSchema(),
+  });
+
+  // Adopt fresh server state whenever the queue is idle.
   useEffect(() => {
-    if (portfolio) latestIntentRef.current = portfolio.intent;
+    if (portfolio) {
+      processor.sync({
+        intent: portfolio.intent,
+        schema: portfolio.schema as unknown as PortfolioSchema,
+      });
+    }
+    // processor.sync is stable
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [portfolio]);
 
   const pushLog = useCallback((kind: LogKind, text: string) => {
@@ -78,52 +120,47 @@ export default function RecordModePage() {
     logEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [log]);
 
+  const applyUtterance = useCallback(
+    (text: string, processingMode: "append" | "smart") => {
+      processor.enqueue({
+        text,
+        mode: processingMode,
+        actor,
+        onEvent: pushLog,
+      });
+    },
+    [actor, processor, pushLog],
+  );
+
   const handleTranscript = useCallback(
-    async (text: string) => {
+    (text: string) => {
       pushLog("speech", text);
       if (!portfolio) return;
 
-      const base = latestIntentRef.current;
-      const nextIntent: StructuredIntent = {
-        ...base,
-        purpose: {
-          content: base.purpose.content
-            ? `${base.purpose.content}\n\n${text}`
-            : text,
-          updatedAt: new Date().toISOString(),
-        },
-      };
-
-      pushLog("processing", "Updating the form from what you said…");
-      try {
-        const result = await pipeline.mutateAsync({
-          previousIntent: base,
-          currentIntent: nextIntent,
-          currentSchema: portfolio.schema as unknown as PortfolioSchema,
-          actor,
-        });
-        latestIntentRef.current = result.intent;
-
-        if (result.strategy.kind === "noop") {
-          pushLog("system", "No changes detected.");
-        } else {
-          const fieldCount = result.schema?.fields.length;
-          pushLog(
-            "result",
-            fieldCount != null
-              ? `Form updated (${result.strategy.kind}) — now ${fieldCount} field${fieldCount === 1 ? "" : "s"}.`
-              : `Intent updated (${result.strategy.kind}).`,
-          );
-        }
-      } catch (err) {
-        pushLog(
-          "error",
-          err instanceof Error ? err.message : "Failed to update the form.",
-        );
+      if (mode === "review") {
+        setPendingReviews((prev) => [
+          ...prev,
+          { id: `review-${reviewSeq.current++}`, text },
+        ]);
+        return;
       }
+
+      applyUtterance(text, mode);
     },
-    [actor, pipeline, portfolio, pushLog],
+    [applyUtterance, mode, portfolio, pushLog],
   );
+
+  const approveReview = useCallback(
+    (review: PendingReview, editedText: string) => {
+      setPendingReviews((prev) => prev.filter((r) => r.id !== review.id));
+      applyUtterance(editedText.trim(), "smart");
+    },
+    [applyUtterance],
+  );
+
+  const discardReview = useCallback((reviewId: string) => {
+    setPendingReviews((prev) => prev.filter((r) => r.id !== reviewId));
+  }, []);
 
   const { isRecording, isTranscribing, error, start, stop } =
     useVoiceCapture(handleTranscript);
@@ -132,7 +169,7 @@ export default function RecordModePage() {
     if (error) pushLog("error", error);
   }, [error, pushLog]);
 
-  const isBusy = isTranscribing || pipeline.isPending;
+  const isBusy = isTranscribing || processor.isProcessing;
   const fieldCount =
     (portfolio?.schema as unknown as PortfolioSchema | undefined)?.fields
       .length ?? 0;
@@ -170,6 +207,13 @@ export default function RecordModePage() {
             />
             Record mode
           </span>
+          {space && (
+            <span className="flex min-w-0 items-center gap-1 text-xs text-muted-foreground">
+              <Folder className="h-3 w-3 shrink-0" />
+              <span className="truncate">{space.name}</span>
+              <span className="text-muted-foreground/50">/</span>
+            </span>
+          )}
           <h1 className="truncate text-sm font-medium text-primary">
             {portfolio.title}
           </h1>
@@ -206,6 +250,32 @@ export default function RecordModePage() {
       <div className="grid flex-1 grid-rows-[1fr_auto] overflow-hidden md:grid-cols-[1fr_minmax(320px,420px)] md:grid-rows-1">
         {/* Record control */}
         <div className="flex flex-col items-center justify-center gap-6 p-8">
+          {/* Interaction variant switcher */}
+          <div
+            role="radiogroup"
+            aria-label="Voice interaction mode"
+            className="flex items-center gap-1 rounded-full border bg-muted/40 p-1"
+          >
+            {VOICE_MODES.map((m) => (
+              <button
+                key={m.id}
+                type="button"
+                role="radio"
+                aria-checked={mode === m.id}
+                title={m.description}
+                onClick={() => changeMode(m.id)}
+                className={cn(
+                  "rounded-full px-3.5 py-1 text-xs font-medium transition-colors",
+                  mode === m.id
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                {m.label}
+              </button>
+            ))}
+          </div>
+
           <button
             type="button"
             onClick={() => (isRecording ? stop() : start())}
@@ -232,17 +302,36 @@ export default function RecordModePage() {
             <p className="text-base font-medium text-primary">
               {isTranscribing
                 ? "Transcribing…"
-                : pipeline.isPending
-                  ? "Updating the form…"
-                  : isRecording
-                    ? "Listening — tap to stop"
+                : isRecording
+                  ? "Listening — tap to stop"
+                  : processor.isProcessing
+                    ? "Updating the form — keep dictating"
                     : "Tap to dictate"}
             </p>
             <p className="mt-1 text-sm text-muted-foreground font-sans">
               Speak naturally about what this form should collect. {fieldCount}{" "}
               field{fieldCount === 1 ? "" : "s"} so far.
+              {processor.queueLength > 1 &&
+                ` ${processor.queueLength - 1} phrase${processor.queueLength === 2 ? "" : "s"} queued.`}
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground/70 font-sans max-w-sm">
+              {VOICE_MODES.find((m) => m.id === mode)?.description}
             </p>
           </div>
+
+          {/* Review-mode confirmation cards */}
+          {pendingReviews.length > 0 && (
+            <div className="w-full max-w-md space-y-2">
+              {pendingReviews.map((review) => (
+                <ReviewCard
+                  key={review.id}
+                  review={review}
+                  onApprove={approveReview}
+                  onDiscard={discardReview}
+                />
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Tracing log */}
@@ -272,6 +361,50 @@ export default function RecordModePage() {
             </div>
           )}
         </aside>
+      </div>
+    </div>
+  );
+}
+
+function ReviewCard({
+  review,
+  onApprove,
+  onDiscard,
+}: {
+  review: PendingReview;
+  onApprove: (review: PendingReview, editedText: string) => void;
+  onDiscard: (reviewId: string) => void;
+}) {
+  const [text, setText] = useState(review.text);
+
+  return (
+    <div className="rounded-xl border bg-muted/30 p-3 space-y-2 text-left shadow-sm">
+      <textarea
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        rows={2}
+        aria-label="Edit transcript before applying"
+        className="w-full resize-none rounded-lg border bg-background px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring/30"
+      />
+      <div className="flex justify-end gap-2">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => onDiscard(review.id)}
+          className="text-muted-foreground"
+        >
+          <Trash2 className="h-3.5 w-3.5 mr-1" />
+          Discard
+        </Button>
+        <Button
+          size="sm"
+          disabled={!text.trim()}
+          onClick={() => onApprove(review, text)}
+          className="btn-brand font-sans"
+        >
+          <Check className="h-3.5 w-3.5 mr-1" />
+          Apply
+        </Button>
       </div>
     </div>
   );
