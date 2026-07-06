@@ -63,6 +63,49 @@ jobs:
             exit 1
           fi
 
+      # Fail fast with an actionable message instead of the CLI's opaque
+      # "PgClient: Failed to connect". Prints only host/port — never
+      # credentials.
+      - name: Connection diagnostics
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          python3 - <<'EOF'
+          import os, socket, sys
+          import urllib.parse as u
+
+          url = os.environ["SUPABASE_DB_URL"]
+          p = u.urlsplit(url)
+          host, port = p.hostname, p.port or 5432
+
+          if p.scheme not in ("postgres", "postgresql") or not host:
+              print("::error::SUPABASE_DB_URL is not a valid postgres:// connection URI.")
+              sys.exit(1)
+          if not p.password:
+              print("::error::SUPABASE_DB_URL has no password — replace [YOUR-PASSWORD] with the real database password (URL-encoded).")
+              sys.exit(1)
+
+          print(f"Database host: {host}:{port}")
+
+          if host.startswith("db.") and host.endswith(".supabase.co"):
+              print("::warning::This is the DIRECT connection host, which is IPv6-only on Supabase. GitHub runners have no IPv6 — use the Session pooler URI (…pooler.supabase.com) instead.")
+
+          try:
+              infos = socket.getaddrinfo(host, port, socket.AF_INET)
+              print("IPv4 addresses:", sorted({i[4][0] for i in infos}))
+          except socket.gaierror as e:
+              print(f"::error::{host} has no IPv4 address ({e}). GitHub runners cannot reach IPv6-only hosts — update SUPABASE_DB_URL to the Session pooler connection string (Dashboard → Connect → Session pooler).")
+              sys.exit(1)
+
+          try:
+              socket.create_connection((host, port), timeout=10).close()
+          except OSError as e:
+              print(f"::error::TCP connection to {host}:{port} failed ({e}). Check Supabase Network Restrictions (Project Settings → Database) and the port.")
+              sys.exit(1)
+
+          print("TCP connection OK")
+          EOF
+
       - name: Baseline already-applied migrations
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.baseline_through != '' }}
         env:
