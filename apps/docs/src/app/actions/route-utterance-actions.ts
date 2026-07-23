@@ -24,13 +24,16 @@ import { z } from "zod";
  * - Direct form edits ("make the email field required") are flagged as
  *   `schemaEdit` so the caller can route them through the patch-based
  *   design-probe resolution path instead of a full regeneration.
+ * - Concrete values ("I found one t-shirt, two hoodies and a blue beanie")
+ *   are flagged as `dataEntry` and extracted into records keyed by the
+ *   schema's field names, so the caller can insert them as form responses.
  */
 
 const routeUtteranceSchema = z.object({
   route: z
-    .enum(["intent", "schemaEdit"])
+    .enum(["intent", "schemaEdit", "dataEntry"])
     .describe(
-      "'schemaEdit' only for direct commands about existing form fields; otherwise 'intent'",
+      "'schemaEdit' for direct commands about existing form fields; 'dataEntry' when the utterance states concrete values to record; otherwise 'intent'",
     ),
   summary: z
     .string()
@@ -46,7 +49,21 @@ const routeUtteranceSchema = z.object({
           ),
       }),
     )
-    .describe("Only sections the utterance affects. Empty when route is schemaEdit."),
+    .describe("Only sections the utterance affects. Empty unless route is intent."),
+  records: z
+    .array(
+      z.object({
+        values: z.array(
+          z.object({
+            field: z.string().describe("EXACT field key from CURRENT FORM FIELDS"),
+            value: z.string().describe("The value as a plain string"),
+          }),
+        ),
+      }),
+    )
+    .describe(
+      "Only when route is dataEntry: one record per real-world entry mentioned. Empty otherwise.",
+    ),
 });
 
 export interface RoutedSection {
@@ -54,11 +71,16 @@ export interface RoutedSection {
   mergedContent: string;
 }
 
+export interface RoutedRecord {
+  values: { field: string; value: string }[];
+}
+
 export interface RouteUtteranceResponse {
   success: boolean;
-  route?: "intent" | "schemaEdit";
+  route?: "intent" | "schemaEdit" | "dataEntry";
   summary?: string;
   sections?: RoutedSection[];
+  records?: RoutedRecord[];
   error?: string;
 }
 
@@ -106,7 +128,14 @@ THE USER JUST SAID: "${utterance}"
 
 Decide the route:
 - "schemaEdit": ONLY if the utterance is a direct command about specific existing form fields (e.g. "remove the email field", "make phone number required", "add an option for vegan")${hasSchema ? "" : " — NOT available here because the form has no fields yet; use 'intent'"}.
+- "dataEntry": the utterance states CONCRETE VALUES to record with the form — observations, counts, found items, measurements (e.g. "I found one t-shirt, two hoodies and a blue beanie")${hasSchema ? "" : " — NOT available here because the form has no fields yet; use 'intent'"}. Design talk about what KINDS of data to collect is "intent", not "dataEntry".
 - "intent": everything else — statements about what the form is for, who fills it in, what to exclude, or rules/constraints.
+
+For route "dataEntry", extract "records":
+- One record per real-world entry (e.g. three items mentioned → three records).
+- Each value uses the EXACT field key from CURRENT FORM FIELDS ("name" property) — never invent keys.
+- Values as plain strings ("2", not "two"); for select fields use one of the defined option values.
+- Skip fields the utterance says nothing about.
 
 For route "intent", return the affected sections with their COMPLETE merged content:
 - "purpose": what the form is for. Synthesize into a coherent 2-4 sentence paragraph — do NOT append the raw transcript. Drop filler words. If the utterance corrects or contradicts existing content, the newest statement wins.
@@ -140,15 +169,30 @@ Always return a one-sentence "summary" of what you understood, phrased as a conf
 
     const parsed = result.output;
 
-    // A schemaEdit route is only valid when there is a schema to edit
+    // schemaEdit and dataEntry are only valid when there is a schema
     const route =
-      parsed.route === "schemaEdit" && hasSchema ? "schemaEdit" : "intent";
+      (parsed.route === "schemaEdit" || parsed.route === "dataEntry") &&
+      !hasSchema
+        ? "intent"
+        : parsed.route;
+
+    // Keep only values that reference real field keys
+    const validKeys = new Set(currentSchema.fields.map((f) => f.name));
+    const records =
+      route === "dataEntry"
+        ? (parsed.records ?? [])
+            .map((r) => ({
+              values: r.values.filter((v) => validKeys.has(v.field)),
+            }))
+            .filter((r) => r.values.length > 0)
+        : [];
 
     return {
       success: true,
       route,
       summary: parsed.summary,
       sections: route === "intent" ? parsed.sections : [],
+      records,
     };
   } catch (error) {
     console.error("Utterance routing error:", error);

@@ -7,6 +7,7 @@ import { diffSchemas } from "@/lib/engine/schema-ops";
 import { sanitizePurposeText } from "@/lib/engine/structured-intent";
 import { usePipelineGenerate } from "@/hooks/query/pipeline";
 import { createClient } from "@/lib/supabase/client";
+import { buildResponseData } from "@/lib/voice/data-entry";
 import type {
   PortfolioSchema,
   SchemaDiff,
@@ -190,6 +191,41 @@ export function useUtteranceProcessor(
     [portfolioId],
   );
 
+  const runDataEntry = useCallback(
+    async (
+      params: ProcessParams,
+      records: { values: { field: string; value: string }[] }[],
+    ): Promise<void> => {
+      const base = stateRef.current;
+      const rows = records
+        .map((r) => buildResponseData(base.schema, r.values))
+        .filter((data) => Object.keys(data).length > 0)
+        .map((data) => ({
+          portfolio_id: portfolioId,
+          data: JSON.parse(JSON.stringify(data)),
+        }));
+
+      if (rows.length === 0) {
+        params.onEvent(
+          "system",
+          "Heard values, but none matched the form's fields.",
+        );
+        return;
+      }
+
+      const supabase = createClient();
+      const { error } = await supabase.from("responses").insert(rows);
+      if (error) throw error;
+
+      queryClient.invalidateQueries({ queryKey: ["responses", portfolioId] });
+      params.onEvent(
+        "result",
+        `Recorded ${rows.length} entr${rows.length === 1 ? "y" : "ies"} — see them under Responses.`,
+      );
+    },
+    [portfolioId, queryClient],
+  );
+
   const runSmart = useCallback(
     async (params: ProcessParams): Promise<void> => {
       const base = stateRef.current;
@@ -216,6 +252,12 @@ export function useUtteranceProcessor(
       if (routed.route === "schemaEdit") {
         params.onEvent("processing", "Applying the edit to the form…");
         await runSchemaEdit(params);
+        return;
+      }
+
+      if (routed.route === "dataEntry") {
+        params.onEvent("processing", "Recording the values…");
+        await runDataEntry(params, routed.records ?? []);
         return;
       }
 
@@ -259,7 +301,7 @@ export function useUtteranceProcessor(
         );
       }
     },
-    [applyIntentSections, pipeline, runAppend, runSchemaEdit],
+    [applyIntentSections, pipeline, runAppend, runDataEntry, runSchemaEdit],
   );
 
   /**
