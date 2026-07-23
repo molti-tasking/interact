@@ -50,9 +50,26 @@ async function transcribeReal(
     const result = await withTracing({ tags: ["voice", "transcribe"] }, () =>
       transcribe({ model: whisperModel, audio: bytes }),
     );
+
+    // Reject Whisper hallucinations (looped boilerplate on near-silent clips)
+    // before they reach the intent pipeline.
+    const { assessTranscript } = await import("@/lib/voice/transcript-guard");
+    const assessment = assessTranscript(
+      result.text ?? "",
+      result.durationInSeconds,
+    );
+    if (!assessment.ok) {
+      console.warn("Transcript rejected:", assessment.reason);
+      return {
+        success: false,
+        error:
+          "No clear speech detected — try again a bit closer to the microphone.",
+      };
+    }
+
     return {
       success: true,
-      text: result.text,
+      text: assessment.text,
       language: result.language,
       durationInSeconds: result.durationInSeconds,
     };
