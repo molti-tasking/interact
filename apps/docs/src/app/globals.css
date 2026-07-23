@@ -195,6 +195,47 @@
   animation: gradient 8s ease infinite;
 }
 
+/* Ambient water background for voice record mode (WaterBackground.tsx) */
+@keyframes water-drift {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    /* Shift by exactly one wavelength (a sine period), so the loop is seamless
+       regardless of screen width. Distance is set per-layer via --water-drift. */
+    transform: translateX(calc(-1 * var(--water-drift, 200px)));
+  }
+}
+
+.water-drift {
+  animation-name: water-drift;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+
+@keyframes water-swell {
+  0% {
+    transform: scaleY(1);
+  }
+  35% {
+    transform: scaleY(1.35);
+  }
+  100% {
+    transform: scaleY(1);
+  }
+}
+
+.water-body--splash {
+  animation: water-swell 1.5s ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .water-drift,
+  .water-body--splash {
+    animation: none;
+  }
+}
+
 /* Markdown editor overrides */
 .w-md-editor-bar {
   display: none;

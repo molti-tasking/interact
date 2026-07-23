@@ -9,6 +9,7 @@ import { usePipelineGenerate } from "@/hooks/query/pipeline";
 import { createClient } from "@/lib/supabase/client";
 import type {
   PortfolioSchema,
+  SchemaDiff,
   SectionKey,
   StructuredIntent,
 } from "@/lib/types";
@@ -28,6 +29,12 @@ interface ProcessParams {
   mode: "append" | "smart";
   actor: string;
   onEvent: (kind: UtteranceEventKind, text: string) => void;
+  /**
+   * Fired whenever an utterance produces a new schema, with the field-level
+   * diff and the strategy that produced it. Drives the ambient water animation
+   * in record mode; optional so non-visual callers can ignore it.
+   */
+  onSchemaChange?: (diff: SchemaDiff, strategyKind: string) => void;
 }
 
 /**
@@ -103,6 +110,13 @@ export function useUtteranceProcessor(
         schema: result.schema ?? base.schema,
       };
 
+      if (result.schema) {
+        params.onSchemaChange?.(
+          diffSchemas(base.schema, result.schema),
+          result.strategy.kind,
+        );
+      }
+
       if (result.strategy.kind === "noop") {
         params.onEvent("system", "No changes detected.");
       } else {
@@ -167,6 +181,7 @@ export function useUtteranceProcessor(
       );
 
       stateRef.current = { intent: newIntent, schema: newSchema };
+      params.onSchemaChange?.(editDiff, "voice_edit");
       params.onEvent(
         "result",
         `Edit applied — now ${newSchema.fields.length} field${newSchema.fields.length === 1 ? "" : "s"}.`,
@@ -224,6 +239,13 @@ export function useUtteranceProcessor(
         intent: result.intent,
         schema: result.schema ?? base.schema,
       };
+
+      if (result.schema) {
+        params.onSchemaChange?.(
+          diffSchemas(base.schema, result.schema),
+          result.strategy.kind,
+        );
+      }
 
       if (result.strategy.kind === "noop") {
         params.onEvent("system", "No changes detected.");
