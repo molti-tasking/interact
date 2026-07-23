@@ -16,7 +16,8 @@ const llm = createOpenAI({
   },
 });
 
-export const model = llm(process.env.LLM_MODEL_NAME ?? "default");
+// `||` (not `??`) so an empty/blank env var falls back instead of passing "".
+export const model = llm(process.env.LLM_MODEL_NAME || "default");
 
 /**
  * Whisper transcription model, routed through the same LiteLLM provider
@@ -24,5 +25,7 @@ export const model = llm(process.env.LLM_MODEL_NAME ?? "default");
  * leaves the deployment — no cloud ASR dependency.
  */
 export const whisperModel = llm.transcription(
-  process.env.WHISPER_MODEL_NAME ?? "cavi/faster-whisper-large-v3",
+  // `||` so an empty/missing env var falls back to a working default rather
+  // than passing "" to the transcription endpoint (which fails silently).
+  process.env.WHISPER_MODEL_NAME || "cavi/faster-whisper-large-v3",
 );

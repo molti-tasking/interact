@@ -1,6 +1,10 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
+import {
+  WaterBackground,
+  type WaterHandle,
+} from "@/components/voice/WaterBackground";
 import { useCurrentUser } from "@/context/user-context";
 import { usePortfolio } from "@/hooks/query/portfolios";
 import { useSpace } from "@/hooks/query/spaces";
@@ -8,7 +12,7 @@ import {
   useUtteranceProcessor,
   type UtteranceEventKind,
 } from "@/hooks/voice/useUtteranceProcessor";
-import { useVoiceCapture } from "@/hooks/voice/useVoiceCapture";
+import { useLiveVoiceCapture } from "@/hooks/voice/useLiveVoiceCapture";
 import { formatActor } from "@/lib/mock-users";
 import {
   emptyPortfolioSchema,
@@ -39,6 +43,9 @@ import {
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
+
+/** Ambient water background. Flip to `false` to remove it entirely. */
+const WATER_ENABLED = true;
 
 type LogKind = "speech" | UtteranceEventKind;
 
@@ -81,6 +88,12 @@ export default function RecordModePage() {
 
   const [pendingReviews, setPendingReviews] = useState<PendingReview[]>([]);
   const reviewSeq = useRef(0);
+
+  // Live, unfinalized speech from the browser recognizer — shown as you talk,
+  // then replaced by the authoritative Whisper transcript once the phrase ends.
+  const [interim, setInterim] = useState("");
+
+  const waterRef = useRef<WaterHandle>(null);
 
   const processor = useUtteranceProcessor(id, {
     intent: portfolio?.intent ?? emptyStructuredIntent(),
@@ -127,6 +140,22 @@ export default function RecordModePage() {
         mode: processingMode,
         actor,
         onEvent: pushLog,
+        onSchemaChange: (diff, strategyKind) => {
+          const water = waterRef.current;
+          if (!water) return;
+          // A wholesale reshape swells the surface; added fields rain down
+          // (capped so a big regeneration never looks chaotic); removed
+          // fields sink out.
+          if (strategyKind === "full" || strategyKind === "voice_edit") {
+            water.splash(diff.added.length + diff.removed.length);
+          }
+          if (diff.added.length > 0) {
+            water.drop(Math.min(diff.added.length, 6));
+          }
+          if (diff.removed.length > 0) {
+            water.sink(diff.removed.length);
+          }
+        },
       });
     },
     [actor, processor, pushLog],
@@ -162,8 +191,11 @@ export default function RecordModePage() {
     setPendingReviews((prev) => prev.filter((r) => r.id !== reviewId));
   }, []);
 
-  const { isRecording, isTranscribing, error, start, stop } =
-    useVoiceCapture(handleTranscript);
+  const { isRecording, isTranscribing, liveSupported, error, start, stop } =
+    useLiveVoiceCapture({
+      onSegment: handleTranscript,
+      onInterim: setInterim,
+    });
 
   useEffect(() => {
     if (error) pushLog("error", error);
@@ -195,8 +227,11 @@ export default function RecordModePage() {
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-background">
+      {/* Ambient water background — reacts to schema changes as you dictate. */}
+      <WaterBackground ref={waterRef} enabled={WATER_ENABLED} />
+
       {/* Top bar: identity + jump to detail pages + exit */}
-      <header className="flex items-center justify-between border-b px-5 py-3">
+      <header className="relative z-10 flex items-center justify-between border-b px-5 py-3">
         <div className="flex min-w-0 items-center gap-3">
           <span className="flex h-7 items-center gap-1.5 rounded-full bg-brand-accent/10 px-2.5 text-[11px] font-medium text-brand-accent">
             <span
@@ -247,7 +282,7 @@ export default function RecordModePage() {
       </header>
 
       {/* Body: record control + live tracing log */}
-      <div className="grid flex-1 grid-rows-[1fr_auto] overflow-hidden md:grid-cols-[1fr_minmax(320px,420px)] md:grid-rows-1">
+      <div className="relative z-10 grid flex-1 grid-rows-[1fr_auto] overflow-hidden md:grid-cols-[1fr_minmax(320px,420px)] md:grid-rows-1">
         {/* Record control */}
         <div className="flex flex-col items-center justify-center gap-6 p-8">
           {/* Interaction variant switcher */}
@@ -279,7 +314,6 @@ export default function RecordModePage() {
           <button
             type="button"
             onClick={() => (isRecording ? stop() : start())}
-            disabled={isTranscribing}
             aria-pressed={isRecording}
             aria-label={isRecording ? "Stop recording" : "Start recording"}
             className={cn(
@@ -289,10 +323,12 @@ export default function RecordModePage() {
                 : "bg-brand-accent hover:brightness-110",
             )}
           >
-            {isTranscribing ? (
-              <Loader2 className="h-12 w-12 animate-spin" />
-            ) : isRecording ? (
+            {/* Recording takes visual priority — transcription now runs *while*
+                recording, so we keep showing Stop rather than a spinner. */}
+            {isRecording ? (
               <Square className="h-12 w-12" />
+            ) : isTranscribing ? (
+              <Loader2 className="h-12 w-12 animate-spin" />
             ) : (
               <Mic className="h-12 w-12" />
             )}
@@ -300,14 +336,26 @@ export default function RecordModePage() {
 
           <div className="text-center">
             <p className="text-base font-medium text-primary">
-              {isTranscribing
-                ? "Transcribing…"
-                : isRecording
-                  ? "Listening — tap to stop"
+              {isRecording
+                ? "Listening — tap to stop"
+                : isTranscribing
+                  ? "Transcribing…"
                   : processor.isProcessing
                     ? "Updating the form — keep dictating"
                     : "Tap to dictate"}
             </p>
+
+            {/* Live caption: the browser's interim words while you speak. */}
+            <p
+              className={cn(
+                "mt-2 min-h-[1.5rem] text-sm font-sans italic transition-colors",
+                interim ? "text-brand-accent" : "text-transparent",
+              )}
+              aria-live="polite"
+            >
+              {interim || " "}
+            </p>
+
             <p className="mt-1 text-sm text-muted-foreground font-sans">
               Speak naturally about what this form should collect. {fieldCount}{" "}
               field{fieldCount === 1 ? "" : "s"} so far.
@@ -317,6 +365,13 @@ export default function RecordModePage() {
             <p className="mt-1 text-xs text-muted-foreground/70 font-sans max-w-sm">
               {VOICE_MODES.find((m) => m.id === mode)?.description}
             </p>
+
+            {!liveSupported && (
+              <p className="mt-2 text-xs text-amber-600/80 font-sans max-w-sm">
+                Live captions and real-time processing need a Chromium browser
+                (Chrome/Edge). Here, speech is transcribed when you tap stop.
+              </p>
+            )}
           </div>
 
           {/* Review-mode confirmation cards */}
