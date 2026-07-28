@@ -11,7 +11,12 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import type { ResponseWithOrigin } from "@/hooks/query/responses-lineage";
-import type { FormResponse, Portfolio, PortfolioSchema } from "@/lib/types";
+import {
+  isReferenceValue,
+  type FormResponse,
+  type Portfolio,
+  type PortfolioSchema,
+} from "@/lib/types";
 import {
   flexRender,
   getCoreRowModel,
@@ -86,7 +91,11 @@ export function ResponsesDataTable({
           />
         ),
         accessorFn: (row) => row.data[field.name],
-        cell: ({ getValue }) => String(getValue() ?? ""),
+        cell: ({ getValue }) => {
+          const value = getValue();
+          if (isReferenceValue(value)) return value.label;
+          return String(value ?? "");
+        },
         meta: { fieldLabel: field.label },
       });
     }

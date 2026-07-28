@@ -52,6 +52,14 @@ export const scaleFieldTypeZ = z.object({
   labels: z.object({ low: z.string(), high: z.string() }).optional(),
 });
 
+export const referenceFieldTypeZ = z.object({
+  kind: z.literal("reference"),
+  /** Portfolio (table) in the same space whose responses this field links to */
+  targetPortfolioId: z.string(),
+  /** Field name in the target schema used as the display label; falls back to the first text field */
+  displayFieldName: z.string().optional(),
+});
+
 // Group is handled separately since it's recursive (see fieldZ below)
 
 export const fieldTypeZ: z.ZodType<FieldType> = z.discriminatedUnion("kind", [
@@ -62,6 +70,7 @@ export const fieldTypeZ: z.ZodType<FieldType> = z.discriminatedUnion("kind", [
   booleanFieldTypeZ,
   fileFieldTypeZ,
   scaleFieldTypeZ,
+  referenceFieldTypeZ,
   // Group type added via lazy below
   z.object({
     kind: z.literal("group"),
@@ -82,7 +91,29 @@ export type FieldType =
       max: number;
       labels?: { low: string; high: string };
     }
+  | {
+      kind: "reference";
+      targetPortfolioId: string;
+      displayFieldName?: string;
+    }
   | { kind: "group"; fields: Field[] };
+
+// ---------------------------------------------------------------------------
+// Reference value (stored in responses.data for reference fields)
+// ---------------------------------------------------------------------------
+
+export const referenceValueZ = z.object({
+  /** Row id in the `responses` table of the target portfolio */
+  responseId: z.string(),
+  /** Denormalized display label so rendering never needs a join */
+  label: z.string(),
+});
+
+export type ReferenceValue = z.infer<typeof referenceValueZ>;
+
+export function isReferenceValue(value: unknown): value is ReferenceValue {
+  return referenceValueZ.safeParse(value).success;
+}
 
 // ---------------------------------------------------------------------------
 // Constraint

@@ -112,7 +112,10 @@ async function routeUtteranceReal(
 
     const fieldList = hasSchema
       ? currentSchema.fields
-          .map((f) => `- ${f.name} ("${f.label}", ${f.type.kind}${f.required ? ", required" : ""})`)
+          .map(
+            (f) =>
+              `- ${f.name} ("${f.label}", ${f.type.kind}${f.required ? ", required" : ""}${f.type.kind === "reference" ? " — links to another table; the value is the referenced item's name as spoken" : ""})`,
+          )
           .join("\n")
       : "(no fields yet)";
 
@@ -135,6 +138,7 @@ For route "dataEntry", extract "records":
 - One record per real-world entry (e.g. three items mentioned → three records).
 - Each value uses the EXACT field key from CURRENT FORM FIELDS ("name" property) — never invent keys.
 - Values as plain strings ("2", not "two"); for select fields use one of the defined option values.
+- For reference fields, the value is the NAME of the referenced item exactly as spoken (e.g. "SuperGlue 50ml") — the system resolves it to the linked table afterwards.
 - Skip fields the utterance says nothing about.
 
 For route "intent", return the affected sections with their COMPLETE merged content:

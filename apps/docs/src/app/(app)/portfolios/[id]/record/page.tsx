@@ -6,7 +6,7 @@ import {
   type WaterHandle,
 } from "@/components/voice/WaterBackground";
 import { useCurrentUser } from "@/context/user-context";
-import { usePortfolio } from "@/hooks/query/portfolios";
+import { usePortfolio, usePortfolios } from "@/hooks/query/portfolios";
 import { useSpace } from "@/hooks/query/spaces";
 import {
   useUtteranceProcessor,
@@ -95,12 +95,23 @@ export default function RecordModePage() {
 
   const waterRef = useRef<WaterHandle>(null);
 
-  const processor = useUtteranceProcessor(id, {
-    intent: portfolio?.intent ?? emptyStructuredIntent(),
-    schema:
-      (portfolio?.schema as unknown as PortfolioSchema) ??
-      emptyPortfolioSchema(),
-  });
+  // Sibling tables in the same space are candidate targets for dictated
+  // reference fields ("link each item to a product template").
+  const { data: spacePortfolios } = usePortfolios(portfolio?.space_id);
+  const siblings = (portfolio?.space_id ? (spacePortfolios ?? []) : [])
+    .filter((p) => p.id !== id)
+    .map((p) => ({ id: p.id, title: p.title }));
+
+  const processor = useUtteranceProcessor(
+    id,
+    {
+      intent: portfolio?.intent ?? emptyStructuredIntent(),
+      schema:
+        (portfolio?.schema as unknown as PortfolioSchema) ??
+        emptyPortfolioSchema(),
+    },
+    { siblings },
+  );
 
   // Adopt fresh server state whenever the queue is idle.
   useEffect(() => {

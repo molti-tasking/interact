@@ -72,11 +72,25 @@ const schemaPatchFieldSchema = z.object({
     .string()
     .optional()
     .describe("Extra hover guidance — omit if not needed"),
-  type: z.enum(["string", "number", "boolean", "date", "email", "select"]),
+  type: z.enum([
+    "string",
+    "number",
+    "boolean",
+    "date",
+    "email",
+    "select",
+    "reference",
+  ]),
   required: z.boolean(),
   validation: z
     .object({ options: z.array(optionSchema).optional() })
     .optional(),
+  referenceTarget: z
+    .string()
+    .optional()
+    .describe(
+      "For type 'reference' only: the id of the space table this field links to — must be one of the listed table ids",
+    ),
 });
 
 const resolveProbeSchema = z.object({
@@ -309,6 +323,11 @@ export interface ResolveDesignProbeRequest {
   interactionText: string;
   selectedOptionLabel: string;
   maxFollowUps?: number;
+  /**
+   * Other portfolios in the same space — when present, the LLM may create
+   * "reference" fields that link entries of this form to rows of one of them.
+   */
+  spacePortfolios?: { id: string; title: string }[];
 }
 
 export interface ResolveDesignProbeResponse {
@@ -347,9 +366,15 @@ async function resolveDesignProbeReal(
       interactionText,
       selectedOptionLabel,
       maxFollowUps = 3,
+      spacePortfolios = [],
     } = request;
 
     const basePrompt = serializeForLLM(intent);
+
+    const spaceTablesBlock = spacePortfolios.length
+      ? `\nOTHER TABLES IN THIS SPACE (valid targets for "reference" fields):
+${spacePortfolios.map((p) => `- ${p.id} — "${p.title}"`).join("\n")}\n`
+      : "";
 
     const prompt = `You are a form design assistant. The user is refining a form through interactive design probes.
 
@@ -357,7 +382,7 @@ Current form description: ${basePrompt}
 
 Current form schema:
 ${JSON.stringify(currentSchema, null, 2)}
-
+${spaceTablesBlock}
 The user was asked: "${interactionText}"
 They chose: "${selectedOptionLabel}"
 
@@ -372,7 +397,8 @@ Based on this choice, you must:
 4. Optionally generate 0-${maxFollowUps} follow-up design probes if the choice opens up new design decisions${maxFollowUps === 0 ? ". Do NOT generate any follow-up questions, return an empty followUpInteractions array." : ""}
 
 RULES:
-- Use valid field types: "string", "number", "boolean", "date", "email", "select"
+- Use valid field types: "string", "number", "boolean", "date", "email", "select"${spacePortfolios.length ? `, "reference"
+- Use type "reference" when a field should link each entry to an item in one of the OTHER TABLES IN THIS SPACE (e.g. inventory entries referencing a product template). Set "referenceTarget" to that table's id EXACTLY as listed — never invent table ids.` : ""}
 - For select fields, ALWAYS include options in validation.options as [{label, value}] objects
 - CRITICAL: When updating a select field (even if only changing its label), you MUST re-include the full validation.options array. Omitting options will erase them.
 - Field keys MUST be camelCase and descriptive
@@ -405,6 +431,7 @@ RULES:
 
     // Apply schema patch to current schema
     const patch = parsedResult.schemaPatch;
+    const validTargetIds = new Set(spacePortfolios.map((p) => p.id));
     let patchedFields = [...currentSchema.fields];
 
     // Remove fields
@@ -422,7 +449,7 @@ RULES:
         const update = updateMap.get(existing.name);
         if (!update) return existing;
 
-        let newType = convertOldFieldType(update.type, update.validation);
+        let newType = patchFieldType(update, validTargetIds, existing.type);
 
         // Preserve existing select options when the LLM omits them
         // (e.g. when only updating the label of a select field)
@@ -452,7 +479,7 @@ RULES:
         id: `field-${Date.now()}-${index}`,
         name: f.key,
         label: f.label,
-        type: convertOldFieldType(f.type, f.validation),
+        type: patchFieldType(f, validTargetIds),
         required: f.required,
         constraints: [] as Field["constraints"],
         description: f.description,
@@ -502,6 +529,23 @@ RULES:
       error: error instanceof Error ? error.message : "Unknown error",
     };
   }
+}
+
+function patchFieldType(
+  f: z.infer<typeof schemaPatchFieldSchema>,
+  validTargetIds: Set<string>,
+  existingType?: Field["type"],
+): Field["type"] {
+  if (f.type === "reference") {
+    if (f.referenceTarget && validTargetIds.has(f.referenceTarget)) {
+      return { kind: "reference", targetPortfolioId: f.referenceTarget };
+    }
+    // Keep an existing link when the LLM omits or invents the target;
+    // otherwise degrade to text rather than dangling.
+    if (existingType?.kind === "reference") return existingType;
+    return { kind: "text" };
+  }
+  return convertOldFieldType(f.type, f.validation);
 }
 
 function convertOldFieldType(

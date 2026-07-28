@@ -7,7 +7,17 @@ import { diffSchemas } from "@/lib/engine/schema-ops";
 import { sanitizePurposeText } from "@/lib/engine/structured-intent";
 import { usePipelineGenerate } from "@/hooks/query/pipeline";
 import { createClient } from "@/lib/supabase/client";
-import { buildResponseData } from "@/lib/voice/data-entry";
+import {
+  buildResponseData,
+  resolveReferenceFields,
+  type CreatedReference,
+  type ReferenceIO,
+} from "@/lib/voice/data-entry";
+import {
+  referenceEntryFieldName,
+  referenceLabelFor,
+  type ReferenceCandidate,
+} from "@/lib/voice/reference-resolution";
 import type {
   PortfolioSchema,
   SchemaDiff,
@@ -15,7 +25,7 @@ import type {
   StructuredIntent,
 } from "@/lib/types";
 import { useQueryClient } from "@tanstack/react-query";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 export type UtteranceEventKind = "processing" | "result" | "system" | "error";
 
@@ -47,12 +57,31 @@ interface ProcessParams {
  * silently dropped). `sync` refreshes the base state from the server between
  * external changes; queued work always continues from the freshest result.
  */
+export interface SiblingPortfolio {
+  id: string;
+  title: string;
+}
+
 export function useUtteranceProcessor(
   portfolioId: string,
   initialState: UtteranceState,
+  options?: {
+    /**
+     * Other portfolios in the same space — candidate targets for reference
+     * fields when a dictated schema edit links this table to another.
+     */
+    siblings?: SiblingPortfolio[];
+  },
 ) {
   const pipeline = usePipelineGenerate(portfolioId);
   const queryClient = useQueryClient();
+
+  // Ref mirror so callbacks stay referentially stable across re-renders.
+  const siblings = options?.siblings;
+  const siblingsRef = useRef<SiblingPortfolio[]>(siblings ?? []);
+  useEffect(() => {
+    siblingsRef.current = siblings ?? [];
+  }, [siblings]);
 
   // Freshest known intent+schema; only mutated by sync() and completed work.
   const stateRef = useRef<UtteranceState>(initialState);
@@ -142,6 +171,7 @@ export function useUtteranceProcessor(
         interactionText: "The user dictated a direct edit to the form",
         selectedOptionLabel: params.text,
         maxFollowUps: 0,
+        spacePortfolios: siblingsRef.current,
       });
 
       if (!response.success || !response.result) {
@@ -197,15 +227,13 @@ export function useUtteranceProcessor(
       records: { values: { field: string; value: string }[] }[],
     ): Promise<void> => {
       const base = stateRef.current;
-      const rows = records
-        .map((r) => buildResponseData(base.schema, r.values))
-        .filter((data) => Object.keys(data).length > 0)
-        .map((data) => ({
-          portfolio_id: portfolioId,
-          data: JSON.parse(JSON.stringify(data)),
-        }));
+      const supabase = createClient();
 
-      if (rows.length === 0) {
+      const built = records
+        .map((r) => buildResponseData(base.schema, r.values))
+        .filter((data) => Object.keys(data).length > 0);
+
+      if (built.length === 0) {
         params.onEvent(
           "system",
           "Heard values, but none matched the form's fields.",
@@ -213,11 +241,130 @@ export function useUtteranceProcessor(
         return;
       }
 
-      const supabase = createClient();
+      // Reference resolution: spoken labels in reference fields become links
+      // to rows of the target portfolio. Per-batch caches so several records
+      // in one utterance share target fetches, and a row created for one
+      // record is matchable by the next.
+      const hasReferences = base.schema.fields.some(
+        (f) => f.type.kind === "reference",
+      );
+      const targets = new Map<
+        string,
+        { title: string; schema: PortfolioSchema } | null
+      >();
+      const candidateCache = new Map<string, ReferenceCandidate[]>();
+      const touchedTargets = new Set<string>();
+      const createdRefs: CreatedReference[] = [];
+
+      const targetFor = async (targetId: string) => {
+        if (!targets.has(targetId)) {
+          const { data, error } = await supabase
+            .from("portfolios")
+            .select("id, title, schema")
+            .eq("id", targetId)
+            .single();
+          targets.set(
+            targetId,
+            error || !data
+              ? null
+              : {
+                  title: data.title,
+                  schema: data.schema as unknown as PortfolioSchema,
+                },
+          );
+        }
+        return targets.get(targetId) ?? null;
+      };
+
+      const io: ReferenceIO = {
+        candidatesFor: async (targetId, displayFieldName) => {
+          const cacheKey = `${targetId}:${displayFieldName ?? ""}`;
+          const cached = candidateCache.get(cacheKey);
+          if (cached) return cached;
+
+          const target = await targetFor(targetId);
+          if (!target) {
+            candidateCache.set(cacheKey, []);
+            return [];
+          }
+
+          const { data, error } = await supabase
+            .from("responses")
+            .select("id, data")
+            .eq("portfolio_id", targetId);
+          if (error) throw error;
+
+          const candidates = (data ?? [])
+            .map((row) => {
+              const label = referenceLabelFor(
+                target.schema,
+                (row.data ?? {}) as Record<string, unknown>,
+                displayFieldName,
+              );
+              return label ? { responseId: row.id, label } : null;
+            })
+            .filter((c): c is ReferenceCandidate => c !== null);
+          candidateCache.set(cacheKey, candidates);
+          return candidates;
+        },
+        createTarget: async (targetId, label, displayFieldName) => {
+          const target = await targetFor(targetId);
+          if (!target) return null;
+
+          const entryField = referenceEntryFieldName(
+            target.schema,
+            displayFieldName,
+          );
+          if (!entryField) return null;
+
+          const { data, error } = await supabase
+            .from("responses")
+            .insert({ portfolio_id: targetId, data: { [entryField]: label } })
+            .select()
+            .single();
+          if (error) throw error;
+
+          touchedTargets.add(targetId);
+          const candidate: ReferenceCandidate = { responseId: data.id, label };
+          candidateCache
+            .get(`${targetId}:${displayFieldName ?? ""}`)
+            ?.push(candidate);
+          return candidate;
+        },
+      };
+
+      const resolvedRows: Record<string, unknown>[] = [];
+      for (const data of built) {
+        if (!hasReferences) {
+          resolvedRows.push(data);
+          continue;
+        }
+        const resolved = await resolveReferenceFields(base.schema, data, io);
+        createdRefs.push(...resolved.created);
+        resolvedRows.push(resolved.data);
+      }
+
+      const rows = resolvedRows.map((data) => ({
+        portfolio_id: portfolioId,
+        data: JSON.parse(JSON.stringify(data)),
+      }));
+
       const { error } = await supabase.from("responses").insert(rows);
       if (error) throw error;
 
       queryClient.invalidateQueries({ queryKey: ["responses", portfolioId] });
+      for (const targetId of touchedTargets) {
+        queryClient.invalidateQueries({ queryKey: ["responses", targetId] });
+      }
+
+      for (const ref of createdRefs) {
+        const title = targets.get(ref.targetPortfolioId)?.title;
+        params.onEvent(
+          "system",
+          `"${ref.candidate.label}" wasn't in ${title ? `"${title}"` : "the linked table"} yet — added it and linked the entry.`,
+        );
+      }
+
       params.onEvent(
         "result",
         `Recorded ${rows.length} entr${rows.length === 1 ? "y" : "ies"} — see them under Responses.`,

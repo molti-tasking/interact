@@ -271,6 +271,14 @@ function fieldTypeToZod(type: FieldType, label: string): z.ZodTypeAny {
       return s;
     }
 
+    case "reference":
+      // A resolved link to a row in the target portfolio; dictated values
+      // that couldn't be resolved may still be plain strings.
+      return z.union([
+        z.object({ responseId: z.string(), label: z.string() }),
+        z.string().min(1, `${label} is required`),
+      ]);
+
     case "group": {
       const groupShape: Record<string, z.ZodTypeAny> = {};
       for (const f of type.fields) {

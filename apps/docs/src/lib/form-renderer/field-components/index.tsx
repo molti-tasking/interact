@@ -8,6 +8,7 @@ import { DateField } from "./DateField";
 import { FileField } from "./FileField";
 import { GroupField } from "./GroupField";
 import { NumberField } from "./NumberField";
+import { ReferenceField } from "./ReferenceField";
 import { ScaleField } from "./ScaleField";
 import { SelectField } from "./SelectField";
 import { TextField } from "./TextField";
@@ -32,6 +33,8 @@ export function renderFieldComponent(
       return <FileField field={field} formField={formField} />;
     case "scale":
       return <ScaleField field={field} formField={formField} />;
+    case "reference":
+      return <ReferenceField field={field} formField={formField} />;
     case "group":
       return <GroupField field={field} control={control} />;
     default:
