@@ -4,13 +4,13 @@ import {
   FormControl,
   FormDescription,
   FormItem,
-  FormLabel,
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import type { Field } from "@/lib/types";
 import type { ControllerRenderProps } from "react-hook-form";
-import { FieldTooltip } from "./FieldTooltip";
+import { labelIncludesUnit } from "../values";
+import { FieldLabel } from "./FieldLabel";
 
 interface NumberFieldProps {
   field: Field;
@@ -22,23 +22,27 @@ export function NumberField({ field, formField }: NumberFieldProps) {
   const min = fieldType.kind === "number" ? fieldType.min : undefined;
   const max = fieldType.kind === "number" ? fieldType.max : undefined;
   const unit = fieldType.kind === "number" ? fieldType.unit : undefined;
+  const showUnit = !!unit && !labelIncludesUnit(field.label, unit);
 
   return (
     <FormItem>
-      <FormLabel>
-        {field.label}
-        {unit && <span className="text-muted-foreground ml-1">({unit})</span>}
-        {field.tooltip && <FieldTooltip text={field.tooltip} />}
-        {field.required && <span className="text-destructive ml-1">*</span>}
-      </FormLabel>
+      <FieldLabel
+        field={field}
+        suffix={
+          showUnit && (
+            <span className="text-muted-foreground ml-1">({unit})</span>
+          )
+        }
+      />
       <FormControl>
         <Input
           type="number"
-          // placeholder={field.description}
+          inputMode="decimal"
           min={min}
           max={max}
           {...formField}
-          value={(formField.value as number) ?? ""}
+          aria-required={field.required || undefined}
+          value={(formField.value as number | string | undefined) ?? ""}
         />
       </FormControl>
       {field.description && (

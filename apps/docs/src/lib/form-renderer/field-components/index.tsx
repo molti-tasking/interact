@@ -36,7 +36,9 @@ export function renderFieldComponent(
     case "reference":
       return <ReferenceField field={field} formField={formField} />;
     case "group":
-      return <GroupField field={field} control={control} />;
+      return (
+        <GroupField field={field} control={control} name={formField.name} />
+      );
     default:
       return <TextField field={field} formField={formField} />;
   }

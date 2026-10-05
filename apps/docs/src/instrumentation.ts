@@ -10,6 +10,12 @@ export const langfuseSpanProcessor = new LangfuseSpanProcessor({
   shouldExportSpan,
 });
 
+// Exposed via globalThis (not a module import) so `withTracing` in
+// src/lib/telemetry.ts can flush on serverless without importing this file
+// into the server-action bundle, which would register a second provider.
+(globalThis as Record<string, unknown>).__langfuseSpanProcessor =
+  langfuseSpanProcessor;
+
 const tracerProvider = new NodeTracerProvider({
   spanProcessors: [langfuseSpanProcessor],
 });

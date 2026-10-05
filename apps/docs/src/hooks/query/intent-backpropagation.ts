@@ -1,115 +1,127 @@
 "use client";
 
 import { syncIntentFromFieldEditAction } from "@/app/actions/design-probe-actions";
-import { useUpdatePortfolio } from "@/hooks/query/portfolios";
+import { commitPortfolioChange } from "@/lib/engine/commit";
 import { sanitizePurposeText } from "@/lib/engine/structured-intent";
-import type { Field, Portfolio, PortfolioSchema } from "@/lib/types";
+import type { Field, Portfolio } from "@/lib/types";
+import { trackActivity } from "@/lib/workspace-activity";
 import { useQueryClient } from "@tanstack/react-query";
-import { useCallback, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
+import { applyCommitToCache } from "./portfolios";
 
 const LOG_PREFIX = "[IntentBackpropagation]";
+const DEBOUNCE_MS = 2000;
 
 /**
  * Hook that debounces field edit descriptions and sends a single
  * batched LLM call to sync the intent/purpose text.
+ *
+ * The rewrite is computed from the purpose as it was when the flush started.
+ * If anything else changed the purpose while the LLM was working (a resolved
+ * probe, the user typing), the automated rewrite is dropped rather than
+ * clobbering the newer human/probe change.
  *
  * Usage:
  *   const { scheduleSync } = useIntentBackpropagation(portfolio);
  *   // after saving a field edit:
  *   scheduleSync('Renamed field "Name" to "Full Name"');
  */
-export function useIntentBackpropagation(portfolio: Portfolio | null | undefined) {
-  const updatePortfolio = useUpdatePortfolio();
+export function useIntentBackpropagation(
+  portfolio: Portfolio | null | undefined,
+) {
   const queryClient = useQueryClient();
 
   const pendingEditsRef = useRef<string[]>([]);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // Keep a ref to the latest portfolio so the flush closure always sees
-  // the most recent data, even if the component re-rendered since the
-  // timer was started.
+  const inFlightRef = useRef<Promise<void> | null>(null);
+  // Latest portfolio for the flush closure (updated after render, not during)
   const portfolioRef = useRef(portfolio);
-  portfolioRef.current = portfolio;
+  useEffect(() => {
+    portfolioRef.current = portfolio;
+  }, [portfolio]);
 
-  const flush = useCallback(async () => {
+  const flush = useCallback(async (): Promise<void> => {
+    // Serialize flushes: a second batch waits for the first to land, so
+    // rewrites can't apply out of order.
+    if (inFlightRef.current) await inFlightRef.current;
+
     const p = portfolioRef.current;
-    if (!p || pendingEditsRef.current.length === 0) {
-      console.log(LOG_PREFIX, "flush skipped — no portfolio or no pending edits");
-      return;
-    }
+    if (!p || pendingEditsRef.current.length === 0) return;
 
     const descriptions = [...pendingEditsRef.current];
     pendingEditsRef.current = [];
     const bulkDescription = descriptions.join(". ");
+    const basePurpose = p.intent.purpose.content;
 
-    const currentSchema = p.schema as unknown as PortfolioSchema;
+    const run = trackActivity(p.id, "Syncing intent", async () => {
+      try {
+        const syncResult = await syncIntentFromFieldEditAction({
+          intent: p.intent,
+          currentSchema: p.schema,
+          editDescription: bulkDescription,
+        });
 
-    console.log(LOG_PREFIX, "flushing", descriptions.length, "edits:", bulkDescription);
-    console.log(LOG_PREFIX, "current purpose:", p.intent.purpose.content.slice(0, 120) + "…");
+        if (!syncResult.success) {
+          console.error(LOG_PREFIX, "action failed:", syncResult.error);
+          return;
+        }
+        if (!syncResult.shouldUpdate || !syncResult.updatedPurpose) return;
 
-    try {
-      const syncResult = await syncIntentFromFieldEditAction({
-        intent: p.intent,
-        currentSchema,
-        editDescription: bulkDescription,
-      });
-
-      console.log(LOG_PREFIX, "LLM response:", {
-        success: syncResult.success,
-        shouldUpdate: syncResult.shouldUpdate,
-        hasUpdatedPurpose: !!syncResult.updatedPurpose,
-        error: syncResult.error,
-      });
-
-      if (!syncResult.success) {
-        console.error(LOG_PREFIX, "action failed:", syncResult.error);
-        return;
+        const updatedPurpose = sanitizePurposeText(syncResult.updatedPurpose);
+        const commit = await commitPortfolioChange(p.id, (current) => {
+          if (current.intent.purpose.content !== basePurpose) {
+            console.log(LOG_PREFIX, "purpose changed meanwhile — skipping");
+            return null;
+          }
+          return {
+            intent: {
+              ...current.intent,
+              purpose: {
+                content: updatedPurpose,
+                updatedAt: new Date().toISOString(),
+              },
+            },
+            provenance: {
+              layer: "intent",
+              action: "intent_synced_from_edit",
+              actor: "system",
+              rationale: `Purpose updated after field edits: ${bulkDescription}`,
+            },
+          };
+        });
+        applyCommitToCache(queryClient, commit);
+      } catch (err) {
+        console.error(LOG_PREFIX, "flush error:", err);
       }
+    });
 
-      if (!syncResult.shouldUpdate) {
-        console.log(LOG_PREFIX, "LLM says no update needed — skipping");
-        return;
-      }
-
-      if (!syncResult.updatedPurpose) {
-        console.warn(LOG_PREFIX, "shouldUpdate=true but no updatedPurpose returned");
-        return;
-      }
-
-      console.log(LOG_PREFIX, "updating intent purpose to:", syncResult.updatedPurpose.slice(0, 120) + "…");
-
-      await updatePortfolio.mutateAsync({
-        id: p.id,
-        intent: {
-          ...p.intent,
-          purpose: {
-            content: sanitizePurposeText(syncResult.updatedPurpose),
-            updatedAt: new Date().toISOString(),
-          },
-        },
-      });
-
-      queryClient.invalidateQueries({ queryKey: ["portfolios", p.id] });
-      console.log(LOG_PREFIX, "intent updated and queries invalidated");
-    } catch (err) {
-      console.error(LOG_PREFIX, "flush error:", err);
-    }
-  }, [updatePortfolio, queryClient]);
+    inFlightRef.current = run.finally(() => {
+      inFlightRef.current = null;
+    });
+    await inFlightRef.current;
+  }, [queryClient]);
 
   const scheduleSync = useCallback(
     (editDescription: string) => {
       pendingEditsRef.current.push(editDescription);
-      console.log(
-        LOG_PREFIX,
-        "queued edit:",
-        editDescription,
-        `(${pendingEditsRef.current.length} pending)`,
-      );
-
       if (timerRef.current) clearTimeout(timerRef.current);
       timerRef.current = setTimeout(() => {
-        console.log(LOG_PREFIX, "debounce timer fired — flushing");
-        flush();
-      }, 2000);
+        timerRef.current = null;
+        void flush();
+      }, DEBOUNCE_MS);
+    },
+    [flush],
+  );
+
+  // Leaving the workspace: flush what's pending now instead of dropping it
+  // (the flush captured its portfolio, so it writes to the right one).
+  useEffect(
+    () => () => {
+      if (timerRef.current) {
+        clearTimeout(timerRef.current);
+        timerRef.current = null;
+        void flush();
+      }
     },
     [flush],
   );

@@ -8,15 +8,22 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useCurrentUser } from "@/context/user-context";
-import { MOCK_USERS } from "@/lib/mock-users";
-import { User } from "lucide-react";
+import { formatActor, MOCK_USERS } from "@/lib/mock-users";
+import { UserRound } from "lucide-react";
 
+/**
+ * Prototype-only identity switch: changes, edits and provenance entries are
+ * attributed to the selected collaborator. Persisted across reloads.
+ */
 export function UserImpersonationSelect() {
   const { currentUser, setCurrentUser } = useCurrentUser();
 
   return (
-    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-      <User className="h-3 w-3" />
+    <div className="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
+      <UserRound className="h-3.5 w-3.5 shrink-0" aria-hidden />
+      <span className="hidden md:inline" aria-hidden>
+        Acting as
+      </span>
       <Select
         value={currentUser.id}
         onValueChange={(id) => {
@@ -24,13 +31,17 @@ export function UserImpersonationSelect() {
           if (user) setCurrentUser(user);
         }}
       >
-        <SelectTrigger className="h-7 w-auto gap-1 border-none shadow-none text-xs px-2">
+        <SelectTrigger
+          aria-label={`Acting as ${formatActor(currentUser)}`}
+          title="Changes and history entries are attributed to this collaborator"
+          className="h-7 w-auto max-w-[40vw] gap-1 border-none px-2 text-xs text-foreground shadow-none sm:max-w-none"
+        >
           <SelectValue />
         </SelectTrigger>
-        <SelectContent>
+        <SelectContent position="popper" align="end">
           {MOCK_USERS.map((u) => (
             <SelectItem key={u.id} value={u.id}>
-              {u.name} ({u.role})
+              {formatActor(u)}
             </SelectItem>
           ))}
         </SelectContent>

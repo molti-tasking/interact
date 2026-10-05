@@ -66,7 +66,7 @@ export function ResolvedStack({
               </>
             }
           >
-            <div className="flex items-center gap-1.5 text-xs bg-green-50 rounded-md px-2.5 py-1.5 font-sans">
+            <div className="flex items-center gap-1.5 text-xs bg-green-50 rounded-md px-2.5 py-1.5">
               <Check className="h-3 w-3 text-green-600 shrink-0" />
               <span className="font-medium text-green-800">
                 {selectedLabel}

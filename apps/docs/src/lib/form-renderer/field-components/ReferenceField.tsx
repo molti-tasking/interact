@@ -4,7 +4,6 @@ import {
   FormControl,
   FormDescription,
   FormItem,
-  FormLabel,
   FormMessage,
 } from "@/components/ui/form";
 import {
@@ -22,7 +21,7 @@ import {
   type ReferenceCandidate,
 } from "@/lib/voice/reference-resolution";
 import type { ControllerRenderProps } from "react-hook-form";
-import { FieldTooltip } from "./FieldTooltip";
+import { FieldLabel } from "./FieldLabel";
 
 interface ReferenceFieldProps {
   field: Field;
@@ -49,7 +48,9 @@ export function ReferenceField({ field, formField }: ReferenceFieldProps) {
 
   // Keep a stored value selectable even if its row hasn't loaded or was
   // removed from the target table.
-  const current = isReferenceValue(formField.value) ? formField.value : null;
+  const { ref: controlRef, name, onBlur, onChange, disabled, value } =
+    formField;
+  const current = isReferenceValue(value) ? value : null;
   const items =
     current && !candidates.some((c) => c.responseId === current.responseId)
       ? [{ responseId: current.responseId, label: current.label }, ...candidates]
@@ -57,40 +58,48 @@ export function ReferenceField({ field, formField }: ReferenceFieldProps) {
 
   return (
     <FormItem>
-      <FormLabel>
-        {field.label}
-        {field.tooltip && <FieldTooltip text={field.tooltip} />}
-        {field.required && <span className="text-destructive ml-1">*</span>}
-      </FormLabel>
-      <FormControl>
-        <Select
-          value={current?.responseId ?? ""}
-          onValueChange={(responseId) => {
-            const chosen = items.find((c) => c.responseId === responseId);
-            if (chosen) {
-              formField.onChange({
-                responseId: chosen.responseId,
-                label: chosen.label,
-              });
-            }
-          }}
-        >
-          <SelectTrigger className="min-w-40 w-full">
+      <FieldLabel field={field} />
+      <Select
+        name={name}
+        disabled={disabled}
+        value={current?.responseId ?? ""}
+        onValueChange={(responseId) => {
+          const chosen = items.find((c) => c.responseId === responseId);
+          if (chosen) {
+            onChange({
+              responseId: chosen.responseId,
+              label: chosen.label,
+            });
+          }
+        }}
+      >
+        <FormControl>
+          <SelectTrigger
+            ref={controlRef}
+            onBlur={onBlur}
+            aria-required={field.required || undefined}
+            className="min-w-40 w-full"
+          >
             <SelectValue
               placeholder={
                 target ? `Select from "${target.title}"` : "Select a linked entry"
               }
             />
           </SelectTrigger>
-          <SelectContent>
-            {items.map((c) => (
-              <SelectItem key={`${field.id}-${c.responseId}`} value={c.responseId}>
-                {c.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </FormControl>
+        </FormControl>
+        <SelectContent>
+          {items.map((c) => (
+            <SelectItem key={`${field.id}-${c.responseId}`} value={c.responseId}>
+              {c.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      {typeof value === "string" && value.trim() && (
+        <p className="text-xs text-muted-foreground">
+          Currently &ldquo;{value}&rdquo; (not linked to an entry)
+        </p>
+      )}
       {field.description && (
         <FormDescription>{field.description}</FormDescription>
       )}

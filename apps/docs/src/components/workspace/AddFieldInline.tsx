@@ -9,7 +9,8 @@ import { useCallback, useRef, useState } from "react";
 
 interface AddFieldInlineProps {
   schema: PortfolioSchema;
-  onFieldsAdded: (fields: Field[]) => void;
+  /** Persists the new fields; rejects if saving failed. */
+  onFieldsAdded: (fields: Field[]) => Promise<void>;
 }
 
 export function AddFieldInline({ schema, onFieldsAdded }: AddFieldInlineProps) {
@@ -42,7 +43,8 @@ export function AddFieldInline({ schema, onFieldsAdded }: AddFieldInlineProps) {
     try {
       const result = await addFieldFromPromptAction(trimmed, schema);
       if (result.success && result.newFields?.length) {
-        onFieldsAdded(result.newFields);
+        // Only clear the prompt once the fields are actually saved
+        await onFieldsAdded(result.newFields);
         setPrompt("");
         setOpen(false);
       } else {
@@ -60,9 +62,9 @@ export function AddFieldInline({ schema, onFieldsAdded }: AddFieldInlineProps) {
       <button
         type="button"
         onClick={handleOpen}
-        className="w-full flex items-center justify-center gap-1.5 rounded-lg border border-dashed border-muted-foreground/25 py-2 text-xs text-muted-foreground/60 hover:border-primary/30 hover:text-primary/60 hover:bg-primary/5 transition-all"
+        className="w-full flex items-center justify-center gap-1.5 rounded-lg border border-dashed border-muted-foreground/30 py-2 text-xs text-muted-foreground hover:border-primary/40 hover:text-primary hover:bg-primary/5 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
-        <Plus className="h-3.5 w-3.5" />
+        <Plus className="h-3.5 w-3.5" aria-hidden />
         Add field
       </button>
     );
@@ -80,6 +82,7 @@ export function AddFieldInline({ schema, onFieldsAdded }: AddFieldInlineProps) {
             if (e.key === "Escape") handleClose();
           }}
           placeholder='e.g. "Add a phone number field" or "Rating from 1-10"'
+          aria-label="Describe the field to add"
           disabled={loading}
           className="text-sm h-8"
         />
@@ -88,6 +91,7 @@ export function AddFieldInline({ schema, onFieldsAdded }: AddFieldInlineProps) {
           onClick={handleSubmit}
           disabled={loading || !prompt.trim()}
           className="h-8 px-3"
+          aria-label="Add field"
         >
           {loading ? (
             <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -101,12 +105,15 @@ export function AddFieldInline({ schema, onFieldsAdded }: AddFieldInlineProps) {
           onClick={handleClose}
           disabled={loading}
           className="h-8 px-2"
+          aria-label="Cancel"
         >
           <X className="h-3.5 w-3.5" />
         </Button>
       </div>
       {error && (
-        <p className="text-xs text-destructive">{error}</p>
+        <p role="alert" className="text-xs text-destructive">
+          {error}
+        </p>
       )}
     </div>
   );

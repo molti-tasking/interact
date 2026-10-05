@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 interface ScrollFadeContainerProps {
   children: React.ReactNode;
@@ -19,22 +19,51 @@ export function ScrollFadeContainer({
   const [canScrollUp, setCanScrollUp] = useState(false);
   const [canScrollDown, setCanScrollDown] = useState(false);
 
-  const updateScrollState = useCallback(() => {
+  useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
-    setCanScrollUp(el.scrollTop > 0);
-    setCanScrollDown(el.scrollTop + el.clientHeight < el.scrollHeight - 1);
-  }, []);
 
-  useEffect(() => {
-    requestAnimationFrame(updateScrollState);
-  });
+    const update = () => {
+      setCanScrollUp(el.scrollTop > 0);
+      setCanScrollDown(el.scrollTop + el.clientHeight < el.scrollHeight - 1);
+    };
+
+    // Re-measure when the container or any of its items change size. The
+    // observer also fires once right after `observe`, giving the initial state.
+    const resizeObserver =
+      typeof ResizeObserver !== "undefined" ? new ResizeObserver(update) : null;
+    const observeAll = () => {
+      if (!resizeObserver) return;
+      resizeObserver.disconnect();
+      resizeObserver.observe(el);
+      for (const child of Array.from(el.children)) resizeObserver.observe(child);
+    };
+    observeAll();
+
+    // Items added / removed → observe the new set.
+    const mutationObserver =
+      typeof MutationObserver !== "undefined"
+        ? new MutationObserver(() => {
+            observeAll();
+            update();
+          })
+        : null;
+    mutationObserver?.observe(el, { childList: true });
+
+    el.addEventListener("scroll", update, { passive: true });
+    if (!resizeObserver) update();
+
+    return () => {
+      el.removeEventListener("scroll", update);
+      resizeObserver?.disconnect();
+      mutationObserver?.disconnect();
+    };
+  }, []);
 
   return (
     <div className="relative">
       <div
         ref={scrollRef}
-        onScroll={updateScrollState}
         className={
           className ?? "flex flex-col gap-2 overflow-y-auto max-h-[80vh] pr-1"
         }

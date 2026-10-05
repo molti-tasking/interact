@@ -1,92 +1,37 @@
 "use client";
 
-import {
-  transcribeAudioAction,
-  type TranscribeAudioResponse,
-} from "@/app/actions/transcribe-actions";
-import { useCallback, useRef, useState } from "react";
+import type { TranscribeAudioResponse } from "@/lib/voice/transcription";
+import { useCaptureSession, type CaptureErrorInfo } from "./useCaptureSession";
 
 export interface UseVoiceCaptureResult {
   isRecording: boolean;
+  /** Waiting for microphone permission. */
+  isStarting: boolean;
   isTranscribing: boolean;
   error: string | null;
   start: () => Promise<void>;
   stop: () => void;
+  toggle: () => void;
 }
 
 /**
- * MediaRecorder lifecycle hook: getUserMedia → record → stop → Blob, then posts
- * the clip to {@link transcribeAudioAction} and hands the transcript back via
- * `onTranscript`. The microphone is released as soon as recording stops.
+ * Click-to-record dictation: record → stop → one transcript via
+ * `onTranscript`. Long recordings are uploaded in ~30 s chunks while you
+ * speak (cut in pauses) and joined on stop, so there's no upload size limit
+ * and little wait at the end. Audio goes only to the self-hosted Whisper.
+ * The microphone is released when recording stops or the component unmounts.
  */
 export function useVoiceCapture(
   onTranscript: (text: string, meta: TranscribeAudioResponse) => void,
+  options: {
+    onError?: (message: string, info: CaptureErrorInfo) => void;
+  } = {},
 ): UseVoiceCaptureResult {
-  const [isRecording, setIsRecording] = useState(false);
-  const [isTranscribing, setIsTranscribing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const recorderRef = useRef<MediaRecorder | null>(null);
-  const chunksRef = useRef<Blob[]>([]);
-  const streamRef = useRef<MediaStream | null>(null);
-
-  const start = useCallback(async () => {
-    setError(null);
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      streamRef.current = stream;
-      const recorder = new MediaRecorder(stream);
-      chunksRef.current = [];
-
-      recorder.ondataavailable = (e) => {
-        if (e.data.size > 0) chunksRef.current.push(e.data);
-      };
-
-      recorder.onstop = async () => {
-        // Release the mic immediately so the OS indicator clears.
-        streamRef.current?.getTracks().forEach((t) => t.stop());
-        streamRef.current = null;
-
-        const blob = new Blob(chunksRef.current, {
-          type: recorder.mimeType || "audio/webm",
-        });
-        chunksRef.current = [];
-        if (blob.size === 0) return;
-
-        setIsTranscribing(true);
-        try {
-          const formData = new FormData();
-          formData.append("audio", blob, "recording.webm");
-          const res = await transcribeAudioAction(formData);
-          if (res.success && res.text?.trim()) {
-            onTranscript(res.text.trim(), res);
-          } else if (!res.success) {
-            setError(res.error ?? "Transcription failed");
-          }
-        } catch (err) {
-          setError(err instanceof Error ? err.message : "Transcription failed");
-        } finally {
-          setIsTranscribing(false);
-        }
-      };
-
-      recorder.start();
-      recorderRef.current = recorder;
-      setIsRecording(true);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Microphone access denied");
-      setIsRecording(false);
-    }
-  }, [onTranscript]);
-
-  const stop = useCallback(() => {
-    const recorder = recorderRef.current;
-    if (recorder && recorder.state !== "inactive") {
-      recorder.stop();
-    }
-    recorderRef.current = null;
-    setIsRecording(false);
-  }, []);
-
-  return { isRecording, isTranscribing, error, start, stop };
+  const { isRecording, isStarting, isTranscribing, error, start, stop, toggle } =
+    useCaptureSession({
+      segmentation: "single",
+      onSegment: onTranscript,
+      onError: options.onError,
+    });
+  return { isRecording, isStarting, isTranscribing, error, start, stop, toggle };
 }

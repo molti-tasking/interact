@@ -1,10 +1,11 @@
 "use client";
 
-import { detectDomainStandardsAction } from "@/app/actions/standards-actions";
 import type { DetectedStandard } from "@/lib/domain-standards";
-import { logProvenance } from "@/lib/engine/provenance";
-import type { AcceptedStandardRef, PortfolioSchema, StructuredIntent } from "@/lib/types";
+import { commitPortfolioChange } from "@/lib/engine/commit";
+import { detectStandards, getStandardById } from "@/lib/standards";
+import type { AcceptedStandardRef } from "@/lib/types";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { applyCommitToCache } from "./portfolios";
 
 function detectedStandardsKey(portfolioId: string) {
   return ["detected-standards", portfolioId] as const;
@@ -23,17 +24,15 @@ export function useDetectedStandards(portfolioId: string | undefined) {
   });
 }
 
+/**
+ * Keyword-based standard detection. Pure and cheap, so it runs in the browser
+ * rather than costing a server-action round trip.
+ */
 export function useDetectStandards(portfolioId: string) {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (intent: string) => {
-      const result = await detectDomainStandardsAction(intent);
-      if (!result.success || !result.detectedStandards) {
-        throw new Error(result.error ?? "Failed to detect standards");
-      }
-      return result.detectedStandards;
-    },
+    mutationFn: async (intent: string) => detectStandards(intent),
     onSuccess: (standards) => {
       queryClient.setQueryData(detectedStandardsKey(portfolioId), standards);
     },
@@ -41,8 +40,29 @@ export function useDetectStandards(portfolioId: string) {
 }
 
 /**
- * Accept a standard: persists to portfolio schema JSONB and appends a section
- * to the intent markdown.
+ * Resolve a standard by id for a "standard" design probe. Falls back to the
+ * static catalog when the detection cache is empty (e.g. after a reload).
+ */
+export function findStandard(
+  standardId: string,
+  detected: DetectedStandard[] | undefined,
+): DetectedStandard | undefined {
+  const hit = detected?.find((s) => s.standard.id === standardId);
+  if (hit) return hit;
+  const standard = getStandardById(standardId);
+  return standard
+    ? {
+        standard,
+        confidence: 1,
+        matchedKeywords: [],
+        relevantConstraints: standard.fieldConstraints,
+      }
+    : undefined;
+}
+
+/**
+ * Accept a standard: records it in the portfolio schema's acceptedStandards
+ * (revision-checked, logged).
  */
 export function useAcceptStandard(portfolioId: string) {
   const queryClient = useQueryClient();
@@ -50,96 +70,40 @@ export function useAcceptStandard(portfolioId: string) {
   return useMutation({
     mutationFn: async ({
       detected,
-      portfolio,
-      actor = "creator",
+      actor,
     }: {
       detected: DetectedStandard;
-      portfolio: {
-        id: string;
-        intent: StructuredIntent;
-        schema: PortfolioSchema;
-      };
-      actor?: string;
+      actor: string;
     }) => {
-      const { createClient } = await import("@/lib/supabase/client");
-      const supabase = createClient();
-
-      const currentSchema = portfolio.schema;
-      const existing = currentSchema.acceptedStandards ?? [];
-
-      // Skip if already accepted
-      if (existing.some((s) => s.standardId === detected.standard.id)) {
-        return { schema: currentSchema, intent: portfolio.intent };
-      }
-
       const newRef: AcceptedStandardRef = {
         standardId: detected.standard.id,
         standardName: detected.standard.name,
         domain: detected.standard.domain,
       };
 
-      const updatedSchema: PortfolioSchema = {
-        ...currentSchema,
-        acceptedStandards: [...existing, newRef],
-      };
-
-      // Standard is tracked in schema.acceptedStandards — no need to
-      // also append to constraints.content (which would inject markdown
-      // headings into the user-facing editor).
-
-      const { error } = await supabase
-        .from("portfolios")
-        .update({
-          schema: JSON.parse(JSON.stringify(updatedSchema)),
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", portfolio.id);
-
-      if (error) throw error;
-
-      // Log provenance
-      await logProvenance(
-        portfolio.id,
-        "dimensions",
-        "standard_accepted",
-        actor,
-        { added: [], removed: [], modified: [] },
-        `Applied standard: ${detected.standard.name}`,
-        { intent: portfolio.intent, schema: currentSchema },
-      );
-
-      return { schema: updatedSchema, intent: portfolio.intent };
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: ["portfolios", portfolioId],
+      return commitPortfolioChange(portfolioId, (current) => {
+        const existing = current.schema.acceptedStandards ?? [];
+        // Already accepted (double click, another tab) — nothing to do
+        if (existing.some((s) => s.standardId === newRef.standardId)) {
+          return null;
+        }
+        // Standard is tracked in schema.acceptedStandards — no need to
+        // also append to constraints.content (which would inject markdown
+        // headings into the user-facing editor).
+        return {
+          schema: {
+            ...current.schema,
+            acceptedStandards: [...existing, newRef],
+          },
+          provenance: {
+            layer: "dimensions",
+            action: "standard_accepted",
+            actor,
+            rationale: `Applied standard: ${detected.standard.name}`,
+          },
+        };
       });
     },
-  });
-}
-
-/**
- * Track skipped standard IDs in react-query cache (ephemeral, per-session).
- */
-export function useSkippedStandards(portfolioId: string | undefined) {
-  return useQuery({
-    queryKey: ["skipped-standards", portfolioId ?? ""],
-    queryFn: (): Set<string> => new Set(),
-    enabled: false,
-    staleTime: Infinity,
-  });
-}
-
-export function useSkipStandard(portfolioId: string) {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async (standardId: string) => standardId,
-    onSuccess: (standardId) => {
-      queryClient.setQueryData<Set<string>>(
-        ["skipped-standards", portfolioId],
-        (prev) => new Set([...(prev ?? []), standardId]),
-      );
-    },
+    onSuccess: (result) => applyCommitToCache(queryClient, result),
   });
 }

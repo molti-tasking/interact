@@ -11,7 +11,6 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -24,7 +23,7 @@ import { Textarea } from "@/components/ui/textarea";
 import type { Field, FieldType } from "@/lib/types";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Trash2 } from "lucide-react";
-import { useEffect } from "react";
+import { useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { z } from "zod";
 
@@ -42,33 +41,78 @@ const FIELD_KINDS = [
   { value: "file", label: "File Upload" },
 ] as const;
 
-const fieldKindValues = FIELD_KINDS.map((k) => k.value);
+/** Kinds the drawer can display but not convert to/from (structure would be lost). */
+const LOCKED_KINDS: Record<string, string> = {
+  reference: "Reference (link to another table)",
+  group: "Group",
+};
+
+const optionalNumber = z
+  .string()
+  .refine((v) => v.trim() === "" || Number.isFinite(Number(v)), "Enter a number");
 
 const fieldEditSchema = z
   .object({
-    label: z.string().min(1, "Label is required"),
-    kind: z.enum(fieldKindValues as unknown as [string, ...string[]]),
+    label: z.string().trim().min(1, "Label is required"),
+    kind: z.string(),
     required: z.boolean(),
     description: z.string(),
     tooltip: z.string(),
     options: z.string(),
+    multiple: z.boolean(),
+    min: optionalNumber,
+    max: optionalNumber,
+    unit: z.string(),
+    lowLabel: z.string(),
+    highLabel: z.string(),
   })
   .refine(
-    (data) => {
-      if (data.kind !== "select") return true;
-      const opts = data.options
-        .split("\n")
-        .map((o) => o.trim())
-        .filter(Boolean);
-      return opts.length >= 1;
-    },
-    {
-      message: "Provide at least one option",
-      path: ["options"],
-    },
+    (data) =>
+      data.kind !== "select" ||
+      data.options.split("\n").some((o) => o.trim().length > 0),
+    { message: "Provide at least one option", path: ["options"] },
+  )
+  .refine(
+    (data) =>
+      data.min.trim() === "" ||
+      data.max.trim() === "" ||
+      Number(data.min) <= Number(data.max),
+    { message: "Minimum must not exceed maximum", path: ["max"] },
   );
 
 type FieldEditFormValues = z.infer<typeof fieldEditSchema>;
+
+/** Form fields that only affect the field's `type`. */
+const TYPE_KEYS = [
+  "kind",
+  "options",
+  "multiple",
+  "min",
+  "max",
+  "unit",
+  "lowLabel",
+  "highLabel",
+] as const;
+
+function valuesFromField(field: Field): FieldEditFormValues {
+  const t = field.type;
+  return {
+    label: field.label,
+    kind: t.kind,
+    required: field.required,
+    description: field.description ?? "",
+    tooltip: field.tooltip ?? "",
+    options: t.kind === "select" ? t.options.map((o) => o.label).join("\n") : "",
+    multiple: t.kind === "select" ? t.multiple : false,
+    min:
+      t.kind === "number" || t.kind === "scale" ? String(t.min ?? "") : "",
+    max:
+      t.kind === "number" || t.kind === "scale" ? String(t.max ?? "") : "",
+    unit: t.kind === "number" ? (t.unit ?? "") : "",
+    lowLabel: t.kind === "scale" ? (t.labels?.low ?? "") : "",
+    highLabel: t.kind === "scale" ? (t.labels?.high ?? "") : "",
+  };
+}
 
 // ---------------------------------------------------------------------------
 // Sub-component: the form itself
@@ -81,66 +125,129 @@ export function FieldEditForm({
   onClose,
 }: {
   field: Field;
+  /** Receives only the properties the user actually changed. */
   onSave: (fieldId: string, updates: Partial<Field>) => void;
   onRemove: (fieldId: string) => void;
   onClose: () => void;
 }) {
   const form = useForm<FieldEditFormValues>({
     resolver: zodResolver(fieldEditSchema),
-    defaultValues: {
-      label: field.label,
-      kind: field.type.kind,
-      required: field.required,
-      description: field.description ?? "",
-      tooltip: field.tooltip ?? "",
-      options:
-        field.type.kind === "select"
-          ? field.type.options.map((o) => o.label).join("\n")
-          : "",
-    },
+    defaultValues: valuesFromField(field),
   });
-
-  // Reset form values when the field prop changes
-  useEffect(() => {
-    form.reset({
-      label: field.label,
-      kind: field.type.kind,
-      required: field.required,
-      description: field.description ?? "",
-      tooltip: field.tooltip ?? "",
-      options:
-        field.type.kind === "select"
-          ? field.type.options.map((o) => o.label).join("\n")
-          : "",
-    });
-  }, [field, form]);
+  const [confirmingRemove, setConfirmingRemove] = useState(false);
 
   const watchKind = useWatch({ control: form.control, name: "kind" });
+  const lockedKind = LOCKED_KINDS[field.type.kind];
 
   const handleSubmit = (values: FieldEditFormValues) => {
-    const newType = buildFieldType(values.kind, values.options);
-    onSave(field.id, {
-      label: values.label,
-      type: newType,
-      required: values.required,
-      description: values.description || undefined,
-      tooltip: values.tooltip || undefined,
-    });
+    const dirty = form.formState.dirtyFields;
+    const updates: Partial<Field> = {};
+    if (dirty.label) updates.label = values.label.trim();
+    if (dirty.required) updates.required = values.required;
+    if (dirty.description) updates.description = values.description || undefined;
+    if (dirty.tooltip) updates.tooltip = values.tooltip || undefined;
+    if (!lockedKind && TYPE_KEYS.some((k) => dirty[k])) {
+      updates.type = buildFieldType(values, field.type);
+    }
+    if (Object.keys(updates).length > 0) onSave(field.id, updates);
     onClose();
   };
 
   const handleRemove = () => {
+    if (!confirmingRemove) {
+      setConfirmingRemove(true);
+      return;
+    }
     onRemove(field.id);
     onClose();
   };
+
+  const kindInputs = (
+    <>
+      {watchKind === "select" && (
+        <>
+          <FormField
+            control={form.control}
+            name="options"
+            render={({ field: f }) => (
+              <FormItem>
+                <FormLabel>Options (one per line)</FormLabel>
+                <FormControl>
+                  <Textarea
+                    {...f}
+                    rows={4}
+                    placeholder={"Option A\nOption B\nOption C"}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <CheckboxField form={form} name="multiple" label="Allow multiple answers" />
+        </>
+      )}
+
+      {(watchKind === "number" || watchKind === "scale") && (
+        <div className="grid grid-cols-2 gap-3">
+          <NumberInput form={form} name="min" label="Minimum" />
+          <NumberInput form={form} name="max" label="Maximum" />
+        </div>
+      )}
+
+      {watchKind === "number" && (
+        <FormField
+          control={form.control}
+          name="unit"
+          render={({ field: f }) => (
+            <FormItem>
+              <FormLabel>Unit</FormLabel>
+              <FormControl>
+                <Input {...f} placeholder="e.g. kg, %, USD" />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+      )}
+
+      {watchKind === "scale" && (
+        <div className="grid grid-cols-2 gap-3">
+          <FormField
+            control={form.control}
+            name="lowLabel"
+            render={({ field: f }) => (
+              <FormItem>
+                <FormLabel>Low end label</FormLabel>
+                <FormControl>
+                  <Input {...f} placeholder="e.g. Not at all" />
+                </FormControl>
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="highLabel"
+            render={({ field: f }) => (
+              <FormItem>
+                <FormLabel>High end label</FormLabel>
+                <FormControl>
+                  <Input {...f} placeholder="e.g. Extremely" />
+                </FormControl>
+              </FormItem>
+            )}
+          />
+        </div>
+      )}
+    </>
+  );
 
   return (
     <Form {...form}>
       <form
         onSubmit={form.handleSubmit(handleSubmit)}
-        className="flex flex-col h-full"
+        className="flex flex-col h-full min-h-0"
       >
-        <div className="space-y-4 p-4 flex-1">
+        <div className="space-y-4 p-4 flex-1 overflow-y-auto">
           <FormField
             control={form.control}
             name="label"
@@ -155,50 +262,45 @@ export function FieldEditForm({
             )}
           />
 
-          <FormField
-            control={form.control}
-            name="kind"
-            render={({ field: f }) => (
-              <FormItem>
-                <FormLabel>Type</FormLabel>
-                <Select value={f.value} onValueChange={f.onChange}>
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    {FIELD_KINDS.map((k) => (
-                      <SelectItem key={k.value} value={k.value}>
-                        {k.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          {watchKind === "select" && (
+          {lockedKind ? (
+            <div className="space-y-1">
+              <p className="text-sm font-medium">Type</p>
+              <p className="text-sm text-muted-foreground">{lockedKind}</p>
+            </div>
+          ) : (
             <FormField
               control={form.control}
-              name="options"
+              name="kind"
               render={({ field: f }) => (
                 <FormItem>
-                  <FormLabel>Options (one per line)</FormLabel>
-                  <FormControl>
-                    <Textarea
-                      {...f}
-                      rows={4}
-                      placeholder={"Option A\nOption B\nOption C"}
-                    />
-                  </FormControl>
+                  <FormLabel>Type</FormLabel>
+                  <Select value={f.value} onValueChange={f.onChange}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {FIELD_KINDS.map((k) => (
+                        <SelectItem key={k.value} value={k.value}>
+                          {k.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {f.value !== field.type.kind && (
+                    <FormDescription>
+                      Existing answers for this field may no longer fit the
+                      new type.
+                    </FormDescription>
+                  )}
                   <FormMessage />
                 </FormItem>
               )}
             />
           )}
+
+          {!lockedKind && kindInputs}
 
           <FormField
             control={form.control}
@@ -209,7 +311,6 @@ export function FieldEditForm({
                 <FormControl>
                   <Input {...f} placeholder="Help text shown below the field" />
                 </FormControl>
-                <FormDescription />
                 <FormMessage />
               </FormItem>
             )}
@@ -224,48 +325,33 @@ export function FieldEditForm({
                 <FormControl>
                   <Input {...f} placeholder="Extra guidance shown on hover" />
                 </FormControl>
-                <FormDescription />
                 <FormMessage />
               </FormItem>
             )}
           />
 
-          <FormField
-            control={form.control}
-            name="required"
-            render={({ field: f }) => (
-              <FormItem>
-                <div className="flex items-center gap-2">
-                  <FormControl>
-                    <input
-                      type="checkbox"
-                      checked={f.value}
-                      onChange={f.onChange}
-                      onBlur={f.onBlur}
-                      name={f.name}
-                      ref={f.ref}
-                      className="h-4 w-4"
-                    />
-                  </FormControl>
-                  <Label htmlFor={f.name}>Required</Label>
-                </div>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+          <CheckboxField form={form} name="required" label="Required" />
         </div>
 
-        <SheetFooter className="flex gap-2">
+        <SheetFooter className="flex-row items-center justify-between gap-2 border-t">
           <Button
             type="button"
             variant="destructiveSoft"
             size="sm"
             onClick={handleRemove}
+            onBlur={() => setConfirmingRemove(false)}
           >
-            <Trash2 className="h-4 w-4 mr-1" />
-            Remove
+            <Trash2 className="h-4 w-4 mr-1" aria-hidden />
+            {confirmingRemove ? "Click again to remove" : "Remove field"}
           </Button>
-          <Button type="submit">Save</Button>
+          <div className="flex gap-2">
+            <Button type="button" variant="ghost" onClick={onClose}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={!form.formState.isDirty}>
+              Save
+            </Button>
+          </div>
         </SheetFooter>
       </form>
     </Form>
@@ -273,33 +359,131 @@ export function FieldEditForm({
 }
 
 // ---------------------------------------------------------------------------
-// Helper: build FieldType from form values
+// Small inputs
 // ---------------------------------------------------------------------------
 
-function buildFieldType(kind: string, optionsText: string): FieldType {
-  switch (kind) {
+type FormApi = ReturnType<typeof useForm<FieldEditFormValues>>;
+
+function CheckboxField({
+  form,
+  name,
+  label,
+}: {
+  form: FormApi;
+  name: "required" | "multiple";
+  label: string;
+}) {
+  return (
+    <FormField
+      control={form.control}
+      name={name}
+      render={({ field: f }) => (
+        <FormItem>
+          <div className="flex items-center gap-2">
+            <FormControl>
+              <input
+                type="checkbox"
+                checked={f.value}
+                onChange={f.onChange}
+                onBlur={f.onBlur}
+                name={f.name}
+                ref={f.ref}
+                className="h-4 w-4"
+              />
+            </FormControl>
+            <FormLabel className="font-normal">{label}</FormLabel>
+          </div>
+          <FormMessage />
+        </FormItem>
+      )}
+    />
+  );
+}
+
+function NumberInput({
+  form,
+  name,
+  label,
+}: {
+  form: FormApi;
+  name: "min" | "max";
+  label: string;
+}) {
+  return (
+    <FormField
+      control={form.control}
+      name={name}
+      render={({ field: f }) => (
+        <FormItem>
+          <FormLabel>{label}</FormLabel>
+          <FormControl>
+            <Input {...f} inputMode="decimal" placeholder="—" />
+          </FormControl>
+          <FormMessage />
+        </FormItem>
+      )}
+    />
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Helper: build FieldType from form values, preserving what the form can't
+// express (option values, text maxLength, date range, file accept/maxSize)
+// ---------------------------------------------------------------------------
+
+function toNumber(v: string): number | undefined {
+  return v.trim() === "" ? undefined : Number(v);
+}
+
+export function buildFieldType(
+  values: Pick<FieldEditFormValues, (typeof TYPE_KEYS)[number]>,
+  existing: FieldType,
+): FieldType {
+  switch (values.kind) {
     case "select": {
-      const opts = optionsText
+      // Keep stored values for options whose label survived so existing
+      // responses still match.
+      const valueByLabel = new Map(
+        existing.kind === "select"
+          ? existing.options.map((o) => [o.label.trim().toLowerCase(), o.value])
+          : [],
+      );
+      const options = values.options
         .split("\n")
         .map((o) => o.trim())
         .filter(Boolean)
-        .map((o) => ({
-          label: o,
-          value: o.toLowerCase().replace(/\s+/g, "_"),
+        .map((label) => ({
+          label,
+          value:
+            valueByLabel.get(label.toLowerCase()) ??
+            label.toLowerCase().replace(/\s+/g, "_"),
         }));
-      return { kind: "select", options: opts, multiple: false };
+      return { kind: "select", options, multiple: values.multiple };
     }
     case "number":
-      return { kind: "number" };
+      return {
+        kind: "number",
+        min: toNumber(values.min),
+        max: toNumber(values.max),
+        unit: values.unit.trim() || undefined,
+      };
+    case "scale": {
+      const low = values.lowLabel.trim();
+      const high = values.highLabel.trim();
+      return {
+        kind: "scale",
+        min: toNumber(values.min) ?? 1,
+        max: toNumber(values.max) ?? 5,
+        labels: low || high ? { low, high } : undefined,
+      };
+    }
     case "date":
-      return { kind: "date" };
+      return existing.kind === "date" ? existing : { kind: "date" };
     case "boolean":
       return { kind: "boolean" };
-    case "scale":
-      return { kind: "scale", min: 1, max: 10 };
     case "file":
-      return { kind: "file", accept: [] };
+      return existing.kind === "file" ? existing : { kind: "file", accept: [] };
     default:
-      return { kind: "text" };
+      return existing.kind === "text" ? existing : { kind: "text" };
   }
 }

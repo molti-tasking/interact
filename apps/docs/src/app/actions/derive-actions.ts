@@ -1,14 +1,25 @@
 "use server";
 
-import { model } from "@/lib/model";
-import { withTracing } from "@/lib/telemetry";
-import type {
-  DerivationSpec,
-  Field,
-  PortfolioSchema,
-  StructuredIntent,
+import {
+  convertPatchFieldType,
+  newFieldId,
+  pruneGroups,
+} from "@/lib/engine/schema-patch";
+import {
+  filterExcludedFields,
+  normalizeFieldKey,
+  serializeForLLM,
+} from "@/lib/engine/structured-intent";
+import { capJson, capText, checkRateLimit, LIMITS } from "@/lib/llm-guard";
+import { model, withLlmRetry } from "@/lib/model";
+import { getStandardById } from "@/lib/standards";
+import { telemetry, withTracing } from "@/lib/telemetry";
+import {
+  emptyIntentSection,
+  type Field,
+  type PortfolioSchema,
+  type StructuredIntent,
 } from "@/lib/types";
-import { serializeForLLM } from "@/lib/engine/structured-intent";
 import { generateText, Output } from "ai";
 import { z } from "zod";
 
@@ -26,10 +37,17 @@ export interface DeriveSchemaResponse {
   success: boolean;
   result?: {
     derivationType: "sub" | "super" | "mixed";
+    /** Parent field names actually inherited (all of them for "super") */
     includedFieldKeys: string[];
     additionalFields: Field[];
     schema: PortfolioSchema;
     derivedPurpose: string;
+    /**
+     * Intent for the derived portfolio: `derivedPurpose` plus the parent's
+     * exclusions and constraints (which still apply to a derived view).
+     * Audience is left empty — the derived view usually serves someone else.
+     */
+    derivedIntent?: StructuredIntent;
   };
   error?: string;
 }
@@ -110,6 +128,10 @@ async function deriveSchemaReal(
   try {
     const { parentIntent, parentSchema, scenarioDescription } = request;
     const parentDescription = serializeForLLM(parentIntent);
+    capText(parentDescription, LIMITS.document, "Parent intent");
+    capJson(parentSchema, LIMITS.document, "Parent schema");
+    capText(scenarioDescription, LIMITS.prompt, "Scenario");
+    await checkRateLimit();
 
     const parentFieldsSummary = parentSchema.fields
       .map(
@@ -118,9 +140,9 @@ async function deriveSchemaReal(
       )
       .join("\n");
 
-    const prompt = `You are a form schema architect. A user wants to derive a new form view from an existing base schema.
+    const system = `You are a form schema architect. A user wants to derive a new form view from an existing base schema.`;
 
-BASE FORM DESCRIPTION:
+    const prompt = `BASE FORM DESCRIPTION:
 ${parentDescription}
 
 BASE SCHEMA FIELDS:
@@ -147,41 +169,20 @@ RULES:
 - Be precise about which parent fields matter for this specific view
 - Generate the minimum viable set of additional fields — not exhaustive, but domain-appropriate`;
 
-    const LLM_TIMEOUT_MS = 45_000;
-
-    async function callWithTimeout() {
-      const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), LLM_TIMEOUT_MS);
-      try {
-        return await withTracing({ tags: ["schema", "derive"] }, () =>
-          generateText({
-            model,
-            output: Output.object({ schema: deriveResponseSchema }),
-            prompt,
-            temperature: 0.3,
-            abortSignal: controller.signal,
-            experimental_telemetry: {
-              isEnabled: true,
-              functionId: "derive-action",
-              recordInputs: true,
-              recordOutputs: true,
-            },
-          }),
-        );
-      } finally {
-        clearTimeout(timer);
-      }
-    }
-
-    let result;
-    try {
-      result = await callWithTimeout();
-    } catch (err) {
-      console.warn(
-        `[derive-action] First attempt failed (${err instanceof Error ? err.message : err}), retrying...`,
-      );
-      result = await callWithTimeout();
-    }
+    const result = await withLlmRetry("derive-action", (abortSignal) =>
+      withTracing({ tags: ["schema", "derive"] }, () =>
+        generateText({
+          model,
+          output: Output.object({ schema: deriveResponseSchema }),
+          system,
+          prompt,
+          temperature: 0.3,
+          abortSignal,
+          maxRetries: 0,
+          experimental_telemetry: telemetry("derive-action"),
+        }),
+      ),
+    );
 
     if (!result.output) {
       return {
@@ -192,8 +193,12 @@ RULES:
 
     const parsed = result.output;
 
-    // Build the derived schema: included parent fields + additional fields
-    const includedKeySet = new Set(parsed.includedFieldKeys);
+    // Build the derived schema: included parent fields + additional fields.
+    // "super" means ALL parent fields — enforced even if the model omits some.
+    const includedKeySet =
+      parsed.derivationType === "super"
+        ? new Set(parentSchema.fields.map((f) => f.name))
+        : new Set(parsed.includedFieldKeys);
     const inheritedFields: Field[] = parentSchema.fields
       .filter((f) => includedKeySet.has(f.name))
       .map((f) => ({
@@ -201,32 +206,72 @@ RULES:
         derivedFrom: f.id,
       }));
 
-    const newFields: Field[] = parsed.additionalFields.map((f, index) => ({
-      id: `field-${Date.now()}-derived-${index}`,
-      name: f.key,
-      label: f.label,
-      type: convertFieldType(f.type, f.validation),
-      required: f.required,
-      constraints: [],
-      description: f.description,
-      origin: "system" as const,
-      tags: [],
-    }));
+    // New fields must not shadow an inherited field or each other
+    const usedNames = new Set(inheritedFields.map((f) => f.name));
+    const proposedFields: Field[] = [];
+    for (const [index, f] of parsed.additionalFields.entries()) {
+      const name = normalizeFieldKey(f.key || f.label, `field${index + 1}`);
+      if (usedNames.has(name)) {
+        console.warn(`[derive-action] Dropping duplicate field key "${name}"`);
+        continue;
+      }
+      usedNames.add(name);
+      proposedFields.push({
+        id: newFieldId(),
+        name,
+        label: f.label,
+        type: convertPatchFieldType(f.type, f.validation),
+        required: f.required,
+        constraints: [],
+        description: f.description,
+        origin: "system" as const,
+        tags: [],
+      });
+    }
+    // The parent's exclusions carry over to the derived view
+    const newFields = filterExcludedFields(
+      { fields: proposedFields, groups: [], version: 0 },
+      parentIntent.exclusions.content,
+    ).schema.fields;
+
+    const fields = [...inheritedFields, ...newFields];
+    const fieldNames = new Set(fields.map((f) => f.name));
+
+    // Standards stay accepted if the derived view still has one of their fields
+    const acceptedStandards = parentSchema.acceptedStandards?.filter((ref) =>
+      getStandardById(ref.standardId)?.fieldConstraints.some((c) =>
+        fieldNames.has(c.fieldKey),
+      ),
+    );
 
     const schema: PortfolioSchema = {
-      fields: [...inheritedFields, ...newFields],
-      groups: [],
-      version: 1,
+      fields,
+      // Inherited fields keep their ids, so the parent's groups still apply
+      groups: pruneGroups(
+        parentSchema.groups ?? [],
+        new Set(fields.map((f) => f.id)),
+      ),
+      version: parentSchema.version + 1,
+      ...(acceptedStandards?.length ? { acceptedStandards } : {}),
+    };
+
+    const now = new Date().toISOString();
+    const derivedIntent: StructuredIntent = {
+      purpose: { content: parsed.derivedPurpose, updatedAt: now },
+      audience: emptyIntentSection(),
+      exclusions: { content: parentIntent.exclusions.content, updatedAt: now },
+      constraints: { content: parentIntent.constraints.content, updatedAt: now },
     };
 
     return {
       success: true,
       result: {
         derivationType: parsed.derivationType,
-        includedFieldKeys: parsed.includedFieldKeys,
+        includedFieldKeys: inheritedFields.map((f) => f.name),
         additionalFields: newFields,
         schema,
         derivedPurpose: parsed.derivedPurpose,
+        derivedIntent,
       },
     };
   } catch (error) {
@@ -236,45 +281,4 @@ RULES:
       error: error instanceof Error ? error.message : "Unknown error",
     };
   }
-}
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-function convertFieldType(
-  type: string,
-  validation?: { options?: unknown[] },
-): Field["type"] {
-  switch (type) {
-    case "select":
-      return {
-        kind: "select",
-        options: normalizeOptions(validation?.options),
-        multiple: false,
-      };
-    case "number":
-      return { kind: "number" };
-    case "boolean":
-      return { kind: "boolean" };
-    case "date":
-      return { kind: "date" };
-    default:
-      return { kind: "text" };
-  }
-}
-
-function normalizeOptions(
-  raw: unknown,
-): Array<{ label: string; value: string }> {
-  if (!Array.isArray(raw)) return [];
-  return raw.map((o) => {
-    if (typeof o === "string") return { label: o, value: o };
-    if (o && typeof o === "object" && "value" in o && "label" in o)
-      return { label: String(o.label), value: String(o.value) };
-    if (o && typeof o === "object" && "value" in o)
-      return { label: String(o.value), value: String(o.value) };
-    const s = String(o);
-    return { label: s, value: s };
-  });
 }

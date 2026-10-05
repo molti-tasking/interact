@@ -2,12 +2,28 @@
 
 import type { DimensionObject } from "@/lib/dimension-types";
 import type { DetectedStandard } from "@/lib/domain-standards";
-import { serializeForLLM } from "@/lib/engine/structured-intent";
-import { model } from "@/lib/model";
-import { withTracing } from "@/lib/telemetry";
-import type { Field, PortfolioSchema, StructuredIntent } from "@/lib/types";
+import {
+  applySchemaPatch,
+  type ApplyPatchResult,
+  type SchemaPatch,
+} from "@/lib/engine/schema-patch";
+import {
+  serializeForLLM,
+  serializeSchemaForLLM,
+} from "@/lib/engine/structured-intent";
+import { capJson, capText, checkRateLimit, LIMITS } from "@/lib/llm-guard";
+import { fastModel, model } from "@/lib/model";
+import { resolveDetectedStandards } from "@/lib/standards";
+import { telemetry, withTracing } from "@/lib/telemetry";
+import type { PortfolioSchema, StructuredIntent } from "@/lib/types";
 import { generateText, Output } from "ai";
 import { z } from "zod";
+
+/** Clamp a caller-supplied count to [min, max], falling back for junk input. */
+function clampCount(value: unknown, min: number, max: number, fallback: number): number {
+  const n = typeof value === "number" && Number.isFinite(value) ? Math.floor(value) : fallback;
+  return Math.min(max, Math.max(min, n));
+}
 
 /** Shape returned by the LLM / server action (no portfolioId or createdAt — those are added by the DB). */
 export interface DesignProbeRaw {
@@ -179,15 +195,25 @@ export async function generateDesignProbesAction(
 
 async function generateDesignProbesReal(
   basePrompt: string,
-  maxProbes: number,
+  requestedProbes: number,
   dimensions?: DimensionObject[],
-  acceptedStandards?: DetectedStandard[],
+  requestedStandards?: DetectedStandard[],
   externalPrompt?: string,
   currentSchema?: PortfolioSchema,
 ): Promise<GenerateDesignProbesResponse> {
-  if (maxProbes <= 0) return { success: true, interactions: [] };
+  if (requestedProbes <= 0) return { success: true, interactions: [] };
 
   try {
+    const maxProbes = clampCount(requestedProbes, 1, 10, 5);
+    capText(basePrompt, LIMITS.document, "Intent");
+    capText(externalPrompt, LIMITS.prompt, "Collaborator input");
+    capJson(dimensions, LIMITS.document, "Dimensions");
+    capJson(requestedStandards, LIMITS.document, "Accepted standards");
+    capJson(currentSchema, LIMITS.document, "Schema");
+    await checkRateLimit();
+
+    // Prompt content comes from the curated registry, not the request payload
+    const acceptedStandards = resolveDetectedStandards(requestedStandards);
     const source = externalPrompt ? "external" : "llm";
 
     const acceptedDims = dimensions?.filter(
@@ -198,9 +224,7 @@ async function generateDesignProbesReal(
     const sections: string[] = [];
 
     if (currentSchema && currentSchema.fields.length > 0) {
-      sections.push(
-        `CURRENT FORM SCHEMA:\n${JSON.stringify(currentSchema.fields.map((f) => ({ name: f.name, label: f.label, type: f.type, required: f.required })), null, 2)}`,
-      );
+      sections.push(`CURRENT FORM SCHEMA:\n${serializeSchemaForLLM(currentSchema)}`);
     }
 
     if (acceptedDims && acceptedDims.length > 0) {
@@ -209,7 +233,7 @@ async function generateDesignProbesReal(
       );
     }
 
-    if (acceptedStandards && acceptedStandards.length > 0) {
+    if (acceptedStandards.length > 0) {
       const optionalFields = acceptedStandards.flatMap((detected) =>
         detected.relevantConstraints
           .filter(
@@ -236,7 +260,9 @@ async function generateDesignProbesReal(
     const contextBlock =
       sections.length > 0 ? `\n\n${sections.join("\n\n")}` : "";
 
-    const prompt = `You are a form design assistant. Generate ${Math.min(maxProbes, 3)}-${maxProbes} refinement questions to improve this form design. Each question has 2-4 options.
+    const system = `You are a form design assistant.`;
+
+    const prompt = `Generate ${Math.min(maxProbes, 3)}-${maxProbes} refinement questions to improve this form design. Each question has 2-4 options.
 
 User's form description: ${basePrompt}${contextBlock}
 
@@ -257,15 +283,11 @@ Rules:
       () =>
         generateText({
           model,
+          system,
           prompt,
           output: Output.object({ schema: probeResponseSchema }),
           temperature: 0.3,
-          experimental_telemetry: {
-            isEnabled: true,
-            functionId: "design-probe-action",
-            recordInputs: true,
-            recordOutputs: true,
-          },
+          experimental_telemetry: telemetry("design-probe-action"),
         }),
     );
 
@@ -335,8 +357,17 @@ export interface ResolveDesignProbeResponse {
   result?: {
     refinementDelta: string;
     updatedPurpose: string;
+    /** `currentSchema` with `schemaPatch` applied */
     artifactFormSchema: PortfolioSchema;
     followUpInteractions: DesignProbeRaw[];
+    /** The raw patch, so a client can re-apply it to fresher state */
+    schemaPatch?: SchemaPatch;
+    /** Reference targets the patch was validated against */
+    validTargetIds?: string[];
+    /** Field names the patch actually changed */
+    applied?: ApplyPatchResult["applied"];
+    /** Updates/removals that referenced unknown field keys (no-ops) */
+    skipped?: ApplyPatchResult["skipped"];
   };
   error?: string;
 }
@@ -365,23 +396,29 @@ async function resolveDesignProbeReal(
       currentSchema,
       interactionText,
       selectedOptionLabel,
-      maxFollowUps = 3,
       spacePortfolios = [],
     } = request;
+    const maxFollowUps = clampCount(request.maxFollowUps ?? 3, 0, 5, 3);
 
     const basePrompt = serializeForLLM(intent);
+    capText(basePrompt, LIMITS.document, "Intent");
+    capJson(currentSchema, LIMITS.document, "Schema");
+    capText(interactionText, LIMITS.shortText, "Question");
+    capText(selectedOptionLabel, LIMITS.shortText, "Answer");
+    capJson(spacePortfolios, LIMITS.document, "Space tables");
+    await checkRateLimit();
 
     const spaceTablesBlock = spacePortfolios.length
       ? `\nOTHER TABLES IN THIS SPACE (valid targets for "reference" fields):
 ${spacePortfolios.map((p) => `- ${p.id} — "${p.title}"`).join("\n")}\n`
       : "";
 
-    const prompt = `You are a form design assistant. The user is refining a form through interactive design probes.
+    const system = `You are a form design assistant. The user is refining a form through interactive design probes.`;
 
-Current form description: ${basePrompt}
+    const prompt = `Current form description: ${basePrompt}
 
 Current form schema:
-${JSON.stringify(currentSchema, null, 2)}
+${serializeSchemaForLLM(currentSchema)}
 ${spaceTablesBlock}
 The user was asked: "${interactionText}"
 They chose: "${selectedOptionLabel}"
@@ -411,15 +448,11 @@ RULES:
       () =>
         generateText({
           model,
+          system,
           prompt,
           output: Output.object({ schema: resolveProbeSchema }),
           temperature: 0.3,
-          experimental_telemetry: {
-            isEnabled: true,
-            functionId: "design-probe-action",
-            recordInputs: true,
-            recordOutputs: true,
-          },
+          experimental_telemetry: telemetry("design-probe-action"),
         }),
     );
 
@@ -429,72 +462,31 @@ RULES:
 
     const parsedResult = result.output;
 
-    // Apply schema patch to current schema
-    const patch = parsedResult.schemaPatch;
-    const validTargetIds = new Set(spacePortfolios.map((p) => p.id));
-    let patchedFields = [...currentSchema.fields];
+    // Apply schema patch to current schema (remove → update → add; keeps
+    // type details/descriptions the coarse patch can't express; adds that
+    // collide with an existing key become updates).
+    const schemaPatch: SchemaPatch = parsedResult.schemaPatch;
+    const validTargetIds = spacePortfolios.map((p) => p.id);
+    const {
+      schema: artifactFormSchema,
+      applied,
+      skipped,
+    } = applySchemaPatch(currentSchema, schemaPatch, { validTargetIds });
 
-    // Remove fields
-    if (patch.removeFieldKeys?.length) {
-      const removeSet = new Set(patch.removeFieldKeys);
-      patchedFields = patchedFields.filter((f) => !removeSet.has(f.name));
-    }
-
-    // Update fields
-    if (patch.updateFields?.length) {
-      const updateMap = new Map(
-        patch.updateFields.map((f) => [f.key, f]),
+    const appliedCount =
+      applied.added.length + applied.updated.length + applied.removed.length;
+    const skippedCount = skipped.updated.length + skipped.removed.length;
+    if (skippedCount > 0) {
+      console.warn(
+        "[resolveDesignProbe] Patch referenced unknown fields:",
+        skipped,
       );
-      patchedFields = patchedFields.map((existing) => {
-        const update = updateMap.get(existing.name);
-        if (!update) return existing;
-
-        let newType = patchFieldType(update, validTargetIds, existing.type);
-
-        // Preserve existing select options when the LLM omits them
-        // (e.g. when only updating the label of a select field)
-        if (
-          newType.kind === "select" &&
-          newType.options.length === 0 &&
-          existing.type.kind === "select" &&
-          existing.type.options.length > 0
-        ) {
-          newType = { ...newType, options: existing.type.options };
-        }
-
-        return {
-          ...existing,
-          label: update.label,
-          type: newType,
-          required: update.required,
-          description: update.description,
-          tooltip: update.tooltip,
-        };
-      });
     }
-
-    // Add fields
-    if (patch.addFields?.length) {
-      const newFields = patch.addFields.map((f, index) => ({
-        id: `field-${Date.now()}-${index}`,
-        name: f.key,
-        label: f.label,
-        type: patchFieldType(f, validTargetIds),
-        required: f.required,
-        constraints: [] as Field["constraints"],
-        description: f.description,
-        tooltip: f.tooltip,
-        origin: "system" as const,
-        tags: [] as string[],
-      }));
-      patchedFields = [...patchedFields, ...newFields];
-    }
-
-    const artifactFormSchema: PortfolioSchema = {
-      ...currentSchema,
-      fields: patchedFields,
-      version: currentSchema.version + 1,
-    };
+    // Don't let the changelog claim a schema change that didn't happen
+    const refinementDelta =
+      skippedCount > 0 && appliedCount === 0
+        ? "No schema changes applied."
+        : parsedResult.refinementDelta;
 
     const followUpInteractions: DesignProbeRaw[] = (
       parsedResult.followUpInteractions || []
@@ -516,10 +508,14 @@ RULES:
     return {
       success: true,
       result: {
-        refinementDelta: parsedResult.refinementDelta,
+        refinementDelta,
         updatedPurpose: parsedResult.updatedPurpose,
         artifactFormSchema,
         followUpInteractions,
+        schemaPatch,
+        validTargetIds,
+        applied,
+        skipped,
       },
     };
   } catch (error) {
@@ -529,63 +525,6 @@ RULES:
       error: error instanceof Error ? error.message : "Unknown error",
     };
   }
-}
-
-function patchFieldType(
-  f: z.infer<typeof schemaPatchFieldSchema>,
-  validTargetIds: Set<string>,
-  existingType?: Field["type"],
-): Field["type"] {
-  if (f.type === "reference") {
-    if (f.referenceTarget && validTargetIds.has(f.referenceTarget)) {
-      return { kind: "reference", targetPortfolioId: f.referenceTarget };
-    }
-    // Keep an existing link when the LLM omits or invents the target;
-    // otherwise degrade to text rather than dangling.
-    if (existingType?.kind === "reference") return existingType;
-    return { kind: "text" };
-  }
-  return convertOldFieldType(f.type, f.validation);
-}
-
-function convertOldFieldType(
-  type: string,
-  validation?: { options?: unknown[] },
-): PortfolioSchema["fields"][0]["type"] {
-  switch (type) {
-    case "select":
-      return {
-        kind: "select",
-        options: normalizeOptions(validation?.options),
-        multiple: false,
-      };
-    case "number":
-      return { kind: "number" };
-    case "boolean":
-      return { kind: "boolean" };
-    case "date":
-      return { kind: "date" };
-    default:
-      return { kind: "text" };
-  }
-}
-
-/** Coerce options to {label, value}[] — handles both string and object inputs. */
-function normalizeOptions(
-  raw: unknown,
-): Array<{ label: string; value: string }> {
-  if (!Array.isArray(raw)) return [];
-  return raw.map((o) => {
-    if (typeof o === "string") return { label: o, value: o };
-    if (o && typeof o === "object" && "value" in o && "label" in o)
-      return { label: String(o.label), value: String(o.value) };
-    if (o && typeof o === "object" && "value" in o)
-      return { label: String(o.value), value: String(o.value) };
-    if (o && typeof o === "object" && "label" in o)
-      return { label: String(o.label), value: String(o.label) };
-    const s = String(o);
-    return { label: s, value: s };
-  });
 }
 
 // ---------------------------------------------------------------------------
@@ -622,15 +561,19 @@ export async function syncIntentFromFieldEditAction(request: {
     console.log(LOG, "called with editDescription:", editDescription);
 
     const basePrompt = serializeForLLM(intent);
+    capText(basePrompt, LIMITS.document, "Intent");
+    capJson(currentSchema, LIMITS.document, "Schema");
+    capText(editDescription, LIMITS.shortText, "Edit description");
+    await checkRateLimit();
     console.log(LOG, "current purpose (first 120 chars):", basePrompt.slice(0, 120));
 
-    const prompt = `You are a form design assistant. The user directly edited a form field. Decide whether the form's purpose description needs a minor update to stay in sync.
+    const system = `You are a form design assistant. The user directly edited a form field. Decide whether the form's purpose description needs a minor update to stay in sync.`;
 
-Current form description:
+    const prompt = `Current form description:
 ${basePrompt}
 
 Current form schema:
-${JSON.stringify(currentSchema, null, 2)}
+${serializeSchemaForLLM(currentSchema)}
 
 The user made this edit: ${editDescription}
 
@@ -646,16 +589,12 @@ RULES:
       { tags: ["intent-sync", "field-edit"] },
       () =>
         generateText({
-          model,
+          model: fastModel,
+          system,
           prompt,
           output: Output.object({ schema: syncIntentSchema }),
           temperature: 0.2,
-          experimental_telemetry: {
-            isEnabled: true,
-            functionId: "sync-intent-field-edit",
-            recordInputs: true,
-            recordOutputs: true,
-          },
+          experimental_telemetry: telemetry("sync-intent-field-edit"),
         }),
     );
 

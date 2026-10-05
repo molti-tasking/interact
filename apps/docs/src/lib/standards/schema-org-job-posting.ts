@@ -23,6 +23,7 @@ export const schemaOrgJobPosting: DomainStandard = {
     "job application",
     "sales representative",
   ],
+  strongKeywords: ["job posting", "job application", "hiring", "recruit"],
   fieldConstraints: [
     {
       fieldKey: "jobTitle",

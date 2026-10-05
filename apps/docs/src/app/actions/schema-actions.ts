@@ -1,9 +1,18 @@
 "use server";
 
 import type { DetectedStandard } from "@/lib/domain-standards";
-import { serializeForLLM } from "@/lib/engine/structured-intent";
-import { model } from "@/lib/model";
-import { withTracing } from "@/lib/telemetry";
+import { convertPatchFieldType, newFieldId } from "@/lib/engine/schema-patch";
+import {
+  normalizeFieldKey,
+  serializeForLLM,
+} from "@/lib/engine/structured-intent";
+import { capJson, capText, checkRateLimit, LIMITS } from "@/lib/llm-guard";
+import { model, withLlmRetry } from "@/lib/model";
+import {
+  applyStandardPatterns,
+  resolveDetectedStandards,
+} from "@/lib/standards";
+import { telemetry, withTracing } from "@/lib/telemetry";
 import type { Field, PortfolioSchema, StructuredIntent } from "@/lib/types";
 import { generateText, Output } from "ai";
 import { z } from "zod";
@@ -90,12 +99,19 @@ const schemaResponseSchema = z.object({
 
 async function intentToSchemaReal(
   basePrompt: string,
-  acceptedStandards?: DetectedStandard[],
+  requestedStandards?: DetectedStandard[],
 ): Promise<IntentToSchemaResponse> {
   try {
+    capText(basePrompt, LIMITS.document, "Intent");
+    capJson(requestedStandards, LIMITS.document, "Accepted standards");
+    await checkRateLimit();
+
+    // Prompt content comes from the curated registry, not the request payload
+    const acceptedStandards = resolveDetectedStandards(requestedStandards);
+
     // Build standard constraints section if standards were accepted
     let standardsSection = "";
-    if (acceptedStandards && acceptedStandards.length > 0) {
+    if (acceptedStandards.length > 0) {
       const constraintLines = acceptedStandards.flatMap((detected) =>
         detected.relevantConstraints.map((c) => {
           const reqLabel =
@@ -126,9 +142,9 @@ ${constraintLines.join("\n")}
 `;
     }
 
-    const prompt = `You are a form schema generator. Given a description of what a form should collect, design a concrete form schema with appropriate fields.
+    const system = `You are a form schema generator. Given a description of what a form should collect, design a concrete form schema with appropriate fields.`;
 
-User's form description: ${basePrompt}
+    const prompt = `User's form description: ${basePrompt}
 ${standardsSection}
 Analyze the description to identify:
 - What data needs to be collected
@@ -149,41 +165,22 @@ RULES:
 - Generate ONLY the fields the user explicitly mentioned or that are absolutely unavoidable (e.g. a name field for a registration). Typically 3-6 fields for an initial generation. Do NOT anticipate domain-specific requirements — those will be elicited through design probes. Err on the side of fewer fields; it is better to add fields through probes than to pre-generate fields the user didn't ask for.
 - Field keys MUST be camelCase and descriptive
 - "description" should be SHORT (a few words) — omit entirely if the label already makes the field obvious
-- "tooltip" is for extra guidance that helps the user fill in the field correctly — omit if not needed${acceptedStandards && acceptedStandards.length > 0 ? '\n- For standard-sourced fields, include "standardReference"' : ""}`;
+- "tooltip" is for extra guidance that helps the user fill in the field correctly — omit if not needed${acceptedStandards.length > 0 ? '\n- For standard-sourced fields, include "standardReference"' : ""}`;
 
-    const LLM_TIMEOUT_MS = 45_000; // 45s timeout (avoids 240s hangs)
-
-    async function callWithTimeout() {
-      const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), LLM_TIMEOUT_MS);
-      try {
-        return await withTracing({ tags: ["schema", "generate"] }, () =>
-          generateText({
-            model,
-            output: Output.object({ schema: schemaResponseSchema }),
-            prompt,
-            temperature: 0.3,
-            abortSignal: controller.signal,
-            experimental_telemetry: {
-              isEnabled: true,
-              functionId: "schema-action",
-              recordInputs: true,
-              recordOutputs: true,
-            },
-          }),
-        );
-      } finally {
-        clearTimeout(timer);
-      }
-    }
-
-    let result;
-    try {
-      result = await callWithTimeout();
-    } catch (err) {
-      console.warn(`[schema-action] First attempt failed (${err instanceof Error ? err.message : err}), retrying...`);
-      result = await callWithTimeout();
-    }
+    const result = await withLlmRetry("schema-action", (abortSignal) =>
+      withTracing({ tags: ["schema", "generate"] }, () =>
+        generateText({
+          model,
+          output: Output.object({ schema: schemaResponseSchema }),
+          system,
+          prompt,
+          temperature: 0.3,
+          abortSignal,
+          maxRetries: 0,
+          experimental_telemetry: telemetry("schema-action"),
+        }),
+      ),
+    );
 
     if (!result.output) {
       console.error("No structured output from schema generation");
@@ -195,33 +192,53 @@ RULES:
 
     const parsedResult = result.output;
 
-    // Convert field format to internal Field type
-    const fields: Field[] = parsedResult.artifactFormSchema.fields.map(
-      (f, index) => {
-        const fieldType = convertFieldType(f.type, f.validation);
-        return {
-          id: `field-${Date.now()}-${index}`,
-          name: f.key,
-          label: f.label,
-          type: fieldType,
-          required: f.required,
-          constraints: [],
-          description: f.description,
-          tooltip: f.tooltip,
-          origin: "system" as const,
-          tags: [],
-        };
-      },
-    );
+    // Standard references → canonical standard keys, so the compliance check
+    // below and later regenerations see the same names.
+    const keyByReference = new Map<string, string>();
+    for (const detected of acceptedStandards) {
+      for (const c of detected.relevantConstraints) {
+        keyByReference.set(c.standardReference.trim().toLowerCase(), c.fieldKey);
+      }
+    }
+
+    // Convert field format to internal Field type. Names are the merge key
+    // for regenerations (`mergeRegeneratedSchema`), so they are normalized
+    // and unique — a duplicate key from the model is dropped.
+    const usedNames = new Set<string>();
+    const fields: Field[] = [];
+    for (const [index, f] of parsedResult.artifactFormSchema.fields.entries()) {
+      const standardKey = f.standardReference
+        ? keyByReference.get(f.standardReference.trim().toLowerCase())
+        : undefined;
+      let name = normalizeFieldKey(f.key || f.label, `field${index + 1}`);
+      if (standardKey && !usedNames.has(standardKey)) name = standardKey;
+      if (usedNames.has(name)) {
+        console.warn(`[schema-action] Dropping duplicate field key "${name}"`);
+        continue;
+      }
+      usedNames.add(name);
+      fields.push({
+        id: newFieldId(),
+        name,
+        label: f.label,
+        type: convertPatchFieldType(f.type, f.validation),
+        required: f.required,
+        constraints: [],
+        description: f.description,
+        tooltip: f.tooltip,
+        origin: "system" as const,
+        tags: [],
+      });
+    }
 
     const artifactFormSchema: PortfolioSchema = {
-      fields,
+      fields: applyStandardPatterns(fields, acceptedStandards),
       groups: [],
       version: 1,
     };
 
     // Compliance validation: check mandatory standard fields are present
-    if (acceptedStandards && acceptedStandards.length > 0) {
+    if (acceptedStandards.length > 0) {
       const generatedKeys = new Set(fields.map((f) => f.name));
       const missingMandatory: string[] = [];
 
@@ -261,47 +278,4 @@ RULES:
       error: error instanceof Error ? error.message : "Unknown error",
     };
   }
-}
-
-// Helper to convert old field type string to new FieldType
-function convertFieldType(
-  type: string,
-  validation?: { options?: unknown[] },
-): Field["type"] {
-  switch (type) {
-    case "select":
-      return {
-        kind: "select",
-        options: normalizeOptions(validation?.options),
-        multiple: false,
-      };
-    case "number":
-      return { kind: "number" };
-    case "boolean":
-      return { kind: "boolean" };
-    case "date":
-      return { kind: "date" };
-    case "email":
-      return { kind: "text" };
-    default:
-      return { kind: "text" };
-  }
-}
-
-/** Coerce options to {label, value}[] — handles both string and object inputs. */
-function normalizeOptions(
-  raw: unknown,
-): Array<{ label: string; value: string }> {
-  if (!Array.isArray(raw)) return [];
-  return raw.map((o) => {
-    if (typeof o === "string") return { label: o, value: o };
-    if (o && typeof o === "object" && "value" in o && "label" in o)
-      return { label: String(o.label), value: String(o.value) };
-    if (o && typeof o === "object" && "value" in o)
-      return { label: String(o.value), value: String(o.value) };
-    if (o && typeof o === "object" && "label" in o)
-      return { label: String(o.label), value: String(o.label) };
-    const s = String(o);
-    return { label: s, value: s };
-  });
 }

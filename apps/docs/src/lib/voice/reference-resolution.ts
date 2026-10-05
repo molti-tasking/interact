@@ -4,8 +4,9 @@ import type { PortfolioSchema } from "@/lib/types";
  * Matching a spoken label against the rows of a referenced table.
  *
  * Spoken references are messy ("the SuperGlue", "super glue 50 milliliters"),
- * so matching is tiered: exact normalized match, then containment either way,
- * then token overlap. All of it is deterministic and LLM-free — the LLM only
+ * so matching is tiered: exact normalized match, then whole-token containment
+ * either way, then token overlap; equally good rows are reported as ambiguous
+ * rather than picked arbitrarily. All of it is deterministic and LLM-free — the LLM only
  * extracts *what* was said; *which row* it denotes is resolved here, where it
  * can be tested and explained.
  */
@@ -70,56 +71,113 @@ function normalize(text: string): string {
     .trim();
 }
 
-function tokens(text: string): Set<string> {
-  return new Set(normalize(text).split(" ").filter(Boolean));
+function tokenList(norm: string): string[] {
+  return norm ? norm.split(" ") : [];
+}
+
+export type ReferenceMatch =
+  | { kind: "match"; candidate: ReferenceCandidate }
+  /** Several rows fit equally well — the spoken label can't tell them apart. */
+  | { kind: "ambiguous"; candidates: ReferenceCandidate[] }
+  | { kind: "none" };
+
+interface Scored {
+  candidate: ReferenceCandidate;
+  /** Jaccard overlap of the token sets (0..1) */
+  overlap: number;
+  /**
+   * Difference in token count. Measured in tokens, not characters, so
+   * "blue" stays ambiguous between "Blue Beanie" and "Blue Scarf" instead of
+   * being decided by which word happens to be shorter.
+   */
+  lengthDiff: number;
+}
+
+/** Best-first; ties (same overlap and length difference) are ambiguous. */
+function pickBest(scored: Scored[]): ReferenceMatch {
+  if (scored.length === 0) return { kind: "none" };
+  const sorted = [...scored].sort(
+    (a, b) => b.overlap - a.overlap || a.lengthDiff - b.lengthDiff,
+  );
+  const [best] = sorted;
+  const tied = sorted.filter(
+    (s) => s.overlap === best.overlap && s.lengthDiff === best.lengthDiff,
+  );
+  return tied.length > 1
+    ? { kind: "ambiguous", candidates: tied.map((s) => s.candidate) }
+    : { kind: "match", candidate: best.candidate };
 }
 
 /**
- * Match a spoken label against candidate rows. Tiers, strongest first:
- * 1. exact normalized equality
- * 2. containment (one label contains the other), longest overlap wins
- * 3. token overlap (Jaccard >= 0.5), highest overlap wins
+ * Match a spoken label against candidate rows, on whole-token boundaries
+ * ("ink" never matches "Pink hoodie"). Tiers, strongest first:
+ * 1. exact normalized equality (also ignoring spaces: "super glue" = "SuperGlue")
+ * 2. token containment — every token of one label appears in the other
+ * 3. token overlap (Jaccard >= 0.5)
  *
- * Returns null when nothing clears the bar — the caller decides whether to
- * create a new target row from the spoken label.
+ * Within a tier, the highest token overlap wins, then the closest length
+ * (in tokens).
+ * If two rows remain tied the result is `ambiguous` — the caller must not
+ * guess (or create a duplicate row); it should keep the spoken text and say so.
+ */
+export function resolveReferenceMatch(
+  spoken: string,
+  candidates: ReferenceCandidate[],
+): ReferenceMatch {
+  const spokenNorm = normalize(spoken);
+  if (!spokenNorm) return { kind: "none" };
+  const spokenCompact = spokenNorm.replace(/ /g, "");
+  const spokenTokens = new Set(tokenList(spokenNorm));
+
+  const exact: Scored[] = [];
+  const contained: Scored[] = [];
+  const overlapping: Scored[] = [];
+
+  for (const candidate of candidates) {
+    const labelNorm = normalize(candidate.label);
+    if (!labelNorm) continue;
+    const labelCompact = labelNorm.replace(/ /g, "");
+    const labelTokens = new Set(tokenList(labelNorm));
+
+    let shared = 0;
+    for (const t of spokenTokens) if (labelTokens.has(t)) shared += 1;
+    const union = spokenTokens.size + labelTokens.size - shared;
+    const scored: Scored = {
+      candidate,
+      overlap: union === 0 ? 0 : shared / union,
+      lengthDiff: Math.abs(labelTokens.size - spokenTokens.size),
+    };
+
+    if (labelNorm === spokenNorm || labelCompact === spokenCompact) {
+      exact.push(scored);
+    } else if (
+      shared > 0 &&
+      (shared === spokenTokens.size || shared === labelTokens.size)
+    ) {
+      contained.push(scored);
+    } else if (scored.overlap >= 0.5) {
+      overlapping.push(scored);
+    }
+  }
+
+  if (exact.length > 0) {
+    return exact.length === 1
+      ? { kind: "match", candidate: exact[0].candidate }
+      : { kind: "ambiguous", candidates: exact.map((s) => s.candidate) };
+  }
+  if (contained.length > 0) return pickBest(contained);
+  return pickBest(overlapping);
+}
+
+/**
+ * Convenience wrapper: the single matching row, or null when nothing (or
+ * more than one row equally) matches. Use `resolveReferenceMatch` to tell
+ * "no match" from "ambiguous".
  */
 export function matchReference(
   spoken: string,
   candidates: ReferenceCandidate[],
 ): ReferenceCandidate | null {
-  const spokenNorm = normalize(spoken);
-  if (!spokenNorm) return null;
-
-  const exact = candidates.find((c) => normalize(c.label) === spokenNorm);
-  if (exact) return exact;
-
-  let bestContainment: { candidate: ReferenceCandidate; overlap: number } | null =
-    null;
-  for (const c of candidates) {
-    const labelNorm = normalize(c.label);
-    if (!labelNorm) continue;
-    if (labelNorm.includes(spokenNorm) || spokenNorm.includes(labelNorm)) {
-      const overlap = Math.min(labelNorm.length, spokenNorm.length);
-      if (!bestContainment || overlap > bestContainment.overlap) {
-        bestContainment = { candidate: c, overlap };
-      }
-    }
-  }
-  if (bestContainment) return bestContainment.candidate;
-
-  const spokenTokens = tokens(spoken);
-  let bestOverlap: { candidate: ReferenceCandidate; score: number } | null =
-    null;
-  for (const c of candidates) {
-    const labelTokens = tokens(c.label);
-    if (labelTokens.size === 0) continue;
-    let shared = 0;
-    for (const t of spokenTokens) if (labelTokens.has(t)) shared += 1;
-    const union = new Set([...spokenTokens, ...labelTokens]).size;
-    const score = union === 0 ? 0 : shared / union;
-    if (score >= 0.5 && (!bestOverlap || score > bestOverlap.score)) {
-      bestOverlap = { candidate: c, score };
-    }
-  }
-  return bestOverlap?.candidate ?? null;
+  const result = resolveReferenceMatch(spoken, candidates);
+  return result.kind === "match" ? result.candidate : null;
 }

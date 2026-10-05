@@ -1,5 +1,8 @@
+"use client";
+
 import * as React from "react";
 import { type LucideIcon } from "lucide-react";
+import Link from "next/link";
 
 import {
   SidebarGroup,
@@ -19,20 +22,36 @@ export function NavSecondary({
     icon: LucideIcon;
   }[];
 } & React.ComponentPropsWithoutRef<typeof SidebarGroup>) {
+  if (items.length === 0) return null;
+
   return (
     <SidebarGroup {...props}>
       <SidebarGroupContent>
         <SidebarMenu>
-          {items.map((item) => (
-            <SidebarMenuItem key={item.title}>
-              <SidebarMenuButton asChild size="sm">
-                <a href={item.url}>
-                  <item.icon />
-                  <span>{item.title}</span>
-                </a>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-          ))}
+          {items.map((item) => {
+            const external = /^https?:\/\//.test(item.url);
+            return (
+              <SidebarMenuItem key={item.title}>
+                <SidebarMenuButton
+                  asChild
+                  size="sm"
+                  className="text-muted-foreground"
+                >
+                  {external ? (
+                    <a href={item.url} target="_blank" rel="noopener noreferrer">
+                      <item.icon />
+                      <span>{item.title}</span>
+                    </a>
+                  ) : (
+                    <Link href={item.url} prefetch={false}>
+                      <item.icon />
+                      <span>{item.title}</span>
+                    </Link>
+                  )}
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            );
+          })}
         </SidebarMenu>
       </SidebarGroupContent>
     </SidebarGroup>

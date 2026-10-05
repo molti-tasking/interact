@@ -17,10 +17,15 @@ export function evaluateConstraints(
     const fieldErrors = evaluateFieldConstraints(field, data);
     errors.push(...fieldErrors);
 
-    // Handle nested group fields
+    // Nested group fields are stored under the group's name
     if (field.type.kind === "group") {
+      const groupValue = data[field.name];
+      const groupData =
+        groupValue && typeof groupValue === "object" && !Array.isArray(groupValue)
+          ? (groupValue as Record<string, unknown>)
+          : {};
       for (const nested of field.type.fields) {
-        const nestedErrors = evaluateFieldConstraints(nested, data);
+        const nestedErrors = evaluateFieldConstraints(nested, groupData);
         errors.push(...nestedErrors);
       }
     }
@@ -52,8 +57,13 @@ function evaluateSingleConstraint(
 ): ConstraintError | null {
   switch (constraint.type) {
     case "regex": {
-      if (typeof value !== "string") return null;
-      const regex = new RegExp(constraint.rule);
+      if (typeof value !== "string" || value === "") return null;
+      let regex: RegExp;
+      try {
+        regex = new RegExp(constraint.rule);
+      } catch {
+        return null; // Skip invalid (LLM-authored) patterns
+      }
       if (!regex.test(value)) {
         return {
           fieldId: field.id,

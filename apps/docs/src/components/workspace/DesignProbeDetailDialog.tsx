@@ -27,20 +27,20 @@ interface DesignProbeDetailDialogProps {
   item: CardItem;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  anyLoading: boolean;
+  busy: boolean;
 }
 
 export function DesignProbeDetailDialog({
   item,
   open,
   onOpenChange,
-  anyLoading,
+  busy,
 }: DesignProbeDetailDialogProps) {
   const [selectedValue, setSelectedValue] = useState<string | null>(null);
   const [showCustom, setShowCustom] = useState(false);
   const [customAnswer, setCustomAnswer] = useState("");
 
-  const disabled = item.status !== "pending" || anyLoading;
+  const disabled = item.status !== "pending" || busy;
 
   const handleConfirm = () => {
     if (showCustom && customAnswer.trim()) {
@@ -48,7 +48,7 @@ export function DesignProbeDetailDialog({
     } else if (selectedValue) {
       item.onSelect(selectedValue);
     }
-    onOpenChange(false);
+    handleOpenChange(false);
   };
 
   const handleOpenChange = (next: boolean) => {

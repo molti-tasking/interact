@@ -25,6 +25,7 @@ export const gs1Gtin: DomainStandard = {
     "product identification",
     "supply chain",
   ],
+  strongKeywords: ["gtin", "gs1", "ean", "upc", "trade item"],
   fieldConstraints: [
     {
       fieldKey: "gtin14",

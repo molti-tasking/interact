@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/dialog";
 import { DesignProbeCard } from "@/components/workspace/DesignProbeCard";
 import { ScrollFadeContainer } from "@/components/workspace/ScrollFadeContainer";
+import { useCurrentUser } from "@/context/user-context";
 import {
   useDetectConflicts,
   useResolveConflict,
@@ -25,20 +26,27 @@ import {
   useDismissDesignProbe,
   useGenerateDesignProbes,
   useInsertStandardProbes,
+  useReopenDesignProbe,
   useResolveDesignProbe,
   useResolveStandardProbe,
 } from "@/hooks/query/design-probes";
+import { useSpaceSiblings } from "@/hooks/query/portfolios";
 import {
+  findStandard,
   useAcceptStandard,
   useDetectedStandards,
-  useSkipStandard,
 } from "@/hooks/query/standards";
-import { useCurrentUser } from "@/context/user-context";
+import { useUndoToast } from "@/hooks/query/undo";
 import { formatActor } from "@/lib/mock-users";
-import type { Portfolio, StructuredIntent } from "@/lib/types";
+import type { Portfolio } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { Loader2, RefreshCw } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
+import { toast } from "sonner";
+
+function errorMessage(err: unknown, fallback: string): string {
+  return err instanceof Error ? err.message : fallback;
+}
 
 // ---------------------------------------------------------------------------
 // Main component
@@ -47,110 +55,118 @@ import { useEffect, useRef, useState } from "react";
 export function DesignProbeDeck({ portfolio }: { portfolio: Portfolio }) {
   const portfolioSchema = portfolio.schema;
   const { currentUser } = useCurrentUser();
-
-  const [structuredIntent, setStructuredIntent] = useState<StructuredIntent>(
-    portfolio.intent,
-  );
-
-  // Keep local intent in sync when portfolio updates externally
-  // (e.g. after pipeline generation or standard acceptance)
-  useEffect(() => {
-    setStructuredIntent(portfolio.intent);
-  }, [portfolio.intent]);
+  const actor = formatActor(currentUser);
+  const notifyUndo = useUndoToast();
+  const spacePortfolios = useSpaceSiblings(portfolio);
 
   // --- React Query hooks ---
   const { data: detectedStandards } = useDetectedStandards(portfolio.id);
-
   const { data: designProbes } = useDesignProbes(portfolio.id);
-  const pendingDesignProbes = designProbes?.filter(
-    (d) => d.status === "pending",
-  );
 
   const generateDesignProbes = useGenerateDesignProbes(portfolio.id);
   const resolveDesignProbe = useResolveDesignProbe(portfolio.id);
   const dismissDesignProbe = useDismissDesignProbe(portfolio.id);
   const insertStandardProbes = useInsertStandardProbes(portfolio.id);
   const resolveStandardProbe = useResolveStandardProbe(portfolio.id);
+  const reopenProbe = useReopenDesignProbe(portfolio.id);
   const acceptStandard = useAcceptStandard(portfolio.id);
-  const skipStandard = useSkipStandard(portfolio.id);
 
-  // "New questions" dialog state
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [externalPromptText, setExternalPromptText] = useState("");
+  // Cards whose answer is currently being applied. Each card resolves
+  // independently — commits merge onto the latest state, so answering a
+  // second probe while the first is still running is safe.
+  const [busyIds, setBusyIds] = useState<ReadonlySet<string>>(new Set());
+  const setBusy = (id: string, busy: boolean) =>
+    setBusyIds((prev) => {
+      const next = new Set(prev);
+      if (busy) next.add(id);
+      else next.delete(id);
+      return next;
+    });
 
   // Conflict detection + resolution
   const { data: conflicts } = useDetectConflicts(
     portfolio.id,
     portfolioSchema,
-    structuredIntent,
+    portfolio.intent,
   );
   const resolveConflict = useResolveConflict(portfolio.id);
   const [dismissedConflicts, setDismissedConflicts] = useState<Set<string>>(
     new Set(),
   );
 
-  // Insert detected standards as design probes (once)
-  const hasInsertedStandards = useRef(false);
+  // Surface newly detected standards as design probes (the insert skips
+  // standards that already have a probe).
+  const insertStandards = insertStandardProbes.mutate;
   useEffect(() => {
-    if (detectedStandards?.length && !hasInsertedStandards.current) {
-      hasInsertedStandards.current = true;
-      insertStandardProbes.mutate(detectedStandards);
-    }
-  }, [detectedStandards]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (detectedStandards?.length) insertStandards(detectedStandards);
+  }, [detectedStandards, insertStandards]);
+
+  const snapshot = () => ({
+    intent: portfolio.intent,
+    schema: portfolio.schema,
+  });
 
   // -------------------------------------------------------------------
   // Design probe interaction: select an option
   // -------------------------------------------------------------------
-  const handleProbeSelect = async (probeId: string, selectedValue: string) => {
-    const probe = (designProbes ?? []).find((o) => o.id === probeId);
-    if (!probe || probe.status !== "pending") return;
-
-    // Special handling for standard probes
-    if (probe.source === "standard") {
-      const standardId = probe.dimensionId;
-      if (selectedValue === "accept" && standardId) {
-        const detected = (detectedStandards ?? []).find(
-          (s) => s.standard.id === standardId,
-        );
-        if (detected) {
-          await acceptStandard.mutateAsync({
-            detected,
-            portfolio: {
-              id: portfolio.id,
-              intent: structuredIntent,
-              schema: portfolioSchema,
-            },
-            actor: formatActor(currentUser),
-          });
-          await resolveStandardProbe.mutateAsync({
-            probeId,
-            selectedOption: "accept",
-          });
-        }
-      } else {
-        if (standardId) skipStandard.mutate(standardId);
-        dismissDesignProbe.mutate(probeId);
-      }
+  const handleStandardProbe = async (
+    probeId: string,
+    standardId: string | null | undefined,
+    selectedValue: string,
+  ) => {
+    if (selectedValue !== "accept" || !standardId) {
+      dismissDesignProbe.mutate(probeId);
       return;
     }
+    const detected = findStandard(standardId, detectedStandards);
+    if (!detected) {
+      toast.error("This standard is no longer available.");
+      return;
+    }
+    setBusy(probeId, true);
+    try {
+      const result = await acceptStandard.mutateAsync({ detected, actor });
+      await resolveStandardProbe.mutateAsync({
+        probeId,
+        selectedOption: "accept",
+      });
+      notifyUndo(result, `Applied standard: ${detected.standard.name}`, {
+        onUndone: () => reopenProbe.mutateAsync(probeId),
+      });
+    } catch (err) {
+      toast.error(errorMessage(err, "Failed to apply the standard"));
+    } finally {
+      setBusy(probeId, false);
+    }
+  };
 
+  const handleProbeSelect = async (probeId: string, selectedValue: string) => {
+    const probe = (designProbes ?? []).find((o) => o.id === probeId);
+    if (!probe || probe.status !== "pending" || busyIds.has(probeId)) return;
+
+    if (probe.source === "standard") {
+      return handleStandardProbe(probeId, probe.dimensionId, selectedValue);
+    }
+
+    setBusy(probeId, true);
     try {
       const result = await resolveDesignProbe.mutateAsync({
         probe,
         selectedValue,
-        currentIntent: structuredIntent,
-        currentSchema: portfolioSchema,
-        resolvedBy: formatActor(currentUser),
+        snapshot: snapshot(),
+        resolvedBy: actor,
+        spacePortfolios,
       });
-
-      setStructuredIntent(result.newIntent);
+      notifyUndo(result.commit, `Applied: "${result.optionLabel}"`, {
+        // Undoing the answer reopens the question
+        onUndone: () => reopenProbe.mutateAsync(probeId),
+      });
     } catch (err) {
       console.error("[DesignProbeDeck] Design probe error:", err);
+      toast.error(errorMessage(err, "Failed to apply your answer"));
+    } finally {
+      setBusy(probeId, false);
     }
-  };
-
-  const handleDismissProbe = (probeId: string) => {
-    dismissDesignProbe.mutate(probeId);
   };
 
   // -------------------------------------------------------------------
@@ -160,66 +176,67 @@ export function DesignProbeDeck({ portfolio }: { portfolio: Portfolio }) {
     conflict: SchemaConflict,
     fix: ConflictFix,
   ) => {
+    if (busyIds.has(conflict.id)) return;
+    setBusy(conflict.id, true);
     try {
       const result = await resolveConflict.mutateAsync({
         conflict,
         fix,
-        currentSchema: portfolioSchema,
-        currentIntent: structuredIntent,
+        snapshot: snapshot(),
+        actor,
       });
-      setStructuredIntent(result.updatedIntent);
+      setDismissedConflicts((prev) => new Set([...prev, conflict.id]));
+      notifyUndo(result, `Fixed: ${fix.label}`);
     } catch (err) {
-      console.error("[ReflectiveConversationPane] Conflict fix error:", err);
+      console.error("[DesignProbeDeck] Conflict fix error:", err);
+      toast.error(errorMessage(err, "Failed to apply the fix"));
+    } finally {
+      setBusy(conflict.id, false);
     }
-  };
-
-  const handleDismissConflict = (conflictId: string) => {
-    setDismissedConflicts((prev) => new Set([...prev, conflictId]));
   };
 
   // -------------------------------------------------------------------
   // Generate probes — with optional external prompt
   // -------------------------------------------------------------------
-  const handleGenerateProbes = () => {
-    if (!structuredIntent.purpose.content.trim()) return;
+  const handleGenerateProbes = (externalPrompt: string, done: () => void) => {
+    if (!portfolio.intent.purpose.content.trim()) return;
 
-    const prompt = externalPromptText.trim();
-    const acceptedStandardRefs = portfolioSchema.acceptedStandards ?? [];
-    const acceptedStds = (detectedStandards ?? []).filter((s) =>
-      acceptedStandardRefs.some((ref) => ref.standardId === s.standard.id),
-    );
+    const prompt = externalPrompt.trim();
+    const acceptedStds = (portfolioSchema.acceptedStandards ?? [])
+      .map((ref) => findStandard(ref.standardId, detectedStandards))
+      .filter((s) => !!s);
 
     generateDesignProbes.mutate(
       {
-        intent: structuredIntent,
+        intent: portfolio.intent,
         acceptedStandards: acceptedStds.length > 0 ? acceptedStds : undefined,
         externalPrompt: prompt || undefined,
-        currentSchema: prompt ? portfolioSchema : undefined,
+        currentSchema: portfolioSchema,
       },
       {
-        onSuccess: () => {
-          setExternalPromptText("");
-          setDialogOpen(false);
-        },
+        onSuccess: done,
+        onError: (err) =>
+          toast.error(errorMessage(err, "Failed to generate questions")),
       },
     );
   };
 
   const isGenerating = generateDesignProbes.isPending;
-  const isLoading = resolveDesignProbe.isPending || resolveConflict.isPending;
+  const isLoading = busyIds.size > 0;
   const visibleConflicts = (conflicts ?? []).filter(
     (c) => !dismissedConflicts.has(c.id),
   );
 
   // Standards always render at the top of the deck
-  const sortedPendingProbes = [...(pendingDesignProbes ?? [])].sort((a, b) => {
-    const aIsStandard = a.source === "standard" ? 0 : 1;
-    const bIsStandard = b.source === "standard" ? 0 : 1;
-    return aIsStandard - bIsStandard;
-  });
+  const pendingProbes = (designProbes ?? [])
+    .filter((d) => d.status === "pending")
+    .sort(
+      (a, b) =>
+        (a.source === "standard" ? 0 : 1) - (b.source === "standard" ? 0 : 1),
+    );
 
-  const hasCards =
-    visibleConflicts.length > 0 || sortedPendingProbes.length > 0;
+  const hasCards = visibleConflicts.length > 0 || pendingProbes.length > 0;
+  const hasIntent = !!portfolio.intent.purpose.content.trim();
 
   return (
     <div
@@ -230,81 +247,46 @@ export function DesignProbeDeck({ portfolio }: { portfolio: Portfolio }) {
       <div className="flex items-center justify-between h-8 mb-3">
         <h3 className="workspace-section-label">Design Probes</h3>
         <div className="flex justify-center pt-1">
-          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-            <DialogTrigger asChild>
-              <Button
-                variant="ghost"
-                size="sm"
-                disabled={isLoading || isGenerating}
-                className="text-muted-foreground h-7 text-xs"
-              >
-                <RefreshCw
-                  className={cn("h-3 w-3 mr-1", isGenerating && "animate-spin")}
-                />
-                {isGenerating ? "Generating..." : "New questions"}
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-md">
-              <DialogHeader>
-                <DialogTitle>Generate design probes</DialogTitle>
-                <DialogDescription>
-                  Optionally add a prompt to guide the questions — paste
-                  requirements, feedback, or context from a collaborator.
-                </DialogDescription>
-              </DialogHeader>
-              <textarea
-                data-testid="external-prompt-input"
-                value={externalPromptText}
-                onChange={(e) => setExternalPromptText(e.target.value)}
-                placeholder="(optional) e.g. We also need GDPR consent fields..."
-                className="w-full rounded-lg border border-border bg-background p-3 text-sm resize-none focus:outline-none focus:ring-1 focus:ring-ring min-h-20"
-                rows={3}
-                disabled={isGenerating}
-              />
-              <DialogFooter>
-                <Button
-                  onClick={handleGenerateProbes}
-                  disabled={isGenerating}
-                  size="sm"
-                >
-                  {isGenerating ? (
-                    <>
-                      <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-                      Generating...
-                    </>
-                  ) : (
-                    "Generate"
-                  )}
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
+          <GenerateProbesDialog
+            disabled={isGenerating || !hasIntent}
+            isGenerating={isGenerating}
+            onGenerate={handleGenerateProbes}
+          />
         </div>
       </div>
 
-      {generateDesignProbes.isPending && (designProbes ?? []).length === 0 && (
+      {isGenerating && pendingProbes.length === 0 && (
         <div
           data-testid="probes-generating"
-          className="flex items-center gap-2 rounded-xl border border-dashed p-4 text-sm text-muted-foreground/70 animate-pulse"
+          role="status"
+          className="flex items-center gap-2 rounded-xl border border-dashed p-4 text-sm text-muted-foreground/70 animate-pulse motion-reduce:animate-none"
         >
-          <Loader2 className="h-4 w-4 animate-spin" />
-          Generating design probes...
+          <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+          Generating design probes…
+        </div>
+      )}
+
+      {!hasCards && !isGenerating && (
+        <div className="rounded-xl border border-dashed p-4 text-sm text-muted-foreground">
+          {hasIntent
+            ? "No open questions. Generate new ones to keep refining, or edit the form directly."
+            : "Describe the form's purpose first — design probes will help you refine it."}
         </div>
       )}
 
       <div className="flex flex-col w-full gap-2">
         {hasCards && (
           <ScrollFadeContainer>
-            {sortedPendingProbes.map((probe) => (
+            {pendingProbes.map((probe) => (
               <DesignProbeCard
                 key={probe.id}
                 item={{
                   ...probe,
-                  onDismiss: () => handleDismissProbe(probe.id),
+                  onDismiss: () => dismissDesignProbe.mutate(probe.id),
                   onSelect: (value: string) =>
                     handleProbeSelect(probe.id, value),
                 }}
-                anyLoading={isLoading}
+                busy={busyIds.has(probe.id)}
               />
             ))}
             {visibleConflicts.map((conflict) => (
@@ -320,18 +302,98 @@ export function DesignProbeDeck({ portfolio }: { portfolio: Portfolio }) {
                     description: f.description,
                   })),
                   status: "pending" as const,
-                  onDismiss: () => handleDismissConflict(conflict.id),
+                  onDismiss: () =>
+                    setDismissedConflicts(
+                      (prev) => new Set([...prev, conflict.id]),
+                    ),
                   onSelect: (value: string) => {
                     const fix = conflict.fixes.find((f) => f.value === value);
                     if (fix) handleConflictFix(conflict, fix);
                   },
                 }}
-                anyLoading={isLoading}
+                busy={busyIds.has(conflict.id)}
               />
             ))}
           </ScrollFadeContainer>
         )}
       </div>
     </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// "New questions" dialog — owns its own text state so typing doesn't
+// re-render the whole deck
+// ---------------------------------------------------------------------------
+
+function GenerateProbesDialog({
+  disabled,
+  isGenerating,
+  onGenerate,
+}: {
+  disabled: boolean;
+  isGenerating: boolean;
+  onGenerate: (externalPrompt: string, done: () => void) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [text, setText] = useState("");
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button
+          variant="ghost"
+          size="sm"
+          disabled={disabled}
+          className="text-muted-foreground h-7 text-xs"
+        >
+          <RefreshCw
+            className={cn("h-3 w-3 mr-1", isGenerating && "animate-spin")}
+            aria-hidden
+          />
+          {isGenerating ? "Generating…" : "New questions"}
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Generate design probes</DialogTitle>
+          <DialogDescription>
+            Optionally add a prompt to guide the questions — paste
+            requirements, feedback, or context from a collaborator.
+          </DialogDescription>
+        </DialogHeader>
+        <textarea
+          data-testid="external-prompt-input"
+          aria-label="Guidance for the new questions (optional)"
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          placeholder="(optional) e.g. We also need GDPR consent fields..."
+          className="w-full rounded-lg border border-border bg-background p-3 text-sm resize-none focus:outline-none focus:ring-1 focus:ring-ring min-h-20"
+          rows={3}
+          disabled={isGenerating}
+        />
+        <DialogFooter>
+          <Button
+            onClick={() =>
+              onGenerate(text, () => {
+                setText("");
+                setOpen(false);
+              })
+            }
+            disabled={isGenerating}
+            size="sm"
+          >
+            {isGenerating ? (
+              <>
+                <Loader2 className="h-3 w-3 mr-1 animate-spin" aria-hidden />
+                Generating…
+              </>
+            ) : (
+              "Generate"
+            )}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

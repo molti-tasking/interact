@@ -1,35 +1,47 @@
 "use client";
 
-import { resolveDesignProbeAction } from "@/app/actions/design-probe-actions";
 import { PromptDiff } from "@/components/form/configurator/PromptDiff";
 import { Button } from "@/components/ui/button";
-import { MarkdownEditor } from "@/components/ui/markdown-editor";
 import { MicButton } from "@/components/voice/MicButton";
+import { useCurrentUser } from "@/context/user-context";
 import {
   useDesignProbes,
   useReResolveDesignProbe,
+  useRestoreProbeAnswer,
 } from "@/hooks/query/design-probes";
 import { usePipelineGenerate } from "@/hooks/query/pipeline";
-import { useUpdatePortfolio } from "@/hooks/query/portfolios";
-import { useProvenance } from "@/hooks/query/provenance";
-import { logProvenance } from "@/lib/engine/provenance";
-import { diffSchemas } from "@/lib/engine/schema-ops";
-import {
-  parseFromMarkdown,
-  serializeToMarkdown,
-} from "@/lib/engine/structured-intent";
-import type { Portfolio, PortfolioSchema, StructuredIntent } from "@/lib/types";
-import { cn } from "@/lib/utils";
-import { useQueryClient } from "@tanstack/react-query";
-import { Loader2, Sparkles } from "lucide-react";
-import { useCurrentUser } from "@/context/user-context";
+import { useSpaceSiblings } from "@/hooks/query/portfolios";
+import { usePreviousPurpose } from "@/hooks/query/provenance";
+import { useUndoToast } from "@/hooks/query/undo";
 import { formatActor } from "@/lib/mock-users";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { Portfolio, StructuredIntent } from "@/lib/types";
+import { Loader2, Sparkles } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
 import { DesignProbeResolvedDialog } from "./DesignProbeResolvedDialog";
 import { ResolvedStack } from "./ResolvedStack";
+import { StructuredIntentEditor } from "./StructuredIntentEditor";
 
 interface ReflectiveConversationPaneProps {
   portfolio: Portfolio;
+  /** Run generation once on mount (new portfolio created with an intent). */
+  autoGenerate?: boolean;
+  onAutoGenerateStarted?: () => void;
+}
+
+/** An in-progress intent edit: the saved state it started from + the draft. */
+interface EditSession {
+  base: StructuredIntent;
+  draft: StructuredIntent;
+}
+
+function sameIntent(a: StructuredIntent, b: StructuredIntent): boolean {
+  return (
+    a.purpose.content === b.purpose.content &&
+    a.audience.content === b.audience.content &&
+    a.exclusions.content === b.exclusions.content &&
+    a.constraints.content === b.constraints.content
+  );
 }
 
 /**
@@ -40,317 +52,245 @@ interface ReflectiveConversationPaneProps {
  */
 export function ReflectiveConversationPane({
   portfolio,
+  autoGenerate,
+  onAutoGenerateStarted,
 }: ReflectiveConversationPaneProps) {
-  const portfolioSchema = portfolio.schema as unknown as PortfolioSchema;
+  const portfolioSchema = portfolio.schema;
   const { currentUser } = useCurrentUser();
   const actor = formatActor(currentUser);
 
-  const editorRef = useRef<HTMLDivElement>(null);
-  const [structuredIntent, setStructuredIntent] = useState<StructuredIntent>(
-    portfolio.intent,
-  );
-  const updatePortfolio = useUpdatePortfolio();
-  const queryClient = useQueryClient();
+  // While the user edits, the editor shows their draft; otherwise it shows
+  // the saved intent, so external updates (resolved probes, field-edit
+  // syncs) appear immediately and never overwrite text being typed.
+  const [session, setSession] = useState<EditSession | null>(null);
+  const intent = session?.draft ?? portfolio.intent;
+  const isDirty = !!session && !sameIntent(session.draft, session.base);
+  const changedElsewhere =
+    isDirty && !sameIntent(session.base, portfolio.intent);
 
-  // Markdown projection of the structured intent for the editor
-  const editorValue = useMemo(
-    () => serializeToMarkdown(structuredIntent),
-    [structuredIntent],
-  );
-
-  // Pipeline hook replaces the old handleGenerate
   const pipeline = usePipelineGenerate(portfolio.id);
+  const [error, setError] = useState<string | null>(null);
 
-  // Prompt-based edit state
-  const [promptEditOpen, setPromptEditOpen] = useState(false);
-  const [promptEditText, setPromptEditText] = useState("");
-  const [isPromptEditing, setIsPromptEditing] = useState(false);
-  const [error, setError] = useState<string | null | undefined>();
-
-  const { data: provenanceEntries } = useProvenance(portfolio.id);
-
-  // Derive previousIntent from the most recent provenance entry whose
-  // prev_intent.purpose differs from the current intent. Entries that only
-  // changed the schema (not the intent) have prev_intent identical to
-  // the current value, so we skip those to find the actual last change.
-  const previousIntent = useMemo(() => {
-    if (!provenanceEntries?.length) return null;
-    const currentPurpose = structuredIntent.purpose.content;
-    for (const entry of provenanceEntries) {
-      const prevPurpose = entry.prev_intent?.purpose?.content;
-      if (prevPurpose && prevPurpose !== currentPurpose) {
-        return prevPurpose;
-      }
-    }
-    return null;
-  }, [provenanceEntries, structuredIntent.purpose.content]);
+  const { data: previousPurpose } = usePreviousPurpose(
+    portfolio.id,
+    portfolio.intent.purpose.content,
+  );
   const [showDiff, setShowDiff] = useState(false);
 
-  // Sync structured intent from portfolio when it changes externally
-  useEffect(() => {
-    setStructuredIntent(portfolio.intent);
-  }, [portfolio.intent]);
+  const handleIntentChange = useCallback(
+    (draft: StructuredIntent) =>
+      setSession((prev) => ({ base: prev?.base ?? portfolio.intent, draft })),
+    [portfolio.intent],
+  );
 
-  // Parse markdown from editor back into structured intent
-  const handleEditorChange = useCallback((markdown: string) => {
-    setStructuredIntent((prev) => parseFromMarkdown(markdown, prev));
-  }, []);
+  // Dictated text is appended to the *purpose* section.
+  const handleVoiceTranscript = useCallback(
+    (text: string) =>
+      setSession((prev) => {
+        const base = prev?.base ?? portfolio.intent;
+        const draft = prev?.draft ?? portfolio.intent;
+        return {
+          base,
+          draft: {
+            ...draft,
+            purpose: {
+              content: draft.purpose.content
+                ? `${draft.purpose.content}\n\n${text}`
+                : text,
+              updatedAt: new Date().toISOString(),
+            },
+          },
+        };
+      }),
+    [portfolio.intent],
+  );
 
-  // Dictated text is appended to the *purpose* section — not the end of the
-  // markdown document, where it would land in whichever section happens to be
-  // last (e.g. Constraints).
-  const handleVoiceTranscript = useCallback((text: string) => {
-    setStructuredIntent((prev) => ({
-      ...prev,
-      purpose: {
-        content: prev.purpose.content
-          ? `${prev.purpose.content}\n\n${text}`
-          : text,
-        updatedAt: new Date().toISOString(),
-      },
-    }));
-  }, []);
+  const isGenerating = pipeline.isPending;
+  const hasFields = portfolioSchema.fields.length > 0;
 
   // -------------------------------------------------------------------
-  // Button: Smart pipeline generate
+  // Generate / refine
   // -------------------------------------------------------------------
   const handleGenerate = async () => {
-    if (!structuredIntent.purpose.content.trim() || isGenerating) return;
-
+    if (!intent.purpose.content.trim() || isGenerating) return;
     setError(null);
+    setShowDiff(false);
 
     try {
       const result = await pipeline.mutateAsync({
-        previousIntent: portfolio.intent,
-        currentIntent: structuredIntent,
+        previousIntent: session?.base ?? portfolio.intent,
+        currentIntent: intent,
         currentSchema: portfolioSchema,
         actor,
       });
 
       if (result.strategy.kind === "noop") {
-        setError("No changes detected. Edit the intent to regenerate.");
+        setError("No changes detected. Edit the intent to refine the form.");
         return;
       }
-
-      setStructuredIntent(result.intent);
+      setSession(null);
     } catch (err) {
       console.error("[ReflectiveConversationPane] Generation error:", err);
-      setError(err instanceof Error ? err.message : "Generation failed");
+      const message = err instanceof Error ? err.message : "Generation failed";
+      setError(message);
+      toast.error(message);
     }
   };
 
-  // -------------------------------------------------------------------
-  // Prompt-based edit
-  // -------------------------------------------------------------------
-  const handlePromptEdit = async () => {
-    if (!promptEditText.trim() || isGenerating || !portfolio) return;
+  // New portfolio created with an intent → generate right away (once).
+  const autoStarted = useRef(false);
+  useEffect(() => {
+    if (!autoGenerate || autoStarted.current) return;
+    if (!portfolio.intent.purpose.content.trim() || hasFields) return;
+    autoStarted.current = true;
+    onAutoGenerateStarted?.();
+    pipeline.mutate(
+      {
+        previousIntent: portfolio.intent,
+        currentIntent: portfolio.intent,
+        currentSchema: portfolio.schema,
+        actor,
+      },
+      {
+        onError: (err) =>
+          toast.error(
+            err instanceof Error ? err.message : "Form generation failed",
+          ),
+      },
+    );
+  }, [
+    autoGenerate,
+    onAutoGenerateStarted,
+    portfolio.intent,
+    portfolio.schema,
+    hasFields,
+    pipeline,
+    actor,
+  ]);
 
-    setIsPromptEditing(true);
-    setError(null);
+  const canDiff =
+    !!previousPurpose && previousPurpose !== portfolio.intent.purpose.content;
 
-    try {
-      const response = await resolveDesignProbeAction({
-        intent: structuredIntent,
-        currentSchema: portfolioSchema,
-        interactionText: "User requested a direct prompt-based edit",
-        selectedOptionLabel: promptEditText.trim(),
-        maxFollowUps: 0,
-      });
-
-      if (response.success && response.result) {
-        const editDiff = diffSchemas(
-          portfolioSchema,
-          response.result.artifactFormSchema,
-        );
-
-        await updatePortfolio.mutateAsync({
-          id: portfolio.id,
-          intent: structuredIntent,
-          schema: response.result.artifactFormSchema,
-        });
-
-        await logProvenance(
-          portfolio.id,
-          "configuration",
-          "prompt_edit",
-          actor,
-          editDiff,
-          promptEditText.trim(),
-          { intent: structuredIntent, schema: portfolioSchema },
-        );
-        queryClient.invalidateQueries({
-          queryKey: ["provenance", portfolio.id],
-        });
-
-        setPromptEditText("");
-        setPromptEditOpen(false);
-      } else {
-        setError(response.error || "Failed to apply edit");
-      }
-    } catch (err) {
-      console.error("[ReflectiveConversationPane] Prompt edit error:", err);
-      setError(err instanceof Error ? err.message : "Edit failed");
-    } finally {
-      setIsPromptEditing(false);
-    }
-  };
-
-  // -------------------------------------------------------------------
-  // Derived state
-  // -------------------------------------------------------------------
-  const isGenerating = pipeline.isPending || isPromptEditing;
   return (
     <div className="flex flex-col h-full">
-      {/* Intent Editor — single field, structured data underneath */}
       <div className="space-y-3">
         <div className="flex items-center justify-between h-8 mb-3">
           <h3 className="workspace-section-label">Intent</h3>
           <div className="flex items-center gap-1">
-            {previousIntent && previousIntent !== editorValue && (
+            {canDiff && !isDirty && (
               <Button
                 onClick={() => setShowDiff(!showDiff)}
                 variant="ghost"
                 size="sm"
-                className="h-6 px-2 text-[11px] text-muted-foreground/60 hover:text-foreground"
+                aria-pressed={showDiff}
+                className="h-6 px-2 text-[11px] text-muted-foreground hover:text-foreground"
               >
-                {!showDiff ? "View" : "Hide"} changes
+                {!showDiff ? "View" : "Hide"} last change
               </Button>
             )}
             <MicButton
               onTranscript={handleVoiceTranscript}
-              disabled={isGenerating || promptEditOpen}
+              disabled={isGenerating}
             />
           </div>
         </div>
+
         <div className="relative overflow-hidden rounded-2xl">
           {/* Animated gradient when processing */}
-          <div
-            className={cn(
-              isGenerating
-                ? "pointer-events-none absolute inset-0 bg-[linear-gradient(120deg,#ff6ec4,#7873f5,#4ade80,#60a5fa)] bg-size-[400%_400%] animate-[gradient_3s_ease_infinite] opacity-30 z-10 rounded-2xl"
-                : "",
-            )}
-          />
+          {isGenerating && (
+            <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(120deg,#ff6ec4,#7873f5,#4ade80,#60a5fa)] bg-size-[400%_400%] animate-[gradient_3s_ease_infinite] opacity-30 z-10 rounded-2xl motion-reduce:animate-none" />
+          )}
 
-          {showDiff && previousIntent ? (
-            <div
-              className="border rounded-2xl p-2.5 bg-muted/30 cursor-pointer transition-colors hover:bg-muted/50"
+          {showDiff && canDiff ? (
+            <button
+              type="button"
+              className="block w-full text-left border rounded-2xl p-2.5 bg-muted/30 transition-colors hover:bg-muted/50"
               onClick={() => setShowDiff(false)}
+              aria-label="Hide purpose changes"
             >
-              <PromptDiff previous={previousIntent} current={editorValue} />
-            </div>
+              <PromptDiff
+                previous={previousPurpose}
+                current={portfolio.intent.purpose.content}
+              />
+            </button>
           ) : (
             <div data-testid="intent-editor">
-              <MarkdownEditor
-                ref={editorRef}
-                placeholder="Describe what this form is for, who will use it, and what data you need to collect..."
-                value={editorValue}
-                className={cn(
-                  "rounded-2xl relative border shadow-sm",
-                  isGenerating
-                    ? "bg-transparent"
-                    : "focus-within:shadow-md focus-within:border-ring/30 transition-shadow duration-200",
-                )}
-                onChange={handleEditorChange}
-                disabled={isGenerating || promptEditOpen}
+              <StructuredIntentEditor
+                value={intent}
+                onChange={handleIntentChange}
+                disabled={isGenerating}
               />
             </div>
           )}
         </div>
 
+        {changedElsewhere && (
+          <p className="text-xs text-muted-foreground" role="status">
+            The intent was updated while you were editing. Your changes will
+            be merged in when you refine.
+          </p>
+        )}
+
         {/* Error display */}
         {error && (
-          <div className="rounded-lg bg-destructive/8 text-destructive px-4 py-3 text-sm border border-destructive/15">
+          <div
+            role="alert"
+            className="rounded-lg bg-destructive/8 text-destructive px-4 py-3 text-sm border border-destructive/15"
+          >
             {error}
           </div>
         )}
 
         {/* Action buttons */}
         <div className="flex gap-2 pb-6">
-          {promptEditOpen ? (
-            <div className="flex-1 space-y-2">
-              <textarea
-                placeholder="Describe the change you want to make to the form..."
-                value={promptEditText}
-                onChange={(e) => setPromptEditText(e.target.value)}
-                rows={2}
-                className="w-full rounded-lg border px-3 py-2 text-sm resize-none shadow-sm focus:outline-none focus:ring-2 focus:ring-ring/30 focus:border-ring/30 transition-shadow"
-                disabled={isGenerating}
-              />
-              <Button
-                size="sm"
-                onClick={handlePromptEdit}
-                disabled={!promptEditText.trim() || isGenerating}
-                className="w-full btn-brand font-sans"
-              >
-                Apply Edit
-              </Button>
-            </div>
-          ) : (
-            <Button
-              data-testid="generate-form-btn"
-              data-loading={isGenerating ? "true" : undefined}
-              onClick={handleGenerate}
-              disabled={
-                !structuredIntent.purpose.content.trim() || isGenerating
-              }
-              className="flex-1 btn-brand font-sans"
-            >
-              {isGenerating ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Processing...
-                </>
-              ) : (
-                <>
-                  <Sparkles className="h-4 w-4 mr-2" />
-                  {portfolioSchema.fields.length > 0
-                    ? "Refine Form"
-                    : "Generate Form"}
-                </>
-              )}
+          <Button
+            data-testid="generate-form-btn"
+            data-loading={isGenerating ? "true" : undefined}
+            onClick={handleGenerate}
+            disabled={
+              !intent.purpose.content.trim() ||
+              isGenerating ||
+              (hasFields && !isDirty)
+            }
+            className="flex-1 btn-brand"
+          >
+            {isGenerating ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                {hasFields ? "Refining…" : "Generating…"}
+              </>
+            ) : (
+              <>
+                <Sparkles className="h-4 w-4 mr-2" />
+                {hasFields ? "Refine Form" : "Generate Form"}
+              </>
+            )}
+          </Button>
+          {isDirty && !isGenerating && (
+            <Button variant="ghost" onClick={() => setSession(null)}>
+              Discard
             </Button>
           )}
-          {/* {portfolioSchema.fields.length > 0 && (
-            <Button
-              variant="outline"
-              onClick={() => setPromptEditOpen(!promptEditOpen)}
-              disabled={isGenerating}
-              className="shadow-sm font-sans"
-            >
-              {!promptEditOpen ? (
-                "Prompt Edit"
-              ) : (
-                <>
-                  Close
-                  <XIcon />
-                </>
-              )}
-            </Button>
-          )} */}
         </div>
-        <ResolvedSection
-          portfolioId={portfolio.id}
-          currentIntent={structuredIntent}
-          currentSchema={portfolioSchema}
-        />
+        {hasFields && !isDirty && !isGenerating && (
+          <p className="-mt-4 pb-4 text-xs text-muted-foreground/80">
+            Edit the intent to refine the form, or answer the design probes.
+          </p>
+        )}
+
+        <ResolvedSection portfolio={portfolio} />
       </div>
     </div>
   );
 }
 
-const ResolvedSection = ({
-  portfolioId,
-  currentIntent,
-  currentSchema,
-}: {
-  portfolioId: string;
-  currentIntent: StructuredIntent;
-  currentSchema: PortfolioSchema;
-}) => {
+const ResolvedSection = ({ portfolio }: { portfolio: Portfolio }) => {
   const [dialogOpen, setDialogOpen] = useState(false);
-  const { data: designProbes } = useDesignProbes(portfolioId);
-  const reResolve = useReResolveDesignProbe(portfolioId);
+  const { data: designProbes } = useDesignProbes(portfolio.id);
+  const reResolve = useReResolveDesignProbe(portfolio.id);
+  const restoreAnswer = useRestoreProbeAnswer(portfolio.id);
+  const spacePortfolios = useSpaceSiblings(portfolio);
+  const notifyUndo = useUndoToast();
   const { currentUser } = useCurrentUser();
 
   if (!designProbes?.length) return null;
@@ -364,13 +304,23 @@ const ResolvedSection = ({
     const probe = resolvedProbes.find((p) => p.id === probeId);
     if (!probe) return;
 
-    await reResolve.mutateAsync({
-      probe,
-      newSelectedValue: newValue,
-      currentIntent,
-      currentSchema,
-      editedBy: formatActor(currentUser),
-    });
+    try {
+      const result = await reResolve.mutateAsync({
+        probe,
+        newSelectedValue: newValue,
+        // The saved state — never an unsaved intent draft
+        snapshot: { intent: portfolio.intent, schema: portfolio.schema },
+        editedBy: formatActor(currentUser),
+        spacePortfolios,
+      });
+      notifyUndo(result.commit, `Changed answer to "${result.optionLabel}"`, {
+        onUndone: () => restoreAnswer.mutateAsync(probe),
+      });
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Failed to change the answer",
+      );
+    }
   };
 
   return (

@@ -33,6 +33,12 @@ export interface DomainStandard {
   url: string;
   /** Keywords used for detection: ["patient", "intake", "clinical"] */
   keywords: string[];
+  /**
+   * Keywords specific enough to detect the standard on their own (e.g.
+   * "fhir", "gtin"). All other keywords need a second hit — "department"
+   * alone must not suggest FHIR.
+   */
+  strongKeywords?: string[];
   /** Field-level constraints defined by this standard */
   fieldConstraints: StandardFieldConstraint[];
   /** Controlled vocabularies / code systems */
@@ -45,7 +51,7 @@ export interface DomainStandard {
  * A single field constraint defined by a standard.
  * Maps to a concrete form field requirement.
  */
-interface StandardFieldConstraint {
+export interface StandardFieldConstraint {
   /** Unique key for this field within the standard */
   fieldKey: string;
   /** Human-readable label */

@@ -66,11 +66,35 @@ function getRunDirs(): string[] {
     .reverse();
 }
 
+/**
+ * The dashboard reads local evaluation results — a dev/research tool. In
+ * production it is off unless explicitly enabled.
+ */
+function isEnabled(): boolean {
+  return (
+    process.env.NODE_ENV !== "production" ||
+    process.env.EVAL_DASHBOARD_ENABLED === "true"
+  );
+}
+
+/** Basenames of the files in `dir` with the given extension (no traversal). */
+function listFiles(dir: string, ext: string): string[] {
+  if (!fs.existsSync(dir)) return [];
+  return fs
+    .readdirSync(dir, { withFileTypes: true })
+    .filter((d) => d.isFile() && d.name.endsWith(ext))
+    .map((d) => d.name);
+}
+
 export async function GET(request: NextRequest) {
-  const runId = request.nextUrl.searchParams.get("run");
+  if (!isEnabled()) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+
+  const requestedRun = request.nextUrl.searchParams.get("run");
 
   // List all runs
-  if (!runId) {
+  if (!requestedRun) {
     const runs = getRunDirs().map((dir) => {
       const meta = readJson(
         path.join(RESULTS_DIR, dir, "run-meta.json"),
@@ -84,11 +108,13 @@ export async function GET(request: NextRequest) {
     });
   }
 
-  // Single run detail
-  const runDir = path.join(RESULTS_DIR, runId);
-  if (!fs.existsSync(runDir)) {
+  // Single run detail — only ids of existing run directories are accepted,
+  // so `?run=../..` can't escape RESULTS_DIR.
+  const runId = getRunDirs().find((dir) => dir === requestedRun);
+  if (!runId) {
     return NextResponse.json({ error: "Run not found" }, { status: 404 });
   }
+  const runDir = path.join(RESULTS_DIR, runId);
 
   const meta = readJson(path.join(runDir, "run-meta.json"));
 
@@ -98,28 +124,17 @@ export async function GET(request: NextRequest) {
     scores = readJson(path.join(RESULTS_DIR, "cdn-scores.json"));
   }
 
-  // Read raw scores
-  let rawScores = readJson(path.join(runDir, "cdn-scores-raw.json"));
-  if (!rawScores) {
-    rawScores = readJson(path.join(RESULTS_DIR, "cdn-scores-raw.json"));
-  }
-
   // Read session artifacts
   const artifactsDir = path.join(runDir, "artifacts");
   const artifacts: Record<string, unknown> = {};
-  if (fs.existsSync(artifactsDir)) {
-    for (const file of fs
-      .readdirSync(artifactsDir)
-      .filter((f) => f.endsWith(".json"))) {
-      const key = file.replace(".json", "");
-      artifacts[key] = readJson(path.join(artifactsDir, file));
-    }
+  for (const file of listFiles(artifactsDir, ".json")) {
+    const key = file.replace(".json", "");
+    artifacts[key] = readJson(path.join(artifactsDir, file));
   }
 
   // Olsen-specific scores (for olsen-run-* directories)
   const olsenScores = readJson(path.join(runDir, "olsen-scores.json"));
   const olsenRaw = readJson(path.join(runDir, "olsen-scores-raw.json"));
-  const olsenPerModel = readJson(path.join(runDir, "olsen-per-model.json"));
   const olsenPerRole = readJson(path.join(runDir, "olsen-per-role.json"));
   const olsenLimitations = readJson(path.join(runDir, "olsen-limitations.json"));
   const olsenBaselines = readJson(path.join(runDir, "olsen-baselines.json"));
@@ -129,26 +144,18 @@ export async function GET(request: NextRequest) {
   const humanScores = readJson(path.join(runDir, "cdn-scores-human.json"));
   const agreement = readJson(path.join(runDir, "cdn-agreement.json"));
 
-  // List available videos
-  const videosDir = path.join(runDir, "videos");
-  const videos: string[] = [];
-  if (fs.existsSync(videosDir)) {
-    for (const f of fs.readdirSync(videosDir).filter((f) => f.endsWith(".webm"))) {
-      videos.push(f);
-    }
-  }
+  // List available videos (names only — the dashboard doesn't serve them)
+  const videos = listFiles(path.join(runDir, "videos"), ".webm");
 
   return NextResponse.json({
     id: runId,
     meta,
     scores,
-    rawScores,
     artifacts,
     dimensions: CDN_DIMENSIONS,
     olsenCriteria: OLSEN_CRITERIA,
     olsenScores,
     olsenRaw,
-    olsenPerModel,
     olsenPerRole,
     olsenLimitations,
     olsenBaselines,

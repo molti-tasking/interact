@@ -49,6 +49,14 @@ export const fhirPatientIntake: DomainStandard = {
     "therapy",
     "patient record",
   ],
+  strongKeywords: [
+    "patient",
+    "fhir",
+    "hl7",
+    "ehr",
+    "electronic health record",
+    "patient record",
+  ],
   fieldConstraints: [
     {
       fieldKey: "familyName",

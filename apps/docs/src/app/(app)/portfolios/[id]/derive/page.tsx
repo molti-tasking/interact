@@ -4,45 +4,80 @@ import { deriveSchemaAction } from "@/app/actions/derive-actions";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { useCreatePortfolio, usePortfolio } from "@/hooks/query/portfolios";
-import { emptyStructuredIntent, PortfolioSchema } from "@/lib/types";
 import {
-  ArrowLeft,
+  type DerivationSpec,
+  emptyStructuredIntent,
+  type PortfolioInsert,
+} from "@/lib/types";
+import {
+  AlertTriangle,
   FileText,
   GitBranch,
   Loader2,
   Sparkles,
 } from "lucide-react";
-import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useState } from "react";
+import { toast } from "sonner";
 
 export default function DerivePage() {
   const { id } = useParams<{ id: string }>();
-  const { data: portfolio, isLoading } = usePortfolio(id);
+  const { data: portfolio, isLoading, isError, error: loadError, refetch } =
+    usePortfolio(id);
   const createPortfolio = useCreatePortfolio();
   const router = useRouter();
   const [scenario, setScenario] = useState("");
+  // Stays true after success until navigation completes (no double submit).
   const [isCreating, setIsCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  if (isLoading || !portfolio) {
+  if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-[60vh]">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      <div className="mx-auto max-w-2xl space-y-4" aria-busy="true">
+        <Skeleton className="mx-auto h-10 w-64" />
+        <Skeleton className="h-16 w-full rounded-xl" />
+        <Skeleton className="h-32 w-full" />
       </div>
     );
   }
 
+  if (isError) {
+    return (
+      <Card className="mx-auto max-w-md items-center gap-3 p-10 text-center">
+        <AlertTriangle className="h-10 w-10 text-destructive" aria-hidden />
+        <h2 className="text-lg">Couldn&apos;t load the source form</h2>
+        <p className="text-sm text-muted-foreground">
+          {loadError instanceof Error ? loadError.message : "Please try again."}
+        </p>
+        <Button variant="outline" onClick={() => refetch()}>
+          Retry
+        </Button>
+      </Card>
+    );
+  }
+
+  // Not-found is rendered by the portfolio layout.
+  if (!portfolio) return null;
+
+  const parentSchema = portfolio.schema;
+  const fieldCount = parentSchema.fields.length;
+  const canSubmit = !!scenario.trim() && !isCreating && fieldCount > 0;
+
   const handleDerive = async () => {
-    if (!scenario.trim()) return;
+    if (!canSubmit) return;
     setIsCreating(true);
     setError(null);
 
-    try {
-      const parentSchema = portfolio.schema as unknown as PortfolioSchema;
+    const fail = (message: string) => {
+      setError(message);
+      toast.error("Couldn't derive the view", { description: message });
+      setIsCreating(false);
+    };
 
+    try {
       // LLM-powered derivation: classify, select fields, add new ones
       const deriveResult = await deriveSchemaAction({
         parentIntent: portfolio.intent,
@@ -51,16 +86,33 @@ export default function DerivePage() {
       });
 
       if (!deriveResult.success || !deriveResult.result) {
-        setError(deriveResult.error ?? "Failed to derive schema");
+        fail(deriveResult.error ?? "Failed to derive schema");
         return;
       }
 
-      const { derivationType, includedFieldKeys, additionalFields, schema, derivedPurpose } =
-        deriveResult.result;
+      const {
+        derivationType,
+        includedFieldKeys,
+        additionalFields,
+        schema,
+        derivedPurpose,
+        derivedIntent,
+      } = deriveResult.result;
+
+      const projection: DerivationSpec = {
+        type: derivationType,
+        scenarioIntent: scenario.trim(),
+        includedFieldIds: parentSchema.fields
+          .filter((f) => includedFieldKeys.includes(f.name))
+          .map((f) => f.id),
+        additionalFields: JSON.parse(JSON.stringify(additionalFields)),
+        fieldMappings: {},
+      };
 
       const derived = await createPortfolio.mutateAsync({
         title: `${portfolio.title} — ${scenario.trim().slice(0, 50)}`,
-        intent: {
+        // Inherits the parent's exclusions + constraints (from the action)
+        intent: derivedIntent ?? {
           ...emptyStructuredIntent(),
           purpose: {
             content: derivedPurpose,
@@ -69,55 +121,40 @@ export default function DerivePage() {
         },
         schema,
         base_id: portfolio.id,
-        projection: {
-          type: derivationType,
-          scenarioIntent: scenario.trim(),
-          includedFieldIds: parentSchema.fields
-            .filter((f) => includedFieldKeys.includes(f.name))
-            .map((f) => f.id),
-          additionalFields: JSON.parse(JSON.stringify(additionalFields)),
-          fieldMappings: {},
-        } as unknown as undefined,
+        // Keep derived views in the base's space (lists, reference siblings)
+        space_id: portfolio.space_id,
+        projection: projection as unknown as PortfolioInsert["projection"],
         status: "draft",
       });
 
       router.push(`/portfolios/${derived.id}`);
     } catch (err) {
       console.error("Derivation error:", err);
-      setError(err instanceof Error ? err.message : "Unknown error");
-    } finally {
-      setIsCreating(false);
+      fail(err instanceof Error ? err.message : "Unknown error");
     }
   };
 
-  const fieldCount = (portfolio.schema as unknown as PortfolioSchema).fields
-    .length;
-
   return (
-    <div className="max-w-2xl mx-auto">
-      {/* Back link */}
-      <Button variant="ghost" size="sm" asChild className="mb-6 -ml-2">
-        <Link href={`/portfolios/${id}`}>
-          <ArrowLeft className="h-4 w-4" />
-          Back to design
-        </Link>
-      </Button>
-
+    <div className="mx-auto max-w-2xl">
       {/* Hero header */}
-      <div className="text-center space-y-3 mb-10">
-        <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-primary/10 mb-2">
-          <GitBranch className="h-7 w-7 text-primary" />
+      <div className="mb-8 space-y-3 text-center">
+        <div className="mb-2 inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10">
+          <GitBranch className="h-7 w-7 text-primary" aria-hidden />
         </div>
-        <h1 className="text-3xl tracking-tight">Derive a New View</h1>
+        <h2 className="text-3xl tracking-tight">Derive a New Sub Schema</h2>
+        <p className="text-sm text-muted-foreground">
+          Create a scenario-specific view of this form — a subset, an extension,
+          or a mix — without duplicating the data space.
+        </p>
       </div>
 
       {/* Source form context */}
-      <Card className="p-4 mb-6 border-dashed flex items-center gap-4">
-        <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-muted shrink-0">
-          <FileText className="h-5 w-5 text-muted-foreground" />
+      <Card className="mb-6 flex-row items-center gap-4 border-dashed p-4">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-muted">
+          <FileText className="h-5 w-5 text-muted-foreground" aria-hidden />
         </div>
         <div className="min-w-0">
-          <p className="text-sm font-medium truncate">{portfolio.title}</p>
+          <p className="truncate text-sm font-medium">{portfolio.title}</p>
           <p className="text-xs text-muted-foreground">
             Source form &middot; {fieldCount} field{fieldCount !== 1 ? "s" : ""}
           </p>
@@ -125,7 +162,14 @@ export default function DerivePage() {
       </Card>
 
       {/* Main action area */}
-      <div className="space-y-4">
+      <form
+        className="space-y-4"
+        onSubmit={(e) => {
+          e.preventDefault();
+          void handleDerive();
+        }}
+        aria-busy={isCreating || undefined}
+      >
         <div className="space-y-2">
           <Label htmlFor="scenario" className="text-sm">
             What&apos;s this view for?
@@ -136,37 +180,54 @@ export default function DerivePage() {
             rows={5}
             value={scenario}
             onChange={(e) => setScenario(e.target.value)}
-            className="text-base bg-white"
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+                e.preventDefault();
+                void handleDerive();
+              }
+            }}
+            disabled={isCreating}
+            className="bg-background text-base"
+            aria-describedby="scenario-hint"
           />
-          <p className="text-xs text-muted-foreground">
+          <p id="scenario-hint" className="text-xs text-muted-foreground">
             Describe the audience and purpose. The system will determine which
             fields to include, exclude, or add.
           </p>
         </div>
 
+        {fieldCount === 0 && (
+          <p className="text-sm text-muted-foreground">
+            The source form has no fields yet — design it first, then derive
+            views from it.
+          </p>
+        )}
+
         {error && (
-          <p className="text-sm text-destructive">{error}</p>
+          <p role="alert" className="text-sm text-destructive">
+            {error}
+          </p>
         )}
 
         <Button
-          onClick={handleDerive}
-          disabled={!scenario.trim() || isCreating}
+          type="submit"
+          disabled={!canSubmit}
           size="lg"
           className="w-full btn-brand"
         >
           {isCreating ? (
             <>
-              <Loader2 className="h-4 w-4 animate-spin" />
+              <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
               Deriving view...
             </>
           ) : (
             <>
-              <Sparkles className="h-4 w-4" />
+              <Sparkles className="h-4 w-4" aria-hidden />
               Create Derived View
             </>
           )}
         </Button>
-      </div>
+      </form>
     </div>
   );
 }

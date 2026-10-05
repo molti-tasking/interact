@@ -4,14 +4,13 @@ import {
   FormControl,
   FormDescription,
   FormItem,
-  FormLabel,
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import type { Field } from "@/lib/types";
 import type { ControllerRenderProps } from "react-hook-form";
-import { FieldTooltip } from "./FieldTooltip";
+import { FieldLabel } from "./FieldLabel";
 
 interface TextFieldProps {
   field: Field;
@@ -25,23 +24,19 @@ export function TextField({ field, formField }: TextFieldProps) {
 
   return (
     <FormItem>
-      <FormLabel>
-        {field.label}
-        {field.tooltip && <FieldTooltip text={field.tooltip} />}
-        {field.required && <span className="text-destructive ml-1">*</span>}
-      </FormLabel>
+      <FieldLabel field={field} />
       <FormControl>
         {useTextarea ? (
           <Textarea
-            // placeholder={field.description}
             {...formField}
+            aria-required={field.required || undefined}
             value={(formField.value as string) ?? ""}
           />
         ) : (
           <Input
             type="text"
-            // placeholder={field.description}
             {...formField}
+            aria-required={field.required || undefined}
             value={(formField.value as string) ?? ""}
           />
         )}

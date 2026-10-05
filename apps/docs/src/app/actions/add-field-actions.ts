@@ -1,7 +1,9 @@
 "use server";
 
+import { newFieldId } from "@/lib/engine/schema-patch";
+import { capJson, capText, checkRateLimit, LIMITS } from "@/lib/llm-guard";
 import { model } from "@/lib/model";
-import { withTracing } from "@/lib/telemetry";
+import { telemetry, withTracing } from "@/lib/telemetry";
 import type { Field, PortfolioSchema } from "@/lib/types";
 import { generateText, Output } from "ai";
 import { z } from "zod";
@@ -58,6 +60,10 @@ async function addFieldFromPromptReal(
   schema: PortfolioSchema,
 ): Promise<AddFieldFromPromptResponse> {
   try {
+    capText(prompt, LIMITS.prompt, "Prompt");
+    capJson(schema, LIMITS.document, "Schema");
+    await checkRateLimit();
+
     const existingFieldNames = schema.fields.map((f) => f.name);
 
     const systemPrompt = `You are a form schema designer. The user wants to add new fields to their form using a natural language description.
@@ -83,12 +89,7 @@ Rules:
           prompt: systemPrompt,
           temperature: 0.3,
           output: Output.object({ schema: addFieldSchema }),
-          experimental_telemetry: {
-            isEnabled: true,
-            functionId: "add-field-prompt",
-            recordInputs: true,
-            recordOutputs: true,
-          },
+          experimental_telemetry: telemetry("add-field-prompt"),
         }),
     );
 
@@ -96,18 +97,26 @@ Rules:
       return { success: false, error: "No structured output in LLM response" };
     }
 
-    const newFields: Field[] = result.output.fields.map((f, index) => ({
-      id: `field-${Date.now()}-${index}`,
-      name: f.name,
-      label: f.label,
-      type: convertTypeKind(f.typeKind, f.options),
-      required: f.required ?? false,
-      constraints: [],
-      description: f.description,
-      tooltip: f.tooltip,
-      origin: "system" as const,
-      tags: ["prompt-added"],
-    }));
+    // Never collide with existing (or each other's) field names
+    const taken = new Set(existingFieldNames);
+    const newFields: Field[] = result.output.fields
+      .filter((f) => {
+        if (!f.name || taken.has(f.name)) return false;
+        taken.add(f.name);
+        return true;
+      })
+      .map((f) => ({
+        id: newFieldId(),
+        name: f.name,
+        label: f.label,
+        type: convertTypeKind(f.typeKind, f.options),
+        required: f.required ?? false,
+        constraints: [],
+        description: f.description,
+        tooltip: f.tooltip,
+        origin: "system" as const,
+        tags: ["prompt-added"],
+      }));
 
     return { success: true, newFields };
   } catch (error) {

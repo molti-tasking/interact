@@ -4,13 +4,15 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { useCreatePortfolio, usePortfolios } from "@/hooks/query/portfolios";
+import {
+  type PortfolioSummary,
+  useCreatePortfolio,
+  usePortfolioSummaries,
+} from "@/hooks/query/portfolios";
 import { useCreateSpace, useEnsureSpace, useSpaces } from "@/hooks/query/spaces";
 import {
   emptyPortfolioSchema,
   emptyStructuredIntent,
-  type Portfolio,
-  type PortfolioSchema,
   type Space,
 } from "@/lib/types";
 import {
@@ -26,6 +28,11 @@ import {
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
+import { toast } from "sonner";
+
+function errorMessage(err: unknown, fallback: string): string {
+  return err instanceof Error && err.message ? err.message : fallback;
+}
 
 /**
  * Record-mode entry point. Step 1: pick a space (or let the system create one
@@ -37,7 +44,7 @@ export default function RecordEntryPage() {
     <Suspense
       fallback={
         <div className="flex justify-center py-16">
-          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          <Loader2 className="h-6 w-6 motion-safe:animate-spin text-muted-foreground" />
         </div>
       }
     >
@@ -85,15 +92,22 @@ function SpaceStep() {
         status: "draft",
       });
       router.push(`/portfolios/${portfolio.id}/record`);
-    } catch {
+    } catch (err) {
       setIsQuickStarting(false);
+      toast.error(errorMessage(err, "Couldn't start a new voice form."));
     }
   };
 
   const handleCreateSpace = async () => {
     if (!newSpaceName.trim()) return;
-    const space = await createSpace.mutateAsync({ name: newSpaceName.trim() });
-    router.push(`/record?space=${space.id}`);
+    try {
+      const space = await createSpace.mutateAsync({
+        name: newSpaceName.trim(),
+      });
+      router.push(`/record?space=${space.id}`);
+    } catch (err) {
+      toast.error(errorMessage(err, "Couldn't create the space."));
+    }
   };
 
   return (
@@ -139,7 +153,7 @@ function SpaceStep() {
       {isLoading ? (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {[1, 2, 3].map((i) => (
-            <Card key={i} className="p-6 animate-pulse">
+            <Card key={i} className="p-6 motion-safe:animate-pulse">
               <div className="h-4 bg-muted rounded w-2/3 mb-2" />
               <div className="h-3 bg-muted rounded w-full" />
             </Card>
@@ -189,7 +203,7 @@ function SpaceStep() {
 }
 
 function SpaceCard({ space }: { space: Space }) {
-  const { data: portfolios } = usePortfolios(space.id);
+  const { data: portfolios } = usePortfolioSummaries(space.id);
   const count = portfolios?.length ?? 0;
 
   return (
@@ -231,18 +245,22 @@ function PortfolioStep({ spaceId }: { spaceId: string }) {
   const router = useRouter();
   const { data: spaces } = useSpaces();
   const space = spaces?.find((s) => s.id === spaceId);
-  const { data: portfolios, isLoading } = usePortfolios(spaceId);
+  const { data: portfolios, isLoading } = usePortfolioSummaries(spaceId);
   const createPortfolio = useCreatePortfolio();
 
   const handleNewVoiceForm = async () => {
-    const portfolio = await createPortfolio.mutateAsync({
-      title: `Voice form — ${new Date().toLocaleDateString()}`,
-      intent: emptyStructuredIntent(),
-      schema: emptyPortfolioSchema(),
-      space_id: spaceId,
-      status: "draft",
-    });
-    router.push(`/portfolios/${portfolio.id}/record`);
+    try {
+      const portfolio = await createPortfolio.mutateAsync({
+        title: `Voice form — ${new Date().toLocaleDateString()}`,
+        intent: emptyStructuredIntent(),
+        schema: emptyPortfolioSchema(),
+        space_id: spaceId,
+        status: "draft",
+      });
+      router.push(`/portfolios/${portfolio.id}/record`);
+    } catch (err) {
+      toast.error(errorMessage(err, "Couldn't create the voice form."));
+    }
   };
 
   return (
@@ -281,7 +299,7 @@ function PortfolioStep({ spaceId }: { spaceId: string }) {
       {isLoading ? (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {[1, 2, 3].map((i) => (
-            <Card key={i} className="p-6 animate-pulse">
+            <Card key={i} className="p-6 motion-safe:animate-pulse">
               <div className="h-4 bg-muted rounded w-2/3 mb-2" />
               <div className="h-3 bg-muted rounded w-full" />
             </Card>
@@ -312,9 +330,8 @@ function PortfolioStep({ spaceId }: { spaceId: string }) {
   );
 }
 
-function RecordCard({ portfolio }: { portfolio: Portfolio }) {
-  const fieldCount = (portfolio.schema as unknown as PortfolioSchema).fields
-    .length;
+function RecordCard({ portfolio }: { portfolio: PortfolioSummary }) {
+  const fieldCount = portfolio.fieldCount;
 
   return (
     <Link href={`/portfolios/${portfolio.id}/record`}>
@@ -328,7 +345,7 @@ function RecordCard({ portfolio }: { portfolio: Portfolio }) {
           </Badge>
         </div>
         <p className="text-sm text-muted-foreground line-clamp-2 mb-3">
-          {portfolio.intent.purpose.content || "No intent defined yet"}
+          {portfolio.purpose || "No intent defined yet"}
         </p>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2 text-xs text-muted-foreground">

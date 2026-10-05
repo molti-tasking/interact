@@ -145,7 +145,9 @@ function useEvaluationRun(runId: string | null) {
   return useQuery<RunDetail>({
     queryKey: ["evaluation-run", runId],
     queryFn: async () => {
-      const res = await fetch(`/api/evaluation?run=${runId}`);
+      const res = await fetch(
+        `/api/evaluation?run=${encodeURIComponent(runId ?? "")}`,
+      );
       if (!res.ok) throw new Error("Failed to fetch run");
       return res.json();
     },
@@ -190,7 +192,8 @@ function skillBadgeVariant(level: string) {
   }
 }
 
-function detectEvalType(run: RunSummary): string {
+/** Single source of truth for a run's evaluation type (list + detail). */
+function detectEvalType(run: Pick<RunSummary, "id" | "meta">): string {
   if (run.meta?.evalType) return run.meta.evalType;
   if (run.id.startsWith("olsen-run-")) return "olsen";
   if (run.id.startsWith("cdn-run-")) return "cdn-evidence";
@@ -819,7 +822,7 @@ function RunDetailView({
   runId: string;
   onBack: () => void;
 }) {
-  const { data: run, isLoading } = useEvaluationRun(runId);
+  const { data: run, isLoading, isError } = useEvaluationRun(runId);
 
   if (isLoading) {
     return (
@@ -829,24 +832,36 @@ function RunDetailView({
     );
   }
 
-  if (!run) {
-    return <p className="text-muted-foreground">Run not found.</p>;
+  if (isError || !run) {
+    return (
+      <div className="space-y-4">
+        <Button variant="ghost" size="sm" onClick={onBack}>
+          <ArrowLeft className="h-4 w-4 mr-1" />
+          All Runs
+        </Button>
+        <p className="text-muted-foreground">
+          {isError ? "Couldn't load this run." : "Run not found."}
+        </p>
+      </div>
+    );
   }
 
-  const evalType = run.meta?.evalType ?? (run.id.startsWith("olsen-") ? "olsen" : "cdn");
+  const evalType = detectEvalType(run);
   const scenarios = run.meta?.scenarios ?? Object.keys(run.scores ?? {});
 
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center gap-4">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
         <Button variant="ghost" size="sm" onClick={onBack}>
           <ArrowLeft className="h-4 w-4 mr-1" />
           All Runs
         </Button>
-        <div>
-          <div className="flex items-center gap-2">
-            <h2 className="text-lg font-semibold">{run.id}</h2>
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <h2 className="font-mono text-base font-semibold break-all">
+              {run.id}
+            </h2>
             {evalTypeBadge(evalType)}
           </div>
           {run.meta && (
@@ -999,7 +1014,8 @@ function RunDetailView({
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
-              {run.videos.sort().map((v) => (
+              {/* Sort a copy — never mutate cached query data in render */}
+              {[...run.videos].sort().map((v) => (
                 <div
                   key={v}
                   className="flex items-center gap-2 p-2 bg-muted rounded text-sm"
@@ -1034,7 +1050,7 @@ function RunDetailView({
 
 export default function EvaluationPage() {
   const [selectedRun, setSelectedRun] = useState<string | null>(null);
-  const { data, isLoading } = useEvaluationRuns();
+  const { data, isLoading, isError, error, refetch } = useEvaluationRuns();
 
   if (isLoading) {
     return (
@@ -1044,9 +1060,27 @@ export default function EvaluationPage() {
     );
   }
 
+  if (isError) {
+    return (
+      <div className="max-w-4xl mx-auto">
+        <Card className="p-12 text-center">
+          <FlaskConical className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+          <h2 className="text-lg mb-2">Evaluation results unavailable</h2>
+          <p className="text-muted-foreground text-sm mb-4">
+            {error instanceof Error ? error.message : "Failed to fetch runs"}
+            . Results are only served in local development.
+          </p>
+          <Button variant="outline" onClick={() => refetch()}>
+            Retry
+          </Button>
+        </Card>
+      </div>
+    );
+  }
+
   if (selectedRun) {
     return (
-      <div className="p-6 max-w-6xl mx-auto">
+      <div className="max-w-6xl mx-auto">
         <RunDetailView
           runId={selectedRun}
           onBack={() => setSelectedRun(null)}
@@ -1058,9 +1092,9 @@ export default function EvaluationPage() {
   const runs = data?.runs ?? [];
 
   return (
-    <div className="p-6 max-w-4xl mx-auto space-y-6">
+    <div className="max-w-4xl mx-auto space-y-6">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Evaluation Runs</h1>
+        <h1 className="text-3xl tracking-tight text-primary">Evaluation Runs</h1>
         <p className="text-sm text-muted-foreground">
           Olsen criteria and CDN rubric evaluation results.
         </p>

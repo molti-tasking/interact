@@ -2,32 +2,30 @@
 
 import { intentToSchemaAction } from "@/app/actions/schema-actions";
 import type { DetectedStandard } from "@/lib/domain-standards";
-import { logProvenance } from "@/lib/engine/provenance";
-import { diffSchemas } from "@/lib/engine/schema-ops";
-import { createClient } from "@/lib/supabase/client";
-import type { PortfolioSchema, StructuredIntent } from "@/lib/types";
-import { emptyPortfolioSchema } from "@/lib/types";
+import { commitPortfolioChange } from "@/lib/engine/commit";
+import { mergeRegeneratedSchema } from "@/lib/engine/schema-patch";
+import type { StructuredIntent } from "@/lib/types";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { applyCommitToCache } from "./portfolios";
 
 /**
- * Generate a schema from the structured intent and accepted standards,
- * then persist to portfolio.
+ * Generate a schema from the structured intent and accepted standards, then
+ * fold it into the portfolio's current schema (field ids, creator-authored
+ * fields, accepted standards and column actions survive regeneration).
  */
 export function useGenerateSchema(portfolioId: string) {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async ({
-      intent: newIntent,
-      currentSchema,
+      intent,
       acceptedStandards,
     }: {
       intent: StructuredIntent;
-      currentSchema: PortfolioSchema;
       acceptedStandards?: DetectedStandard[];
     }) => {
       const result = await intentToSchemaAction(
-        newIntent,
+        intent,
         acceptedStandards?.length ? acceptedStandards : undefined,
       );
 
@@ -35,47 +33,18 @@ export function useGenerateSchema(portfolioId: string) {
         throw new Error(result.error ?? "Failed to generate schema");
       }
 
-      const newSchema = result.result.artifactFormSchema;
-      const schemaDiff = diffSchemas(
-        currentSchema.fields.length > 0
-          ? currentSchema
-          : emptyPortfolioSchema(),
-        newSchema,
-      );
+      const generated = result.result.artifactFormSchema;
 
-      // Persist to portfolio
-      const supabase = createClient();
-      const { error } = await supabase
-        .from("portfolios")
-        .update({
-          intent: JSON.parse(JSON.stringify(newIntent)),
-          schema: JSON.parse(JSON.stringify(newSchema)),
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", portfolioId);
-
-      if (error) throw error;
-
-      // Log provenance
-      await logProvenance(
-        portfolioId,
-        "configuration",
-        "schema_generated",
-        "system",
-        schemaDiff,
-        `Generated ${newSchema.fields.length} fields from intent`,
-        { intent: newIntent, schema: currentSchema },
-      );
-
-      return { intent: newIntent, schema: newSchema };
+      return commitPortfolioChange(portfolioId, (current) => ({
+        schema: mergeRegeneratedSchema(current.schema, generated),
+        provenance: {
+          layer: "configuration",
+          action: "schema_generated",
+          actor: "system",
+          rationale: `Generated ${generated.fields.length} fields from intent`,
+        },
+      }));
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: ["portfolios", portfolioId],
-      });
-      queryClient.invalidateQueries({
-        queryKey: ["provenance", portfolioId],
-      });
-    },
+    onSuccess: (commit) => applyCommitToCache(queryClient, commit),
   });
 }

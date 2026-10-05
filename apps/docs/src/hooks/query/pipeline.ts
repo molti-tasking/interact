@@ -1,20 +1,26 @@
 "use client";
 
 import type { DetectedStandard } from "@/lib/domain-standards";
+import { commitPortfolioChange } from "@/lib/engine/commit";
+import { mergeIntentChange } from "@/lib/engine/merge";
 import {
-  applyExclusions,
   computeDelta,
   determinePipelineStrategy,
+  filterExcludedFields,
   serializeForLLM,
 } from "@/lib/engine/structured-intent";
-import { logProvenance } from "@/lib/engine/provenance";
-import { diffSchemas } from "@/lib/engine/schema-ops";
-import { createClient } from "@/lib/supabase/client";
-import type { PortfolioSchema, PipelineStrategy, StructuredIntent } from "@/lib/types";
+import type {
+  PipelineStrategy,
+  PortfolioSchema,
+  StructuredIntent,
+} from "@/lib/types";
+import { trackActivity } from "@/lib/workspace-activity";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { useGenerateDesignProbes } from "./design-probes";
+import { applyCommitToCache } from "./portfolios";
 import { useGenerateSchema } from "./schema-generation";
-import { useDetectStandards } from "./standards";
+import { findStandard, useDetectStandards } from "./standards";
 
 export interface PipelineResult {
   strategy: PipelineStrategy;
@@ -41,7 +47,9 @@ export function usePipelineGenerate(portfolioId: string) {
       currentSchema,
       actor = "creator",
     }: {
+      /** Intent as last loaded from the DB (base of the user's edit) */
       previousIntent: StructuredIntent;
+      /** The user's edited intent */
       currentIntent: StructuredIntent;
       currentSchema: PortfolioSchema;
       actor?: string;
@@ -50,128 +58,115 @@ export function usePipelineGenerate(portfolioId: string) {
       const hasExistingSchema = currentSchema.fields.length > 0;
       const strategy = determinePipelineStrategy(delta, hasExistingSchema);
 
-      switch (strategy.kind) {
-        case "noop":
-          return { strategy, intent: currentIntent };
-
-        case "full": {
-          // Save intent first
-          const supabase = createClient();
-          await supabase
-            .from("portfolios")
-            .update({
-              intent: JSON.parse(JSON.stringify(currentIntent)),
-              updated_at: new Date().toISOString(),
-            })
-            .eq("id", portfolioId);
-
-          // Log intent update if changed
-          if (delta.changedSections.length > 0) {
-            await logProvenance(
-              portfolioId,
-              "intent",
-              "intent_updated",
-              actor,
-              { added: [], removed: [], modified: [] },
-              `Sections changed: ${delta.changedSections.join(", ")}`,
-              { intent: previousIntent, schema: currentSchema },
-            );
-          }
-
-          // Step 1: Detect standards (keyword-based, no LLM)
-          const intentText = serializeForLLM(currentIntent);
-          const standardsResult = await detectStandards.mutateAsync(intentText);
-
-          // Step 2: Filter accepted standards
-          const acceptedStandardRefs = currentSchema.acceptedStandards ?? [];
-          const acceptedStandards = (standardsResult ?? []).filter(
-            (s: DetectedStandard) =>
-              acceptedStandardRefs.some(
-                (ref) => ref.standardId === s.standard.id,
-              ),
-          );
-
-          // Step 3: Generate schema directly from intent
-          const schemaResult = await generateSchema.mutateAsync({
-            intent: currentIntent,
-            currentSchema,
-            acceptedStandards:
-              acceptedStandards.length > 0 ? acceptedStandards : undefined,
-          });
-
-          // Step 4: Generate design probes (fire-and-forget)
-          generateDesignProbes.mutate({
-            intent: schemaResult.intent,
-            acceptedStandards:
-              acceptedStandards.length > 0 ? acceptedStandards : undefined,
-          });
-
-          return {
-            strategy,
-            intent: schemaResult.intent,
-            schema: schemaResult.schema,
-          };
-        }
-
-        case "filter-only": {
-          // Deterministic field filtering — no LLM needed
-          const filteredSchema = applyExclusions(
-            currentSchema,
-            currentIntent.exclusions.content,
-          );
-          const filterDiff = diffSchemas(currentSchema, filteredSchema);
-
-          // Persist
-          const supabase = createClient();
-          await supabase
-            .from("portfolios")
-            .update({
-              intent: JSON.parse(JSON.stringify(currentIntent)),
-              schema: JSON.parse(JSON.stringify(filteredSchema)),
-              updated_at: new Date().toISOString(),
-            })
-            .eq("id", portfolioId);
-
-          await logProvenance(
-            portfolioId,
-            "configuration",
-            "exclusions_applied",
-            actor,
-            filterDiff,
-            `Applied exclusions: ${currentIntent.exclusions.content.trim()}`,
-            { intent: previousIntent, schema: currentSchema },
-          );
-
-          return { strategy, intent: currentIntent, schema: filteredSchema };
-        }
-
-        case "recheck-constraints": {
-          // Save updated intent and invalidate conflict detection
-          const supabase = createClient();
-          await supabase
-            .from("portfolios")
-            .update({
-              intent: JSON.parse(JSON.stringify(currentIntent)),
-              updated_at: new Date().toISOString(),
-            })
-            .eq("id", portfolioId);
-
-          // Invalidate conflicts so useDetectConflicts re-runs
-          queryClient.invalidateQueries({
-            queryKey: ["conflicts", portfolioId],
-          });
-
-          return { strategy, intent: currentIntent };
-        }
-
+      if (strategy.kind === "noop") {
+        return { strategy, intent: currentIntent };
       }
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: ["portfolios", portfolioId],
-      });
-      queryClient.invalidateQueries({
-        queryKey: ["provenance", portfolioId],
+
+      return trackActivity(portfolioId, "Updating the form", async () => {
+        // Persist the user's intent edit first — merged onto the latest
+        // state — so it survives even if generation fails afterwards.
+        const needsCommit =
+          strategy.kind === "filter-only" || delta.changedSections.length > 0;
+        const intentCommit = !needsCommit
+          ? null
+          : await commitPortfolioChange(
+          portfolioId,
+          (current) => {
+            const intent = mergeIntentChange(
+              previousIntent,
+              currentIntent,
+              current.intent,
+            );
+
+            if (strategy.kind === "filter-only") {
+              // Deterministic field filtering — no LLM needed
+              const { schema: filtered, removedFields } = filterExcludedFields(
+                current.schema,
+                intent.exclusions.content,
+              );
+              return {
+                intent,
+                schema: filtered,
+                provenance: {
+                  layer: "configuration",
+                  action: "exclusions_applied",
+                  actor,
+                  rationale:
+                    removedFields.length > 0
+                      ? `Applied exclusions — removed ${removedFields.map((f) => `"${f.label}"`).join(", ")}`
+                      : `Updated exclusions (no matching fields): ${intent.exclusions.content.trim()}`,
+                },
+              };
+            }
+
+            return {
+              intent,
+              provenance:
+                delta.changedSections.length > 0
+                  ? {
+                      layer: "intent",
+                      action: "intent_updated",
+                      actor,
+                      rationale: `Sections changed: ${delta.changedSections.join(", ")}`,
+                    }
+                  : null,
+            };
+          },
+        );
+        applyCommitToCache(queryClient, intentCommit);
+
+        const intent = intentCommit?.portfolio.intent ?? currentIntent;
+        const schema = intentCommit?.portfolio.schema ?? currentSchema;
+
+        switch (strategy.kind) {
+          case "filter-only":
+            return { strategy, intent, schema };
+
+          case "recheck-constraints":
+            // Conflict detection is keyed on schema + intent content, so the
+            // committed constraint change re-triggers it automatically.
+            return { strategy, intent };
+
+          case "full": {
+            // Step 1: Detect standards (keyword-based, no LLM)
+            const standardsResult = await detectStandards.mutateAsync(
+              serializeForLLM(intent),
+            );
+
+            // Step 2: Accepted standards always feed generation — even when
+            // the edited intent no longer mentions their keywords.
+            const acceptedStandards = (schema.acceptedStandards ?? [])
+              .map((ref) => findStandard(ref.standardId, standardsResult))
+              .filter((s): s is DetectedStandard => !!s);
+
+            // Step 3: Generate schema and merge it into the current one
+            const schemaCommit = await generateSchema.mutateAsync({
+              intent,
+              acceptedStandards:
+                acceptedStandards.length > 0 ? acceptedStandards : undefined,
+            });
+            const newSchema = schemaCommit?.portfolio.schema ?? schema;
+
+            // Step 4: Generate design probes against the new schema
+            // (fire-and-forget; the deck shows progress)
+            generateDesignProbes.mutate(
+              {
+                intent,
+                acceptedStandards:
+                  acceptedStandards.length > 0 ? acceptedStandards : undefined,
+                currentSchema: newSchema,
+              },
+              {
+                onError: (err) =>
+                  toast.error(
+                    `Couldn't generate design probes: ${err instanceof Error ? err.message : "unknown error"}`,
+                  ),
+              },
+            );
+
+            return { strategy, intent, schema: newSchema };
+          }
+        }
       });
     },
   });

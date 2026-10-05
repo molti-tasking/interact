@@ -9,6 +9,8 @@
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
   --font-brand: var(--font-delius);
+  /* Delius (handwriting) is reserved for brand + headings: `font-display` */
+  --font-display: var(--font-delius);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -130,6 +132,13 @@
   }
   body {
     @apply bg-background text-foreground;
+    font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  }
+  /* Brand typography for page/section headings only; body copy, labels and
+     form inputs use Geist sans. Opt out with `font-sans`. */
+  h1,
+  h2 {
+    font-family: var(--font-delius), cursive;
   }
 }
 
@@ -195,67 +204,32 @@
   animation: gradient 8s ease infinite;
 }
 
-/* Ambient water background for voice record mode (WaterBackground.tsx) */
-@keyframes water-drift {
-  from {
-    transform: translateX(0);
-  }
-  to {
-    /* Shift by exactly one wavelength (a sine period), so the loop is seamless
-       regardless of screen width. Distance is set per-layer via --water-drift. */
-    transform: translateX(calc(-1 * var(--water-drift, 200px)));
-  }
-}
-
-.water-drift {
-  animation-name: water-drift;
-  animation-timing-function: linear;
-  animation-iteration-count: infinite;
-}
-
-@keyframes water-swell {
-  0% {
-    transform: scaleY(1);
-  }
-  35% {
-    transform: scaleY(1.35);
-  }
-  100% {
-    transform: scaleY(1);
-  }
-}
-
-.water-body--splash {
-  animation: water-swell 1.5s ease-out;
-}
-
 @media (prefers-reduced-motion: reduce) {
-  .water-drift,
-  .water-body--splash {
-    animation: none;
+  /* Decorative / attention-seeking loops. Spinners (animate-spin) keep
+     running: they communicate that work is in progress. */
+  .animate-pulse,
+  .animate-ping,
+  .animate-bounce,
+  .animate-gradient,
+  .ai-field-filling {
+    animation: none !important;
   }
-}
 
-/* Markdown editor overrides */
-.w-md-editor-bar {
-  display: none;
-}
+  /* Enter/exit animations (tw-animate-css) and transitions finish instantly. */
+  [class*="animate-in"],
+  [class*="animate-out"] {
+    animation-duration: 0.01ms !important;
+  }
 
-.w-md-editor {
-  --md-editor-box-shadow-color: var(--border);
-  --md-editor-background-color: var(--card);
-  --md-editor-font-family: var(--font-delius), cursive;
-  box-shadow:
-    0 0 0 1px var(--md-editor-box-shadow-color),
-    0 0 0 var(--md-editor-box-shadow-color),
-    0 1px 1px var(--md-editor-box-shadow-color) !important;
-  background-color: var(--md-editor-background-color) !important;
-  font-family: var(--md-editor-font-family) !important;
-}
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    transition-delay: 0ms !important;
+    scroll-behavior: auto !important;
+  }
 
-.w-md-editor-text-pre,
-.w-md-editor-text-input,
-.w-md-editor-text > .w-md-editor-text-pre {
-  --md-editor-font-family: var(--font-delius), cursive;
-  font-family: var(--md-editor-font-family) !important;
+  .card-hover-lift:hover {
+    transform: none;
+  }
 }

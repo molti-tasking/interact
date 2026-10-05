@@ -110,9 +110,11 @@ export type Database = {
           base_id: string | null
           created_at: string | null
           creator_role: string | null
+          field_count: number | null
           id: string
           intent: Json
           projection: Json | null
+          revision: number
           schema: Json
           space_id: string | null
           status: string | null
@@ -123,9 +125,11 @@ export type Database = {
           base_id?: string | null
           created_at?: string | null
           creator_role?: string | null
+          field_count?: never
           id?: string
           intent: Json
           projection?: Json | null
+          revision?: number
           schema: Json
           space_id?: string | null
           status?: string | null
@@ -136,9 +140,11 @@ export type Database = {
           base_id?: string | null
           created_at?: string | null
           creator_role?: string | null
+          field_count?: never
           id?: string
           intent?: Json
           projection?: Json | null
+          revision?: number
           schema?: Json
           space_id?: string | null
           status?: string | null
@@ -273,7 +279,38 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      commit_portfolio_change: {
+        Args: {
+          p_expected_revision: number
+          p_intent?: Json
+          p_portfolio_id: string
+          p_provenance?: Json
+          p_schema?: Json
+          p_status?: string
+          p_title?: string
+        }
+        Returns: {
+          base_id: string | null
+          created_at: string | null
+          creator_role: string | null
+          field_count: number | null
+          id: string
+          intent: Json
+          projection: Json | null
+          revision: number
+          schema: Json
+          space_id: string | null
+          status: string | null
+          title: string
+          updated_at: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "portfolios"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
     }
     Enums: {
       [_ in never]: never

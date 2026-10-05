@@ -31,6 +31,17 @@ export const esrsE1Climate: DomainStandard = {
     "csrd",
     "eu taxonomy",
   ],
+  strongKeywords: [
+    "esrs",
+    "csrd",
+    "ghg",
+    "greenhouse gas",
+    "carbon footprint",
+    "scope 1",
+    "scope 2",
+    "scope 3",
+    "eu taxonomy",
+  ],
   fieldConstraints: [
     {
       fieldKey: "transitionPlan",

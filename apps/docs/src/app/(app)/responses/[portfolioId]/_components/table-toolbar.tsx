@@ -23,7 +23,7 @@ export function TableToolbar({ table }: TableToolbarProps) {
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button variant="outline" size="sm">
-            <Settings2 className="mr-2 h-4 w-4" />
+            <Settings2 className="mr-2 h-4 w-4" aria-hidden />
             Columns
           </Button>
         </DropdownMenuTrigger>

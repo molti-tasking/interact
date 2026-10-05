@@ -1,13 +1,21 @@
 "use server";
 
 import { serializeForLLM } from "@/lib/engine/structured-intent";
-import { model } from "@/lib/model";
-import { withTracing } from "@/lib/telemetry";
+import {
+  capJson,
+  capText,
+  checkRateLimit,
+  LIMITS,
+  LlmGuardError,
+} from "@/lib/llm-guard";
+import { fastModel, withLlmRetry } from "@/lib/model";
+import { telemetry, withTracing } from "@/lib/telemetry";
 import type {
   PortfolioSchema,
   SectionKey,
   StructuredIntent,
 } from "@/lib/types";
+import { dictatableFields } from "@/lib/voice/data-entry";
 import { generateText, Output } from "ai";
 import { z } from "zod";
 
@@ -107,14 +115,22 @@ async function routeUtteranceReal(
   utterance: string,
 ): Promise<RouteUtteranceResponse> {
   try {
+    capText(utterance, LIMITS.shortText, "Utterance");
+    capJson(intent, LIMITS.document, "Intent");
+    capJson(currentSchema, LIMITS.document, "Form schema");
+    await checkRateLimit();
+
     const hasSchema = currentSchema.fields.length > 0;
     const intentText = serializeForLLM(intent) || "(empty — nothing defined yet)";
 
+    // Group children are addressed by their dotted path ("address.city");
+    // data entry stores them nested under the group.
+    const dictatable = dictatableFields(currentSchema);
     const fieldList = hasSchema
-      ? currentSchema.fields
+      ? dictatable
           .map(
-            (f) =>
-              `- ${f.name} ("${f.label}", ${f.type.kind}${f.required ? ", required" : ""}${f.type.kind === "reference" ? " — links to another table; the value is the referenced item's name as spoken" : ""})`,
+            ({ key, field: f, label }) =>
+              `- ${key} ("${label}", ${f.type.kind}${f.type.kind === "select" && f.type.multiple ? " (multiple)" : ""}${f.required ? ", required" : ""}${f.type.kind === "reference" ? " — links to another table; the value is the referenced item's name as spoken" : ""}${f.type.kind === "file" ? " — cannot be filled by voice" : ""})`,
           )
           .join("\n")
       : "(no fields yet)";
@@ -136,8 +152,9 @@ Decide the route:
 
 For route "dataEntry", extract "records":
 - One record per real-world entry (e.g. three items mentioned → three records).
-- Each value uses the EXACT field key from CURRENT FORM FIELDS ("name" property) — never invent keys.
-- Values as plain strings ("2", not "two"); for select fields use one of the defined option values.
+- Each value uses the EXACT field key from CURRENT FORM FIELDS (the text after "- ", e.g. "quantity" or "address.city") — never invent keys.
+- Values as plain strings ("2", not "two"); for select fields use one of the defined option values — for "(multiple)" selects, list every chosen option value separated by commas.
+- Booleans as "yes" or "no"; dates as YYYY-MM-DD; scales as a whole number.
 - For reference fields, the value is the NAME of the referenced item exactly as spoken (e.g. "SuperGlue 50ml") — the system resolves it to the linked table afterwards.
 - Skip fields the utterance says nothing about.
 
@@ -150,21 +167,19 @@ For route "intent", return the affected sections with their COMPLETE merged cont
 
 Always return a one-sentence "summary" of what you understood, phrased as a confirmation (e.g. "Noted the audience: returning customers.").`;
 
-    const result = await withTracing(
-      { tags: ["voice", "route-utterance"] },
-      () =>
+    // Classification + extraction: the fast model is enough.
+    const result = await withLlmRetry("route-utterance-action", (abortSignal) =>
+      withTracing({ tags: ["voice", "route-utterance"] }, () =>
         generateText({
-          model,
+          model: fastModel,
           prompt,
           output: Output.object({ schema: routeUtteranceSchema }),
           temperature: 0.2,
-          experimental_telemetry: {
-            isEnabled: true,
-            functionId: "route-utterance-action",
-            recordInputs: true,
-            recordOutputs: true,
-          },
+          abortSignal,
+          maxRetries: 0,
+          experimental_telemetry: telemetry("route-utterance-action"),
         }),
+      ),
     );
 
     if (!result.output) {
@@ -180,8 +195,11 @@ Always return a one-sentence "summary" of what you understood, phrased as a conf
         ? "intent"
         : parsed.route;
 
-    // Keep only values that reference real field keys
-    const validKeys = new Set(currentSchema.fields.map((f) => f.name));
+    // Keep only values that reference real field keys (dotted paths for
+    // group children; bare child names are resolved by data entry)
+    const validKeys = new Set(
+      dictatable.flatMap(({ key, field: f }) => [key, f.name]),
+    );
     const records =
       route === "dataEntry"
         ? (parsed.records ?? [])
@@ -199,6 +217,9 @@ Always return a one-sentence "summary" of what you understood, phrased as a conf
       records,
     };
   } catch (error) {
+    if (error instanceof LlmGuardError) {
+      return { success: false, error: error.message };
+    }
     console.error("Utterance routing error:", error);
     return {
       success: false,

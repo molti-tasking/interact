@@ -37,16 +37,17 @@ export function FieldEditDrawer({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent>
+      <SheetContent className="flex flex-col">
         <SheetHeader>
-          <SheetTitle>Edit Field</SheetTitle>
+          <SheetTitle>Edit field</SheetTitle>
           <SheetDescription>
-            Modify this field&apos;s properties. Changes are applied
-            immediately.
+            Changes are saved to the form when you click Save, and the intent
+            is updated to match.
           </SheetDescription>
         </SheetHeader>
 
         <FieldEditForm
+          key={field.id}
           field={field}
           onSave={onSave}
           onRemove={onRemove}

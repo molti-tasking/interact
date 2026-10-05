@@ -1,8 +1,15 @@
 import { z } from "zod";
+import {
+  formatBytes,
+  isFile,
+  isStoredFile,
+  matchesAccept,
+  maxSizeBytes,
+  type StoredFile,
+} from "../form-renderer/values";
 import type {
   Field,
   FieldPatch,
-  FieldType,
   PortfolioSchema,
   SchemaDiff,
 } from "../types";
@@ -29,18 +36,41 @@ export function addField(
   return { ...schema, fields, version: schema.version + 1 };
 }
 
-/** Remove a field by ID. Returns a new schema. */
+/**
+ * Remove a field by ID — top-level or nested inside a group field. Returns a
+ * new schema. Group memberships drop the field, conditionals that depended
+ * on it are cleared, and groups this removal leaves empty are dropped.
+ */
 export function removeField(
   schema: PortfolioSchema,
   fieldId: string,
 ): PortfolioSchema {
+  const strip = (fields: Field[]): Field[] =>
+    fields
+      .filter((f) => f.id !== fieldId)
+      .map((f) =>
+        f.type.kind === "group" &&
+        f.type.fields.some((n) => n.id === fieldId || n.type.kind === "group")
+          ? { ...f, type: { ...f.type, fields: strip(f.type.fields) } }
+          : f,
+      );
+
   return {
     ...schema,
-    fields: schema.fields.filter((f) => f.id !== fieldId),
-    groups: schema.groups.map((g) => ({
-      ...g,
-      fieldIds: g.fieldIds.filter((id) => id !== fieldId),
-    })),
+    fields: strip(schema.fields),
+    groups: schema.groups
+      .map((g) => {
+        const next = {
+          ...g,
+          fieldIds: g.fieldIds.filter((id) => id !== fieldId),
+        };
+        if (g.conditional?.fieldId === fieldId) delete next.conditional;
+        return next;
+      })
+      .filter(
+        (g, i) =>
+          g.fieldIds.length > 0 || !schema.groups[i].fieldIds.includes(fieldId),
+      ),
     version: schema.version + 1,
   };
 }
@@ -189,107 +219,245 @@ export function applyDiff(
 // ---------------------------------------------------------------------------
 // Schema → Zod conversion
 // ---------------------------------------------------------------------------
+//
+// Mirrors what the field components produce: text inputs yield "" when
+// cleared, number/scale/range inputs yield strings, selects yield "" or an
+// option value, file inputs yield a `File` (or a stored-file reference once
+// uploaded), groups yield a nested object (`group.child` form paths).
+// Blank values are normalised to `undefined` *before* validation so optional
+// fields can be cleared and required ones report "X is required".
 
 /** Convert a PortfolioSchema to a Zod validation schema for form data. */
 export function schemaToZod(
   schema: PortfolioSchema,
 ): z.ZodObject<Record<string, z.ZodTypeAny>> {
-  const shape: Record<string, z.ZodTypeAny> = {};
+  return z.object(fieldsShape(schema.fields));
+}
 
-  for (const field of schema.fields) {
+function fieldsShape(fields: Field[]): Record<string, z.ZodTypeAny> {
+  const shape: Record<string, z.ZodTypeAny> = {};
+  for (const field of fields) {
     shape[field.name] = fieldToZod(field);
   }
+  return shape;
+}
 
-  return z.object(shape);
+function isBlank(v: unknown): boolean {
+  return (
+    v === undefined ||
+    v === null ||
+    (typeof v === "string" && v.trim() === "")
+  );
+}
+
+/**
+ * Wrap the schema for a *present* value: blanks become `undefined`; then
+ * optional fields accept `undefined` and required ones fail with
+ * `requiredMessage` before `base` runs.
+ */
+function presence(
+  base: z.ZodTypeAny,
+  required: boolean,
+  requiredMessage: string,
+  normalize: (v: unknown) => unknown = (v) => v,
+): z.ZodTypeAny {
+  const pre = (v: unknown) => (isBlank(v) ? undefined : normalize(v));
+  if (!required) return z.preprocess(pre, base.optional());
+  const gate = z
+    .any()
+    .refine((v) => v !== undefined, { message: requiredMessage });
+  return z.preprocess(pre, gate.pipe(base));
+}
+
+/** Compile a constraint regex; invalid (LLM-authored) patterns are skipped. */
+function safeRegExp(rule: string): RegExp | null {
+  try {
+    return new RegExp(rule);
+  } catch {
+    return null;
+  }
+}
+
+function toNumber(v: unknown): unknown {
+  if (typeof v === "string") {
+    const n = Number(v.trim());
+    return Number.isNaN(n) ? v : n;
+  }
+  return v;
 }
 
 function fieldToZod(field: Field): z.ZodTypeAny {
-  let fieldSchema: z.ZodTypeAny = fieldTypeToZod(field.type, field.label);
+  const { type, label, required } = field;
+  const requiredMessage = `${label} is required`;
 
-  // Apply regex constraints
-  for (const constraint of field.constraints) {
-    if (constraint.type === "regex" && fieldSchema instanceof z.ZodString) {
-      fieldSchema = fieldSchema.regex(
-        new RegExp(constraint.rule),
-        constraint.message,
+  switch (type.kind) {
+    case "text": {
+      let s = z.string({ error: `${label} must be text` });
+      if (type.maxLength) {
+        s = s.max(
+          type.maxLength,
+          `${label} must be at most ${type.maxLength} characters`,
+        );
+      }
+      for (const constraint of field.constraints) {
+        if (constraint.type !== "regex") continue;
+        const re = safeRegExp(constraint.rule);
+        if (re) s = s.regex(re, constraint.message);
+      }
+      return presence(s, required, requiredMessage, (v) =>
+        typeof v === "string"
+          ? v.trim()
+          : typeof v === "number"
+            ? String(v)
+            : v,
       );
     }
-  }
 
-  if (!field.required) {
-    fieldSchema = fieldSchema.optional();
-  }
-
-  return fieldSchema;
-}
-
-function fieldTypeToZod(type: FieldType, label: string): z.ZodTypeAny {
-  switch (type.kind) {
-    case "text":
-      return type.maxLength
-        ? z
-            .string()
-            .max(type.maxLength, `${label} must be at most ${type.maxLength} characters`)
-        : z.string();
-
-    case "number": {
-      let s = z.coerce.number();
-      if (type.min !== undefined)
+    case "number":
+    case "scale": {
+      let s = z.number({ error: `${label} must be a number` });
+      if (type.min !== undefined) {
         s = s.min(type.min, `${label} must be at least ${type.min}`);
-      if (type.max !== undefined)
+      }
+      if (type.max !== undefined) {
         s = s.max(type.max, `${label} must be at most ${type.max}`);
-      return s;
+      }
+      return presence(s, required, requiredMessage, toNumber);
     }
 
     case "select": {
       const values = type.options.map((o) => o.value);
-      if (values.length > 0) {
-        if (type.multiple) {
-          return z.array(
-            z.enum(values as [string, ...string[]]),
-          );
-        }
-        return z.enum(values as [string, ...string[]]);
+      if (type.multiple) {
+        const item =
+          values.length > 0
+            ? z.enum(values as [string, ...string[]], {
+                error: `Choose from the listed options for ${label}`,
+              })
+            : z.string();
+        const atLeastOne = `Select at least one option for ${label}`;
+        const arr = required ? z.array(item).min(1, atLeastOne) : z.array(item);
+        return presence(arr, required, atLeastOne, (v) =>
+          Array.isArray(v)
+            ? v.filter((x) => !isBlank(x))
+            : typeof v === "string"
+              ? [v]
+              : v,
+        );
       }
-      return z.string();
+      const single =
+        values.length > 0
+          ? z.enum(values as [string, ...string[]], {
+              error: `Choose one of the options for ${label}`,
+            })
+          : z.string();
+      return presence(single, required, requiredMessage);
     }
 
-    case "date":
-      return z.string().min(1, `${label} is required`);
+    case "date": {
+      let s = z
+        .string({ error: `${label} must be a date` })
+        .refine((v) => !Number.isNaN(Date.parse(v)), {
+          message: `${label} must be a valid date`,
+        });
+      const range = type.range;
+      if (range?.min) {
+        s = s.refine((v) => Number.isNaN(Date.parse(v)) || v >= range.min, {
+          message: `${label} must be on or after ${range.min}`,
+        });
+      }
+      if (range?.max) {
+        s = s.refine((v) => Number.isNaN(Date.parse(v)) || v <= range.max, {
+          message: `${label} must be on or before ${range.max}`,
+        });
+      }
+      return presence(s, required, requiredMessage, (v) =>
+        v instanceof Date && !Number.isNaN(v.getTime())
+          ? v.toISOString().slice(0, 10)
+          : v,
+      );
+    }
 
-    case "boolean":
-      return z.boolean();
+    case "boolean": {
+      // A required checkbox means "must be answered": unticked is a valid
+      // "no", so an untouched box counts as false rather than failing.
+      const pre = (v: unknown) => {
+        if (v === "true") return true;
+        if (v === "false") return false;
+        if (isBlank(v)) return required ? false : undefined;
+        return v;
+      };
+      const s = z.boolean({ error: `${label} must be yes or no` });
+      return z.preprocess(pre, required ? s : s.optional());
+    }
 
-    case "file":
-      // Files are validated at the UI level, not via Zod
-      return z.any();
-
-    case "scale": {
-      let s = z.coerce.number();
-      s = s.min(type.min, `${label} must be at least ${type.min}`);
-      s = s.max(type.max, `${label} must be at most ${type.max}`);
-      return s;
+    case "file": {
+      const limit = maxSizeBytes(type.maxSize);
+      let s: z.ZodTypeAny = z
+        .custom<File | StoredFile>((v) => isFile(v) || isStoredFile(v), {
+          message: `${label} must be a file`,
+        })
+        .refine((f) => matchesAccept(f, type.accept), {
+          message: `${label} must be one of: ${type.accept.join(", ")}`,
+        });
+      if (limit !== undefined) {
+        s = s.refine((f) => (f as { size: number }).size <= limit, {
+          message: `${label} must be at most ${formatBytes(limit)}`,
+        });
+      }
+      return presence(s, required, requiredMessage, (v) => {
+        if (typeof FileList !== "undefined" && v instanceof FileList) {
+          return v.length > 0 ? v[0] : undefined;
+        }
+        if (Array.isArray(v)) return v.length > 0 ? v[0] : undefined;
+        return v;
+      });
     }
 
     case "reference":
       // A resolved link to a row in the target portfolio; dictated values
       // that couldn't be resolved may still be plain strings.
-      return z.union([
-        z.object({ responseId: z.string(), label: z.string() }),
-        z.string().min(1, `${label} is required`),
-      ]);
+      return presence(
+        z.union(
+          [
+            z.object({ responseId: z.string(), label: z.string() }),
+            z.string().min(1),
+          ],
+          { error: `${label} must link to an entry` },
+        ),
+        required,
+        requiredMessage,
+        (v) => (typeof v === "string" ? v.trim() : v),
+      );
 
     case "group": {
-      const groupShape: Record<string, z.ZodTypeAny> = {};
-      for (const f of type.fields) {
-        groupShape[f.name] = fieldToZod(f);
+      const inner = z.object(fieldsShape(type.fields), {
+        error: `${label} is invalid`,
+      });
+      if (required) {
+        // Validate the nested fields individually so their own messages
+        // show next to them, even when nothing was entered.
+        return z.preprocess((v) => (v == null ? {} : v), inner);
       }
-      return z.object(groupShape);
+      return z.preprocess(
+        (v) => (isEmptyGroupValue(v) ? undefined : v),
+        inner.optional(),
+      );
     }
 
     default:
-      return z.string();
+      return presence(z.string(), required, requiredMessage);
   }
+}
+
+function isEmptyGroupValue(v: unknown): boolean {
+  if (v == null) return true;
+  if (typeof v !== "object" || Array.isArray(v)) return false;
+  return Object.values(v).every(
+    (x) =>
+      isBlank(x) ||
+      (Array.isArray(x) && x.length === 0) ||
+      isEmptyGroupValue(x),
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -316,7 +484,8 @@ export function validateDataAgainstSchema(
   const errors: Record<string, string> = {};
   for (const issue of result.error.issues) {
     const path = issue.path.join(".");
-    errors[path] = issue.message;
+    // First issue per path, like the form resolver shows
+    errors[path] ??= issue.message;
   }
 
   return { valid: false, errors };

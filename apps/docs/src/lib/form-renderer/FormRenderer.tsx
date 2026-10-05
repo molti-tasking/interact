@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Dices, Pencil } from "lucide-react";
 import { useCallback, useMemo } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, useFormState } from "react-hook-form";
 import { renderFieldComponent } from "./field-components";
 import { FormSaveButton } from "./FormSaveButton";
 
@@ -66,9 +66,31 @@ interface FormRendererProps {
   schema: PortfolioSchema;
   mode: "preview" | "live";
   defaultValues?: Record<string, unknown>;
-  onSubmit?: (data: Record<string, unknown>) => Promise<void>;
+  /**
+   * Persist a validated submission. To signal failure, show your own error
+   * toast and **throw** — the form then keeps the respondent's values and
+   * shows an inline "not submitted" note. Optionally resolve with the
+   * persisted data (e.g. with uploaded file references); edit forms
+   * (`defaultValues` set) reset to it. New-entry forms reset to empty.
+   */
+  onSubmit?: (
+    data: Record<string, unknown>,
+  ) => Promise<Record<string, unknown> | void>;
   onFieldClick?: (field: Field) => void;
   className?: string;
+}
+
+/** Inline note after a failed submit (the page shows the detailed toast). */
+function SubmitError() {
+  const { errors } = useFormState();
+  const message = (errors.root as { submit?: { message?: string } } | undefined)
+    ?.submit?.message;
+  if (!message) return null;
+  return (
+    <p role="alert" className="text-sm text-destructive">
+      {message}
+    </p>
+  );
 }
 
 export function FormRenderer({
@@ -87,23 +109,40 @@ export function FormRenderer({
   });
 
   const fillRandom = useCallback(() => {
-    for (const field of schema.fields) {
-      const val = randomValueForField(field);
-      if (val !== undefined) {
-        form.setValue(field.name, val, {
-          shouldValidate: true,
-          shouldDirty: true,
-        });
+    const fill = (fields: Field[], prefix: string) => {
+      for (const field of fields) {
+        const path = prefix ? `${prefix}.${field.name}` : field.name;
+        if (field.type.kind === "group") {
+          fill(field.type.fields, path);
+          continue;
+        }
+        const val = randomValueForField(field);
+        if (val !== undefined) {
+          form.setValue(path, val, {
+            shouldValidate: true,
+            shouldDirty: true,
+          });
+        }
       }
-    }
+    };
+    fill(schema.fields, "");
   }, [schema.fields, form]);
 
   const handleSubmit = async (data: Record<string, unknown>) => {
-    await onSubmit?.(data);
-    if (defaultValues) {
-      form.reset(data);
+    let saved: Record<string, unknown> | void;
+    try {
+      saved = await onSubmit?.(data);
+    } catch {
+      // The caller reported the error; keep everything the respondent typed.
+      form.setError("root.submit", {
+        type: "submit",
+        message: "Not submitted — your answers are still here. Please try again.",
+      });
+      return;
     }
-    if (mode === "live" && !defaultValues) {
+    if (defaultValues) {
+      form.reset(saved ?? data);
+    } else if (mode === "live") {
       form.reset(undefined, { keepTouched: false });
     }
   };
@@ -120,6 +159,7 @@ export function FormRenderer({
     <Form {...form}>
       <form
         data-testid="form-renderer"
+        noValidate
         onSubmit={form.handleSubmit(handleSubmit)}
         className={className ?? "space-y-6"}
       >
@@ -136,9 +176,16 @@ export function FormRenderer({
               <button
                 type="button"
                 onClick={() => onFieldClick(field)}
-                className="absolute -top-1 -bottom-1 -left-1 -right-1 z-10 rounded-lg border border-transparent opacity-0 group-hover:opacity-100 group-hover:border-primary/30 group-hover:bg-primary/5 transition-all cursor-pointer flex items-center justify-end pr-3"
+                aria-label={`Edit field ${field.label}`}
+                className={cn(
+                  "absolute -top-1 -bottom-1 -left-1 -right-1 z-10 flex cursor-pointer items-center justify-end rounded-lg border border-transparent pr-3 opacity-0 transition-all",
+                  "group-hover:opacity-100 group-hover:border-primary/30 group-hover:bg-primary/5",
+                  "focus-visible:opacity-100 focus-visible:border-primary/50 focus-visible:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                  // Touch screens have no hover: keep the pencil visible.
+                  "[@media(hover:none)]:opacity-100",
+                )}
               >
-                <Pencil className="h-3.5 w-3.5 text-primary/60" />
+                <Pencil className="h-3.5 w-3.5 text-primary/60" aria-hidden />
               </button>
             )}
             <FormField
@@ -151,6 +198,8 @@ export function FormRenderer({
           </div>
         ))}
 
+        <SubmitError />
+
         {mode === "live" && onSubmit && (
           <div className="flex gap-2 pt-4">
             <FormSaveButton />
@@ -159,7 +208,7 @@ export function FormRenderer({
               onClick={fillRandom}
               className="inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs text-muted-foreground hover:bg-muted transition-colors"
             >
-              <Dices className="h-3.5 w-3.5" />
+              <Dices className="h-3.5 w-3.5" aria-hidden />
               Random
             </button>
           </div>

@@ -150,7 +150,7 @@ export const DesignProbeResolvedDialog = ({
                           <DimensionBadge name={o.dimensionName} />
                         )}
                         {o.editCount > 0 && (
-                          <span className="inline-flex items-center gap-0.5 text-[10px] text-amber-600 bg-amber-50 border border-amber-200 rounded px-1.5 py-0.5 font-sans">
+                          <span className="inline-flex items-center gap-0.5 text-[10px] text-amber-600 bg-amber-50 border border-amber-200 rounded px-1.5 py-0.5">
                             <RotateCcw className="h-2.5 w-2.5" />
                             edited {o.editCount}x
                           </span>
@@ -161,7 +161,7 @@ export const DesignProbeResolvedDialog = ({
                       <>
                         {o.explanation}
                         {editMeta && (
-                          <span className="block text-[10px] text-muted-foreground/60 mt-1 font-sans">
+                          <span className="block text-[10px] text-muted-foreground/60 mt-1">
                             {editMeta}
                           </span>
                         )}
@@ -299,7 +299,7 @@ export const DesignProbeResolvedDialog = ({
                               <div
                                 key={opt.value}
                                 className={cn(
-                                  "flex items-center gap-1 text-xs rounded-md px-2 py-1 font-sans",
+                                  "flex items-center gap-1 text-xs rounded-md px-2 py-1",
                                   isSelected
                                     ? "bg-green-50 border border-green-200 font-medium text-green-800"
                                     : wasPrevious
@@ -315,7 +315,7 @@ export const DesignProbeResolvedDialog = ({
                             );
                           })}
                           {o.selectedOption?.startsWith("custom:") && (
-                            <div className="flex items-center gap-1 text-xs rounded-md px-2 py-1 font-sans bg-green-50 border border-green-200 font-medium text-green-800">
+                            <div className="flex items-center gap-1 text-xs rounded-md px-2 py-1 bg-green-50 border border-green-200 font-medium text-green-800">
                               <Check className="h-3 w-3 text-green-600 shrink-0" />
                               {o.selectedOption.slice("custom:".length)}
                             </div>
