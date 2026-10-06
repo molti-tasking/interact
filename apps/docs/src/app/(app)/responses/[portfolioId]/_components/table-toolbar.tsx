@@ -9,12 +9,13 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import type { FormResponse } from "@/lib/types";
+import type { ResponseRowLike } from "@/lib/form-renderer/response-rows";
 import type { Table } from "@tanstack/react-table";
 import { Settings2 } from "lucide-react";
+import type { ResponsesTableFeatures } from "./responses-data-table";
 
 interface TableToolbarProps {
-  table: Table<FormResponse>;
+  table: Table<ResponsesTableFeatures, ResponseRowLike>;
 }
 
 export function TableToolbar({ table }: TableToolbarProps) {
@@ -34,8 +35,7 @@ export function TableToolbar({ table }: TableToolbarProps) {
             .getAllColumns()
             .filter((column) => column.getCanHide())
             .map((column) => {
-              const metaFields = column.columnDef.meta;
-              const header = (metaFields as { fieldLabel: string })?.fieldLabel;
+              const header = column.columnDef.meta?.fieldLabel;
               return (
                 <DropdownMenuCheckboxItem
                   key={column.id}

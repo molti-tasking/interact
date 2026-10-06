@@ -24,14 +24,18 @@ import {
   type CellContext,
   type ColumnDef,
   type ColumnOrderState,
+  type ColumnVisibilityState,
+  columnOrderingFeature,
+  columnVisibilityFeature,
+  createPaginatedRowModel,
   flexRender,
-  getCoreRowModel,
-  getPaginationRowModel,
   type HeaderContext,
+  metaHelper,
   type PaginationState,
+  rowPaginationFeature,
   type Table as TanstackTable,
-  useReactTable,
-  type VisibilityState,
+  tableFeatures,
+  useTable,
 } from "@tanstack/react-table";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import Link from "next/link";
@@ -61,16 +65,28 @@ interface ResponsesColumnMeta {
 
 type Row = ResponseRowLike;
 
+const responsesTableFeatures = tableFeatures({
+  columnVisibilityFeature,
+  columnOrderingFeature,
+  rowPaginationFeature,
+  paginatedRowModel: createPaginatedRowModel(),
+  tableMeta: metaHelper<ResponsesTableMeta>(),
+  columnMeta: metaHelper<ResponsesColumnMeta>(),
+});
+export type ResponsesTableFeatures = typeof responsesTableFeatures;
+
 /**
  * `table` is a stable instance whose `options.meta` changes every render, so
  * components reading it opt out of compiler memoization ("use no memo").
  */
-function metaOf(table: TanstackTable<Row>): ResponsesTableMeta {
-  return table.options.meta as ResponsesTableMeta;
+function metaOf(table: TanstackTable<ResponsesTableFeatures, Row>) {
+  return table.options.meta!;
 }
 
-function fieldOf(column: { columnDef: ColumnDef<Row, unknown> }): Field {
-  return (column.columnDef.meta as ResponsesColumnMeta).field!;
+function fieldOf(column: {
+  columnDef: ColumnDef<ResponsesTableFeatures, Row, unknown>;
+}): Field {
+  return column.columnDef.meta!.field!;
 }
 
 function responseHref(portfolioId: string, responseId: string) {
@@ -82,7 +98,7 @@ function responseHref(portfolioId: string, responseId: string) {
 // new component type (which would remount headers and their menus).
 // ---------------------------------------------------------------------------
 
-function SubmittedCell({ row, table }: CellContext<Row, unknown>) {
+function SubmittedCell({ row, table }: CellContext<ResponsesTableFeatures, Row, unknown>) {
   "use no memo";
   const { portfolio } = metaOf(table);
   const submitted = new Date(row.original.submittedAt).toLocaleString();
@@ -97,7 +113,7 @@ function SubmittedCell({ row, table }: CellContext<Row, unknown>) {
   );
 }
 
-function OriginCell({ row }: CellContext<Row, unknown>) {
+function OriginCell({ row }: CellContext<ResponsesTableFeatures, Row, unknown>) {
   const origin = "origin" in row.original ? row.original.origin : "own";
   return (
     <Badge
@@ -109,7 +125,7 @@ function OriginCell({ row }: CellContext<Row, unknown>) {
   );
 }
 
-function FieldHeader({ column, table }: HeaderContext<Row, unknown>) {
+function FieldHeader({ column, table }: HeaderContext<ResponsesTableFeatures, Row, unknown>) {
   "use no memo";
   const { portfolio, openColumnAction } = metaOf(table);
   return (
@@ -121,7 +137,7 @@ function FieldHeader({ column, table }: HeaderContext<Row, unknown>) {
   );
 }
 
-function FieldCell({ getValue, column }: CellContext<Row, unknown>) {
+function FieldCell({ getValue, column }: CellContext<ResponsesTableFeatures, Row, unknown>) {
   return (
     <ResponseValue
       value={getValue()}
@@ -139,7 +155,7 @@ function OtherDataHeader() {
   );
 }
 
-function OtherDataCell({ row, table }: CellContext<Row, unknown>) {
+function OtherDataCell({ row, table }: CellContext<ResponsesTableFeatures, Row, unknown>) {
   "use no memo";
   const { portfolio } = metaOf(table);
   const data = row.original.data;
@@ -170,8 +186,8 @@ function buildColumns(
   fields: Field[],
   isDerived: boolean,
   showOtherData: boolean,
-): ColumnDef<Row, unknown>[] {
-  const cols: ColumnDef<Row, unknown>[] = [
+): ColumnDef<ResponsesTableFeatures, Row, unknown>[] {
+  const cols: ColumnDef<ResponsesTableFeatures, Row, unknown>[] = [
     {
       id: "submittedAt",
       header: "Submitted",
@@ -248,7 +264,7 @@ export function ResponsesDataTable({
     [fields, isDerived, showOtherData],
   );
 
-  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
+  const [columnVisibility, setColumnVisibility] = useState<ColumnVisibilityState>({});
   const [columnOrder, setColumnOrder] = useState<ColumnOrderState>([]);
   const [pagination, setPagination] = useState<PaginationState>({
     pageIndex: 0,
@@ -269,11 +285,10 @@ export function ResponsesDataTable({
       setActionTarget({ field, savedAction }),
   };
 
-  const table = useReactTable<Row>({
+  const table = useTable<ResponsesTableFeatures, Row>({
+    features: responsesTableFeatures,
     data: responses,
     columns,
-    getCoreRowModel: getCoreRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
     getRowId: (row) => row.id,
     // Keep the page when rows refresh after an edit or column action
     autoResetPageIndex: false,

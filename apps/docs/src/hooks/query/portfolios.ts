@@ -6,7 +6,7 @@ import {
   type CommitResult,
 } from "@/lib/engine/commit";
 import { createClient } from "@/lib/supabase/client";
-import { Json } from "@/lib/supabase/database.types";
+import type { Json, TablesUpdate } from "@/lib/supabase/database.types";
 import type { PortfolioUpdate } from "@/lib/supabase/types";
 import { rowToPortfolio } from "@/lib/supabase/types";
 import type {
@@ -241,7 +241,7 @@ export function useUpdatePortfolio() {
     }): Promise<Portfolio> => {
       const supabase = createClient();
 
-      const dbUpdate: Record<string, unknown> = {
+      const dbUpdate: TablesUpdate<"portfolios"> = {
         updated_at: new Date().toISOString(),
       };
       if (update.title !== undefined) dbUpdate.title = update.title;
