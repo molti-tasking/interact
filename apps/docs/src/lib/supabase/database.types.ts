@@ -47,7 +47,9 @@ export type Database = {
           layer: string
           options: Json
           portfolio_id: string
+          preview_status: string | null
           previous_selected_option: string | null
+          priority: number
           resolved_at: string | null
           resolved_by: string | null
           selected_option: string | null
@@ -67,7 +69,9 @@ export type Database = {
           layer?: string
           options?: Json
           portfolio_id: string
+          preview_status?: string | null
           previous_selected_option?: string | null
+          priority?: number
           resolved_at?: string | null
           resolved_by?: string | null
           selected_option?: string | null
@@ -87,7 +91,9 @@ export type Database = {
           layer?: string
           options?: Json
           portfolio_id?: string
+          preview_status?: string | null
           previous_selected_option?: string | null
+          priority?: number
           resolved_at?: string | null
           resolved_by?: string | null
           selected_option?: string | null

@@ -21,11 +21,17 @@ vi.mock("@/lib/telemetry", () => ({
 
 import {
   detectSchemaConflictsAction,
+  previewConflictFixesAction,
   resolveSchemaConflictAction,
   type SchemaConflict,
 } from "@/app/actions/conflict-actions";
+import { applyConflictChanges } from "@/lib/engine/conflict-changes";
 import { deriveSchemaAction } from "@/app/actions/derive-actions";
-import { resolveDesignProbeAction } from "@/app/actions/design-probe-actions";
+import {
+  generateDesignProbesAction,
+  previewDesignProbeOptionsAction,
+  resolveDesignProbeAction,
+} from "@/app/actions/design-probe-actions";
 import { intentToSchemaAction } from "@/app/actions/schema-actions";
 import { serializeForLLM } from "@/lib/engine/structured-intent";
 import { getStandardById } from "@/lib/standards";
@@ -189,6 +195,121 @@ describe("resolveDesignProbeAction", () => {
   });
 });
 
+describe("generateDesignProbesAction", () => {
+  it("maps priorities and defaults missing ones to medium", async () => {
+    generateText.mockResolvedValue({
+      output: {
+        interactions: [
+          {
+            text: "Track weight?",
+            layer: "dimensions",
+            priority: "high",
+            options: [{ value: "yes", label: "Yes" }],
+          },
+          {
+            text: "Label tone?",
+            layer: "intent",
+            options: [{ value: "formal", label: "Formal" }],
+          },
+        ],
+      },
+    });
+
+    const response = await generateDesignProbesAction(
+      intentWith({ purpose: "Fitness check-in" }),
+    );
+    expect(response.success).toBe(true);
+    expect(response.interactions!.map((p) => p.priority)).toEqual([1, 2]);
+  });
+});
+
+describe("previewDesignProbeOptionsAction", () => {
+  const request = {
+    intent: intentWith({ purpose: "Fitness check-in" }),
+    currentSchema: baseSchema,
+    probe: {
+      text: "Track body measurements?",
+      options: [
+        { value: "full", label: "Full measurements" },
+        { value: "none", label: "No, keep it short" },
+        { value: "later", label: "Ask me later" },
+      ],
+    },
+  };
+
+  it("attaches a preview to each option the model answered", async () => {
+    generateText.mockResolvedValue({
+      output: {
+        outcomes: [
+          {
+            value: "full",
+            summary: "Adds waist and hip",
+            schemaPatch: {
+              addFields: [
+                { key: "waist", label: "Waist", type: "number", required: false },
+                { key: "hip", label: "Hip", type: "number", required: false },
+              ],
+            },
+            followUp: {
+              text: "Which unit?",
+              options: [
+                { value: "cm", label: "Centimetres" },
+                { value: "in", label: "Inches" },
+              ],
+            },
+          },
+          {
+            value: "none",
+            summary: "Removes size",
+            schemaPatch: { removeFieldKeys: ["size"] },
+          },
+          // Not one of the probe's options — dropped
+          { value: "invented", summary: "Adds x", schemaPatch: {} },
+        ],
+      },
+    });
+
+    const response = await previewDesignProbeOptionsAction(request);
+    expect(response.success).toBe(true);
+    const [full, none, later] = response.options!;
+
+    expect(full.preview?.summary).toBe("Adds waist and hip");
+    expect(full.preview?.schemaPatch.addFields?.map((f) => f.key)).toEqual([
+      "waist",
+      "hip",
+    ]);
+    expect(full.preview?.followUp?.text).toBe("Which unit?");
+    expect(none.preview?.schemaPatch.removeFieldKeys).toEqual(["size"]);
+    expect(none.preview?.followUp).toBeUndefined();
+    // No outcome → no preview; answering it falls back to the LLM
+    expect(later).toEqual({ value: "later", label: "Ask me later" });
+    expect(response.options).toHaveLength(3);
+  });
+
+  it("doesn't let the summary claim a change the patch can't make", async () => {
+    generateText.mockResolvedValue({
+      output: {
+        outcomes: [
+          {
+            value: "none",
+            summary: "Removes notes",
+            schemaPatch: { removeFieldKeys: ["notes"] },
+          },
+        ],
+      },
+    });
+
+    const response = await previewDesignProbeOptionsAction(request);
+    expect(response.options![1].preview?.summary).toBe("No form change");
+  });
+
+  it("reports LLM failures instead of throwing", async () => {
+    generateText.mockRejectedValue(new Error("boom"));
+    const response = await previewDesignProbeOptionsAction(request);
+    expect(response).toEqual({ success: false, error: "boom" });
+  });
+});
+
 describe("resolveSchemaConflictAction", () => {
   const conflict: SchemaConflict = {
     id: "c1",
@@ -273,6 +394,90 @@ describe("resolveSchemaConflictAction", () => {
       { id: "g1", label: "Body", fieldIds: ["f-weight"] },
     ]);
     expect(updatedIntent).toBe(intent);
+  });
+});
+
+describe("previewConflictFixesAction", () => {
+  const conflict: SchemaConflict = {
+    id: "c1",
+    kind: "duplicate_fields",
+    severity: "error",
+    description: 'Multiple fields share the name "email"',
+    fieldIds: ["f-email", "f-email-2"],
+    fixes: [
+      { value: "rename", label: "Rename duplicates", description: "…" },
+      { value: "remove", label: "Keep first", description: "…" },
+      { value: "merge", label: "Merge", description: "…" },
+    ],
+  };
+  const schemaWithDuplicate: PortfolioSchema = {
+    ...baseSchema,
+    fields: [
+      ...baseSchema.fields,
+      field({ id: "f-email-2", name: "email", label: "Work email" }),
+    ],
+  };
+  const intent = intentWith({ purpose: "Collect check-ins" });
+
+  it("returns replayable changes per known fix", async () => {
+    generateText.mockResolvedValue({
+      output: {
+        outcomes: [
+          {
+            value: "rename",
+            summary: "Renames the work email",
+            changes: { updateFields: [{ id: "f-email-2", name: "workEmail" }] },
+          },
+          {
+            value: "remove",
+            summary: "Removes the work email",
+            changes: { removeFieldIds: ["f-email-2"] },
+          },
+          // Not one of the conflict's fixes — dropped
+          { value: "invented", summary: "x", changes: {} },
+        ],
+      },
+    });
+
+    const response = await previewConflictFixesAction(
+      schemaWithDuplicate,
+      intent,
+      conflict,
+    );
+    expect(response.success).toBe(true);
+    expect(Object.keys(response.previews!)).toEqual(["rename", "remove"]);
+
+    // The client replays a preview on the current schema
+    const { schema } = applyConflictChanges(
+      schemaWithDuplicate,
+      response.previews!.rename.changes,
+    );
+    expect(schema.fields.map((f) => f.name)).toEqual([
+      "weight",
+      "size",
+      "email",
+      "workEmail",
+    ]);
+  });
+
+  it("doesn't let the summary claim a change the fix can't make", async () => {
+    generateText.mockResolvedValue({
+      output: {
+        outcomes: [
+          {
+            value: "remove",
+            summary: "Removes a field",
+            changes: { removeFieldIds: ["no-such-field"] },
+          },
+        ],
+      },
+    });
+    const response = await previewConflictFixesAction(
+      schemaWithDuplicate,
+      intent,
+      conflict,
+    );
+    expect(response.previews!.remove.summary).toBe("No form change");
   });
 });
 

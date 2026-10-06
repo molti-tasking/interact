@@ -298,7 +298,14 @@ export async function simulatePersona(
         const btn = optionButtons.nth(i);
         const testId = (await btn.getAttribute("data-testid")) ?? "";
         const value = testId.replace("deck-option-", "");
-        const label = (await btn.textContent()) ?? value;
+        // The tile also shows a preview of the change — use the label only
+        const label =
+          (await btn
+            .locator('[data-testid="option-label"]')
+            .textContent()
+            .catch(() => null)) ??
+          (await btn.textContent()) ??
+          value;
         options.push({ value, label });
       }
 
@@ -369,6 +376,13 @@ export async function simulatePersona(
     }
 
     // Step 5: Collect final state
+    // The intent pane collapses once the form exists — open it to read it
+    const intentToggle = page.locator(
+      '[data-testid="intent-toggle"][aria-expanded="false"]',
+    );
+    if (await intentToggle.isVisible().catch(() => false)) {
+      await intentToggle.click();
+    }
     const finalIntentEl = page.locator(
       '[data-testid="intent-editor"] textarea',
     );

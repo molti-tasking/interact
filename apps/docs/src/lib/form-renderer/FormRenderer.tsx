@@ -1,11 +1,12 @@
 "use client";
 
 import { Form, FormField } from "@/components/ui/form";
+import type { FieldAnnotation } from "@/lib/engine/probe-preview";
 import { schemaToZod } from "@/lib/engine/schema-ops";
 import type { Field, PortfolioSchema } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Dices, Pencil } from "lucide-react";
+import { Dices, Pencil, TriangleAlert } from "lucide-react";
 import { useCallback, useMemo } from "react";
 import { useForm, useFormState } from "react-hook-form";
 import { renderFieldComponent } from "./field-components";
@@ -77,8 +78,71 @@ interface FormRendererProps {
     data: Record<string, unknown>,
   ) => Promise<Record<string, unknown> | void>;
   onFieldClick?: (field: Field) => void;
+  /**
+   * Preview of a pending change: field id → how it changes. Annotated
+   * fields are highlighted; removed fields are shown struck through.
+   */
+  fieldAnnotations?: Record<string, FieldAnnotation>;
+  /** Field id → an issue to point out on the field (e.g. a schema conflict) */
+  fieldMarks?: Record<string, FieldMark>;
   className?: string;
 }
+
+export interface FieldMark {
+  tone: "error" | "warning" | "info";
+  /** Short badge text, e.g. "Overlapping fields" */
+  label: string;
+  /** Longer explanation, shown on hover */
+  title?: string;
+  /** Draw attention to this issue (e.g. it's the one being looked at) */
+  emphasized?: boolean;
+  onClick?: () => void;
+}
+
+const markStyles: Record<
+  FieldMark["tone"],
+  { strong: string; subtle: string; badge: string }
+> = {
+  error: {
+    strong: "rounded-md bg-red-500/6 outline-2 outline-offset-4 outline-red-500/70",
+    subtle: "rounded-md outline-1 outline-dashed outline-offset-4 outline-red-500/45",
+    badge: "bg-red-600 text-white",
+  },
+  warning: {
+    strong: "rounded-md bg-amber-500/6 outline-2 outline-offset-4 outline-amber-500/70",
+    subtle: "rounded-md outline-1 outline-dashed outline-offset-4 outline-amber-500/50",
+    badge: "bg-amber-500 text-white",
+  },
+  info: {
+    strong: "rounded-md bg-sky-500/6 outline-2 outline-offset-4 outline-sky-500/70",
+    subtle: "rounded-md outline-1 outline-dashed outline-offset-4 outline-sky-500/45",
+    badge: "bg-sky-600 text-white",
+  },
+};
+
+const annotationStyles: Record<
+  FieldAnnotation,
+  { wrapper: string; badge: string; label: string }
+> = {
+  added: {
+    wrapper:
+      "rounded-md bg-emerald-500/8 outline-2 outline-offset-4 outline-emerald-500/60",
+    badge: "bg-emerald-600 text-white",
+    label: "New",
+  },
+  updated: {
+    wrapper:
+      "rounded-md bg-amber-500/8 outline-2 outline-offset-4 outline-amber-500/60",
+    badge: "bg-amber-500 text-white",
+    label: "Changed",
+  },
+  removed: {
+    wrapper:
+      "pointer-events-none rounded-md opacity-45 outline-2 outline-dashed outline-offset-4 outline-red-500/50 [&_label]:line-through",
+    badge: "bg-red-600 text-white",
+    label: "Removed",
+  },
+};
 
 /** Inline note after a failed submit (the page shows the detailed toast). */
 function SubmitError() {
@@ -99,6 +163,8 @@ export function FormRenderer({
   defaultValues,
   onSubmit,
   onFieldClick,
+  fieldAnnotations,
+  fieldMarks,
   className,
 }: FormRendererProps) {
   const zodSchema = useMemo(() => schemaToZod(schema), [schema]);
@@ -163,40 +229,79 @@ export function FormRenderer({
         onSubmit={form.handleSubmit(handleSubmit)}
         className={className ?? "space-y-6"}
       >
-        {schema.fields.map((field) => (
-          <div
-            key={field.id}
-            data-testid={`form-field-${field.name}`}
-            className={cn(
-              mode === "preview" && onFieldClick && "group relative",
-            )}
-          >
-            {/* Clickable edit overlay in preview mode */}
-            {mode === "preview" && onFieldClick && (
-              <button
-                type="button"
-                onClick={() => onFieldClick(field)}
-                aria-label={`Edit field ${field.label}`}
-                className={cn(
-                  "absolute -top-1 -bottom-1 -left-1 -right-1 z-10 flex cursor-pointer items-center justify-end rounded-lg border border-transparent pr-3 opacity-0 transition-all",
-                  "group-hover:opacity-100 group-hover:border-primary/30 group-hover:bg-primary/5",
-                  "focus-visible:opacity-100 focus-visible:border-primary/50 focus-visible:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                  // Touch screens have no hover: keep the pencil visible.
-                  "[@media(hover:none)]:opacity-100",
-                )}
-              >
-                <Pencil className="h-3.5 w-3.5 text-primary/60" aria-hidden />
-              </button>
-            )}
-            <FormField
-              control={form.control}
-              name={field.name}
-              render={({ field: formField }) =>
-                renderFieldComponent(field, formField, form.control)
-              }
-            />
-          </div>
-        ))}
+        {schema.fields.map((field) => {
+          const annotation = fieldAnnotations?.[field.id];
+          const mark = annotation ? undefined : fieldMarks?.[field.id];
+          return (
+            <div
+              key={field.id}
+              data-testid={`form-field-${field.name}`}
+              data-annotation={annotation}
+              className={cn(
+                mode === "preview" && onFieldClick && "group relative",
+                annotation && "relative",
+                annotation && annotationStyles[annotation].wrapper,
+                mark && "relative",
+                mark &&
+                  (mark.emphasized
+                    ? markStyles[mark.tone].strong
+                    : markStyles[mark.tone].subtle),
+              )}
+            >
+              {mark && (
+                <button
+                  type="button"
+                  onClick={mark.onClick}
+                  disabled={!mark.onClick}
+                  title={mark.title}
+                  data-testid="field-conflict-mark"
+                  className={cn(
+                    "absolute -top-3 right-0 z-20 flex max-w-[60%] cursor-pointer items-center gap-1 rounded-full px-1.5 py-px text-[10px] font-medium leading-4 shadow-sm transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-default",
+                    markStyles[mark.tone].badge,
+                    !mark.emphasized && "opacity-80 hover:opacity-100",
+                  )}
+                >
+                  <TriangleAlert className="h-2.5 w-2.5 shrink-0" aria-hidden />
+                  <span className="truncate">{mark.label}</span>
+                </button>
+              )}
+              {annotation && (
+                <span
+                  className={cn(
+                    "absolute -top-3 right-0 z-10 rounded-full px-1.5 py-px text-[10px] font-medium leading-4",
+                    annotationStyles[annotation].badge,
+                  )}
+                >
+                  {annotationStyles[annotation].label}
+                </span>
+              )}
+              {/* Clickable edit overlay in preview mode */}
+              {mode === "preview" && onFieldClick && (
+                <button
+                  type="button"
+                  onClick={() => onFieldClick(field)}
+                  aria-label={`Edit field ${field.label}`}
+                  className={cn(
+                    "absolute -top-1 -bottom-1 -left-1 -right-1 z-10 flex cursor-pointer items-center justify-end rounded-lg border border-transparent pr-3 opacity-0 transition-all",
+                    "group-hover:opacity-100 group-hover:border-primary/30 group-hover:bg-primary/5",
+                    "focus-visible:opacity-100 focus-visible:border-primary/50 focus-visible:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                    // Touch screens have no hover: keep the pencil visible.
+                    "[@media(hover:none)]:opacity-100",
+                  )}
+                >
+                  <Pencil className="h-3.5 w-3.5 text-primary/60" aria-hidden />
+                </button>
+              )}
+              <FormField
+                control={form.control}
+                name={field.name}
+                render={({ field: formField }) =>
+                  renderFieldComponent(field, formField, form.control)
+                }
+              />
+            </div>
+          );
+        })}
 
         <SubmitError />
 

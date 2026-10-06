@@ -5,6 +5,7 @@ import { ArtifactPane } from "@/components/workspace/ArtifactPane";
 import { DerivationBanner } from "@/components/workspace/DerivationBanner";
 import { DesignProbeDeck } from "@/components/workspace/DesignProbeDeck";
 import { FieldEditDrawer } from "@/components/workspace/FieldEditDrawer";
+import { DeckCanvasProvider } from "@/components/workspace/deck-canvas-context";
 import { ReflectiveConversationPane } from "@/components/workspace/ReflectiveConversationPane";
 import { useCurrentUser } from "@/context/user-context";
 import {
@@ -195,43 +196,45 @@ export default function PortfolioWorkspacePage() {
       <DerivationBanner portfolio={portfolio} />
 
       {/*
-        Workspace: 3 columns when there's room; 2 columns (intent + probes |
-        sticky artifact) on laptop widths; stacked on small screens. Uses
-        container queries so the open sidebar is taken into account.
+        Workspace: a narrow sidebar (intent + design probes) next to the form
+        on a sticky canvas; stacked on small screens. Uses container queries
+        so the open app sidebar is taken into account.
       */}
-      <div className="@container">
-        <div className="grid grid-cols-1 gap-6 @5xl:grid-cols-2 @7xl:grid-cols-3 @7xl:gap-8">
-          <div className="flex flex-col gap-6 @7xl:contents">
-            {/* Intent + resolved decisions */}
-            <div
-              data-testid="reflective-conversation-pane"
-              className="flex flex-col overflow-hidden"
-            >
-              <ReflectiveConversationPane
+      <DeckCanvasProvider>
+        <div className="@container">
+          <div className="grid grid-cols-1 gap-6 @5xl:grid-cols-[minmax(320px,400px)_minmax(0,1fr)]">
+            <div className="flex min-w-0 flex-col gap-5">
+              <div
+                data-testid="reflective-conversation-pane"
+                className="flex flex-col"
+              >
+                <ReflectiveConversationPane
+                  portfolio={portfolio}
+                  autoGenerate={autoGenerate}
+                  onAutoGenerateStarted={clearGenerateParam}
+                />
+              </div>
+
+              <DesignProbeDeck
                 portfolio={portfolio}
-                autoGenerate={autoGenerate}
-                onAutoGenerateStarted={clearGenerateParam}
+                onDecisionApplied={scheduleSync}
               />
             </div>
 
-            <div>
-              <DesignProbeDeck portfolio={portfolio} />
+            {/* Artifact (form on a canvas) */}
+            <div
+              data-testid="preview-pane"
+              className="h-[70vh] @5xl:sticky @5xl:top-20 @5xl:h-[calc(100vh-6rem)]"
+            >
+              <ArtifactPane
+                portfolio={portfolio}
+                onFieldClick={handleFieldClick}
+                onFieldsAdded={handleFieldsAdded}
+              />
             </div>
           </div>
-
-          {/* Artifact (form preview) */}
-          <div
-            data-testid="preview-pane"
-            className="@5xl:sticky @5xl:top-20 @5xl:self-start @5xl:max-h-[calc(100vh-6rem)] @5xl:overflow-y-auto @7xl:static @7xl:max-h-none @7xl:overflow-visible"
-          >
-            <ArtifactPane
-              portfolio={portfolio}
-              onFieldClick={handleFieldClick}
-              onFieldsAdded={handleFieldsAdded}
-            />
-          </div>
         </div>
-      </div>
+      </DeckCanvasProvider>
 
       {/* Field edit drawer — saves only the changed properties, applied to
           the latest version of the field */}

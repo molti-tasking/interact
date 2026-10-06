@@ -61,13 +61,27 @@ export async function waitForDesignProbes(page: Page): Promise<void> {
 }
 
 /**
- * Click a design probe option by its value.
+ * Click a design probe option by its value. Only one probe shows its
+ * options at a time, so expand the others in turn until the option appears.
  */
 export async function resolveDesignProbe(
   page: Page,
   optionValue: string,
 ): Promise<void> {
-  await page.locator(`[data-testid="deck-option-${optionValue}"]`).click();
+  const option = page.locator(`[data-testid="deck-option-${optionValue}"]`);
+  if (!(await option.isVisible())) {
+    // Ids first: expanding one probe collapses another, reordering the rows
+    const ids = await page
+      .locator(
+        '[data-testid="card-deck-section"] button[data-testid^="deck-card-"][aria-expanded="false"]',
+      )
+      .evaluateAll((rows) => rows.map((r) => r.getAttribute("data-testid")));
+    for (const id of ids) {
+      if (await option.isVisible()) break;
+      await page.locator(`button[data-testid="${id}"]`).click();
+    }
+  }
+  await option.click();
 }
 
 /**

@@ -1,4 +1,5 @@
 import { AppBreadcrumb } from "@/components/app-breadcrumb";
+import { AppContent } from "@/components/app-content";
 import { AppSidebar } from "@/components/app-sidebar";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -52,9 +53,7 @@ export default function AppShellLayout({
           </div>
         </header>
         <div className="flex-1 bg-muted/30">
-          <div className="container mx-auto px-4 py-6 sm:px-6 sm:py-8">
-            {children}
-          </div>
+          <AppContent>{children}</AppContent>
         </div>
       </SidebarInset>
     </SidebarProvider>
