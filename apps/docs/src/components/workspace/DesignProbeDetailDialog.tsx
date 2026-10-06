@@ -14,7 +14,6 @@ import {
   DimensionBadge,
   LayerBadge,
 } from "@/components/workspace/DecisionCard";
-import type { CardItem } from "@/components/workspace/DesignProbeCard";
 import { cn } from "@/lib/utils";
 import { Check, Pen } from "lucide-react";
 import { useState } from "react";
@@ -23,11 +22,25 @@ import { useState } from "react";
 // Component
 // ---------------------------------------------------------------------------
 
+interface CardItem {
+  id: string;
+  text: string;
+  explanation?: string;
+  layer?: string;
+  dimensionName?: string | null;
+  options: { value: string; label: string; description?: string }[];
+  status: "pending" | "loading" | "resolved" | "dismissed";
+  onSelect: (value: string) => void;
+  onDismiss: () => void;
+}
+
 interface DesignProbeDetailDialogProps {
   item: CardItem;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   busy: boolean;
+  /** Open with the custom answer field already shown */
+  startWithCustom?: boolean;
 }
 
 export function DesignProbeDetailDialog({
@@ -35,9 +48,10 @@ export function DesignProbeDetailDialog({
   open,
   onOpenChange,
   busy,
+  startWithCustom = false,
 }: DesignProbeDetailDialogProps) {
   const [selectedValue, setSelectedValue] = useState<string | null>(null);
-  const [showCustom, setShowCustom] = useState(false);
+  const [showCustom, setShowCustom] = useState(startWithCustom);
   const [customAnswer, setCustomAnswer] = useState("");
 
   const disabled = item.status !== "pending" || busy;
@@ -54,7 +68,7 @@ export function DesignProbeDetailDialog({
   const handleOpenChange = (next: boolean) => {
     if (!next) {
       setSelectedValue(null);
-      setShowCustom(false);
+      setShowCustom(startWithCustom);
       setCustomAnswer("");
     }
     onOpenChange(next);

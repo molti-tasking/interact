@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { SchemaPatch } from "./engine/schema-patch";
 import { Tables, TablesInsert } from "./supabase/database.types";
 
 // ---------------------------------------------------------------------------
@@ -347,6 +348,28 @@ export interface FormResponse {
 // tradeoffs and ask the creator to resolve them — a form of directed backtalk.
 // ---------------------------------------------------------------------------
 
+/** 1 = high (structural), 2 = medium (a field decision), 3 = low (polish) */
+export type ProbePriority = 1 | 2 | 3;
+
+/**
+ * What choosing an option would change, computed ahead of time so the deck
+ * can preview it and apply it without waiting for the LLM. The patch is
+ * re-applied to the current schema, so it stays valid after other answers.
+ */
+export interface ProbeOptionPreview {
+  /** Short changelog line, e.g. "Adds session length and goal" */
+  summary: string;
+  schemaPatch: SchemaPatch;
+  /** A question this answer opens up, asked after it is applied */
+  followUp?: { text: string; options: { value: string; label: string }[] };
+}
+
+export interface DesignProbeOption {
+  value: string;
+  label: string;
+  preview?: ProbeOptionPreview;
+}
+
 export interface DesignProbe {
   id: string;
   portfolioId: string;
@@ -354,9 +377,12 @@ export interface DesignProbe {
   explanation?: string;
   layer: "intent" | "dimensions" | "both";
   source: string;
-  options: { value: string; label: string }[];
+  options: DesignProbeOption[];
   selectedOption: string | null;
   status: "pending" | "loading" | "resolved" | "dismissed";
+  priority: ProbePriority;
+  /** null for probes created before previews existed */
+  previewStatus: "pending" | "ready" | "failed" | null;
   dimensionId?: string | null;
   dimensionName?: string | null;
   createdAt: string;

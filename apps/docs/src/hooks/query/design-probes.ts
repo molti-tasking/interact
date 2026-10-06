@@ -2,19 +2,29 @@
 
 import {
   generateDesignProbesAction,
+  previewDesignProbeOptionsAction,
   resolveDesignProbeAction,
 } from "@/app/actions/design-probe-actions";
 import type { DetectedStandard } from "@/lib/domain-standards";
 import { commitPortfolioChange, type CommitResult } from "@/lib/engine/commit";
 import { mergeIntentChange, mergeSchemaChange } from "@/lib/engine/merge";
+import { applySchemaPatch } from "@/lib/engine/schema-patch";
 import { sanitizePurposeText } from "@/lib/engine/structured-intent";
 import { createClient } from "@/lib/supabase/client";
 import type { Database } from "@/lib/supabase/database.types";
 import { rowToDesignProbe } from "@/lib/supabase/types";
-import type { DesignProbe, PortfolioSchema, StructuredIntent } from "@/lib/types";
+import type {
+  DesignProbe,
+  DesignProbeOption,
+  Portfolio,
+  PortfolioSchema,
+  ProbeOptionPreview,
+  StructuredIntent,
+} from "@/lib/types";
 import { trackActivity } from "@/lib/workspace-activity";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { applyCommitToCache } from "./portfolios";
+import { useEffect, useRef } from "react";
+import { applyCommitToCache, portfolioKey } from "./portfolios";
 
 function designProbesKey(portfolioId: string) {
   return ["design-probes", portfolioId] as const;
@@ -91,6 +101,10 @@ export function useGenerateDesignProbes(portfolioId: string) {
         options: JSON.parse(JSON.stringify(interaction.options)),
         selected_option: null,
         status: "pending",
+        priority: interaction.priority,
+        // What each option changes is computed in the background
+        // (usePrecomputeProbePreviews)
+        preview_status: "pending",
         dimension_id: interaction.dimensionId ?? null,
         dimension_name: interaction.dimensionName ?? null,
       }));
@@ -249,6 +263,8 @@ export function useResolveDesignProbe(portfolioId: string) {
                 options: JSON.parse(JSON.stringify(f.options)),
                 selected_option: null,
                 status: "pending",
+                priority: f.priority,
+                preview_status: "pending",
                 dimension_id: f.dimensionId ?? null,
                 dimension_name: f.dimensionName ?? null,
               }),
@@ -274,6 +290,333 @@ export function useResolveDesignProbe(portfolioId: string) {
       });
     },
     onSuccess: ({ commit }) => applyCommitToCache(queryClient, commit),
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: designProbesKey(portfolioId) });
+    },
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Pre-computed answers: preview + instant apply
+// ---------------------------------------------------------------------------
+
+function needsPreview(probe: DesignProbe): boolean {
+  return (
+    probe.status === "pending" &&
+    probe.source !== "standard" &&
+    probe.options.length > 0 &&
+    probe.previewStatus !== "ready" &&
+    probe.previewStatus !== "failed"
+  );
+}
+
+/** Probes whose previews were started in this tab (never re-run on their own). */
+const previewsStarted = new Set<string>();
+const MAX_CONCURRENT_PREVIEWS = 3;
+let previewsRunning = 0;
+const previewQueue: (() => Promise<void>)[] = [];
+
+function runPreviewTask(task: () => Promise<void>) {
+  previewQueue.push(task);
+  const next = () => {
+    while (previewsRunning < MAX_CONCURRENT_PREVIEWS && previewQueue.length) {
+      const run = previewQueue.shift()!;
+      previewsRunning++;
+      void run().finally(() => {
+        previewsRunning--;
+        next();
+      });
+    }
+  };
+  next();
+}
+
+/**
+ * Work out, in the background, what each option of every open probe would
+ * change — so the deck can preview an answer and apply it without an LLM
+ * round trip. Also backfills probes created before previews existed.
+ *
+ * Each preview is computed against the portfolio as it is when the task
+ * starts; patches are re-applied to the current schema when shown or
+ * applied, so later changes don't invalidate them.
+ */
+export function usePrecomputeProbePreviews(
+  portfolio: Portfolio,
+  probes: DesignProbe[] | undefined,
+  spacePortfolios?: { id: string; title: string }[],
+) {
+  const queryClient = useQueryClient();
+  const latest = useRef({ portfolio, spacePortfolios });
+  useEffect(() => {
+    latest.current = { portfolio, spacePortfolios };
+  });
+
+  useEffect(() => {
+    const key = designProbesKey(portfolio.id);
+    const setOptions = (probeId: string, update: Partial<DesignProbe>) =>
+      queryClient.setQueryData<DesignProbe[]>(key, (old) =>
+        old?.map((p) => (p.id === probeId ? { ...p, ...update } : p)),
+      );
+
+    for (const probe of probes ?? []) {
+      if (!needsPreview(probe) || previewsStarted.has(probe.id)) continue;
+      previewsStarted.add(probe.id);
+
+      runPreviewTask(async () => {
+        const { portfolio: current, spacePortfolios: space } = latest.current;
+        try {
+          const response = await previewDesignProbeOptionsAction({
+            intent: current.intent,
+            currentSchema: current.schema,
+            probe: {
+              text: probe.text,
+              explanation: probe.explanation,
+              options: probe.options.map(({ value, label }) => ({
+                value,
+                label,
+              })),
+            },
+            spacePortfolios: space,
+          });
+          if (!response.success || !response.options) {
+            throw new Error(response.error ?? "No previews returned");
+          }
+          setOptions(probe.id, {
+            options: response.options,
+            previewStatus: "ready",
+          });
+          await updateProbeRow(probe.id, {
+            options: JSON.parse(JSON.stringify(response.options)),
+            preview_status: "ready",
+          });
+        } catch (err) {
+          // Answering still works: options without a preview fall back to
+          // resolving the answer with the LLM.
+          console.error("[design-probes] preview failed:", err);
+          setOptions(probe.id, { previewStatus: "failed" });
+          await updateProbeRow(probe.id, { preview_status: "failed" }).catch(
+            () => {},
+          );
+        } finally {
+          queryClient.invalidateQueries({ queryKey: key });
+        }
+      });
+    }
+  }, [portfolio.id, probes, queryClient]);
+}
+
+/** Try computing a probe's previews again after a failure. */
+export function useRetryProbePreview(portfolioId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (probeId: string) => {
+      previewsStarted.delete(probeId);
+      await updateProbeRow(probeId, { preview_status: "pending" });
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: designProbesKey(portfolioId) });
+    },
+  });
+}
+
+/**
+ * Apply an answer whose outcome was pre-computed: replay its schema patch on
+ * the latest state (no LLM call), mark the probe resolved, and queue its
+ * follow-up question. The purpose is re-synced separately by the caller.
+ */
+export function useApplyProbePreview(portfolioId: string) {
+  const queryClient = useQueryClient();
+  const key = designProbesKey(portfolioId);
+
+  return useMutation({
+    mutationFn: async ({
+      probe,
+      option,
+      resolvedBy,
+      spacePortfolios,
+    }: {
+      probe: DesignProbe;
+      option: DesignProbeOption & { preview: ProbeOptionPreview };
+      resolvedBy: string;
+      spacePortfolios?: { id: string; title: string }[];
+    }) => {
+      const { preview } = option;
+      const validTargetIds = (spacePortfolios ?? []).map((p) => p.id);
+
+      return trackActivity(portfolioId, "Applying your answer", async () => {
+        const commit = await commitPortfolioChange(portfolioId, (current) => {
+          const { schema, applied } = applySchemaPatch(
+            current.schema,
+            preview.schemaPatch,
+            { validTargetIds },
+          );
+          const changed =
+            applied.added.length +
+              applied.updated.length +
+              applied.removed.length >
+            0;
+          if (!changed) return null;
+          return {
+            schema,
+            provenance: {
+              layer: "dimensions",
+              action: "design_probe_resolved",
+              actor: resolvedBy,
+              rationale: `"${probe.text}" → "${option.label}"`,
+            },
+          };
+        });
+
+        await updateProbeRow(probe.id, {
+          status: "resolved",
+          selected_option: option.value,
+          resolved_at: new Date().toISOString(),
+          resolved_by: resolvedBy,
+        });
+
+        let followUpId: string | null = null;
+        if (preview.followUp) {
+          const { data, error } = await createClient()
+            .from("design_probes")
+            .insert({
+              portfolio_id: portfolioId,
+              text: preview.followUp.text,
+              explanation: null,
+              layer: "both",
+              source: "llm",
+              options: JSON.parse(JSON.stringify(preview.followUp.options)),
+              selected_option: null,
+              status: "pending",
+              priority: 2,
+              preview_status: "pending",
+            })
+            .select("id")
+            .single();
+          if (error) {
+            console.error("[design-probes] follow-up insert failed:", error);
+          }
+          followUpId = data?.id ?? null;
+        }
+
+        return {
+          commit,
+          optionLabel: option.label,
+          summary: preview.summary,
+          followUpId,
+        };
+      });
+    },
+    // The answered card leaves the deck and the form changes right away;
+    // the commit result replaces the optimistic schema when it lands.
+    onMutate: async ({ probe, option, spacePortfolios }) => {
+      await queryClient.cancelQueries({ queryKey: key });
+      const previous = queryClient.getQueryData<DesignProbe[]>(key);
+      queryClient.setQueryData<DesignProbe[]>(key, (old) =>
+        old?.map((p) =>
+          p.id === probe.id
+            ? {
+                ...p,
+                status: "resolved",
+                selectedOption: option.value,
+                resolvedAt: new Date().toISOString(),
+              }
+            : p,
+        ),
+      );
+
+      const previousPortfolio = queryClient.getQueryData<Portfolio>(
+        portfolioKey(portfolioId),
+      );
+      if (previousPortfolio) {
+        const { schema } = applySchemaPatch(
+          previousPortfolio.schema,
+          option.preview.schemaPatch,
+          { validTargetIds: (spacePortfolios ?? []).map((p) => p.id) },
+        );
+        queryClient.setQueryData(portfolioKey(portfolioId), {
+          ...previousPortfolio,
+          schema,
+        });
+      }
+      return { previous, previousPortfolio };
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.previous) queryClient.setQueryData(key, context.previous);
+      if (context?.previousPortfolio) {
+        queryClient.setQueryData(
+          portfolioKey(portfolioId),
+          context.previousPortfolio,
+        );
+      }
+    },
+    onSuccess: ({ commit }) => applyCommitToCache(queryClient, commit),
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: key });
+    },
+  });
+}
+
+/**
+ * Undo an answer or fix applied from its preview: replay the inverse of its
+ * schema change on the current state, reopen the probe, and withdraw the
+ * follow-up question it raised (unless that was answered already). Unlike
+ * `revertCommit` this still works after the purpose was re-synced.
+ */
+export function useUndoAppliedPreview(portfolioId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      commit,
+      probeId,
+      followUpId,
+      actor,
+      label,
+    }: {
+      commit: CommitResult | null;
+      /** The answered probe to reopen (none for conflict fixes) */
+      probeId?: string;
+      followUpId?: string | null;
+      actor: string;
+      label: string;
+    }) => {
+      const reverted = commit
+        ? await commitPortfolioChange(portfolioId, (current) => ({
+            schema: mergeSchemaChange(
+              commit.portfolio.schema,
+              commit.previous.schema,
+              current.schema,
+            ),
+            provenance: {
+              layer: "configuration",
+              action: "change_reverted",
+              actor,
+              rationale: `Undid: ${label}`,
+            },
+          }))
+        : null;
+      if (probeId) {
+        await updateProbeRow(probeId, {
+          status: "pending",
+          selected_option: null,
+          resolved_at: null,
+          resolved_by: null,
+        });
+      }
+      if (followUpId) {
+        const { error } = await createClient()
+          .from("design_probes")
+          .update({ status: "dismissed" })
+          .eq("id", followUpId)
+          .eq("status", "pending");
+        if (error) {
+          console.error("[design-probes] follow-up withdraw failed:", error);
+        }
+      }
+      return reverted;
+    },
+    onSuccess: (reverted) => applyCommitToCache(queryClient, reverted),
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: designProbesKey(portfolioId) });
     },
@@ -410,6 +753,8 @@ export function useInsertStandardProbes(portfolioId: string) {
           ),
           selected_option: null,
           status: "pending",
+          // Standards stay at the top of the deck, as before priorities
+          priority: 1,
           dimension_id: s.standard.id,
           dimension_name: s.standard.name,
         }));

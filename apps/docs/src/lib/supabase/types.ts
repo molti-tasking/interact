@@ -14,6 +14,7 @@ import type {
   FormResponse,
   Portfolio,
   PortfolioSchema,
+  ProbePriority,
   ProvenanceEntry,
   SchemaDiff,
   Space,
@@ -99,6 +100,10 @@ export function rowToResponse(row: ResponseRow): FormResponse {
   };
 }
 
+function toProbePriority(value: number | null | undefined): ProbePriority {
+  return value === 1 || value === 3 ? value : 2;
+}
+
 export function rowToDesignProbe(row: DesignProbeRow): DesignProbe {
   return {
     id: row.id,
@@ -107,9 +112,11 @@ export function rowToDesignProbe(row: DesignProbeRow): DesignProbe {
     explanation: row.explanation ?? undefined,
     layer: row.layer as "intent" | "dimensions" | "both",
     source: row.source,
-    options: row.options as unknown as { value: string; label: string }[],
+    options: row.options as unknown as DesignProbe["options"],
     selectedOption: row.selected_option,
     status: row.status as DesignProbe["status"],
+    priority: toProbePriority(row.priority),
+    previewStatus: (row.preview_status ?? null) as DesignProbe["previewStatus"],
     dimensionId: row.dimension_id,
     dimensionName: row.dimension_name,
     createdAt: row.created_at ?? new Date().toISOString(),

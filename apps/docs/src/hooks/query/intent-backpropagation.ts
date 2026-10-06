@@ -25,6 +25,8 @@ const DEBOUNCE_MS = 2000;
  *   const { scheduleSync } = useIntentBackpropagation(portfolio);
  *   // after saving a field edit:
  *   scheduleSync('Renamed field "Name" to "Full Name"');
+ *   // after applying a pre-computed design probe answer:
+ *   scheduleSync('"Track sessions?" → "Yes, per week"', "design-decision");
  */
 export function useIntentBackpropagation(
   portfolio: Portfolio | null | undefined,
@@ -32,6 +34,8 @@ export function useIntentBackpropagation(
   const queryClient = useQueryClient();
 
   const pendingEditsRef = useRef<string[]>([]);
+  // A batch with any design decision is synced as one (purpose should follow)
+  const pendingDecisionRef = useRef(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const inFlightRef = useRef<Promise<void> | null>(null);
   // Latest portfolio for the flush closure (updated after render, not during)
@@ -49,7 +53,9 @@ export function useIntentBackpropagation(
     if (!p || pendingEditsRef.current.length === 0) return;
 
     const descriptions = [...pendingEditsRef.current];
+    const kind = pendingDecisionRef.current ? "design-decision" : "field-edit";
     pendingEditsRef.current = [];
+    pendingDecisionRef.current = false;
     const bulkDescription = descriptions.join(". ");
     const basePurpose = p.intent.purpose.content;
 
@@ -59,6 +65,7 @@ export function useIntentBackpropagation(
           intent: p.intent,
           currentSchema: p.schema,
           editDescription: bulkDescription,
+          kind,
         });
 
         if (!syncResult.success) {
@@ -85,7 +92,10 @@ export function useIntentBackpropagation(
               layer: "intent",
               action: "intent_synced_from_edit",
               actor: "system",
-              rationale: `Purpose updated after field edits: ${bulkDescription}`,
+              rationale:
+                kind === "design-decision"
+                  ? `Purpose updated after design decisions: ${bulkDescription}`
+                  : `Purpose updated after field edits: ${bulkDescription}`,
             },
           };
         });
@@ -102,8 +112,12 @@ export function useIntentBackpropagation(
   }, [queryClient]);
 
   const scheduleSync = useCallback(
-    (editDescription: string) => {
+    (
+      editDescription: string,
+      kind: "field-edit" | "design-decision" = "field-edit",
+    ) => {
       pendingEditsRef.current.push(editDescription);
+      if (kind === "design-decision") pendingDecisionRef.current = true;
       if (timerRef.current) clearTimeout(timerRef.current);
       timerRef.current = setTimeout(() => {
         timerRef.current = null;

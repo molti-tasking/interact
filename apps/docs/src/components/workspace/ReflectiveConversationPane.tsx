@@ -4,22 +4,13 @@ import { PromptDiff } from "@/components/form/configurator/PromptDiff";
 import { Button } from "@/components/ui/button";
 import { MicButton } from "@/components/voice/MicButton";
 import { useCurrentUser } from "@/context/user-context";
-import {
-  useDesignProbes,
-  useReResolveDesignProbe,
-  useRestoreProbeAnswer,
-} from "@/hooks/query/design-probes";
 import { usePipelineGenerate } from "@/hooks/query/pipeline";
-import { useSpaceSiblings } from "@/hooks/query/portfolios";
 import { usePreviousPurpose } from "@/hooks/query/provenance";
-import { useUndoToast } from "@/hooks/query/undo";
 import { formatActor } from "@/lib/mock-users";
 import type { Portfolio, StructuredIntent } from "@/lib/types";
-import { Loader2, Sparkles } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { ChevronDown, Loader2, Sparkles } from "lucide-react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { toast } from "sonner";
-import { DesignProbeResolvedDialog } from "./DesignProbeResolvedDialog";
-import { ResolvedStack } from "./ResolvedStack";
 import { StructuredIntentEditor } from "./StructuredIntentEditor";
 
 interface ReflectiveConversationPaneProps {
@@ -33,6 +24,28 @@ interface ReflectiveConversationPaneProps {
 interface EditSession {
   base: StructuredIntent;
   draft: StructuredIntent;
+}
+
+/** Remembered per portfolio, so the pane stays the way the user left it. */
+function useIntentOpen(portfolioId: string) {
+  const key = `workspace:intent-open:${portfolioId}`;
+  const [open, setOpenState] = useState<boolean | null>(() => {
+    try {
+      const stored = window.localStorage.getItem(key);
+      return stored === null ? null : stored === "1";
+    } catch {
+      return null;
+    }
+  });
+  const setOpen = (next: boolean) => {
+    setOpenState(next);
+    try {
+      window.localStorage.setItem(key, next ? "1" : "0");
+    } catch {
+      // Storage unavailable (private mode) — keep it for this visit only
+    }
+  };
+  return [open, setOpen] as const;
 }
 
 function sameIntent(a: StructuredIntent, b: StructuredIntent): boolean {
@@ -171,11 +184,62 @@ export function ReflectiveConversationPane({
   const canDiff =
     !!previousPurpose && previousPurpose !== portfolio.intent.purpose.content;
 
+  // Collapsed by default once there is a form; always open while it's the
+  // way forward (no form or purpose yet), while editing, or with an error.
+  const [storedOpen, setOpen] = useIntentOpen(portfolio.id);
+  const purposeText = portfolio.intent.purpose.content.trim();
+  const mustStayOpen =
+    !hasFields || !purposeText || isDirty || isGenerating || !!error;
+  const expanded = mustStayOpen || (storedOpen ?? false);
+  const bodyId = useId();
+
+  if (!expanded) {
+    return (
+      <button
+        type="button"
+        data-testid="intent-toggle"
+        aria-expanded={false}
+        aria-controls={bodyId}
+        onClick={() => setOpen(true)}
+        className="group flex w-full cursor-pointer items-start gap-2 rounded-xl border bg-card px-3.5 py-2.5 text-left transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      >
+        <span className="min-w-0 flex-1">
+          <span className="workspace-section-label block">Intent</span>
+          <span className="mt-0.5 line-clamp-2 text-[13px] leading-snug text-foreground/75">
+            {purposeText}
+          </span>
+        </span>
+        <ChevronDown
+          className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground/60 transition-transform group-hover:translate-y-0.5"
+          aria-hidden
+        />
+      </button>
+    );
+  }
+
   return (
     <div className="flex flex-col h-full">
-      <div className="space-y-3">
+      <div id={bodyId} className="space-y-3">
         <div className="flex items-center justify-between h-8 mb-3">
-          <h3 className="workspace-section-label">Intent</h3>
+          {mustStayOpen ? (
+            <h3 className="workspace-section-label">Intent</h3>
+          ) : (
+            <button
+              type="button"
+              data-testid="intent-toggle"
+              aria-expanded
+              aria-controls={bodyId}
+              onClick={() => setOpen(false)}
+              className="group flex cursor-pointer items-center gap-1 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <h3 className="workspace-section-label">Intent</h3>
+              <ChevronDown
+                className="h-3.5 w-3.5 rotate-180 text-muted-foreground/60 transition-colors group-hover:text-foreground"
+                aria-hidden
+              />
+              <span className="sr-only">Collapse</span>
+            </button>
+          )}
           <div className="flex items-center gap-1">
             {canDiff && !isDirty && (
               <Button
@@ -277,65 +341,7 @@ export function ReflectiveConversationPane({
             Edit the intent to refine the form, or answer the design probes.
           </p>
         )}
-
-        <ResolvedSection portfolio={portfolio} />
       </div>
     </div>
   );
 }
-
-const ResolvedSection = ({ portfolio }: { portfolio: Portfolio }) => {
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const { data: designProbes } = useDesignProbes(portfolio.id);
-  const reResolve = useReResolveDesignProbe(portfolio.id);
-  const restoreAnswer = useRestoreProbeAnswer(portfolio.id);
-  const spacePortfolios = useSpaceSiblings(portfolio);
-  const notifyUndo = useUndoToast();
-  const { currentUser } = useCurrentUser();
-
-  if (!designProbes?.length) return null;
-
-  // Resolved probes in chronological order (oldest first) for the history stack
-  const resolvedProbes = [
-    ...designProbes.filter((o) => o.status === "resolved"),
-  ].reverse();
-
-  const handleReResolve = async (probeId: string, newValue: string) => {
-    const probe = resolvedProbes.find((p) => p.id === probeId);
-    if (!probe) return;
-
-    try {
-      const result = await reResolve.mutateAsync({
-        probe,
-        newSelectedValue: newValue,
-        // The saved state — never an unsaved intent draft
-        snapshot: { intent: portfolio.intent, schema: portfolio.schema },
-        editedBy: formatActor(currentUser),
-        spacePortfolios,
-      });
-      notifyUndo(result.commit, `Changed answer to "${result.optionLabel}"`, {
-        onUndone: () => restoreAnswer.mutateAsync(probe),
-      });
-    } catch (err) {
-      toast.error(
-        err instanceof Error ? err.message : "Failed to change the answer",
-      );
-    }
-  };
-
-  return (
-    <>
-      <ResolvedStack
-        resolvedProbes={resolvedProbes}
-        onViewAll={() => setDialogOpen(true)}
-      />
-      <DesignProbeResolvedDialog
-        dialogOpen={dialogOpen}
-        setDialogOpen={setDialogOpen}
-        resolvedProbes={resolvedProbes}
-        onReResolve={handleReResolve}
-        isReResolving={reResolve.isPending}
-      />
-    </>
-  );
-};

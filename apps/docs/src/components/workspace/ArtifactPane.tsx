@@ -2,7 +2,6 @@
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -14,13 +13,33 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { useUpdatePortfolio } from "@/hooks/query/portfolios";
-import { FormRenderer } from "@/lib/form-renderer/FormRenderer";
+import { previewSchemaChange } from "@/lib/engine/probe-preview";
+import {
+  FormRenderer,
+  type FieldMark,
+} from "@/lib/form-renderer/FormRenderer";
 import type { Field, Portfolio, PortfolioSchema } from "@/lib/types";
-import { Check, Copy, ExternalLink, Network, ShareIcon } from "lucide-react";
+import {
+  Check,
+  Copy,
+  ExternalLink,
+  Eye,
+  Network,
+  ShareIcon,
+  TriangleAlert,
+} from "lucide-react";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { AddFieldInline } from "./AddFieldInline";
+import { ArtifactCanvas, scrollIntoCanvasView } from "./ArtifactCanvas";
+import {
+  useConflictMarks,
+  useDeckFocus,
+  useProbePreview,
+} from "./deck-canvas-context";
+
+const SEVERITY_ORDER = { error: 0, warning: 1, info: 2 } as const;
 
 interface ArtifactPaneProps {
   portfolio: Portfolio;
@@ -89,78 +108,178 @@ export function ArtifactPane({
 
   const showFirstChange = () => {
     const el = changed.map(fieldElement).find(Boolean);
-    el?.scrollIntoView({
-      behavior: prefersReducedMotion() ? "auto" : "smooth",
-      block: "center",
-    });
+    if (el) {
+      scrollIntoCanvasView(el, {
+        block: "center",
+        smooth: !prefersReducedMotion(),
+      });
+    }
   };
 
-  return (
-    <div className="flex flex-col h-full">
-      <div className="flex flex-row justify-between items-center h-8 mb-3">
-        <div className="flex items-center gap-2">
-          <h3 className="workspace-section-label">Artifact</h3>
-          <span
-            data-testid="field-count"
-            className="text-xs text-muted-foreground tabular-nums"
-          >
-            {fieldCount} field{fieldCount !== 1 ? "s" : ""}
-          </span>
-        </div>
-        <div className="flex gap-1">
-          <PublishDialog portfolio={portfolio} />
-          <Button
-            variant="ghost"
-            size="sm"
-            className="text-muted-foreground h-7 text-xs"
-            asChild
-          >
-            <Link
-              href={`/portfolios/${portfolio.id}/derive`}
-              title="Derive a variant of this form for a specific scenario"
-            >
-              <Network className="h-3.5 w-3.5" aria-hidden />
-              Derive variant
-            </Link>
-          </Button>
-        </div>
-      </div>
+  // A probe answer or conflict fix hovered in the deck: show what it'd do
+  const probePreview = useProbePreview();
+  const preview = useMemo(
+    () =>
+      probePreview
+        ? previewSchemaChange(schema, probePreview.apply(schema))
+        : null,
+    [schema, probePreview],
+  );
 
-      {changed.length > 0 && (
-        <div
-          role="status"
-          className="mb-2 flex items-center justify-between gap-2 rounded-lg border border-primary/20 bg-primary/5 px-3 py-1.5 text-xs"
+  // Fields involved in a detected conflict; the open conflict stands out.
+  // Clicking a marker opens that conflict in the deck.
+  const { marks: conflicts, activeId: activeConflictId } = useConflictMarks();
+  const [, setDeckFocus] = useDeckFocus();
+  const fieldMarks = useMemo(() => {
+    const byField: Record<string, FieldMark> = {};
+    const ordered = [...conflicts].sort(
+      (a, b) =>
+        Number(b.id === activeConflictId) - Number(a.id === activeConflictId) ||
+        SEVERITY_ORDER[a.severity] - SEVERITY_ORDER[b.severity],
+    );
+    for (const conflict of ordered) {
+      for (const fieldId of conflict.fieldIds) {
+        byField[fieldId] ??= {
+          tone: conflict.severity,
+          label: conflict.label,
+          title: conflict.description,
+          emphasized: conflict.id === activeConflictId,
+          onClick: () => setDeckFocus(conflict.id),
+        };
+      }
+    }
+    return byField;
+  }, [conflicts, activeConflictId, setDeckFocus]);
+
+  // Opening a conflict brings its fields into view
+  const activeConflictField = conflicts
+    .find((c) => c.id === activeConflictId)
+    ?.fieldIds.map((id) => schema.fields.find((f) => f.id === id)?.name)
+    .find(Boolean);
+  useEffect(() => {
+    const el = activeConflictField && fieldElement(activeConflictField);
+    if (el) {
+      scrollIntoCanvasView(el, {
+        block: "nearest",
+        smooth: !prefersReducedMotion(),
+      });
+    }
+  }, [activeConflictField]);
+  const previewChanges = preview ? Object.keys(preview.annotations) : [];
+
+  // Bring the first previewed change into view (only if it's off screen)
+  const firstPreviewChange = preview?.schema.fields.find(
+    (f) => preview.annotations[f.id],
+  )?.name;
+  useEffect(() => {
+    const el = firstPreviewChange && fieldElement(firstPreviewChange);
+    if (el) {
+      scrollIntoCanvasView(el, {
+        block: "nearest",
+        smooth: !prefersReducedMotion(),
+      });
+    }
+  }, [firstPreviewChange]);
+
+  const toolbar = (
+    <>
+      <div className="flex h-8 items-center gap-2 rounded-lg border bg-background/90 px-2.5 shadow-sm backdrop-blur">
+        <h3 className="workspace-section-label">Artifact</h3>
+        <span
+          data-testid="field-count"
+          className="text-xs text-muted-foreground tabular-nums"
         >
-          <span>
-            {changed.length} field{changed.length !== 1 ? "s" : ""} added or
-            changed
-          </span>
+          {fieldCount} field{fieldCount !== 1 ? "s" : ""}
+        </span>
+        {conflicts.length > 0 && (
           <button
             type="button"
-            onClick={showFirstChange}
-            className="font-medium text-primary underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded"
+            data-testid="conflict-count"
+            onClick={() => setDeckFocus(conflicts[0].id)}
+            title="Show the first conflict"
+            className="flex cursor-pointer items-center gap-1 rounded-md bg-amber-500/10 px-1.5 py-0.5 text-[11px] font-medium text-amber-700 hover:bg-amber-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:text-amber-300"
           >
-            Show
+            <TriangleAlert className="h-3 w-3" aria-hidden />
+            {conflicts.length} conflict{conflicts.length !== 1 ? "s" : ""}
           </button>
-        </div>
-      )}
+        )}
+      </div>
+      <div className="flex h-8 items-center gap-0.5 rounded-lg border bg-background/90 px-0.5 shadow-sm backdrop-blur">
+        <PublishDialog portfolio={portfolio} />
+        <Button
+          variant="ghost"
+          size="sm"
+          className="text-muted-foreground h-7 text-xs"
+          asChild
+        >
+          <Link
+            href={`/portfolios/${portfolio.id}/derive`}
+            title="Derive a variant of this form for a specific scenario"
+          >
+            <Network className="h-3.5 w-3.5" aria-hidden />
+            Derive variant
+          </Link>
+        </Button>
+      </div>
+    </>
+  );
 
-      <Card className="flex flex-col overflow-hidden p-0 shadow-none">
-        <div className="flex-1 p-5 overflow-auto">
-          <FormRenderer
-            schema={schema}
-            mode="preview"
-            onFieldClick={onFieldClick}
-            className="space-y-4"
-          />
-          {onFieldsAdded && (
-            <div className="mt-4">
-              <AddFieldInline schema={schema} onFieldsAdded={onFieldsAdded} />
-            </div>
-          )}
-        </div>
-      </Card>
+  const overlay = probePreview ? (
+    <div
+      role="status"
+      data-testid="probe-preview-notice"
+      className="flex max-w-full items-center gap-2 rounded-full border border-primary/25 bg-background/95 px-3 py-1.5 text-xs shadow-sm backdrop-blur"
+    >
+      <Eye className="h-3.5 w-3.5 shrink-0 text-primary" aria-hidden />
+      <span className="truncate">
+        <span className="font-medium">{probePreview.label}</span>
+        <span className="text-muted-foreground">
+          {" "}
+          —{" "}
+          {previewChanges.length > 0
+            ? probePreview.summary
+            : "no change to the form"}
+        </span>
+      </span>
+      <span className="shrink-0 text-muted-foreground/70">· click to apply</span>
     </div>
+  ) : changed.length > 0 ? (
+    <div
+      role="status"
+      className="flex items-center gap-3 rounded-full border border-primary/20 bg-background/95 px-3 py-1.5 text-xs shadow-sm backdrop-blur"
+    >
+      <span>
+        {changed.length} field{changed.length !== 1 ? "s" : ""} added or
+        changed
+      </span>
+      <button
+        type="button"
+        onClick={showFirstChange}
+        className="font-medium text-primary underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded"
+      >
+        Show
+      </button>
+    </div>
+  ) : null;
+
+  return (
+    <ArtifactCanvas toolbar={toolbar} overlay={overlay}>
+      <div className="p-6">
+        <FormRenderer
+          schema={preview?.schema ?? schema}
+          mode="preview"
+          onFieldClick={preview ? undefined : onFieldClick}
+          fieldAnnotations={preview?.annotations}
+          fieldMarks={preview ? undefined : fieldMarks}
+          className="space-y-4"
+        />
+        {onFieldsAdded && !preview && (
+          <div className="mt-4">
+            <AddFieldInline schema={schema} onFieldsAdded={onFieldsAdded} />
+          </div>
+        )}
+      </div>
+    </ArtifactCanvas>
   );
 }
 

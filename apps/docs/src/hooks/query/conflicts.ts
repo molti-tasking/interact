@@ -2,23 +2,29 @@
 
 import {
   detectSchemaConflictsAction,
+  previewConflictFixesAction,
   resolveSchemaConflictAction,
   type ConflictFix,
   type SchemaConflict,
 } from "@/app/actions/conflict-actions";
 import { commitPortfolioChange } from "@/lib/engine/commit";
+import {
+  applyConflictChanges,
+  type ConflictFixPreview,
+} from "@/lib/engine/conflict-changes";
 import { mergeIntentChange, mergeSchemaChange } from "@/lib/engine/merge";
-import type { PortfolioSchema, StructuredIntent } from "@/lib/types";
+import type { Portfolio, PortfolioSchema, StructuredIntent } from "@/lib/types";
 import { trackActivity } from "@/lib/workspace-activity";
 import {
   keepPreviousData,
   useMutation,
+  useQueries,
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query";
 import { useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
-import { applyCommitToCache } from "./portfolios";
+import { useEffect, useRef, useState } from "react";
+import { applyCommitToCache, portfolioKey } from "./portfolios";
 
 /** Wait this long after the last schema/intent change before re-checking. */
 const DETECT_DEBOUNCE_MS = 4000;
@@ -156,6 +162,146 @@ export function useResolveConflict(portfolioId: string) {
           },
         }));
       }),
+    onSuccess: (commit) => applyCommitToCache(queryClient, commit),
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Pre-computed fixes: preview + instant apply
+// ---------------------------------------------------------------------------
+
+interface ConflictFixPreviews {
+  status: "pending" | "ready" | "failed";
+  /** Fix value → what it would change */
+  previews: Record<string, ConflictFixPreview>;
+  retry: () => void;
+}
+
+/**
+ * Work out, in the background, what each fix of every shown conflict would
+ * change — so a fix can be previewed and applied without an LLM round trip.
+ * Keyed on the conflict itself, so unrelated edits don't recompute it; the
+ * id-based changes are replayed on the current schema when shown or applied.
+ */
+export function useConflictFixPreviews(
+  portfolio: Portfolio,
+  conflicts: SchemaConflict[],
+): Map<string, ConflictFixPreviews> {
+  const latest = useRef(portfolio);
+  useEffect(() => {
+    latest.current = portfolio;
+  });
+
+  return useQueries({
+    queries: conflicts.map((conflict) => ({
+      queryKey: [
+        "conflict-fix-previews",
+        portfolio.id,
+        conflict.id,
+        hashString(
+          JSON.stringify([conflict.description, conflict.fieldIds, conflict.fixes]),
+        ),
+      ],
+      queryFn: async () => {
+        const { schema, intent } = latest.current;
+        const response = await previewConflictFixesAction(
+          schema,
+          intent,
+          conflict,
+        );
+        if (!response.success || !response.previews) {
+          throw new Error(response.error ?? "No previews returned");
+        }
+        return response.previews;
+      },
+      staleTime: Infinity,
+      gcTime: 30 * 60_000,
+      refetchOnWindowFocus: false,
+      retry: false,
+    })),
+    combine: (results) =>
+      new Map(
+        conflicts.map((conflict, i) => {
+          const result = results[i];
+          return [
+            conflict.id,
+            {
+              status:
+                result.status === "success"
+                  ? "ready"
+                  : result.status === "error"
+                    ? "failed"
+                    : "pending",
+              previews: result.data ?? {},
+              retry: () => void result.refetch(),
+            },
+          ] as const;
+        }),
+      ),
+  });
+}
+
+function sameStructure(a: PortfolioSchema, b: PortfolioSchema): boolean {
+  return (
+    JSON.stringify([a.fields, a.groups]) === JSON.stringify([b.fields, b.groups])
+  );
+}
+
+/**
+ * Apply a pre-computed conflict fix: replay its changes on the latest state
+ * (no LLM call). The form updates right away; the commit result replaces
+ * the optimistic schema when it lands.
+ */
+export function useApplyConflictFix(portfolioId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      conflict,
+      fix,
+      preview,
+      actor,
+    }: {
+      conflict: SchemaConflict;
+      fix: ConflictFix;
+      preview: ConflictFixPreview;
+      actor: string;
+    }) =>
+      trackActivity(portfolioId, "Fixing a conflict", () =>
+        commitPortfolioChange(portfolioId, (current) => {
+          const { schema } = applyConflictChanges(
+            current.schema,
+            preview.changes,
+          );
+          if (sameStructure(schema, current.schema)) return null;
+          return {
+            schema,
+            provenance: {
+              layer: "configuration",
+              action: "conflict_resolved",
+              actor,
+              rationale: `${conflict.kind}: "${conflict.description}" → fix: "${fix.label}". ${preview.summary}`,
+            },
+          };
+        }),
+      ),
+    onMutate: ({ preview }) => {
+      const previous = queryClient.getQueryData<Portfolio>(
+        portfolioKey(portfolioId),
+      );
+      if (previous) {
+        queryClient.setQueryData(portfolioKey(portfolioId), {
+          ...previous,
+          schema: applyConflictChanges(previous.schema, preview.changes).schema,
+        });
+      }
+      return { previous };
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(portfolioKey(portfolioId), context.previous);
+      }
+    },
     onSuccess: (commit) => applyCommitToCache(queryClient, commit),
   });
 }
