@@ -9,6 +9,9 @@ import { APICallError, RetryError } from "ai";
  * doesn't carry. Actions keep their static instructions in `system` so the
  * prefix is stable — if caching is wanted, configure it on the LiteLLM side
  * (e.g. `cache_control_injection_points` targeting the system message).
+ *
+ * Calls don't set `temperature`: Claude Sonnet 5 rejects non-default
+ * sampling params (LiteLLM returns a 400), so steer output via the prompt.
  */
 const llm = createOpenAI({
   baseURL: process.env.LLM_HOST,

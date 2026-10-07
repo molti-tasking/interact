@@ -59,7 +59,7 @@ pnpm eval:judge-only
 
 # With separate models for simulation vs judging
 EVAL_SIM_MODEL=gpt-4o-mini \
-EVAL_JUDGE_MODEL=claude-sonnet-4-5-20250514 \
+EVAL_JUDGE_MODEL=anthropic/claude-sonnet-4-6 \
 pnpm eval
 ```
 

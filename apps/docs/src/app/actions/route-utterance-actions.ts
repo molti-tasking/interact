@@ -174,7 +174,6 @@ Always return a one-sentence "summary" of what you understood, phrased as a conf
           model: fastModel,
           prompt,
           output: Output.object({ schema: routeUtteranceSchema }),
-          temperature: 0.2,
           abortSignal,
           maxRetries: 0,
           experimental_telemetry: telemetry("route-utterance-action"),

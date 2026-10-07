@@ -348,7 +348,6 @@ Rules:
           system,
           prompt,
           output: Output.object({ schema: probeResponseSchema }),
-          temperature: 0.3,
           experimental_telemetry: telemetry("design-probe-action"),
         }),
     );
@@ -503,7 +502,6 @@ ${schemaPatchRules(spacePortfolios.length > 0)}`;
           system,
           prompt,
           output: Output.object({ schema: resolveProbeSchema }),
-          temperature: 0.3,
           experimental_telemetry: telemetry("design-probe-action"),
         }),
     );
@@ -667,7 +665,6 @@ ${schemaPatchRules(spacePortfolios.length > 0)}
           system,
           prompt,
           output: Output.object({ schema: previewOptionsSchema }),
-          temperature: 0.3,
           experimental_telemetry: telemetry("design-probe-preview"),
         }),
     );
@@ -792,7 +789,6 @@ ${
           system,
           prompt,
           output: Output.object({ schema: syncIntentSchema }),
-          temperature: 0.2,
           experimental_telemetry: telemetry("sync-intent-field-edit"),
         }),
     );

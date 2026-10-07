@@ -176,7 +176,6 @@ RULES:
           output: Output.object({ schema: deriveResponseSchema }),
           system,
           prompt,
-          temperature: 0.3,
           abortSignal,
           maxRetries: 0,
           experimental_telemetry: telemetry("derive-action"),

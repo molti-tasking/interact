@@ -174,7 +174,6 @@ RULES:
           output: Output.object({ schema: schemaResponseSchema }),
           system,
           prompt,
-          temperature: 0.3,
           abortSignal,
           maxRetries: 0,
           experimental_telemetry: telemetry("schema-action"),

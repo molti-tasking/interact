@@ -87,7 +87,6 @@ Rules:
         generateText({
           model,
           prompt: systemPrompt,
-          temperature: 0.3,
           output: Output.object({ schema: addFieldSchema }),
           experimental_telemetry: telemetry("add-field-prompt"),
         }),

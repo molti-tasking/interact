@@ -157,7 +157,6 @@ Rules:
           model,
           system,
           prompt: `<rows>\n${fencedJson(rows)}\n</rows>`,
-          temperature: 0.2,
           output: Output.object({ schema: processColumnSchema }),
           experimental_telemetry: telemetry("column-action"),
         }),
@@ -241,7 +240,6 @@ Rules:
         generateText({
           model,
           prompt: systemPrompt,
-          temperature: 0.3,
           output: Output.object({ schema: deriveFieldsSchema }),
           experimental_telemetry: telemetry("column-action"),
         }),
