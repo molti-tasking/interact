@@ -6,7 +6,10 @@ import {
 } from "@/lib/form-renderer/values";
 import { createClient } from "@/lib/supabase/client";
 
-/** Public-read bucket created by migration 008_response_files.sql */
+/**
+ * Private bucket (migrations 008/010): respondents may upload into
+ * `<portfolioId>/…` of a published form; only admins can read, via signed URLs.
+ */
 export const RESPONSE_FILES_BUCKET = "response-files";
 
 function safeFileName(name: string): string {
@@ -34,14 +37,20 @@ export async function uploadResponseFile(
     throw new Error(`Failed to upload "${file.name}": ${error.message}`);
   }
 
-  const { data } = bucket.getPublicUrl(path);
-  return {
-    path,
-    name: file.name,
-    size: file.size,
-    type: file.type,
-    url: data.publicUrl,
-  };
+  // No URL is stored: the bucket is private, viewers get signed URLs.
+  return { path, name: file.name, size: file.size, type: file.type };
+}
+
+/** Lifetime of signed download links shown in the response viewer. */
+const SIGNED_URL_TTL_SECONDS = 60 * 60;
+
+/** Short-lived download URL for a stored file (admins only — RLS). */
+export async function createResponseFileUrl(path: string): Promise<string> {
+  const { data, error } = await createClient()
+    .storage.from(RESPONSE_FILES_BUCKET)
+    .createSignedUrl(path, SIGNED_URL_TTL_SECONDS);
+  if (error) throw error;
+  return data.signedUrl;
 }
 
 /**

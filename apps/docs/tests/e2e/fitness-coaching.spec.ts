@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { E2E_ADMIN, signIn } from "../auth";
 import {
   createPortfolio,
   getFieldCount,
@@ -13,9 +14,10 @@ test.describe("Fitness Coaching Scenario", () => {
   // Increase timeout — the flow involves multiple server action round-trips
   test.setTimeout(120_000);
 
-  test.beforeEach(async () => {
+  test.beforeEach(async ({ page }) => {
     await resetDatabase();
     setScenario("fitness-coaching");
+    await signIn(page, "", E2E_ADMIN);
   });
 
   test("full flow: create portfolio, generate form, resolve design probes", async ({

@@ -10,8 +10,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { usePortfolio } from "@/hooks/query/portfolios";
-import { useCreateResponse } from "@/hooks/query/responses-new";
+import { usePublishedForm, useSubmitResponse } from "@/hooks/query/public-form";
 import { Button } from "@/components/ui/button";
 import { FormRenderer } from "@/lib/form-renderer/FormRenderer";
 import { AlertTriangle, FileText, Info, Loader2 } from "lucide-react";
@@ -21,15 +20,15 @@ import { toast } from "sonner";
 export default function PublishedFormPage() {
   const { id } = useParams<{ id: string }>();
   const { data: portfolio, isLoading, isError, error, refetch } =
-    usePortfolio(id);
-  const createResponse = useCreateResponse();
+    usePublishedForm(id);
+  const submitResponse = useSubmitResponse();
 
   const handleSubmit = async (data: Record<string, unknown>) => {
     if (!portfolio) throw new Error("Form not loaded");
 
     try {
-      // Uploads file values first, then inserts (see useCreateResponse)
-      await createResponse.mutateAsync({ portfolio_id: portfolio.id, data });
+      // Uploads file values first, then submits (see useSubmitResponse)
+      await submitResponse.mutateAsync({ portfolioId: portfolio.id, data });
       toast.success("Response submitted successfully!");
     } catch (err) {
       toast.error(
@@ -79,6 +78,9 @@ export default function PublishedFormPage() {
     return (
       <div className="text-center py-12">
         <h2 className="text-lg font-semibold">Form not found</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          This form doesn&apos;t exist or isn&apos;t accepting responses.
+        </p>
       </div>
     );
   }
@@ -99,12 +101,7 @@ export default function PublishedFormPage() {
           <Badge variant="secondary" className="text-xs">
             {fieldCount} field{fieldCount !== 1 ? "s" : ""}
           </Badge>
-          {portfolio.base_id && (
-            <Badge variant="outline" className="text-xs">
-              Derived
-            </Badge>
-          )}
-          {portfolio.intent && (
+          {portfolio.purpose && (
             <Dialog>
               <DialogTrigger asChild>
                 <button className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors cursor-pointer">
@@ -116,7 +113,7 @@ export default function PublishedFormPage() {
                 <DialogHeader>
                   <DialogTitle>About this form</DialogTitle>
                   <DialogDescription>
-                    {portfolio.intent.purpose.content || "No description"}
+                    {portfolio.purpose}
                   </DialogDescription>
                 </DialogHeader>
               </DialogContent>

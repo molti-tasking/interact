@@ -10,6 +10,7 @@
 import { chromium, type Browser } from "@playwright/test";
 import fs from "fs";
 import path from "path";
+import { signIn } from "../auth";
 import type { SessionArtifacts } from "./cdn-rubric";
 import type { Persona, Scenario } from "./personas";
 
@@ -20,6 +21,9 @@ const env = () => ({
   LLM_API_KEY: process.env.LLM_API_KEY ?? "",
   LLM_MODEL:
     process.env.EVAL_SIM_MODEL ?? process.env.LLM_MODEL_NAME ?? "default",
+  // The workspace requires an admin account (migration 010)
+  LOGIN_EMAIL: process.env.EVAL_LOGIN_EMAIL ?? "",
+  LOGIN_PASSWORD: process.env.EVAL_LOGIN_PASSWORD ?? "",
 });
 
 /**
@@ -157,7 +161,20 @@ export async function simulatePersona(
       `[simulate] ${persona.name} (${persona.skillLevel}) × ${scenario.name}`,
     );
 
-    const { BASE_URL } = env();
+    const { BASE_URL, LOGIN_EMAIL, LOGIN_PASSWORD } = env();
+
+    // Step 0: Sign in (the workspace is private)
+    if (LOGIN_EMAIL && LOGIN_PASSWORD) {
+      await signIn(page, BASE_URL, {
+        email: LOGIN_EMAIL,
+        password: LOGIN_PASSWORD,
+      });
+      log(`[simulate] Signed in as ${LOGIN_EMAIL}`);
+    } else {
+      log(
+        "[simulate] EVAL_LOGIN_EMAIL/EVAL_LOGIN_PASSWORD not set — the app will redirect to /login if it requires sign-in",
+      );
+    }
 
     // Step 1: Create portfolio
     log(`[simulate] Navigating to ${BASE_URL}/portfolios/new`);

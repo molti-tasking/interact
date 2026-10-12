@@ -4,7 +4,7 @@ import { newFieldId } from "@/lib/engine/schema-patch";
 import {
   capJson,
   capText,
-  checkRateLimit,
+  guardLlmRequest,
   LIMITS,
   LlmGuardError,
 } from "@/lib/llm-guard";
@@ -126,7 +126,7 @@ async function processColumnPromptReal(
     }
     capJson(responseData, LIMITS.document, "Column values");
     if (responseData.length === 0) return { success: true, results: {} };
-    await checkRateLimit();
+    await guardLlmRequest();
 
     const system = `You are a data processing assistant. A form creator wants to transform the values of one column in their table of form responses.
 
@@ -214,7 +214,7 @@ async function deriveFieldsFromPromptReal(
   try {
     capText(prompt, LIMITS.prompt, "Prompt");
     capJson(existingFieldNames, LIMITS.document, "Existing field names");
-    await checkRateLimit();
+    await guardLlmRequest();
 
     const systemPrompt = `You are a form schema designer. The user has defined a recurring data transformation for a column in their form. You need to design new form fields that would capture this data natively in future submissions.
 

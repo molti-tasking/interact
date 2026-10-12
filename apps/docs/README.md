@@ -36,6 +36,34 @@ npx supabase gen types typescript --local > src/lib/supabase/database.types.ts
 
 The generated `database.types.ts` file is **auto-generated — do not edit it manually**.
 
+## Access control
+
+The workspace and all collected data are private; only published forms are public.
+
+| Who | Can do |
+| --- | --- |
+| Anyone with a form link | Load a **published** form (title, fields, purpose) and submit a response, incl. file uploads |
+| Signed-in admin (`app_admins`) | Everything: all forms incl. drafts, responses, files, LLM features |
+| Anyone else (also other signed-in accounts) | Nothing — redirected to `/login`, no data access |
+
+How it's enforced:
+
+- **Database** (`supabase/migrations/010_private_responses.sql`): the anon key has no table access. Respondents go through two functions, `get_published_form` and `submit_response`, which only work for published forms. All tables have RLS policies that allow admins only. The `response-files` bucket is private: respondents may upload, only admins can read (signed URLs).
+- **App**: `src/proxy.ts` redirects signed-out visitors to `/login` (except `/forms/*`). Every server action and API route calls `requireOwner()` (via `guardLlmRequest`), because server actions can be called from any page.
+
+**Setup (once per Supabase instance):**
+
+1. Turn off public sign-ups. Self-hosted / Coolify: `DISABLE_SIGNUP=true` in the Supabase service. Hosted: Authentication → Sign In / Providers → disable "Allow new users to sign up". Local: `enable_signup = false` in `supabase/config.toml`.
+2. Create your account: Studio → Authentication → Users → **Add user** (email + password, auto-confirm).
+3. Make it an admin (Studio → SQL editor):
+
+   ```sql
+   INSERT INTO public.app_admins (user_id)
+   SELECT id FROM auth.users WHERE email = 'you@example.com';
+   ```
+
+Publishing a form = setting its status to *published* in the workspace; unpublishing stops new submissions immediately. New tables need RLS plus an `app_admin_all` policy (see migration 010), otherwise the app can't reach them.
+
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:

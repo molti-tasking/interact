@@ -11,7 +11,7 @@ import {
   serializeForLLM,
   serializeSchemaForLLM,
 } from "@/lib/engine/structured-intent";
-import { capJson, capText, checkRateLimit, LIMITS } from "@/lib/llm-guard";
+import { capJson, capText, guardLlmRequest, LIMITS } from "@/lib/llm-guard";
 import { fastModel, model } from "@/lib/model";
 import { resolveDetectedStandards } from "@/lib/standards";
 import { telemetry, withTracing } from "@/lib/telemetry";
@@ -266,7 +266,7 @@ async function generateDesignProbesReal(
     capJson(dimensions, LIMITS.document, "Dimensions");
     capJson(requestedStandards, LIMITS.document, "Accepted standards");
     capJson(currentSchema, LIMITS.document, "Schema");
-    await checkRateLimit();
+    await guardLlmRequest();
 
     // Prompt content comes from the curated registry, not the request payload
     const acceptedStandards = resolveDetectedStandards(requestedStandards);
@@ -470,7 +470,7 @@ async function resolveDesignProbeReal(
     capText(interactionText, LIMITS.shortText, "Question");
     capText(selectedOptionLabel, LIMITS.shortText, "Answer");
     capJson(spacePortfolios, LIMITS.document, "Space tables");
-    await checkRateLimit();
+    await guardLlmRequest();
 
     const system = `You are a form design assistant. The user is refining a form through interactive design probes.`;
 
@@ -631,7 +631,7 @@ async function previewDesignProbeOptionsReal(
     capText(probe.explanation, LIMITS.shortText, "Explanation");
     capJson(probe.options, LIMITS.shortText, "Options");
     capJson(spacePortfolios, LIMITS.document, "Space tables");
-    await checkRateLimit();
+    await guardLlmRequest();
 
     const system = `You are a form design assistant. The user is refining a form through interactive design probes.`;
 
@@ -756,7 +756,7 @@ export async function syncIntentFromFieldEditAction(request: {
     capText(basePrompt, LIMITS.document, "Intent");
     capJson(currentSchema, LIMITS.document, "Schema");
     capText(editDescription, LIMITS.shortText, "Edit description");
-    await checkRateLimit();
+    await guardLlmRequest();
     console.log(LOG, "current purpose (first 120 chars):", basePrompt.slice(0, 120));
 
     const system = isDecision

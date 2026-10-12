@@ -1,6 +1,6 @@
 "use server";
 
-import { checkRateLimit, LlmGuardError } from "@/lib/llm-guard";
+import { guardLlmRequest, LlmGuardError } from "@/lib/llm-guard";
 import { transcribeAudioBytes } from "@/lib/voice/transcribe-server";
 import {
   MAX_AUDIO_BYTES,
@@ -41,7 +41,7 @@ export async function transcribeAudioAction(
 
   const run = async (): Promise<TranscribeAudioResponse> => {
     try {
-      await checkRateLimit("transcribe");
+      await guardLlmRequest("transcribe");
     } catch (error) {
       if (error instanceof LlmGuardError) {
         return { success: false, error: error.message };

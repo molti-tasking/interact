@@ -21,8 +21,11 @@ export interface StoredFile {
   name: string;
   size: number;
   type: string;
-  /** Public URL of the object */
-  url: string;
+  /**
+   * Legacy: public URL from when the bucket was public. No longer written —
+   * links are signed on demand (see `StoredFileLink`).
+   */
+  url?: string;
 }
 
 export function isStoredFile(value: unknown): value is StoredFile {
@@ -30,8 +33,8 @@ export function isStoredFile(value: unknown): value is StoredFile {
   const v = value as Record<string, unknown>;
   return (
     typeof v.path === "string" &&
-    typeof v.url === "string" &&
-    typeof v.name === "string"
+    typeof v.name === "string" &&
+    typeof v.size === "number"
   );
 }
 
