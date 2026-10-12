@@ -28,10 +28,17 @@ const llm = createOpenAI({
  * Chat model with the temperature policy applied: actions pass their
  * preferred temperature, and it's dropped for models that only accept the
  * default (see `llm-temperature.ts`, override with `LLM_TEMPERATURE`).
+ *
+ * Uses the Chat Completions endpoint (`llm.chat`), not the provider default
+ * (OpenAI's Responses API). LiteLLM's Responses emulation is incomplete for
+ * non-OpenAI models — e.g. Claude's thinking comes back as a `reasoning`
+ * item without the required `summary`, which the SDK rejects as "Invalid
+ * JSON response". Chat Completions is LiteLLM's canonical, provider-neutral
+ * interface.
  */
 function chatModel(modelId: string): LanguageModel {
   return wrapLanguageModel({
-    model: llm(modelId),
+    model: llm.chat(modelId),
     middleware: {
       specificationVersion: "v3",
       transformParams: async ({ params }) => ({
