@@ -1,6 +1,12 @@
 name: Apply Supabase migrations
 
-# Applies apps/docs/supabase/migrations/*.sql to the hosted Supabase database.
+# Applies apps/docs/supabase/migrations/*.sql to a Supabase database.
+#
+# Manual only. On the Coolify deployment, migrations are applied automatically
+# when the frontend container starts (`pnpm start` runs `db:migrate` first,
+# over Coolify's internal network), so this workflow no longer runs on push.
+# Use it for a database that is reachable from GitHub runners, or for the
+# baseline / dry-run helpers below.
 #
 # Required repository secret:
 #   SUPABASE_DB_URL — Postgres connection string of the project
@@ -14,11 +20,6 @@ name: Apply Supabase migrations
 # without being re-run, and everything after is applied normally.
 
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - "apps/docs/supabase/migrations/**"
   workflow_dispatch:
     inputs:
       baseline_through:
