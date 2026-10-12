@@ -6,7 +6,7 @@ import {
   normalizeFieldKey,
   serializeForLLM,
 } from "@/lib/engine/structured-intent";
-import { capJson, capText, checkRateLimit, LIMITS } from "@/lib/llm-guard";
+import { capJson, capText, guardLlmRequest, LIMITS } from "@/lib/llm-guard";
 import { model, withLlmRetry } from "@/lib/model";
 import {
   applyStandardPatterns,
@@ -104,7 +104,7 @@ async function intentToSchemaReal(
   try {
     capText(basePrompt, LIMITS.document, "Intent");
     capJson(requestedStandards, LIMITS.document, "Accepted standards");
-    await checkRateLimit();
+    await guardLlmRequest();
 
     // Prompt content comes from the curated registry, not the request payload
     const acceptedStandards = resolveDetectedStandards(requestedStandards);

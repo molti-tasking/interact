@@ -1,6 +1,7 @@
 import { AppBreadcrumb } from "@/components/app-breadcrumb";
 import { AppContent } from "@/components/app-content";
 import { AppSidebar } from "@/components/app-sidebar";
+import { SignOutButton } from "@/components/sign-out-button";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import {
@@ -50,6 +51,7 @@ export default function AppShellLayout({
                 <span className="hidden lg:inline">GitHub</span>
               </a>
             </Button>
+            <SignOutButton />
           </div>
         </header>
         <div className="flex-1 bg-muted/30">

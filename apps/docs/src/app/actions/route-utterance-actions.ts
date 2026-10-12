@@ -4,7 +4,7 @@ import { serializeForLLM } from "@/lib/engine/structured-intent";
 import {
   capJson,
   capText,
-  checkRateLimit,
+  guardLlmRequest,
   LIMITS,
   LlmGuardError,
 } from "@/lib/llm-guard";
@@ -118,7 +118,7 @@ async function routeUtteranceReal(
     capText(utterance, LIMITS.shortText, "Utterance");
     capJson(intent, LIMITS.document, "Intent");
     capJson(currentSchema, LIMITS.document, "Form schema");
-    await checkRateLimit();
+    await guardLlmRequest();
 
     const hasSchema = currentSchema.fields.length > 0;
     const intentText = serializeForLLM(intent) || "(empty — nothing defined yet)";

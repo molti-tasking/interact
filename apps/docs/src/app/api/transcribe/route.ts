@@ -1,9 +1,10 @@
 import {
   capJson,
   capText,
-  checkRateLimit,
+  guardLlmRequest,
   LIMITS,
   LlmGuardError,
+  LlmUnauthorizedError,
 } from "@/lib/llm-guard";
 import { transcribeAudioBytes } from "@/lib/voice/transcribe-server";
 import {
@@ -42,7 +43,7 @@ export async function POST(req: NextRequest) {
       return json({ success: false, error: "Recording too large to transcribe." }, 413);
     }
 
-    await checkRateLimit("transcribe");
+    await guardLlmRequest("transcribe");
 
     let form: FormData;
     try {
@@ -89,7 +90,12 @@ export async function POST(req: NextRequest) {
     return json(await run());
   } catch (error) {
     if (error instanceof LlmGuardError) {
-      const status = error.message.startsWith("Too many") ? 429 : 400;
+      const status =
+        error instanceof LlmUnauthorizedError
+          ? 401
+          : error.message.startsWith("Too many")
+            ? 429
+            : 400;
       return json({ success: false, error: error.message }, status);
     }
     console.error("Transcription route error:", error);

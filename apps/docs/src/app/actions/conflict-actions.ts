@@ -11,7 +11,7 @@ import {
   serializeForLLM,
   serializeSchemaForLLM,
 } from "@/lib/engine/structured-intent";
-import { capJson, capText, checkRateLimit, LIMITS } from "@/lib/llm-guard";
+import { capJson, capText, guardLlmRequest, LIMITS } from "@/lib/llm-guard";
 import { fastModel, model } from "@/lib/model";
 import { telemetry, withTracing } from "@/lib/telemetry";
 import type { PortfolioSchema, StructuredIntent } from "@/lib/types";
@@ -158,7 +158,7 @@ async function detectSchemaConflictsReal(
     capText(intent, LIMITS.document, "Intent");
     // A rate-limited check must fail rather than look like "no conflicts",
     // since the client caches results per content.
-    await checkRateLimit();
+    await guardLlmRequest();
   } catch (error) {
     return {
       success: false,
@@ -344,7 +344,7 @@ async function previewConflictFixesReal(
     capText(intentText, LIMITS.document, "Intent");
     capJson(schema, LIMITS.document, "Schema");
     capJson(conflict, LIMITS.prompt, "Conflict");
-    await checkRateLimit();
+    await guardLlmRequest();
 
     const system = `You are a form schema repair assistant. Work out how each proposed fix would resolve a schema conflict.`;
 
@@ -447,7 +447,7 @@ async function resolveSchemaConflictReal(
     capJson(schema, LIMITS.document, "Schema");
     capJson(conflict, LIMITS.prompt, "Conflict");
     capJson(selectedFix, LIMITS.shortText, "Fix");
-    await checkRateLimit();
+    await guardLlmRequest();
 
     const system = `You are a form schema repair assistant. Apply a specific fix to resolve a schema conflict.`;
 

@@ -18,6 +18,7 @@ import {
   isStoredFile,
   maxSizeBytes,
 } from "../values";
+import { StoredFileLink } from "../StoredFileLink";
 import { FieldLabel } from "./FieldLabel";
 
 interface FileFieldProps {
@@ -27,7 +28,7 @@ interface FileFieldProps {
 
 /**
  * Holds a `File` until submit; the submit path uploads it to storage and
- * stores a `StoredFile` reference ({ path, name, size, type, url }).
+ * stores a `StoredFile` reference ({ path, name, size, type }).
  */
 export function FileField({ field, formField }: FileFieldProps) {
   const fileType = field.type.kind === "file" ? field.type : null;
@@ -76,14 +77,10 @@ export function FileField({ field, formField }: FileFieldProps) {
         <div className="flex items-center gap-2 text-sm">
           <FileIcon className="h-4 w-4 text-muted-foreground" aria-hidden />
           {isStoredFile(value) ? (
-            <a
-              href={value.url}
-              target="_blank"
-              rel="noreferrer"
+            <StoredFileLink
+              file={value}
               className="truncate underline underline-offset-2"
-            >
-              {value.name}
-            </a>
+            />
           ) : (
             <span className="truncate">{(value as File).name}</span>
           )}

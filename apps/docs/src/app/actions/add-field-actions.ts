@@ -1,7 +1,7 @@
 "use server";
 
 import { newFieldId } from "@/lib/engine/schema-patch";
-import { capJson, capText, checkRateLimit, LIMITS } from "@/lib/llm-guard";
+import { capJson, capText, guardLlmRequest, LIMITS } from "@/lib/llm-guard";
 import { model } from "@/lib/model";
 import { telemetry, withTracing } from "@/lib/telemetry";
 import type { Field, PortfolioSchema } from "@/lib/types";
@@ -62,7 +62,7 @@ async function addFieldFromPromptReal(
   try {
     capText(prompt, LIMITS.prompt, "Prompt");
     capJson(schema, LIMITS.document, "Schema");
-    await checkRateLimit();
+    await guardLlmRequest();
 
     const existingFieldNames = schema.fields.map((f) => f.name);
 

@@ -1,3 +1,4 @@
+import { requireOwner, UnauthorizedError } from "@/lib/auth";
 import fs from "fs";
 import { NextRequest, NextResponse } from "next/server";
 import path from "path";
@@ -89,6 +90,14 @@ function listFiles(dir: string, ext: string): string[] {
 export async function GET(request: NextRequest) {
   if (!isEnabled()) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+  try {
+    await requireOwner();
+  } catch (error) {
+    if (error instanceof UnauthorizedError) {
+      return NextResponse.json({ error: error.message }, { status: 401 });
+    }
+    throw error;
   }
 
   const requestedRun = request.nextUrl.searchParams.get("run");

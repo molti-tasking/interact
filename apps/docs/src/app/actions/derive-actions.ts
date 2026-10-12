@@ -10,7 +10,7 @@ import {
   normalizeFieldKey,
   serializeForLLM,
 } from "@/lib/engine/structured-intent";
-import { capJson, capText, checkRateLimit, LIMITS } from "@/lib/llm-guard";
+import { capJson, capText, guardLlmRequest, LIMITS } from "@/lib/llm-guard";
 import { model, withLlmRetry } from "@/lib/model";
 import { getStandardById } from "@/lib/standards";
 import { telemetry, withTracing } from "@/lib/telemetry";
@@ -131,7 +131,7 @@ async function deriveSchemaReal(
     capText(parentDescription, LIMITS.document, "Parent intent");
     capJson(parentSchema, LIMITS.document, "Parent schema");
     capText(scenarioDescription, LIMITS.prompt, "Scenario");
-    await checkRateLimit();
+    await guardLlmRequest();
 
     const parentFieldsSummary = parentSchema.fields
       .map(

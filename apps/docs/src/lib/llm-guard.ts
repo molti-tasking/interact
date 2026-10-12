@@ -1,20 +1,28 @@
+import { requireOwner, UnauthorizedError } from "@/lib/auth";
 import { headers } from "next/headers";
 
 /**
- * Minimal abuse protection for server actions that call the LLM.
+ * Abuse protection for server actions and routes that call the LLM.
  *
- * The prototype has no auth, so every server action is reachable by anyone
- * who can load the app — effectively an open proxy to the LiteLLM key.
- * This adds (1) hard size caps on free-text inputs and (2) a per-client
- * sliding-window rate limit. The limiter is in-memory, i.e. per server
- * instance — good enough for a single study deployment, not a substitute
- * for real auth.
+ * Server actions are reachable by anyone who can POST to the app, so every
+ * LLM entry point calls `guardLlmRequest()`: (1) only signed-in app admins
+ * (see `requireOwner`), (2) a per-client sliding-window rate limit, plus
+ * hard size caps on free-text inputs (`capText`/`capJson`). The limiter is
+ * in-memory, i.e. per server instance — fine for a single deployment.
  */
 
 export class LlmGuardError extends Error {
   constructor(message: string) {
     super(message);
     this.name = "LlmGuardError";
+  }
+}
+
+/** Not signed in as an app admin (HTTP 401 in route handlers). */
+export class LlmUnauthorizedError extends LlmGuardError {
+  constructor(message: string) {
+    super(message);
+    this.name = "LlmUnauthorizedError";
   }
 }
 
@@ -79,4 +87,20 @@ export async function checkRateLimit(bucket = "llm"): Promise<void> {
   }
   recent.push(now);
   calls.set(key, recent);
+}
+
+/**
+ * Call at the top of every LLM entry point (server action / route handler):
+ * rejects anyone but an app admin, then applies the rate limit.
+ */
+export async function guardLlmRequest(bucket = "llm"): Promise<void> {
+  try {
+    await requireOwner();
+  } catch (error) {
+    if (error instanceof UnauthorizedError) {
+      throw new LlmUnauthorizedError(error.message);
+    }
+    throw error;
+  }
+  await checkRateLimit(bucket);
 }

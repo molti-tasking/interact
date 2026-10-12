@@ -34,6 +34,21 @@ export type Database = {
   }
   public: {
     Tables: {
+      app_admins: {
+        Row: {
+          created_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       design_probes: {
         Row: {
           created_at: string | null
@@ -285,6 +300,24 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_published_form: {
+        Args: { p_id: string }
+        Returns: {
+          id: string
+          purpose: string | null
+          schema: Json
+          title: string
+        }[]
+      }
+      is_app_admin: { Args: never; Returns: boolean }
+      is_form_accepting: {
+        Args: { p_portfolio_id: string }
+        Returns: boolean
+      }
+      submit_response: {
+        Args: { p_data: Json; p_portfolio_id: string }
+        Returns: string
+      }
       commit_portfolio_change: {
         Args: {
           p_expected_revision: number

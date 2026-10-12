@@ -3,19 +3,18 @@
 import type { Field } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { Paperclip } from "lucide-react";
+import { StoredFileLink } from "./StoredFileLink";
 import { formatValue, isStoredFile, type StoredFile } from "./values";
 
 function FileLink({ file }: { file: StoredFile }) {
   return (
-    <a
-      href={file.url}
-      target="_blank"
-      rel="noreferrer"
+    <StoredFileLink
+      file={file}
       className="inline-flex max-w-full items-center gap-1 underline underline-offset-2 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
     >
       <Paperclip className="h-3 w-3 shrink-0" aria-hidden />
       <span className="truncate">{file.name}</span>
-    </a>
+    </StoredFileLink>
   );
 }
 
