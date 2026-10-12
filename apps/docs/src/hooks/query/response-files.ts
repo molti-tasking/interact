@@ -21,7 +21,7 @@ function safeFileName(name: string): string {
 }
 
 /** Upload one file to `response-files/<portfolioId>/<uuid>-<name>`. */
-export async function uploadResponseFile(
+async function uploadResponseFile(
   portfolioId: string,
   file: File,
 ): Promise<StoredFile> {
@@ -56,7 +56,7 @@ export async function createResponseFileUrl(path: string): Promise<string> {
 /**
  * Upload every `File` in a submission (any depth, e.g. inside groups) and
  * replace it with its `StoredFile` reference, so the data is JSON-safe.
- * Used by `useCreateResponse` / `useUpdateResponse` before writing.
+ * Used by `useSubmitResponse` (public form) and `useUpdateResponse`.
  */
 export async function uploadFilesInData(
   portfolioId: string,

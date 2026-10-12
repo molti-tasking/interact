@@ -90,28 +90,6 @@ export function updateField(
   };
 }
 
-/** Reorder fields by providing the full ordered list of field IDs. */
-export function reorderFields(
-  schema: PortfolioSchema,
-  orderedIds: string[],
-): PortfolioSchema {
-  const fieldMap = new Map(schema.fields.map((f) => [f.id, f]));
-  const reordered: Field[] = [];
-
-  for (const id of orderedIds) {
-    const field = fieldMap.get(id);
-    if (field) reordered.push(field);
-  }
-
-  // Append any fields not in orderedIds (safety net)
-  for (const field of schema.fields) {
-    if (!orderedIds.includes(field.id)) {
-      reordered.push(field);
-    }
-  }
-
-  return { ...schema, fields: reordered, version: schema.version + 1 };
-}
 
 // ---------------------------------------------------------------------------
 // Schema Diffing
@@ -162,59 +140,7 @@ export function isDiffEmpty(diff: SchemaDiff): boolean {
   );
 }
 
-// ---------------------------------------------------------------------------
-// Schema Merging
-// ---------------------------------------------------------------------------
 
-/** Merge fields from `source` into `target`. Fields with matching IDs in target are overwritten. */
-export function mergeSchemas(
-  target: PortfolioSchema,
-  source: PortfolioSchema,
-): PortfolioSchema {
-  const targetMap = new Map(target.fields.map((f) => [f.id, f]));
-
-  for (const field of source.fields) {
-    targetMap.set(field.id, field);
-  }
-
-  // Merge groups
-  const groupMap = new Map(target.groups.map((g) => [g.id, g]));
-  for (const group of source.groups) {
-    groupMap.set(group.id, group);
-  }
-
-  return {
-    fields: Array.from(targetMap.values()),
-    groups: Array.from(groupMap.values()),
-    version: Math.max(target.version, source.version) + 1,
-  };
-}
-
-/** Apply a SchemaDiff to a schema. */
-export function applyDiff(
-  schema: PortfolioSchema,
-  diff: SchemaDiff,
-): PortfolioSchema {
-  const result = { ...schema, fields: [...schema.fields] };
-
-  // Remove fields
-  result.fields = result.fields.filter((f) => !diff.removed.includes(f.id));
-
-  // Modify fields
-  for (const patch of diff.modified) {
-    result.fields = result.fields.map((f) =>
-      f.id === patch.fieldId ? { ...f, ...patch.after } : f,
-    );
-  }
-
-  // Add fields
-  result.fields = [...result.fields, ...diff.added];
-
-  return {
-    ...result,
-    version: schema.version + 1,
-  };
-}
 
 // ---------------------------------------------------------------------------
 // Schema → Zod conversion
@@ -491,46 +417,5 @@ export function validateDataAgainstSchema(
   return { valid: false, errors };
 }
 
-// ---------------------------------------------------------------------------
-// Utilities
-// ---------------------------------------------------------------------------
 
-/** Generate a URL-safe slug from text. */
-export function toSlug(text: string): string {
-  return text
-    .toLowerCase()
-    .replace(/\s+/g, "-")
-    .replace(/[^\w-]+/g, "")
-    .replace(/--+/g, "-")
-    .replace(/^-+/, "")
-    .replace(/-+$/, "");
-}
 
-/** Find a field by ID, including nested group fields. */
-export function findField(
-  schema: PortfolioSchema,
-  fieldId: string,
-): Field | undefined {
-  for (const field of schema.fields) {
-    if (field.id === fieldId) return field;
-    if (field.type.kind === "group") {
-      const nested = field.type.fields.find((f) => f.id === fieldId);
-      if (nested) return nested;
-    }
-  }
-  return undefined;
-}
-
-/** Get all field IDs from a schema (flat, including nested). */
-export function getAllFieldIds(schema: PortfolioSchema): string[] {
-  const ids: string[] = [];
-  for (const field of schema.fields) {
-    ids.push(field.id);
-    if (field.type.kind === "group") {
-      for (const nested of field.type.fields) {
-        ids.push(nested.id);
-      }
-    }
-  }
-  return ids;
-}

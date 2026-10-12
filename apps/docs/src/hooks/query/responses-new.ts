@@ -2,7 +2,7 @@
 
 import { createClient } from "@/lib/supabase/client";
 import type { Json } from "@/lib/supabase/database.types";
-import type { ResponseInsert, ResponseRow } from "@/lib/supabase/types";
+import type { ResponseRow } from "@/lib/supabase/types";
 import { rowToResponse } from "@/lib/supabase/types";
 import type { FormResponse } from "@/lib/types";
 import {
@@ -137,43 +137,11 @@ export function useResponses(portfolioId: string | undefined) {
   });
 }
 
-// ---------------------------------------------------------------------------
-// Mutations
-// ---------------------------------------------------------------------------
-
-/**
- * Insert a response. `File` values (file fields) are uploaded to the
- * `response-files` bucket first and replaced by `StoredFile` references.
- */
-export function useCreateResponse() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async (input: ResponseInsert): Promise<FormResponse> => {
-      const data = await uploadFilesInData(input.portfolio_id, input.data);
-      const supabase = createClient();
-      const { data: row, error } = await supabase
-        .from("responses")
-        .insert({
-          portfolio_id: input.portfolio_id,
-          data: toJson(data),
-        })
-        .select()
-        .single();
-
-      if (error) throw error;
-      return rowToResponse(row);
-    },
-    onSuccess: (response) => {
-      invalidateResponseLists(queryClient, [response.portfolioId]);
-    },
-  });
-}
 
 /**
  * Replace a response's `data`. Pass the *complete* data object (merge with
  * the stored data first — see `mergeEditedResponse`). New `File` values are
- * uploaded like in `useCreateResponse`.
+ * uploaded to the `response-files` bucket first (see `uploadFilesInData`).
  */
 export function useUpdateResponse() {
   const queryClient = useQueryClient();

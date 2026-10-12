@@ -269,6 +269,9 @@ export function ResponsesDataTable({
       setActionTarget({ field, savedAction }),
   };
 
+  // TanStack Table returns a mutable instance the React Compiler can't memoize;
+  // this component intentionally opts out of compiler optimization.
+  // eslint-disable-next-line react-hooks/incompatible-library
   const table = useReactTable<Row>({
     data: responses,
     columns,

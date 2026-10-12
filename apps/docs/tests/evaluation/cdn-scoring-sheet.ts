@@ -43,7 +43,7 @@ function findLatestCdnRun(): string {
   return path.join(RESULTS_BASE, dirs[0]);
 }
 
-function generateCsv(raterName: string, runDir: string): string {
+function generateCsv(): string {
   const lines: string[] = [];
 
   // Header
@@ -111,7 +111,7 @@ function main() {
 
   for (let i = 1; i <= NUM_RATERS; i++) {
     const name = `rater-${i}`;
-    const csv = generateCsv(name, runDir);
+    const csv = generateCsv();
     const filePath = path.join(ratingsDir, `${name}.csv`);
     fs.writeFileSync(filePath, csv);
     console.log(`   Created ${path.relative(process.cwd(), filePath)}`);

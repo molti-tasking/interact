@@ -160,8 +160,3 @@ export const layerAccentColors: Record<string, string> = {
   both: "border-amber-400",
 };
 
-export const severityConfig = {
-  error: { color: "border-red-400", bg: "bg-red-50/50" },
-  warning: { color: "border-amber-400", bg: "bg-amber-50/50" },
-  info: { color: "border-blue-400", bg: "bg-blue-50/50" },
-} as const;

@@ -6,7 +6,7 @@ import {
   type CommitResult,
 } from "@/lib/engine/commit";
 import { createClient } from "@/lib/supabase/client";
-import { Json } from "@/lib/supabase/database.types";
+import type { Json, TablesUpdate } from "@/lib/supabase/database.types";
 import type { PortfolioUpdate } from "@/lib/supabase/types";
 import { rowToPortfolio } from "@/lib/supabase/types";
 import type {
@@ -35,7 +35,7 @@ export function portfolioKey(id: string) {
  * `setQueryData`. Detail keys are `["portfolios", "<id>"]`; list keys are
  * `["portfolios"]` or `["portfolios", { spaceId }]`.
  */
-export function invalidatePortfolioLists(queryClient: QueryClient) {
+function invalidatePortfolioLists(queryClient: QueryClient) {
   queryClient.invalidateQueries({
     predicate: (q) =>
       q.queryKey[0] === PORTFOLIOS_KEY[0] && typeof q.queryKey[1] !== "string",
@@ -59,30 +59,6 @@ export function applyCommitToCache(
   queryClient.invalidateQueries({ queryKey: ["lineage"] });
 }
 
-// ---------------------------------------------------------------------------
-// Queries
-// ---------------------------------------------------------------------------
-
-/** Full portfolio rows (schema + intent). Prefer `usePortfolioSummaries` for lists. */
-export function usePortfolios(spaceId?: string | null) {
-  return useQuery({
-    // Include the space filter in the key so per-space lists don't collide
-    queryKey: spaceId ? [...PORTFOLIOS_KEY, { spaceId }] : PORTFOLIOS_KEY,
-    queryFn: async (): Promise<Portfolio[]> => {
-      const supabase = createClient();
-      let query = supabase
-        .from("portfolios")
-        .select("*")
-        .order("updated_at", { ascending: false });
-      if (spaceId) query = query.eq("space_id", spaceId);
-
-      const { data, error } = await query;
-
-      if (error) throw error;
-      return (data ?? []).map(rowToPortfolio);
-    },
-  });
-}
 
 export interface PortfolioSummary {
   id: string;
@@ -241,7 +217,7 @@ export function useUpdatePortfolio() {
     }): Promise<Portfolio> => {
       const supabase = createClient();
 
-      const dbUpdate: Record<string, unknown> = {
+      const dbUpdate: TablesUpdate<"portfolios"> = {
         updated_at: new Date().toISOString(),
       };
       if (update.title !== undefined) dbUpdate.title = update.title;
@@ -249,7 +225,7 @@ export function useUpdatePortfolio() {
       if (update.space_id !== undefined) dbUpdate.space_id = update.space_id;
       if (update.projection !== undefined)
         dbUpdate.projection = update.projection
-          ? JSON.parse(JSON.stringify(update.projection))
+          ? (JSON.parse(JSON.stringify(update.projection)) as Json)
           : null;
       if (update.status !== undefined) dbUpdate.status = update.status;
       if (update.creator_role !== undefined)

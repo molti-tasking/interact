@@ -70,10 +70,6 @@ export const LAYER_META: Record<
   configuration: { label: "Configuration", description: "Fields & schema" },
 };
 
-export function formatLayer(layer: string): string {
-  return (LAYER_META as Record<string, { label: string }>)[layer]?.label ??
-    sentenceCase(layer);
-}
 
 // ---------------------------------------------------------------------------
 // Actors

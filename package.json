@@ -1,20 +1,25 @@
 {
   "name": "interact-monorepo",
   "private": true,
-  "packageManager": "pnpm@9.0.0",
+  "packageManager": "pnpm@9.15.9",
+  "engines": {
+    "node": ">=20.9.0"
+  },
   "scripts": {
     "dev": "pnpm --filter docs dev",
     "build": "pnpm --filter interact build && pnpm --filter docs build",
     "start": "pnpm --filter docs db:migrate && pnpm --filter docs start",
     "db:migrate": "pnpm --filter docs db:migrate",
+    "lint": "pnpm --filter docs lint",
+    "typecheck": "pnpm --filter docs typecheck",
     "test": "pnpm --filter docs test",
     "test:e2e": "pnpm --filter docs test:e2e",
     "eval": "pnpm --filter docs eval",
     "eval:judge-only": "pnpm --filter docs eval:judge-only"
   },
-  "devDependencies": {
-    "@alloc/quick-lru": "^5.2.0",
-    "@tailwindcss/postcss": "^4",
-    "tailwindcss": "^4"
+  "pnpm": {
+    "overrides": {
+      "@opentelemetry/core@<2.8.0": "^2.8.0"
+    }
   }
 }
