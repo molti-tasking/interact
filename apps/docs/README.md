@@ -53,7 +53,7 @@ How it's enforced:
 
 **Setup (once per Supabase instance):**
 
-1. Turn off public sign-ups. Self-hosted / Coolify: `DISABLE_SIGNUP=true` in the Supabase service. Hosted: Authentication → Sign In / Providers → disable "Allow new users to sign up". Local: `enable_signup = false` in `supabase/config.toml`.
+1. Turn off public sign-ups. Self-hosted / Coolify: `DISABLE_SIGNUP=true` in the Supabase service. Local: `enable_signup = false` in `supabase/config.toml`.
 2. Create your account: Studio → Authentication → Users → **Add user** (email + password, auto-confirm).
 3. Make it an admin (Studio → SQL editor):
 
@@ -96,9 +96,3 @@ migrations are skipped; if one fails, the new container doesn't start and
 Coolify keeps the previous version running. For the frontend to reach the
 database by container name, enable **Connect To Predefined Network** on the
 Supabase service. Run manually with `SUPABASE_DB_URL=… pnpm db:migrate`.
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
