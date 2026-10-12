@@ -55,35 +55,5 @@ export interface DimensionSuggestion {
   generatedAt: string;
 }
 
-export const dimensionScopeColors: Record<DimensionScope, string> = {
-  context: "bg-sky-100 text-sky-700 border-sky-200",
-  measurement: "bg-violet-100 text-violet-700 border-violet-200",
-  preference: "bg-amber-100 text-amber-700 border-amber-200",
-  constraint: "bg-rose-100 text-rose-700 border-rose-200",
-};
 
-export const dimensionScopeLabels: Record<DimensionScope, string> = {
-  context: "Context",
-  measurement: "Measurement",
-  preference: "Preference",
-  constraint: "Constraint",
-};
 
-export function createDimensionObject(
-  overrides: Partial<DimensionObject> & Pick<DimensionObject, "name">,
-): DimensionObject {
-  return {
-    id: `dim-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-    description: "",
-    importance: "",
-    scope: "context",
-    openQuestions: [],
-    status: "suggested",
-    source: "system",
-    isActive: true,
-    parentDimensionId: null,
-    createdAt: new Date().toISOString(),
-    editHistory: [],
-    ...overrides,
-  };
-}

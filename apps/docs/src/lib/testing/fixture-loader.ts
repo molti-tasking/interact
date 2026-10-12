@@ -119,9 +119,3 @@ export function loadFixture<T>(actionName: string, currentInput?: unknown): T {
   return actionFixtures[callIndex].output as T;
 }
 
-/** Explicitly reset counters (for testing the loader itself) */
-export function resetFixtureState(): void {
-  callCounters.clear();
-  lastScenarioToken = null;
-  fixtureCache.clear();
-}

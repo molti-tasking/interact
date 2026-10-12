@@ -77,7 +77,7 @@ async function clientKey(): Promise<string> {
  * Sliding-window rate limit per client IP and bucket. Disabled when
  * `LLM_RATE_LIMIT_PER_MIN=0`.
  */
-export async function checkRateLimit(bucket = "llm"): Promise<void> {
+async function checkRateLimit(bucket = "llm"): Promise<void> {
   if (process.env.LLM_RATE_LIMIT_PER_MIN === "0") return;
   const key = `${bucket}:${await clientKey()}`;
   const now = Date.now();

@@ -2,17 +2,23 @@
 
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/client";
+import { useQueryClient } from "@tanstack/react-query";
 import { LogOut } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 export function SignOutButton() {
+  const router = useRouter();
+  const queryClient = useQueryClient();
   const [pending, setPending] = useState(false);
 
   const handleSignOut = async () => {
     setPending(true);
     await createClient().auth.signOut();
-    // Full reload: drops every cached query along with the session.
-    window.location.assign(`${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/login`);
+    // Drop every cached query (forms, responses) along with the session.
+    queryClient.clear();
+    router.replace("/login");
+    router.refresh();
   };
 
   return (

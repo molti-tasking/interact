@@ -15,8 +15,6 @@ import type {
   Portfolio,
   PortfolioSchema,
   ProbePriority,
-  ProvenanceEntry,
-  SchemaDiff,
   Space,
   StructuredIntent,
 } from "../types";
@@ -48,11 +46,6 @@ export interface PortfolioUpdate {
   creator_role?: string | null;
 }
 
-export interface ResponseInsert {
-  portfolio_id: string;
-  data: Record<string, unknown>;
-}
-
 // ---------------------------------------------------------------------------
 // Row → Domain model converters (snake_case → camelCase + JSONB casts)
 // ---------------------------------------------------------------------------
@@ -80,16 +73,6 @@ export function rowToSpace(row: SpaceRow): Space {
   };
 }
 
-export function rowToProvenance(row: ProvenanceRow): ProvenanceEntry {
-  return {
-    ...row,
-    layer: row.layer as "intent" | "dimensions" | "configuration",
-    diff: row.diff as unknown as SchemaDiff,
-    prev_intent: row.prev_intent as unknown as StructuredIntent | null,
-    prev_schema: row.prev_schema as unknown as PortfolioSchema | null,
-    created_at: row.created_at ?? new Date().toISOString(),
-  };
-}
 
 export function rowToResponse(row: ResponseRow): FormResponse {
   return {

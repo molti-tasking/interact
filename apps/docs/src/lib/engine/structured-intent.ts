@@ -622,10 +622,3 @@ export function normalizeFieldKey(raw: string, fallback = "field"): string {
   return /^\p{N}/u.test(key) ? `${fallback}${key}` : key;
 }
 
-// ---------------------------------------------------------------------------
-// Dimension cache key
-// ---------------------------------------------------------------------------
-
-export function dimensionCacheKey(intent: StructuredIntent): string {
-  return `${hashSection(intent.purpose.content.trim())}:${hashSection(intent.audience.content.trim())}`;
-}

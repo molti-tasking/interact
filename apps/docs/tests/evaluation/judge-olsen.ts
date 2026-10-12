@@ -110,13 +110,6 @@ export interface BaselineScores {
 // LLM call helper
 // ---------------------------------------------------------------------------
 
-interface TraceContext {
-  callType: string;
-  criterion?: string;
-  role?: string;
-  baseline?: string;
-}
-
 type CallResult =
   | { parsed: Record<string, unknown>; raw: string; metrics: LLMCallMetrics }
   | { error: string; raw: string; metrics?: LLMCallMetrics };
@@ -125,7 +118,6 @@ async function callLLM(
   model: string,
   prompt: string,
   label: string,
-  trace?: TraceContext,
 ): Promise<CallResult> {
   const { JUDGE_HOST, JUDGE_KEY } = judgeEnv();
   const startTime = Date.now();
@@ -237,7 +229,6 @@ async function judgeCriterion(
     model,
     prompt,
     `${criterion.name} [${role}]`,
-    traceCtx,
   );
 
   if ("error" in result) {
@@ -323,7 +314,6 @@ async function getLimitations(
     model,
     prompt,
     `limitations:${criterion.name}`,
-    traceCtx,
   );
 
   if ("error" in result) {
@@ -384,7 +374,6 @@ async function judgeBaseline(
     model,
     prompt,
     `baseline:${baseline.name}:${criterion.name}`,
-    traceCtx,
   );
 
   if ("error" in result) {

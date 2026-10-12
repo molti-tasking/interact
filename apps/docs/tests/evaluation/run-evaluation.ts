@@ -18,7 +18,7 @@
  *   EVAL_RUN_DIR=results/run-2026-03-25_143022 pnpm eval:judge-only  # re-judge specific run
  *
  * Environment variables:
- *   EVAL_BASE_URL        — App URL (default: https://interact-molt.vercel.app)
+ *   EVAL_BASE_URL        — App URL (default: http://localhost:3000)
  *   EVAL_HEADED          — Run browser visibly (default: false)
  *   LLM_HOST             — LiteLLM proxy for persona decisions
  *   LLM_API_KEY          — API key for LiteLLM
@@ -106,7 +106,7 @@ function linkLatest(runDir: string): void {
 
 async function main() {
   const baseUrl =
-    process.env.EVAL_BASE_URL ?? "https://interact-molt.vercel.app";
+    process.env.EVAL_BASE_URL ?? "http://localhost:3000";
   const llmHost = process.env.LLM_HOST ?? "(NOT SET)";
   const simModel =
     process.env.EVAL_SIM_MODEL ?? process.env.LLM_MODEL_NAME ?? "(NOT SET)";

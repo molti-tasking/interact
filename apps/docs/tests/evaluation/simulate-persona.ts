@@ -4,7 +4,7 @@
  * Uses Playwright to drive a persona through the Malleable Forms app,
  * making decisions based on the persona's profile via LLM.
  *
- * Can run against local (localhost:3000) or deployed (interact-molt.vercel.app).
+ * Runs against EVAL_BASE_URL (default: a local dev server on localhost:3000).
  */
 
 import { chromium, type Browser } from "@playwright/test";
@@ -17,7 +17,7 @@ import type { Persona, Scenario } from "./personas";
 
 // Env vars are read lazily so that .env is loaded before access
 const env = () => ({
-  BASE_URL: process.env.EVAL_BASE_URL ?? "https://interact-molt.vercel.app",
+  BASE_URL: process.env.EVAL_BASE_URL ?? "http://localhost:3000",
   LLM_HOST: process.env.LLM_HOST ?? "http://localhost:4000/v1",
   LLM_API_KEY: process.env.LLM_API_KEY ?? "",
   LLM_MODEL:

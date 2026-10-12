@@ -24,7 +24,7 @@ export const MAX_AUDIO_BYTES = 25 * 1024 * 1024;
  * action: server actions are capped at 1 MB bodies and run one at a time per
  * client, which would queue transcription behind LLM routing calls.
  */
-export const TRANSCRIBE_URL = `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/api/transcribe`;
+export const TRANSCRIBE_URL = "/api/transcribe";
 
 /**
  * Upload one recorded clip for transcription. Declares the recorder's real

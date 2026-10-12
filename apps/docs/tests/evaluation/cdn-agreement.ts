@@ -40,7 +40,6 @@ function parseCsv(filePath: string, raterName: string): RaterScore[] {
 
   if (lines.length < 2) return [];
 
-  const header = lines[0].split(",");
   const results: RaterScore[] = [];
 
   for (let i = 1; i < lines.length; i++) {
@@ -87,7 +86,6 @@ function krippendorffAlpha(
   ratings: number[][], // raters × items, NaN for missing
 ): number {
   const n = ratings[0].length; // items
-  const m = ratings.length;    // raters
 
   // Collect all non-missing pairs per item
   const allValues: number[] = [];

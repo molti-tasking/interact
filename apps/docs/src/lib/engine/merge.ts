@@ -152,11 +152,3 @@ export function mergeIntentChange(
   return result;
 }
 
-/** True when the given intent section changed between two states. */
-export function sectionChanged(
-  a: StructuredIntent,
-  b: StructuredIntent,
-  key: SectionKey,
-): boolean {
-  return (a[key]?.content ?? "") !== (b[key]?.content ?? "");
-}
