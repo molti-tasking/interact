@@ -6,6 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+    "db:migrate": "test -n \"$SUPABASE_DB_URL\" || { echo 'SUPABASE_DB_URL is not set' >&2; exit 1; }; supabase db push --db-url \"$SUPABASE_DB_URL\" --yes",
     "lint": "eslint",
     "test": "vitest",
     "unused": "ts-unused-exports tsconfig.json",
@@ -58,6 +59,7 @@
     "react-dom": "19.2.0",
     "react-hook-form": "^7.67.0",
     "sonner": "^2.0.7",
+    "supabase": "^2.120.0",
     "zod": "^4.1.13",
     "zustand": "^5.0.11"
   },

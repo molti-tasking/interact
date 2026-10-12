@@ -45,6 +45,30 @@ To learn more about Next.js, take a look at the following resources:
 
 You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
 
+## Deploy on Coolify (with self-hosted Supabase)
+
+Application settings:
+
+- **Base Directory:** `/` (repo root — the app depends on the `interact` workspace package)
+- **Build pack:** Nixpacks with `NIXPACKS_NODE_VERSION=22`, or Dockerfile (uses the root `Dockerfile`)
+- **Install / Build / Start** (Nixpacks): `pnpm install --frozen-lockfile` / `pnpm build` / `pnpm start`
+- **Port:** `3000`
+
+Environment variables:
+
+| Variable | Notes |
+| --- | --- |
+| `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Tick **Build Variable** — inlined at build time |
+| `SUPABASE_DB_URL` | Runtime only. `postgresql://postgres:<password>@supabase-db-<uuid>:5432/postgres` |
+| `LLM_HOST`, `LLM_API_KEY`, `LLM_MODEL_NAME`, … | See `.env.template` |
+
+**Migrations are applied automatically on every start:** `pnpm start` runs
+`db:migrate` (`supabase db push`) before `next start`. Already-applied
+migrations are skipped; if one fails, the new container doesn't start and
+Coolify keeps the previous version running. For the frontend to reach the
+database by container name, enable **Connect To Predefined Network** on the
+Supabase service. Run manually with `SUPABASE_DB_URL=… pnpm db:migrate`.
+
 ## Deploy on Vercel
 
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
