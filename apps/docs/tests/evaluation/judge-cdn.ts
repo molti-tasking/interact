@@ -6,6 +6,7 @@
  */
 
 import { cdnDimensions, buildJudgingPrompt, type SessionArtifacts } from "./cdn-rubric";
+import { resolveTemperature } from "../../src/lib/llm-temperature";
 
 // Env vars are read lazily so that .env is loaded before access
 const judgeEnv = () => ({
@@ -54,7 +55,7 @@ export async function judgeSession(
         body: JSON.stringify({
           model: JUDGE_MODEL,
           messages: [{ role: "user", content: prompt }],
-          temperature: 0.1,
+          temperature: resolveTemperature(JUDGE_MODEL, 0.1),
           max_tokens: 500,
         }),
       });

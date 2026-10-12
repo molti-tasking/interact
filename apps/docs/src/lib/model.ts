@@ -1,5 +1,11 @@
 import { createOpenAI } from "@ai-sdk/openai";
-import { APICallError, RetryError } from "ai";
+import {
+  APICallError,
+  RetryError,
+  wrapLanguageModel,
+  type LanguageModel,
+} from "ai";
+import { resolveTemperature } from "./llm-temperature";
 
 /**
  * OpenAI-compatible provider configured for self-hosted LiteLLM.
@@ -18,15 +24,33 @@ const llm = createOpenAI({
   },
 });
 
+/**
+ * Chat model with the temperature policy applied: actions pass their
+ * preferred temperature, and it's dropped for models that only accept the
+ * default (see `llm-temperature.ts`, override with `LLM_TEMPERATURE`).
+ */
+function chatModel(modelId: string): LanguageModel {
+  return wrapLanguageModel({
+    model: llm(modelId),
+    middleware: {
+      specificationVersion: "v3",
+      transformParams: async ({ params }) => ({
+        ...params,
+        temperature: resolveTemperature(modelId, params.temperature),
+      }),
+    },
+  });
+}
+
 // `||` (not `??`) so an empty/blank env var falls back instead of passing "".
-export const model = llm(process.env.LLM_MODEL_NAME || "default");
+export const model = chatModel(process.env.LLM_MODEL_NAME || "default");
 
 /**
  * Model for cheap classification-style calls (conflict detection, intent
  * sync after a field edit). Defaults to the main model, so behaviour only
  * changes when `LLM_FAST_MODEL_NAME` is set.
  */
-export const fastModel = llm(
+export const fastModel = chatModel(
   process.env.LLM_FAST_MODEL_NAME || process.env.LLM_MODEL_NAME || "default",
 );
 

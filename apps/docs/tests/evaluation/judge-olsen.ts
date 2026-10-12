@@ -11,6 +11,7 @@
  */
 
 import { logEvalGeneration } from "./langfuse-eval";
+import { resolveTemperature } from "../../src/lib/llm-temperature";
 import {
   buildLimitationPrompt,
   buildOlsenJudgingPrompt,
@@ -139,9 +140,7 @@ async function callLLM(
       body: JSON.stringify({
         model,
         messages: [{ role: "user", content: prompt }],
-        ...(model.includes("/o3") || model.includes("/o1")
-          ? {}
-          : { temperature: 0.1 }),
+        temperature: resolveTemperature(model, 0.1),
         max_tokens:
           model.includes("/o3") ||
           model.includes("/o1") ||

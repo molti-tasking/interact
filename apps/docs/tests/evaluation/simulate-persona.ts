@@ -8,6 +8,7 @@
  */
 
 import { chromium, type Browser } from "@playwright/test";
+import { resolveTemperature } from "../../src/lib/llm-temperature";
 import fs from "fs";
 import path from "path";
 import { signIn } from "../auth";
@@ -61,7 +62,7 @@ Return ONLY the value string of your chosen option, nothing else.`;
     body: JSON.stringify({
       model: LLM_MODEL,
       messages: [{ role: "user", content: prompt }],
-      temperature: 0.3,
+      temperature: resolveTemperature(LLM_MODEL, 0.3),
       max_tokens: 50,
     }),
   });
