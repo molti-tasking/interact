@@ -10,6 +10,8 @@
 
 import { z } from "zod";
 import type { Field, PortfolioSchema } from "../types";
+import { scaleSpecSchema } from "./form-model";
+import { scaleFromSpec } from "./scale";
 import { newFieldId, pruneGroups, resolvePatchFieldType } from "./schema-patch";
 import { normalizeFieldKey } from "./structured-intent";
 
@@ -25,6 +27,7 @@ const fieldKindSchema = z.enum([
   "date",
   "email",
   "select",
+  "scale",
 ]);
 
 const fieldEditSchema = z.object({
@@ -36,6 +39,9 @@ const fieldEditSchema = z.object({
   label: z.string().optional(),
   description: z.string().optional(),
   type: fieldKindSchema.optional().describe("New type — only when changing it"),
+  scale: scaleSpecSchema
+    .optional()
+    .describe("Scale fields: the full new scale — only when changing it"),
   options: z
     .array(optionSchema)
     .optional()
@@ -72,6 +78,7 @@ export const conflictChangesSchema = z
           label: z.string(),
           description: z.string().optional(),
           type: fieldKindSchema,
+          scale: scaleSpecSchema.optional(),
           required: z.boolean(),
           options: z.array(optionSchema).optional().describe("Required for select fields"),
         }),
@@ -107,7 +114,7 @@ function applyFieldEdit(field: Field, edit: FieldEdit): Field {
   if (edit.type) {
     // Same coarse kind keeps details (min/max, multiple, …); options merge by label
     type = resolvePatchFieldType(
-      { type: edit.type, validation: { options: edit.options } },
+      { type: edit.type, validation: { options: edit.options }, scale: edit.scale },
       new Set(),
       field.type,
     );
@@ -117,6 +124,8 @@ function applyFieldEdit(field: Field, edit: FieldEdit): Field {
       new Set(),
       field.type,
     );
+  } else if (edit.scale && field.type.kind === "scale") {
+    type = scaleFromSpec(edit.scale, field.type);
   }
   if (
     (edit.min !== undefined || edit.max !== undefined) &&
@@ -202,7 +211,7 @@ export function applyConflictChanges(
       name,
       label: add.label,
       type: resolvePatchFieldType(
-        { type: add.type, validation: { options: add.options } },
+        { type: add.type, validation: { options: add.options }, scale: add.scale },
         new Set(),
       ),
       required: add.required,

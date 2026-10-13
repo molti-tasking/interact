@@ -3,6 +3,8 @@
 import type { DetectedStandard } from "@/lib/domain-standards";
 import {
   FORM_MODEL_RULES,
+  SCALE_FIELD_RULES,
+  scaleSpecSchema,
   schemaPatchRules,
   schemaPatchSchema,
 } from "@/lib/engine/form-model";
@@ -66,8 +68,10 @@ const fieldSchema = z.object({
   description: z.string().optional().describe("Brief help text shown below the field — omit if the label is self-explanatory"),
   tooltip: z.string().optional().describe("Extra guidance shown on hover — omit if not needed"),
   type: z
-    .enum(["string", "number", "boolean", "date", "email", "select"])
+    .enum(["string", "number", "boolean", "date", "email", "select", "scale"])
     .describe("Field input type"),
+  // Right after `type`: further away, the model tends to skip it
+  scale: scaleSpecSchema.optional(),
   required: z.boolean(),
   validation: z
     .object({
@@ -158,6 +162,7 @@ Analyze the description to identify:
 
 Design the form fields using these types:
 - "select" for choices with defined options (include options in validation.options)
+- "scale" for ratings and Likert items (see below)
 - "string" for free text
 - "number" for quantities
 - "boolean" for yes/no
@@ -165,6 +170,7 @@ Design the form fields using these types:
 - "email" for email addresses
 
 RULES:
+${SCALE_FIELD_RULES}
 - Generate ONLY the fields the user explicitly mentioned or that are absolutely unavoidable (e.g. a name field for a registration). Typically 3-6 fields for an initial generation. Do NOT anticipate domain-specific requirements — those will be elicited through design probes. Err on the side of fewer fields; it is better to add fields through probes than to pre-generate fields the user didn't ask for.
 - Field keys MUST be camelCase and descriptive
 - "description" should be SHORT (a few words) — omit entirely if the label already makes the field obvious
@@ -224,7 +230,7 @@ RULES:
         id: newFieldId(),
         name,
         label: f.label,
-        type: convertPatchFieldType(f.type, f.validation),
+        type: convertPatchFieldType(f.type, f.validation, f.scale),
         required: f.required,
         constraints: [],
         description: f.description,

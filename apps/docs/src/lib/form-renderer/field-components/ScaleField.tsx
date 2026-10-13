@@ -7,10 +7,16 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import {
+  likertPoints,
+  scaleChoices,
+  type ScaleChoice,
+} from "@/lib/engine/scale";
 import type { Field } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { useId, type CSSProperties } from "react";
 import type { ControllerRenderProps } from "react-hook-form";
-import { FieldLabel, FieldLegend } from "./FieldLabel";
+import { FieldLabel, FieldLegend, FieldStatement } from "./FieldLabel";
 
 interface ScaleFieldProps {
   field: Field;
@@ -26,9 +32,175 @@ function toScaleNumber(value: unknown): number | undefined {
   return Number.isFinite(n) ? n : undefined;
 }
 
+/** Sets `--points` for the column templates below. */
+function pointsStyle(count: number): CSSProperties {
+  return { "--points": count } as CSSProperties;
+}
+
+/** Statement column + one column per point; shared by grid header and rows. */
+const LIKERT_GRID_COLUMNS =
+  "@lg:grid-cols-[minmax(0,1.6fr)_repeat(var(--points),minmax(0,1fr))]";
+
+/** "Strongly agree", or "5 – Strongly agree" for an end of a numeric scale. */
+function choiceName({ label, hint }: ScaleChoice): string {
+  return hint ? `${label} – ${hint}` : label;
+}
+
+/** Column headings of a scale grid (wide forms only; rows label themselves otherwise). */
+export function LikertGridHeader({ choices }: { choices: ScaleChoice[] }) {
+  return (
+    <div
+      aria-hidden
+      style={pointsStyle(choices.length)}
+      className={cn(
+        "hidden items-end gap-x-1 px-1 pb-1.5 text-center text-[11px] leading-tight text-muted-foreground @lg:grid",
+        LIKERT_GRID_COLUMNS,
+      )}
+    >
+      <span />
+      {choices.map((choice) => (
+        <span key={choice.value} className="px-0.5">
+          {choice.label}
+          {choice.hint && (
+            <span className="block text-[10px] text-muted-foreground/80">
+              {choice.hint}
+            </span>
+          )}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+/**
+ * One statement of a scale grid. On wide forms its radios sit under the
+ * grid's column headings; on narrow ones each point is a labelled pill.
+ */
+export function LikertRow({ field, formField }: ScaleFieldProps) {
+  const statementId = useId();
+  const choices = scaleChoices(field.type);
+  if (!choices) return <ScaleField field={field} formField={formField} />;
+
+  const { ref, name, onBlur, onChange, disabled, value } = formField;
+  const current = toScaleNumber(value);
+
+  return (
+    <FormItem className="gap-1">
+      <FormControl>
+        <div
+          role="radiogroup"
+          aria-labelledby={statementId}
+          aria-required={field.required || undefined}
+          style={pointsStyle(choices.length)}
+          className={cn(
+            "grid gap-2 px-1 py-2 @lg:items-center @lg:gap-x-1 @lg:py-1.5",
+            LIKERT_GRID_COLUMNS,
+          )}
+        >
+          <FieldStatement field={field} id={statementId} />
+          <div className="flex flex-wrap gap-1.5 @lg:contents">
+            {choices.map((choice, i) => (
+              <label
+                key={choice.value}
+                className={cn(
+                  "inline-flex cursor-pointer items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs transition-colors hover:bg-muted",
+                  "has-checked:border-primary has-checked:bg-primary/10 has-focus-visible:ring-2 has-focus-visible:ring-ring",
+                  "@lg:justify-center @lg:self-stretch @lg:border-transparent @lg:px-0",
+                )}
+              >
+                <input
+                  type="radio"
+                  className="size-4 shrink-0 cursor-pointer accent-primary"
+                  ref={i === 0 ? ref : undefined}
+                  name={name}
+                  value={choice.value}
+                  checked={current === choice.value}
+                  disabled={disabled}
+                  onBlur={onBlur}
+                  onChange={() => onChange(choice.value)}
+                />
+                <span className="@lg:sr-only">{choiceName(choice)}</span>
+              </label>
+            ))}
+          </div>
+        </div>
+      </FormControl>
+      <FormMessage className="px-1" />
+    </FormItem>
+  );
+}
+
+/** A Likert item on its own: the statement, then its labelled points. */
+function LikertField({
+  field,
+  formField,
+  min,
+  points,
+}: ScaleFieldProps & { min: number; points: string[] }) {
+  const { ref, name, onBlur, onChange, disabled, value } = formField;
+  const current = toScaleNumber(value);
+
+  return (
+    <FormItem>
+      <FormControl>
+        <fieldset className="grid gap-2">
+          <FieldLegend field={field} className="mb-2" />
+          <div
+            style={pointsStyle(points.length)}
+            className="grid gap-1.5 @md:grid-cols-[repeat(var(--points),minmax(0,1fr))]"
+          >
+            {points.map((point, i) => {
+              const v = min + i;
+              return (
+                <label
+                  key={v}
+                  className={cn(
+                    "flex cursor-pointer items-center gap-2.5 rounded-md border px-3 py-2 text-sm leading-snug transition-colors hover:bg-muted",
+                    "has-checked:border-primary has-checked:bg-primary/10 has-focus-visible:ring-2 has-focus-visible:ring-ring",
+                    "@md:flex-col @md:gap-1.5 @md:px-1.5 @md:text-center @md:text-xs",
+                  )}
+                >
+                  <input
+                    type="radio"
+                    className="size-4 shrink-0 cursor-pointer accent-primary"
+                    ref={i === 0 ? ref : undefined}
+                    name={name}
+                    value={v}
+                    checked={current === v}
+                    disabled={disabled}
+                    onBlur={onBlur}
+                    onChange={() => onChange(v)}
+                  />
+                  {point}
+                </label>
+              );
+            })}
+          </div>
+        </fieldset>
+      </FormControl>
+      {field.description && (
+        <FormDescription>{field.description}</FormDescription>
+      )}
+      <FormMessage />
+    </FormItem>
+  );
+}
+
 export function ScaleField({ field, formField }: ScaleFieldProps) {
   const scaleType = field.type.kind === "scale" ? field.type : null;
   if (!scaleType) return null;
+
+  const points = likertPoints(scaleType);
+  if (points) {
+    return (
+      <LikertField
+        field={field}
+        formField={formField}
+        min={scaleType.min}
+        points={points}
+      />
+    );
+  }
 
   const { min, max, labels } = scaleType;
   const { ref, name, onBlur, onChange, disabled, value } = formField;

@@ -150,7 +150,9 @@ export function formatFieldType(type: FieldType | null | undefined): string {
     case "file":
       return "File";
     case "scale":
-      return `Scale ${type.min}–${type.max}`;
+      return type.points?.length
+        ? `Likert · ${type.points.length} points`
+        : `Scale ${type.min}–${type.max}`;
     case "reference":
       return "Reference";
     case "group": {

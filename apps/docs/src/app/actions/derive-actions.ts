@@ -1,5 +1,6 @@
 "use server";
 
+import { scaleSpecSchema, SCALE_FIELD_RULES } from "@/lib/engine/form-model";
 import {
   convertPatchFieldType,
   newFieldId,
@@ -69,8 +70,9 @@ const derivedFieldSchema = z.object({
     .optional()
     .describe("Brief help text — omit if label is self-explanatory"),
   type: z
-    .enum(["string", "number", "boolean", "date", "email", "select"])
+    .enum(["string", "number", "boolean", "date", "email", "select", "scale"])
     .describe("Field input type"),
+  scale: scaleSpecSchema.optional(),
   required: z.boolean(),
   validation: z
     .object({
@@ -81,6 +83,7 @@ const derivedFieldSchema = z.object({
     })
     .optional(),
 });
+
 
 const deriveResponseSchema = z.object({
   derivationType: z
@@ -167,7 +170,8 @@ RULES:
 - For "mixed" type: includedFieldKeys is a selective subset, additionalFields has new fields
 - Field keys MUST be camelCase
 - Be precise about which parent fields matter for this specific view
-- Generate the minimum viable set of additional fields — not exhaustive, but domain-appropriate`;
+- Generate the minimum viable set of additional fields — not exhaustive, but domain-appropriate
+${SCALE_FIELD_RULES}`;
 
     const result = await withLlmRetry("derive-action", (abortSignal) =>
       withTracing({ tags: ["schema", "derive"] }, () =>
@@ -220,7 +224,7 @@ RULES:
         id: newFieldId(),
         name,
         label: f.label,
-        type: convertPatchFieldType(f.type, f.validation),
+        type: convertPatchFieldType(f.type, f.validation, f.scale),
         required: f.required,
         constraints: [],
         description: f.description,

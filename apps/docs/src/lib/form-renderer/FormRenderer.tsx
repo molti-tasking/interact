@@ -2,14 +2,19 @@
 
 import { Form, FormField } from "@/components/ui/form";
 import type { FieldAnnotation } from "@/lib/engine/probe-preview";
+import { groupLikertRuns, scaleChoices } from "@/lib/engine/scale";
 import { schemaToZod } from "@/lib/engine/schema-ops";
 import type { Field, PortfolioSchema } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Dices, Pencil, TriangleAlert } from "lucide-react";
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, type ReactNode } from "react";
 import { useForm, useFormState } from "react-hook-form";
 import { renderFieldComponent } from "./field-components";
+import {
+  LikertGridHeader,
+  LikertRow,
+} from "./field-components/ScaleField";
 import { FormSaveButton } from "./FormSaveButton";
 
 function randomValueForField(field: Field): unknown {
@@ -144,6 +149,92 @@ const annotationStyles: Record<
   },
 };
 
+/**
+ * Wrapper of one field: change annotations, conflict marks and, in the
+ * workspace preview, the click-to-edit overlay.
+ */
+function FieldShell({
+  field,
+  onEdit,
+  annotation,
+  mark: markProp,
+  className,
+  children,
+}: {
+  field: Field;
+  onEdit?: () => void;
+  annotation?: FieldAnnotation;
+  mark?: FieldMark;
+  className?: string;
+  children: ReactNode;
+}) {
+  // A pending change takes precedence over pointing out an issue
+  const mark = annotation ? undefined : markProp;
+  return (
+    <div
+      data-testid={`form-field-${field.name}`}
+      data-annotation={annotation}
+      className={cn(
+        className,
+        onEdit && "group relative",
+        annotation && "relative",
+        annotation && annotationStyles[annotation].wrapper,
+        mark && "relative",
+        mark &&
+          (mark.emphasized
+            ? markStyles[mark.tone].strong
+            : markStyles[mark.tone].subtle),
+      )}
+    >
+      {mark && (
+        <button
+          type="button"
+          onClick={mark.onClick}
+          disabled={!mark.onClick}
+          title={mark.title}
+          data-testid="field-conflict-mark"
+          className={cn(
+            "absolute -top-3 right-0 z-20 flex max-w-[60%] cursor-pointer items-center gap-1 rounded-full px-1.5 py-px text-[10px] font-medium leading-4 shadow-sm transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-default",
+            markStyles[mark.tone].badge,
+            !mark.emphasized && "opacity-80 hover:opacity-100",
+          )}
+        >
+          <TriangleAlert className="h-2.5 w-2.5 shrink-0" aria-hidden />
+          <span className="truncate">{mark.label}</span>
+        </button>
+      )}
+      {annotation && (
+        <span
+          className={cn(
+            "absolute -top-3 right-0 z-10 rounded-full px-1.5 py-px text-[10px] font-medium leading-4",
+            annotationStyles[annotation].badge,
+          )}
+        >
+          {annotationStyles[annotation].label}
+        </span>
+      )}
+      {/* Clickable edit overlay in preview mode */}
+      {onEdit && (
+        <button
+          type="button"
+          onClick={onEdit}
+          aria-label={`Edit field ${field.label}`}
+          className={cn(
+            "absolute -top-1 -bottom-1 -left-1 -right-1 z-10 flex cursor-pointer items-center justify-end rounded-lg border border-transparent pr-3 opacity-0 transition-all",
+            "group-hover:opacity-100 group-hover:border-primary/30 group-hover:bg-primary/5",
+            "focus-visible:opacity-100 focus-visible:border-primary/50 focus-visible:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+            // Touch screens have no hover: keep the pencil visible.
+            "[@media(hover:none)]:opacity-100",
+          )}
+        >
+          <Pencil className="h-3.5 w-3.5 text-primary/60" aria-hidden />
+        </button>
+      )}
+      {children}
+    </div>
+  );
+}
+
 /** Inline note after a failed submit (the page shows the detailed toast). */
 function SubmitError() {
   const { errors } = useFormState();
@@ -227,78 +318,55 @@ export function FormRenderer({
         data-testid="form-renderer"
         noValidate
         onSubmit={form.handleSubmit(handleSubmit)}
-        className={className ?? "space-y-6"}
+        // A container, so fields lay out by the form's width, not the screen's
+        className={cn("@container", className ?? "space-y-6")}
       >
-        {schema.fields.map((field) => {
-          const annotation = fieldAnnotations?.[field.id];
-          const mark = annotation ? undefined : fieldMarks?.[field.id];
+        {groupLikertRuns(schema.fields).map((block) => {
+          const shell = (field: Field, className?: string) => ({
+            field,
+            onEdit:
+              mode === "preview" && onFieldClick
+                ? () => onFieldClick(field)
+                : undefined,
+            annotation: fieldAnnotations?.[field.id],
+            mark: fieldMarks?.[field.id],
+            className,
+          });
+
+          if (!Array.isArray(block)) {
+            return (
+              <FieldShell key={block.id} {...shell(block)}>
+                <FormField
+                  control={form.control}
+                  name={block.name}
+                  render={({ field: formField }) =>
+                    renderFieldComponent(block, formField, form.control)
+                  }
+                />
+              </FieldShell>
+            );
+          }
+
+          // Items on the same scale: one grid, a row per statement
           return (
-            <div
-              key={field.id}
-              data-testid={`form-field-${field.name}`}
-              data-annotation={annotation}
-              className={cn(
-                mode === "preview" && onFieldClick && "group relative",
-                annotation && "relative",
-                annotation && annotationStyles[annotation].wrapper,
-                mark && "relative",
-                mark &&
-                  (mark.emphasized
-                    ? markStyles[mark.tone].strong
-                    : markStyles[mark.tone].subtle),
-              )}
-            >
-              {mark && (
-                <button
-                  type="button"
-                  onClick={mark.onClick}
-                  disabled={!mark.onClick}
-                  title={mark.title}
-                  data-testid="field-conflict-mark"
-                  className={cn(
-                    "absolute -top-3 right-0 z-20 flex max-w-[60%] cursor-pointer items-center gap-1 rounded-full px-1.5 py-px text-[10px] font-medium leading-4 shadow-sm transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-default",
-                    markStyles[mark.tone].badge,
-                    !mark.emphasized && "opacity-80 hover:opacity-100",
-                  )}
-                >
-                  <TriangleAlert className="h-2.5 w-2.5 shrink-0" aria-hidden />
-                  <span className="truncate">{mark.label}</span>
-                </button>
-              )}
-              {annotation && (
-                <span
-                  className={cn(
-                    "absolute -top-3 right-0 z-10 rounded-full px-1.5 py-px text-[10px] font-medium leading-4",
-                    annotationStyles[annotation].badge,
-                  )}
-                >
-                  {annotationStyles[annotation].label}
-                </span>
-              )}
-              {/* Clickable edit overlay in preview mode */}
-              {mode === "preview" && onFieldClick && (
-                <button
-                  type="button"
-                  onClick={() => onFieldClick(field)}
-                  aria-label={`Edit field ${field.label}`}
-                  className={cn(
-                    "absolute -top-1 -bottom-1 -left-1 -right-1 z-10 flex cursor-pointer items-center justify-end rounded-lg border border-transparent pr-3 opacity-0 transition-all",
-                    "group-hover:opacity-100 group-hover:border-primary/30 group-hover:bg-primary/5",
-                    "focus-visible:opacity-100 focus-visible:border-primary/50 focus-visible:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                    // Touch screens have no hover: keep the pencil visible.
-                    "[@media(hover:none)]:opacity-100",
-                  )}
-                >
-                  <Pencil className="h-3.5 w-3.5 text-primary/60" aria-hidden />
-                </button>
-              )}
-              <FormField
-                control={form.control}
-                name={field.name}
-                render={({ field: formField }) =>
-                  renderFieldComponent(field, formField, form.control)
-                }
-              />
+            <div key={block[0].id} data-testid="likert-grid">
+              <LikertGridHeader choices={scaleChoices(block[0].type) ?? []} />
+              <div className="flex flex-col gap-1">
+                {block.map((field, i) => (
+                  <FieldShell
+                    key={field.id}
+                    {...shell(field, cn("rounded-md", i % 2 === 1 && "@lg:bg-muted/40"))}
+                  >
+                    <FormField
+                      control={form.control}
+                      name={field.name}
+                      render={({ field: formField }) => (
+                        <LikertRow field={field} formField={formField} />
+                      )}
+                    />
+                  </FieldShell>
+                ))}
+              </div>
             </div>
           );
         })}

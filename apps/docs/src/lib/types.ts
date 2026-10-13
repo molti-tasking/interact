@@ -51,6 +51,7 @@ export const scaleFieldTypeZ = z.object({
   min: z.number(),
   max: z.number(),
   labels: z.object({ low: z.string(), high: z.string() }).optional(),
+  points: z.array(z.string()).optional(),
 });
 
 export const referenceFieldTypeZ = z.object({
@@ -90,7 +91,13 @@ export type FieldType =
       kind: "scale";
       min: number;
       max: number;
+      /** End labels of a numeric scale ("0 = Not at all … 10 = Extremely") */
       labels?: { low: string; high: string };
+      /**
+       * Likert anchors: a label for every point from `min` to `max`
+       * ("Strongly disagree" … "Strongly agree"). Answers stay numbers.
+       */
+      points?: string[];
     }
   | {
       kind: "reference";

@@ -541,7 +541,9 @@ function describeFieldType(type: FieldType): string {
     case "file":
       return type.accept.length ? `file: ${type.accept.join(", ")}` : "file";
     case "scale":
-      return `scale ${type.min}-${type.max}${type.labels ? ` (${type.labels.low} … ${type.labels.high})` : ""}`;
+      return type.points?.length
+        ? `scale ${type.min}-${type.max}: [${type.points.join(" | ")}]`
+        : `scale ${type.min}-${type.max}${type.labels ? ` (${type.labels.low} … ${type.labels.high})` : ""}`;
     case "reference":
       return `reference → ${type.targetPortfolioId}`;
     case "group":

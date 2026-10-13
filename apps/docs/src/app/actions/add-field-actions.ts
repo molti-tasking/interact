@@ -1,5 +1,7 @@
 "use server";
 
+import { scaleSpecSchema } from "@/lib/engine/form-model";
+import { scaleFromSpec } from "@/lib/engine/scale";
 import { newFieldId } from "@/lib/engine/schema-patch";
 import { capJson, capText, guardLlmRequest, LIMITS } from "@/lib/llm-guard";
 import { model } from "@/lib/model";
@@ -18,6 +20,7 @@ const addFieldSchema = z.object({
       typeKind: z
         .enum(["text", "number", "boolean", "select", "date", "scale"])
         .describe("Field type kind"),
+      scale: scaleSpecSchema.optional(),
       options: z
         .array(z.object({ label: z.string(), value: z.string() }))
         .optional()
@@ -78,6 +81,7 @@ Rules:
 - Field names must be camelCase and not conflict with existing names
 - Use appropriate field types: text, number, boolean, select, date, scale
 - For select types, include options with label and value pairs
+- For scale types (ratings, Likert items), set scale.points to a label for every point, lowest first — or scale.min/max for a plain numeric rating
 - Keep it minimal — only fields directly implied by the prompt
 - Include a short description and tooltip for each field`;
 
@@ -109,7 +113,10 @@ Rules:
         id: newFieldId(),
         name: f.name,
         label: f.label,
-        type: convertTypeKind(f.typeKind, f.options),
+        type:
+          f.typeKind === "scale"
+            ? scaleFromSpec(f.scale)
+            : convertTypeKind(f.typeKind, f.options),
         required: f.required ?? false,
         constraints: [],
         description: f.description,

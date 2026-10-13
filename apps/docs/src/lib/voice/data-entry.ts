@@ -1,3 +1,4 @@
+import { scaleValueForLabel } from "@/lib/engine/scale";
 import type {
   Field,
   PortfolioSchema,
@@ -348,7 +349,8 @@ export function buildResponseEntry(
         break;
       }
       case "scale": {
-        const n = parseSpokenNumber(value);
+        // "agree" on a Likert scale means its point, not a number
+        const n = scaleValueForLabel(def.type, value) ?? parseSpokenNumber(value);
         if (n === null) {
           issue("unparsed");
           break;

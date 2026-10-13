@@ -10,6 +10,7 @@
  */
 
 import type { Field, FieldGroup, FieldType, PortfolioSchema } from "../types";
+import { scaleFromSpec, type ScaleSpec } from "./scale";
 
 // ---------------------------------------------------------------------------
 // Patch shape (mirrors the LLM structured-output schema)
@@ -22,6 +23,7 @@ export type PatchFieldKind =
   | "date"
   | "email"
   | "select"
+  | "scale"
   | "reference";
 
 export interface PatchField {
@@ -32,6 +34,8 @@ export interface PatchField {
   type: PatchFieldKind;
   required: boolean;
   validation?: { options?: unknown[] };
+  /** For type "scale": its points or range */
+  scale?: ScaleSpec;
   referenceTarget?: string;
 }
 
@@ -60,8 +64,6 @@ function coarseKind(type: FieldType): PatchFieldKind {
     case "file":
     case "group":
       return "string";
-    case "scale":
-      return "number";
     default:
       return type.kind;
   }
@@ -69,6 +71,9 @@ function coarseKind(type: FieldType): PatchFieldKind {
 
 function isCompatible(patchKind: PatchFieldKind, existing: FieldType): boolean {
   const normalized = patchKind === "email" ? "string" : patchKind;
+  // "number" for a scale keeps the scale (patches from before "scale"
+  // existed in the vocabulary still say "number")
+  if (normalized === "number" && existing.kind === "scale") return true;
   return coarseKind(existing) === normalized;
 }
 
@@ -94,6 +99,7 @@ export function normalizeOptions(
 export function convertPatchFieldType(
   type: PatchFieldKind | string,
   validation?: { options?: unknown[] },
+  scale?: ScaleSpec,
 ): FieldType {
   switch (type) {
     case "select":
@@ -102,6 +108,8 @@ export function convertPatchFieldType(
         options: normalizeOptions(validation?.options),
         multiple: false,
       };
+    case "scale":
+      return scaleFromSpec(scale);
     case "number":
       return { kind: "number" };
     case "boolean":
@@ -120,7 +128,7 @@ export function convertPatchFieldType(
  * the coarse patch vocabulary cannot express those details.
  */
 export function resolvePatchFieldType(
-  f: Pick<PatchField, "type" | "validation" | "referenceTarget">,
+  f: Pick<PatchField, "type" | "validation" | "referenceTarget" | "scale">,
   validTargetIds: ReadonlySet<string>,
   existing?: FieldType,
 ): FieldType {
@@ -154,10 +162,14 @@ export function resolvePatchFieldType(
         })),
       };
     }
+    // A scale changes only when the patch spells out its new points/range
+    if (existing.kind === "scale" && f.type === "scale" && f.scale) {
+      return scaleFromSpec(f.scale, existing);
+    }
     return existing;
   }
 
-  return convertPatchFieldType(f.type, f.validation);
+  return convertPatchFieldType(f.type, f.validation, f.scale);
 }
 
 // ---------------------------------------------------------------------------

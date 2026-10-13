@@ -20,6 +20,11 @@ import {
 } from "@/components/ui/select";
 import { SheetFooter } from "@/components/ui/sheet";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  LIKERT_PRESETS,
+  MAX_SCALE_POINTS,
+  scaleFromSpec,
+} from "@/lib/engine/scale";
 import type { Field, FieldType } from "@/lib/types";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Trash2 } from "lucide-react";
@@ -65,12 +70,24 @@ const fieldEditSchema = z
     unit: z.string(),
     lowLabel: z.string(),
     highLabel: z.string(),
+    points: z.string(),
   })
   .refine(
     (data) =>
       data.kind !== "select" ||
       data.options.split("\n").some((o) => o.trim().length > 0),
     { message: "Provide at least one option", path: ["options"] },
+  )
+  .refine(
+    (data) => {
+      if (data.kind !== "scale") return true;
+      const n = pointLines(data.points).length;
+      return n === 0 || (n >= 2 && n <= MAX_SCALE_POINTS);
+    },
+    {
+      message: `Give 2–${MAX_SCALE_POINTS} point labels, or none for a numeric scale`,
+      path: ["points"],
+    },
   )
   .refine(
     (data) =>
@@ -92,7 +109,15 @@ const TYPE_KEYS = [
   "unit",
   "lowLabel",
   "highLabel",
+  "points",
 ] as const;
+
+function pointLines(text: string): string[] {
+  return text
+    .split("\n")
+    .map((p) => p.trim())
+    .filter(Boolean);
+}
 
 function valuesFromField(field: Field): FieldEditFormValues {
   const t = field.type;
@@ -111,6 +136,7 @@ function valuesFromField(field: Field): FieldEditFormValues {
     unit: t.kind === "number" ? (t.unit ?? "") : "",
     lowLabel: t.kind === "scale" ? (t.labels?.low ?? "") : "",
     highLabel: t.kind === "scale" ? (t.labels?.high ?? "") : "",
+    points: t.kind === "scale" ? (t.points ?? []).join("\n") : "",
   };
 }
 
@@ -137,6 +163,9 @@ export function FieldEditForm({
   const [confirmingRemove, setConfirmingRemove] = useState(false);
 
   const watchKind = useWatch({ control: form.control, name: "kind" });
+  const watchPoints = useWatch({ control: form.control, name: "points" });
+  // A Likert scale is defined by its labels; min/max only for numeric ones
+  const isLikert = watchKind === "scale" && pointLines(watchPoints).length > 0;
   const lockedKind = LOCKED_KINDS[field.type.kind];
 
   const handleSubmit = (values: FieldEditFormValues) => {
@@ -187,7 +216,51 @@ export function FieldEditForm({
         </>
       )}
 
-      {(watchKind === "number" || watchKind === "scale") && (
+      {watchKind === "scale" && (
+        <FormField
+          control={form.control}
+          name="points"
+          render={({ field: f }) => (
+            <FormItem>
+              <FormLabel>Point labels (one per line, lowest first)</FormLabel>
+              <div className="flex flex-wrap gap-1">
+                {LIKERT_PRESETS.map((preset) => (
+                  <Button
+                    key={preset.label}
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-6 px-2 text-[11px]"
+                    onClick={() =>
+                      form.setValue("points", preset.points.join("\n"), {
+                        shouldDirty: true,
+                        shouldValidate: true,
+                      })
+                    }
+                  >
+                    {preset.label}
+                  </Button>
+                ))}
+              </div>
+              <FormControl>
+                <Textarea
+                  {...f}
+                  rows={5}
+                  placeholder={"Strongly disagree\nDisagree\nNeutral\nAgree\nStrongly agree"}
+                />
+              </FormControl>
+              <FormDescription>
+                {isLikert
+                  ? "Answers are stored as numbers, lowest label = 1. Items on the same scale next to each other show as one grid."
+                  : "Leave empty for a numeric scale."}
+              </FormDescription>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+      )}
+
+      {(watchKind === "number" || (watchKind === "scale" && !isLikert)) && (
         <div className="grid grid-cols-2 gap-3">
           <NumberInput form={form} name="min" label="Minimum" />
           <NumberInput form={form} name="max" label="Maximum" />
@@ -210,7 +283,7 @@ export function FieldEditForm({
         />
       )}
 
-      {watchKind === "scale" && (
+      {watchKind === "scale" && !isLikert && (
         <div className="grid grid-cols-2 gap-3">
           <FormField
             control={form.control}
@@ -468,6 +541,13 @@ export function buildFieldType(
         unit: values.unit.trim() || undefined,
       };
     case "scale": {
+      const points = pointLines(values.points);
+      if (points.length > 0) {
+        // Likert answers count from 1 unless the scale already started elsewhere
+        const min =
+          existing.kind === "scale" && existing.points ? existing.min : 1;
+        return scaleFromSpec({ points, min });
+      }
       const low = values.lowLabel.trim();
       const high = values.highLabel.trim();
       return {

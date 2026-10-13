@@ -43,6 +43,45 @@ export function FieldLabel({
   );
 }
 
+/**
+ * FieldLegend for controls named via `aria-labelledby={id}` rather than a
+ * fieldset — e.g. Likert grid rows, whose cells must be grid items.
+ */
+export function FieldStatement({
+  field,
+  id,
+  className,
+}: {
+  field: Field;
+  id: string;
+  className?: string;
+}) {
+  const { error } = useFormField();
+
+  return (
+    <div
+      data-error={!!error?.message}
+      className={cn(
+        "flex items-center gap-1 text-sm leading-snug font-medium data-[error=true]:text-destructive",
+        className,
+      )}
+    >
+      <span id={id}>
+        {field.label}
+        {field.required && (
+          <>
+            <RequiredMark />
+            <span className="sr-only"> (required)</span>
+          </>
+        )}
+      </span>
+      {field.tooltip && (
+        <FieldTooltip text={field.tooltip} label={field.label} />
+      )}
+    </div>
+  );
+}
+
 /** `<legend>` counterpart of FieldLabel for fieldsets (groups, option lists). */
 export function FieldLegend({
   field,

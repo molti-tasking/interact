@@ -11,6 +11,7 @@ import {
 import { fastModel, withLlmRetry } from "@/lib/model";
 import { telemetry, withTracing } from "@/lib/telemetry";
 import type {
+  FieldType,
   PortfolioSchema,
   SectionKey,
   StructuredIntent,
@@ -92,6 +93,14 @@ export interface RouteUtteranceResponse {
   error?: string;
 }
 
+/** "select (multiple)", "scale 1-5: 1=Strongly disagree, …, 5=Strongly agree" */
+function describeKind(type: FieldType): string {
+  if (type.kind === "select" && type.multiple) return "select (multiple)";
+  if (type.kind !== "scale") return type.kind;
+  const points = type.points?.map((p, i) => `${type.min + i}=${p}`).join(", ");
+  return `scale ${type.min}-${type.max}${points ? `: ${points}` : ""}`;
+}
+
 export async function routeUtteranceAction(
   intent: StructuredIntent,
   currentSchema: PortfolioSchema,
@@ -130,7 +139,7 @@ async function routeUtteranceReal(
       ? dictatable
           .map(
             ({ key, field: f, label }) =>
-              `- ${key} ("${label}", ${f.type.kind}${f.type.kind === "select" && f.type.multiple ? " (multiple)" : ""}${f.required ? ", required" : ""}${f.type.kind === "reference" ? " — links to another table; the value is the referenced item's name as spoken" : ""}${f.type.kind === "file" ? " — cannot be filled by voice" : ""})`,
+              `- ${key} ("${label}", ${describeKind(f.type)}${f.required ? ", required" : ""}${f.type.kind === "reference" ? " — links to another table; the value is the referenced item's name as spoken" : ""}${f.type.kind === "file" ? " — cannot be filled by voice" : ""})`,
           )
           .join("\n")
       : "(no fields yet)";
@@ -154,7 +163,7 @@ For route "dataEntry", extract "records":
 - One record per real-world entry (e.g. three items mentioned → three records).
 - Each value uses the EXACT field key from CURRENT FORM FIELDS (the text after "- ", e.g. "quantity" or "address.city") — never invent keys.
 - Values as plain strings ("2", not "two"); for select fields use one of the defined option values — for "(multiple)" selects, list every chosen option value separated by commas.
-- Booleans as "yes" or "no"; dates as YYYY-MM-DD; scales as a whole number.
+- Booleans as "yes" or "no"; dates as YYYY-MM-DD; scales as a whole number (for labelled scales, the number of the point that matches what was said, e.g. "agree" → its number).
 - For reference fields, the value is the NAME of the referenced item exactly as spoken (e.g. "SuperGlue 50ml") — the system resolves it to the linked table afterwards.
 - Skip fields the utterance says nothing about.
 

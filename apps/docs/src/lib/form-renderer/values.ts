@@ -4,6 +4,7 @@
  * Isomorphic — no React, no Supabase.
  */
 
+import { scalePointLabel, scaleValueForLabel } from "../engine/scale";
 import {
   isReferenceValue,
   type Field,
@@ -161,6 +162,10 @@ export function formatValue(value: unknown, field?: Field): string {
   if (field?.type.kind === "select" && typeof value === "string") {
     return field.type.options.find((o) => o.value === value)?.label ?? value;
   }
+  if (field?.type.kind === "scale" && typeof value === "number") {
+    const label = scalePointLabel(field.type, value);
+    return label ? `${label} (${value})` : String(value);
+  }
   if (typeof value === "object") {
     const record = value as Record<string, unknown>;
     if (field?.type.kind === "group") {
@@ -314,7 +319,9 @@ export function coerceValueForField(field: Field, raw: unknown): CoerceResult {
     }
     case "number":
     case "scale": {
-      const n = parseNumber(text, type.kind === "number" ? type.unit : undefined);
+      const n =
+        scaleValueForLabel(type, text) ??
+        parseNumber(text, type.kind === "number" ? type.unit : undefined);
       if (n === null) return { ok: false, reason: "not a number" };
       const min = type.min;
       const max = type.max;
