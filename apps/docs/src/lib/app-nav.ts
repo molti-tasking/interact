@@ -52,7 +52,9 @@ export interface Crumb {
 
 const PORTFOLIO_SUBPAGES: Record<string, string> = {
   provenance: "History",
-  dashboard: "Dashboard",
+  activity: "Activity",
+  // Old route, redirects to /activity
+  dashboard: "Activity",
   derive: "Derive a view",
   record: "Record",
 };

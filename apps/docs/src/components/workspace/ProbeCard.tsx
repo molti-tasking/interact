@@ -15,7 +15,7 @@ import {
 import { applySchemaPatch } from "@/lib/engine/schema-patch";
 import type { DesignProbe, PortfolioSchema, ProbePriority } from "@/lib/types";
 import { cn } from "@/lib/utils";
-import { ChevronRight, Info, Loader2, X } from "lucide-react";
+import { BarChart3, ChevronRight, Info, Loader2, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import {
   useProbePreviewActions,
@@ -146,6 +146,12 @@ export function ProbeCard({
       <div className="flex items-start gap-2.5 px-3.5 pt-3">
         <PriorityDot priority={probe.priority} className="mt-1.5" />
         <h4 className="flex-1 text-sm font-medium leading-snug">
+          {probe.source === "data" && (
+            <span className="mb-1 flex w-fit items-center gap-1 rounded-full bg-muted px-1.5 py-px text-[10px] font-normal text-muted-foreground">
+              <BarChart3 className="h-2.5 w-2.5" aria-hidden />
+              From responses
+            </span>
+          )}
           {probe.text}
         </h4>
         {probe.explanation && (

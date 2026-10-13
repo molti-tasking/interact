@@ -15,6 +15,7 @@ import {
 import { useCommitPortfolio, usePortfolio } from "@/hooks/query/portfolios";
 import { useUndoToast } from "@/hooks/query/undo";
 import { addField, removeField, updateField } from "@/lib/engine/schema-ops";
+import { assignSection } from "@/lib/engine/sections";
 import { formatActor } from "@/lib/mock-users";
 import type { Field } from "@/lib/types";
 import { Loader2 } from "lucide-react";
@@ -58,11 +59,15 @@ export default function PortfolioWorkspacePage() {
     setDrawerOpen(true);
   }, []);
 
-  /** `updates` holds only the properties the user changed. */
+  /**
+   * `updates` holds only the properties the user changed; `section` is the
+   * new section title (null = none) when it changed.
+   */
   const handleFieldSave = useCallback(
-    async (fieldId: string, updates: Partial<Field>) => {
+    async (fieldId: string, updates: Partial<Field>, section?: string | null) => {
       const oldField = portfolio?.schema.fields.find((f) => f.id === fieldId);
       const label = updates.label ?? oldField?.label ?? fieldId;
+      const changedProps = Object.keys(updates).length > 0;
       try {
         const result = await commitPortfolio.mutateAsync((current) => {
           // Apply only the changed properties to the *current* field, so
@@ -70,19 +75,32 @@ export default function PortfolioWorkspacePage() {
           if (!current.schema.fields.some((f) => f.id === fieldId)) {
             throw new Error(`"${label}" was removed in the meantime.`);
           }
+          let schema = changedProps
+            ? updateField(current.schema, fieldId, updates)
+            : current.schema;
+          if (section !== undefined) schema = assignSection(schema, fieldId, section);
+          const moved =
+            section === undefined
+              ? ""
+              : section
+                ? `moved to section "${section}"`
+                : "taken out of its section";
           return {
-            schema: updateField(current.schema, fieldId, updates),
+            schema,
             provenance: {
               layer: "configuration",
               action: "field_modified",
               actor,
-              rationale: `Modified field "${label}"`,
-              always: false,
+              rationale: [changedProps && `Modified field "${label}"`, moved && `"${label}" ${moved}`]
+                .filter(Boolean)
+                .join("; "),
+              // A section move doesn't show in the field diff; still log it
+              always: section !== undefined,
             },
           };
         });
         notifyUndo(result, `Saved "${label}"`);
-        scheduleSync(buildEditDescription(oldField, updates));
+        if (changedProps) scheduleSync(buildEditDescription(oldField, updates));
       } catch (err) {
         console.error("[FieldEdit] Save error:", err);
         toast.error(errorMessage(err, `Failed to save "${label}"`));
@@ -240,6 +258,7 @@ export default function PortfolioWorkspacePage() {
           the latest version of the field */}
       <FieldEditDrawer
         field={editingField}
+        schema={portfolio.schema}
         open={drawerOpen}
         onOpenChange={setDrawerOpen}
         onSave={handleFieldSave}

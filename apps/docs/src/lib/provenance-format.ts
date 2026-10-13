@@ -34,6 +34,11 @@ const ACTION_LABELS = new Map<string, string>([
   ["change_reverted", "Undid a change"],
   ["snapshot_restored", "Restored an earlier version"],
   ["voice_edit", "Edited the form by voice"],
+  ["dashboard_suggested", "Suggested a response dashboard"],
+  ["dashboard_updated", "Edited the response dashboard"],
+  ["responses_recoded", "Recoded responses"],
+  ["responses_recode_undone", "Undid a recode"],
+  ["sections_edited", "Edited the form's sections"],
 ]);
 
 /** "design_probe_resolved" → "design probe resolved" → "Design probe resolved". */

@@ -71,12 +71,19 @@ const fieldEditSchema = z
     lowLabel: z.string(),
     highLabel: z.string(),
     points: z.string(),
+    /** A section title, NO_SECTION, or NEW_SECTION (title in `newSection`) */
+    section: z.string(),
+    newSection: z.string(),
   })
   .refine(
     (data) =>
       data.kind !== "select" ||
       data.options.split("\n").some((o) => o.trim().length > 0),
     { message: "Provide at least one option", path: ["options"] },
+  )
+  .refine(
+    (data) => data.section !== NEW_SECTION || data.newSection.trim().length > 0,
+    { message: "Name the new section", path: ["newSection"] },
   )
   .refine(
     (data) => {
@@ -112,6 +119,9 @@ const TYPE_KEYS = [
   "points",
 ] as const;
 
+const NO_SECTION = "__none__";
+const NEW_SECTION = "__new__";
+
 function pointLines(text: string): string[] {
   return text
     .split("\n")
@@ -119,9 +129,11 @@ function pointLines(text: string): string[] {
     .filter(Boolean);
 }
 
-function valuesFromField(field: Field): FieldEditFormValues {
+function valuesFromField(field: Field, section: string | undefined): FieldEditFormValues {
   const t = field.type;
   return {
+    section: section ?? NO_SECTION,
+    newSection: "",
     label: field.label,
     kind: t.kind,
     required: field.required,
@@ -146,20 +158,30 @@ function valuesFromField(field: Field): FieldEditFormValues {
 
 export function FieldEditForm({
   field,
+  sections = [],
+  section,
   onSave,
   onRemove,
   onClose,
 }: {
   field: Field;
-  /** Receives only the properties the user actually changed. */
-  onSave: (fieldId: string, updates: Partial<Field>) => void;
+  /** Titles of the form's sections */
+  sections?: string[];
+  /** The section the field is in */
+  section?: string;
+  /**
+   * Receives only the properties the user actually changed, and the new
+   * section title (null = none) when it was changed.
+   */
+  onSave: (fieldId: string, updates: Partial<Field>, section?: string | null) => void;
   onRemove: (fieldId: string) => void;
   onClose: () => void;
 }) {
   const form = useForm<FieldEditFormValues>({
     resolver: zodResolver(fieldEditSchema),
-    defaultValues: valuesFromField(field),
+    defaultValues: valuesFromField(field, section),
   });
+  const watchSection = useWatch({ control: form.control, name: "section" });
   const [confirmingRemove, setConfirmingRemove] = useState(false);
 
   const watchKind = useWatch({ control: form.control, name: "kind" });
@@ -178,7 +200,16 @@ export function FieldEditForm({
     if (!lockedKind && TYPE_KEYS.some((k) => dirty[k])) {
       updates.type = buildFieldType(values, field.type);
     }
-    if (Object.keys(updates).length > 0) onSave(field.id, updates);
+    const nextSection =
+      values.section === NEW_SECTION
+        ? values.newSection.trim()
+        : values.section === NO_SECTION
+          ? null
+          : values.section;
+    const sectionChanged = nextSection !== (section ?? null);
+    if (Object.keys(updates).length > 0 || sectionChanged) {
+      onSave(field.id, updates, sectionChanged ? nextSection : undefined);
+    }
     onClose();
   };
 
@@ -404,6 +435,48 @@ export function FieldEditForm({
           />
 
           <CheckboxField form={form} name="required" label="Required" />
+
+          <FormField
+            control={form.control}
+            name="section"
+            render={({ field: f }) => (
+              <FormItem>
+                <FormLabel>Section</FormLabel>
+                <Select value={f.value} onValueChange={f.onChange}>
+                  <FormControl>
+                    <SelectTrigger className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    <SelectItem value={NO_SECTION}>No section</SelectItem>
+                    {sections.map((title) => (
+                      <SelectItem key={title} value={title}>
+                        {title}
+                      </SelectItem>
+                    ))}
+                    <SelectItem value={NEW_SECTION}>New section…</SelectItem>
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          {watchSection === NEW_SECTION && (
+            <FormField
+              control={form.control}
+              name="newSection"
+              render={({ field: f }) => (
+                <FormItem>
+                  <FormLabel>New section title</FormLabel>
+                  <FormControl>
+                    <Input {...f} placeholder="e.g. About you" autoFocus />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          )}
         </div>
 
         <SheetFooter className="flex-row items-center justify-between gap-2 border-t">

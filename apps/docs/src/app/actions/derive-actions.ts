@@ -72,16 +72,12 @@ const derivedFieldSchema = z.object({
   type: z
     .enum(["string", "number", "boolean", "date", "email", "select", "scale"])
     .describe("Field input type"),
-  scale: scaleSpecSchema.optional(),
-  required: z.boolean(),
   validation: z
-    .object({
-      options: z
-        .array(optionSchema)
-        .optional()
-        .describe("Required for select fields"),
-    })
-    .optional(),
+    .object({ options: z.array(optionSchema) })
+    .nullable()
+    .describe("Select fields: { options }; null for other types"),
+  scale: scaleSpecSchema.nullable().describe("Scale fields: the scale; null for other types"),
+  required: z.boolean(),
 });
 
 

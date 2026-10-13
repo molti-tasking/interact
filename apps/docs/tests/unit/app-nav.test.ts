@@ -65,6 +65,7 @@ describe("buildBreadcrumbs", () => {
     expect(buildBreadcrumbs("/portfolios/abc/provenance", titleOf).at(-1)).toEqual({
       label: "History",
     });
+    expect(buildBreadcrumbs("/portfolios/abc/activity", titleOf).at(-1)).toEqual({ label: "Activity" });
     expect(buildBreadcrumbs("/portfolios/abc/dashboard", titleOf)[1]).toEqual({
       label: "Soccer signup",
       href: "/portfolios/abc",

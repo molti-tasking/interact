@@ -38,6 +38,10 @@ import {
   refineSchemaFromIntentAction,
 } from "@/app/actions/schema-actions";
 import { interpretSpokenAnswerAction } from "@/app/actions/spoken-answer-actions";
+import {
+  reviseWidgetAction,
+  suggestDashboardAction,
+} from "@/app/actions/dashboard-actions";
 import { serializeForLLM } from "@/lib/engine/structured-intent";
 import { getStandardById } from "@/lib/standards";
 
@@ -796,6 +800,29 @@ describe("intentToSchemaAction", () => {
     expect(generateText.mock.calls[0][0].maxRetries).toBe(0);
   });
 
+  it("groups generated fields into sections with their intros", async () => {
+    generateText.mockResolvedValue({
+      output: {
+        artifactFormSchema: {
+          name: "Study",
+          description: "Post-session",
+          sections: [{ title: "Usability", description: "Rate each statement." }],
+          fields: [
+            { key: "group", label: "Group", type: "string", required: true, section: "About you" },
+            { key: "easy", label: "Easy to use", type: "string", required: true, section: "Usability" },
+            { key: "notes", label: "Notes", type: "string", required: false },
+          ],
+        },
+      },
+    });
+    const schema = (await intentToSchemaAction(intentWith({ purpose: "Study" }))).result!.artifactFormSchema;
+    expect(schema.groups.map((g) => [g.label, g.description])).toEqual([
+      ["About you", undefined],
+      ["Usability", "Rate each statement."],
+    ]);
+    expect(schema.fields.map((f) => f.name)).toEqual(["notes", "group", "easy"]);
+  });
+
   it("retries once on a transient error", async () => {
     generateText
       .mockRejectedValueOnce(
@@ -824,5 +851,56 @@ describe("intentToSchemaAction", () => {
     const response = await intentToSchemaAction(intentWith({ purpose: "Order" }));
     expect(response.success).toBe(false);
     expect(generateText).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("dashboard actions", () => {
+  const intent = intentWith({ purpose: "Fitness check-in" });
+
+  it("suggests widgets on the form's fields only", async () => {
+    generateText.mockResolvedValue({
+      output: {
+        widgets: [
+          { kind: "kpi", fieldKeys: [], title: "Overview", rationale: "How many?", size: "full" },
+          { kind: "distribution", fieldKeys: ["size"], title: "Sizes", rationale: "Which sizes?", size: "half" },
+          { kind: "numeric", fieldKeys: ["shoeSize"], title: "Ghost", rationale: "", size: "half" },
+        ],
+      },
+    });
+    const response = await suggestDashboardAction({ intent, schema: baseSchema, responseCount: 12 });
+    expect(response.success).toBe(true);
+    expect(response.widgets!.map((w) => [w.kind, w.fieldIds])).toEqual([
+      ["kpi", []],
+      ["distribution", ["f-size"]],
+    ]);
+    const call = generateText.mock.calls[0][0];
+    expect(call.prompt).toContain("Responses so far: 12");
+    expect(call.system).toContain('"likert"');
+    // No response data reaches the model
+    expect(call.prompt).not.toContain("submittedAt");
+  });
+
+  it("revises a widget in place, or explains what the form lacks", async () => {
+    const widget = { id: "w1", kind: "distribution" as const, title: "Sizes", fieldIds: ["f-size"] };
+    generateText.mockResolvedValueOnce({
+      output: {
+        possible: true,
+        reason: "",
+        widget: { kind: "numeric", fieldKeys: ["weight"], title: "Weight", rationale: "", size: "half" },
+      },
+    });
+    const revised = await reviseWidgetAction({ intent, schema: baseSchema, widget, instruction: "show weight instead" });
+    expect(revised.widget).toMatchObject({ id: "w1", kind: "numeric", fieldIds: ["f-weight"], prompt: "show weight instead" });
+    expect(generateText.mock.calls[0][0].prompt).toContain('fields [size]');
+
+    generateText.mockResolvedValueOnce({
+      output: {
+        possible: false,
+        reason: "The form doesn't ask for the respondent's role.",
+        widget: { kind: "kpi", fieldKeys: [], title: "", rationale: "", size: "half" },
+      },
+    });
+    const impossible = await reviseWidgetAction({ intent, schema: baseSchema, instruction: "split by role" });
+    expect(impossible).toEqual({ success: false, error: "The form doesn't ask for the respondent's role." });
   });
 });

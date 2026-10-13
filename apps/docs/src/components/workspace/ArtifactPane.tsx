@@ -12,18 +12,27 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { useUpdatePortfolio } from "@/hooks/query/portfolios";
+import { useCurrentUser } from "@/context/user-context";
+import { useCommitPortfolio, useUpdatePortfolio } from "@/hooks/query/portfolios";
+import { useUndoToast } from "@/hooks/query/undo";
+import { formatActor } from "@/lib/mock-users";
+import {
+  moveSection,
+  removeSection,
+  updateSection,
+} from "@/lib/engine/sections";
 import { previewSchemaChange } from "@/lib/engine/probe-preview";
 import {
   FormRenderer,
   type FieldMark,
 } from "@/lib/form-renderer/FormRenderer";
-import type { Field, Portfolio, PortfolioSchema } from "@/lib/types";
+import type { Field, FieldGroup, Portfolio, PortfolioSchema } from "@/lib/types";
 import {
   Check,
   Copy,
   ExternalLink,
   Eye,
+  Files,
   Network,
   ShareIcon,
   TriangleAlert,
@@ -32,6 +41,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { AddFieldInline } from "./AddFieldInline";
+import { SectionDialog, type SectionEdit } from "./SectionDialog";
 import { ArtifactCanvas, scrollIntoCanvasView } from "./ArtifactCanvas";
 import {
   useConflictMarks,
@@ -75,6 +85,65 @@ export function ArtifactPane({
 }: ArtifactPaneProps) {
   const schema = portfolio.schema;
   const fieldCount = schema.fields.length;
+
+  // Sections: edit from their heading on the canvas; one page or one per page
+  const commitPortfolio = useCommitPortfolio(portfolio.id);
+  const notifyUndo = useUndoToast();
+  const { currentUser } = useCurrentUser();
+  const actor = formatActor(currentUser);
+  const [editingSection, setEditingSection] = useState<FieldGroup | null>(null);
+  const sectionIndex = editingSection
+    ? schema.groups.findIndex((g) => g.id === editingSection.id)
+    : -1;
+
+  const commitSections = async (
+    change: (s: PortfolioSchema) => PortfolioSchema,
+    rationale: string,
+  ) => {
+    try {
+      const result = await commitPortfolio.mutateAsync((current) => ({
+        schema: change(current.schema),
+        provenance: { layer: "configuration", action: "sections_edited", actor, rationale },
+      }));
+      notifyUndo(result, rationale);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Couldn't update the sections");
+    }
+  };
+
+  const handleSectionEdit = (edit: SectionEdit) => {
+    const section = editingSection;
+    if (!section) return;
+    if (edit.kind === "move") {
+      // Keep the dialog open on the moved section
+      void commitSections(
+        (s) => moveSection(s, section.id, edit.delta),
+        `Moved section "${section.label}" ${edit.delta < 0 ? "up" : "down"}`,
+      );
+      return;
+    }
+    setEditingSection(null);
+    if (edit.kind === "remove") {
+      void commitSections(
+        (s) => removeSection(s, section.id),
+        `Removed section "${section.label}" (its questions stay)`,
+      );
+    } else {
+      void commitSections(
+        (s) => updateSection(s, section.id, edit),
+        edit.label.trim() !== section.label
+          ? `Renamed section "${section.label}" to "${edit.label.trim()}"`
+          : `Edited the intro of section "${section.label}"`,
+      );
+    }
+  };
+
+  const paged = schema.layout === "paged";
+  const togglePaged = () =>
+    commitSections(
+      (s) => ({ ...s, layout: paged ? "single" : "paged" }),
+      paged ? "Show all sections on one page" : "Show one section per page",
+    );
 
   // Track which fields changed since the last render of this portfolio so
   // AI-driven edits (probes, voice, conflict fixes) are visible where they
@@ -191,6 +260,24 @@ export function ArtifactPane({
         >
           {fieldCount} field{fieldCount !== 1 ? "s" : ""}
         </span>
+        {schema.groups.length > 0 && (
+          <button
+            type="button"
+            data-testid="toggle-paged"
+            aria-pressed={paged}
+            onClick={togglePaged}
+            disabled={commitPortfolio.isPending}
+            title={
+              paged
+                ? "Respondents see one section per page — click to show all on one page"
+                : "Respondents see all sections on one page — click to show one per page"
+            }
+            className="flex cursor-pointer items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring aria-pressed:bg-primary/10 aria-pressed:text-foreground"
+          >
+            <Files className="h-3 w-3" aria-hidden />
+            {paged ? "Page per section" : "One page"}
+          </button>
+        )}
         {conflicts.length > 0 && (
           <button
             type="button"
@@ -269,6 +356,7 @@ export function ArtifactPane({
           schema={preview?.schema ?? schema}
           mode="preview"
           onFieldClick={preview ? undefined : onFieldClick}
+          onSectionClick={preview ? undefined : setEditingSection}
           fieldAnnotations={preview?.annotations}
           fieldMarks={preview ? undefined : fieldMarks}
           className="space-y-4"
@@ -279,6 +367,17 @@ export function ArtifactPane({
           </div>
         )}
       </div>
+      <SectionDialog
+        section={
+          editingSection
+            ? (schema.groups.find((g) => g.id === editingSection.id) ?? null)
+            : null
+        }
+        index={sectionIndex}
+        count={schema.groups.length}
+        onOpenChange={(open) => !open && setEditingSection(null)}
+        onEdit={handleSectionEdit}
+      />
     </ArtifactCanvas>
   );
 }

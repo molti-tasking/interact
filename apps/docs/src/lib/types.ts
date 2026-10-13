@@ -176,6 +176,7 @@ export interface Field {
 export const fieldGroupZ = z.object({
   id: z.string(),
   label: z.string(),
+  description: z.string().optional(),
   fieldIds: z.array(z.string()),
   conditional: z
     .object({
@@ -185,9 +186,16 @@ export const fieldGroupZ = z.object({
     .optional(),
 });
 
+/**
+ * A section of the form: a titled part (e.g. "About you", "Usability") that
+ * respondents see as a heading — or as its own page in a paged form.
+ * A field belongs to at most one section (see `engine/sections.ts`).
+ */
 export interface FieldGroup {
   id: string;
   label: string;
+  /** Intro text shown under the title (e.g. instructions for a questionnaire) */
+  description?: string;
   fieldIds: string[];
   conditional?: { fieldId: string; value: unknown };
 }
@@ -263,12 +271,67 @@ export interface AcceptedStandardRef {
   domain: string;
 }
 
+// Response dashboard — suggested from the intent, edited by the creator,
+// stored with the schema (like column actions) so changes show in History.
+
+export const DASHBOARD_WIDGET_KINDS = [
+  "kpi",
+  "distribution",
+  "likert",
+  "numeric",
+  "timeline",
+  "crosstab",
+  "text",
+] as const;
+export type DashboardWidgetKind = (typeof DASHBOARD_WIDGET_KINDS)[number];
+
+export const dashboardWidgetZ = z.object({
+  id: z.string(),
+  kind: z.enum(DASHBOARD_WIDGET_KINDS),
+  title: z.string(),
+  fieldIds: z.array(z.string()),
+  rationale: z.string().optional(),
+  size: z.enum(["half", "full"]).optional(),
+  prompt: z.string().optional(),
+});
+
+export interface DashboardWidget {
+  id: string;
+  kind: DashboardWidgetKind;
+  title: string;
+  /**
+   * The fields charted: one for most kinds, every item of a Likert battery,
+   * [rows, columns] for a crosstab, a date field or none for a timeline,
+   * none for KPIs.
+   */
+  fieldIds: string[];
+  /** The question from the intent this answers */
+  rationale?: string;
+  size?: "half" | "full";
+  /** What the creator asked for when adding or changing it by description */
+  prompt?: string;
+}
+
+export const dashboardSpecZ = z.object({
+  widgets: z.array(dashboardWidgetZ),
+  suggestedAt: z.string().optional(),
+  updatedAt: z.string().optional(),
+});
+
+export interface DashboardSpec {
+  widgets: DashboardWidget[];
+  suggestedAt?: string;
+  updatedAt?: string;
+}
+
 export const portfolioSchemaZ = z.object({
   fields: z.array(fieldZ),
   groups: z.array(fieldGroupZ),
   version: z.number(),
   columnActions: z.array(savedColumnActionZ).optional(),
   acceptedStandards: z.array(acceptedStandardRefZ).optional(),
+  dashboard: dashboardSpecZ.optional(),
+  layout: z.enum(["single", "paged"]).optional(),
 });
 
 export interface PortfolioSchema {
@@ -277,6 +340,9 @@ export interface PortfolioSchema {
   version: number;
   columnActions?: SavedColumnAction[];
   acceptedStandards?: AcceptedStandardRef[];
+  dashboard?: DashboardSpec;
+  /** How respondents see the sections: one page (default), or one per page */
+  layout?: "single" | "paged";
 }
 
 // ---------------------------------------------------------------------------

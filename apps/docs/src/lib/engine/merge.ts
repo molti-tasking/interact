@@ -122,6 +122,8 @@ export function mergeSchemaChange(
     groups,
     acceptedStandards: pick("acceptedStandards"),
     columnActions: pick("columnActions"),
+    dashboard: pick("dashboard"),
+    layout: pick("layout"),
     version: Math.max(theirs.version, ours.version) + (same(base, theirs) ? 0 : 1),
   };
 }

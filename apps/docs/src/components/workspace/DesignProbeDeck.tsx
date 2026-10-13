@@ -58,6 +58,7 @@ import {
   type VoiceAnswerResult,
 } from "@/hooks/voice/useVoiceAnswers";
 import type { ConflictFixPreview } from "@/lib/engine/conflict-changes";
+import { findingApplies, findingOptionPreview } from "@/lib/engine/findings";
 import { rankProbes } from "@/lib/engine/probe-preview";
 import { formatActor } from "@/lib/mock-users";
 import type {
@@ -137,6 +138,41 @@ export function DesignProbeDeck({
 
   // Work out what each answer would change before it's chosen
   usePrecomputeProbePreviews(portfolio, designProbes, spacePortfolios);
+
+  // Findings from the responses: their answers are rebuilt from the form as
+  // it is now (a stored patch could drop options added since); a finding
+  // that no longer applies (field or option gone) is retired.
+  const probes = useMemo(
+    () =>
+      (designProbes ?? []).map((probe) =>
+        probe.source === "data" && probe.status === "pending"
+          ? {
+              ...probe,
+              options: probe.options.map((option) => ({
+                ...option,
+                preview:
+                  findingOptionPreview(probe.dimensionId, option.value, portfolioSchema) ??
+                  undefined,
+              })),
+            }
+          : probe,
+      ),
+    [designProbes, portfolioSchema],
+  );
+  const staleFindingIds = (designProbes ?? [])
+    .filter(
+      (p) =>
+        p.source === "data" &&
+        p.status === "pending" &&
+        !findingApplies(p.dimensionId, portfolioSchema),
+    )
+    .map((p) => p.id)
+    .join(",");
+  const { mutate: dismissProbe } = dismissDesignProbe;
+  useEffect(() => {
+    if (!staleFindingIds) return;
+    for (const id of staleFindingIds.split(",")) dismissProbe(id);
+  }, [staleFindingIds, dismissProbe]);
 
   // The card whose options are shown; defaults to the most important one.
   // Shared with the canvas, where clicking a conflict marker opens its card.
@@ -282,7 +318,7 @@ export function DesignProbeDeck({
     probeId: string,
     selectedValue: string,
   ): Promise<boolean> => {
-    const probe = (designProbes ?? []).find((o) => o.id === probeId);
+    const probe = probes.find((o) => o.id === probeId);
     if (!probe || probe.status !== "pending" || busyIds.has(probeId)) {
       return false;
     }
@@ -444,7 +480,11 @@ export function DesignProbeDeck({
   const isLoading = busyIds.size > 0;
 
   const pendingProbes = rankProbes(
-    (designProbes ?? []).filter((d) => d.status === "pending"),
+    probes.filter(
+      (d) =>
+        d.status === "pending" &&
+        (d.source !== "data" || findingApplies(d.dimensionId, portfolioSchema)),
+    ),
   );
   // Conflicts rank with the probes by severity; at equal rank they go first
   const entries: DeckEntry[] = [

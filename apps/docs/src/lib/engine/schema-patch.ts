@@ -11,6 +11,7 @@
 
 import type { Field, FieldGroup, FieldType, PortfolioSchema } from "../types";
 import { scaleFromSpec, type ScaleSpec } from "./scale";
+import { assignSection } from "./sections";
 
 // ---------------------------------------------------------------------------
 // Patch shape (mirrors the LLM structured-output schema)
@@ -33,16 +34,19 @@ export interface PatchField {
   tooltip?: string;
   type: PatchFieldKind;
   required: boolean;
-  validation?: { options?: unknown[] };
+  /** null/omitted: none (the LLM writes null for fields that aren't selects) */
+  validation?: { options?: unknown[] } | null;
   /** For type "scale": its points or range */
-  scale?: ScaleSpec;
-  referenceTarget?: string;
+  scale?: ScaleSpec | null;
+  referenceTarget?: string | null;
 }
 
 export interface SchemaPatch {
   addFields?: PatchField[];
   removeFieldKeys?: string[];
   updateFields?: PatchField[];
+  /** Fields (by key) that go into the section with this title; "" = none */
+  sections?: { title: string; fieldKeys: string[] }[];
 }
 
 export interface ApplyPatchResult {
@@ -98,8 +102,8 @@ export function normalizeOptions(
 /** Build a fresh FieldType from the coarse LLM kind. */
 export function convertPatchFieldType(
   type: PatchFieldKind | string,
-  validation?: { options?: unknown[] },
-  scale?: ScaleSpec,
+  validation?: { options?: unknown[] } | null,
+  scale?: ScaleSpec | null,
 ): FieldType {
   switch (type) {
     case "select":
@@ -109,7 +113,7 @@ export function convertPatchFieldType(
         multiple: false,
       };
     case "scale":
-      return scaleFromSpec(scale);
+      return scaleFromSpec(scale ?? undefined);
     case "number":
       return { kind: "number" };
     case "boolean":
@@ -170,6 +174,27 @@ export function resolvePatchFieldType(
   }
 
   return convertPatchFieldType(f.type, f.validation, f.scale);
+}
+
+/**
+ * An existing field as a full patch definition, for building an update
+ * that changes one thing (options minus one, required off) and keeps the
+ * rest. A scale's points/range aren't spelled out, so they stay as stored.
+ */
+export function patchFieldFromField(field: Field): PatchField {
+  const { type } = field;
+  return {
+    key: field.name,
+    label: field.label,
+    description: field.description,
+    tooltip: field.tooltip,
+    type: coarseKind(type),
+    required: field.required,
+    ...(type.kind === "select"
+      ? { validation: { options: type.options.map((o) => ({ ...o })) } }
+      : {}),
+    ...(type.kind === "reference" ? { referenceTarget: type.targetPortfolioId } : {}),
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -303,16 +328,33 @@ export function applySchemaPatch(
   const changed =
     applied.added.length + applied.updated.length + applied.removed.length > 0;
 
-  return {
-    schema: {
-      ...schema,
-      fields,
-      groups: pruneGroups(schema.groups ?? [], survivingIds),
-      version: changed ? schema.version + 1 : schema.version,
-    },
-    applied,
-    skipped,
+  let result: PortfolioSchema = {
+    ...schema,
+    fields,
+    groups: pruneGroups(schema.groups ?? [], survivingIds),
+    version: changed ? schema.version + 1 : schema.version,
   };
+
+  // Sections: fields named in a placement join that section ("" = none).
+  // A field that changes section counts as updated.
+  const sectionTitle = (s: PortfolioSchema, id: string) =>
+    s.groups.find((g) => g.fieldIds.includes(id))?.label.trim().toLowerCase() ?? "";
+  for (const placement of patch.sections ?? []) {
+    for (const key of placement.fieldKeys) {
+      const field = result.fields.find((x) => x.name === key);
+      if (!field) continue;
+      const before = sectionTitle(result, field.id);
+      result = assignSection(result, field.id, placement.title || null);
+      if (sectionTitle(result, field.id) !== before && !applied.updated.includes(key)) {
+        applied.updated.push(key);
+      }
+    }
+  }
+  if (!changed && applied.updated.length > 0) {
+    result = { ...result, version: schema.version + 1 };
+  }
+
+  return { schema: result, applied, skipped };
 }
 
 // ---------------------------------------------------------------------------
@@ -378,6 +420,8 @@ export function mergeRegeneratedSchema(
     acceptedStandards:
       generated.acceptedStandards ?? current.acceptedStandards,
     columnActions: current.columnActions ?? generated.columnActions,
+    dashboard: current.dashboard ?? generated.dashboard,
+    layout: current.layout ?? generated.layout,
     version: Math.max(current.version, generated.version) + 1,
   };
 }

@@ -2,13 +2,38 @@
 
 import { PortfolioHeader } from "@/components/portfolio-header";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { usePortfolio } from "@/hooks/query/portfolios";
 import { useResponses } from "@/hooks/query/responses-new";
 import { useResponsesWithParent } from "@/hooks/query/responses-lineage";
-import { Loader2 } from "lucide-react";
-import { useParams } from "next/navigation";
+import { BarChart3, Loader2, Table2 } from "lucide-react";
+import {
+  useParams,
+  usePathname,
+  useRouter,
+  useSearchParams,
+} from "next/navigation";
+import { ResponsesDashboard } from "./_components/dashboard/responses-dashboard";
 import { QueryError } from "./_components/query-error";
 import { ResponsesDataTable } from "./_components/responses-data-table";
+
+type ResponsesView = "table" | "dashboard";
+
+/** The view lives in the URL (`?view=dashboard`) so it can be linked to. */
+function useResponsesView(): [ResponsesView, (view: ResponsesView) => void] {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const view = searchParams.get("view") === "dashboard" ? "dashboard" : "table";
+  const setView = (next: ResponsesView) => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (next === "table") params.delete("view");
+    else params.set("view", next);
+    const qs = params.toString();
+    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+  };
+  return [view, setView];
+}
 
 function Spinner() {
   return (
@@ -33,6 +58,7 @@ export default function ResponsesPage() {
 }
 
 function ResponsesContent({ portfolioId }: { portfolioId: string }) {
+  const [view, setView] = useResponsesView();
   const portfolioQuery = usePortfolio(portfolioId);
   const portfolio = portfolioQuery.data;
   const isDerived = !!portfolio?.base_id;
@@ -81,22 +107,47 @@ function ResponsesContent({ portfolioId }: { portfolioId: string }) {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-xl tracking-tight">Responses</h2>
-        <div className="flex items-center gap-2">
-          <p data-testid="response-count" className="text-muted-foreground">
-            {responses.length} response
-            {responses.length !== 1 ? "s" : ""} collected.
-          </p>
-          {isDerived && parentCount > 0 && (
-            <Badge variant="outline" className="text-xs">
-              {parentCount} from parent
-            </Badge>
-          )}
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h2 className="text-xl tracking-tight">Responses</h2>
+          <div className="flex items-center gap-2">
+            <p data-testid="response-count" className="text-muted-foreground">
+              {responses.length} response
+              {responses.length !== 1 ? "s" : ""} collected.
+            </p>
+            {isDerived && parentCount > 0 && (
+              <Badge variant="outline" className="text-xs">
+                {parentCount} from parent
+              </Badge>
+            )}
+          </div>
         </div>
+        <Tabs
+          value={view}
+          onValueChange={(v) => setView(v as ResponsesView)}
+        >
+          <TabsList aria-label="Responses view">
+            <TabsTrigger value="table" data-testid="view-table">
+              <Table2 className="h-3.5 w-3.5" aria-hidden />
+              Table
+            </TabsTrigger>
+            <TabsTrigger value="dashboard" data-testid="view-dashboard">
+              <BarChart3 className="h-3.5 w-3.5" aria-hidden />
+              Dashboard
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
       </div>
 
-      <ResponsesDataTable portfolio={portfolio} responses={responses} />
+      {view === "dashboard" ? (
+        <ResponsesDashboard
+          portfolio={portfolio}
+          responses={responses}
+          refetchRows={async () => (await responsesQuery.refetch()).data ?? []}
+        />
+      ) : (
+        <ResponsesDataTable portfolio={portfolio} responses={responses} />
+      )}
     </div>
   );
 }

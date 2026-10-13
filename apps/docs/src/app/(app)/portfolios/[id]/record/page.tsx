@@ -30,7 +30,7 @@ import {
   type VoiceInteractionMode,
 } from "@/lib/voice-modes";
 import {
-  BarChart3,
+  Activity,
   Check,
   ClipboardList,
   Folder,
@@ -388,8 +388,8 @@ export default function RecordModePage() {
           <NavLink href={`/portfolios/${id}/provenance`} icon={<History />}>
             History
           </NavLink>
-          <NavLink href={`/portfolios/${id}/dashboard`} icon={<BarChart3 />}>
-            Dashboard
+          <NavLink href={`/portfolios/${id}/activity`} icon={<Activity />}>
+            Activity
           </NavLink>
           <NavLink href={`/forms/${id}`} icon={<ClipboardList />}>
             Form

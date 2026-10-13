@@ -86,6 +86,15 @@ describe("mergeSchemaChange", () => {
     expect(merged.fields.map((f) => f.id)).toEqual(["b"]);
   });
 
+  it("keeps a dashboard saved on either side", () => {
+    const dashboard = { widgets: [{ id: "w", kind: "kpi" as const, title: "Overview", fieldIds: [] }] };
+    const theirs = schema(base.fields, { dashboard });
+    const ours = schema([...base.fields, field("c", "phone")]);
+    expect(mergeSchemaChange(base, ours, theirs).dashboard).toEqual(dashboard);
+    const oursWith = schema(base.fields, { dashboard });
+    expect(mergeSchemaChange(base, oursWith, base).dashboard).toEqual(dashboard);
+  });
+
   it("carries metadata changed only on their side", () => {
     const theirs = schema(base.fields, {
       acceptedStandards: [{ standardId: "s", standardName: "S", domain: "d" }],

@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { usePortfolioActivity } from "@/lib/workspace-activity";
 import {
-  BarChart3,
+  Activity,
   ClipboardList,
   ExternalLink,
   History,
@@ -32,7 +32,7 @@ export function PortfolioNav({
   const tabs = [
     { href: base, label: "Design", icon: Pencil, exact: true },
     { href: `/responses/${portfolioId}`, label: "Responses", icon: ClipboardList },
-    { href: `${base}/dashboard`, label: "Dashboard", icon: BarChart3 },
+    { href: `${base}/activity`, label: "Activity", icon: Activity },
     { href: `${base}/provenance`, label: "History", icon: History },
   ];
 

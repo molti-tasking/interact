@@ -562,7 +562,18 @@ export function serializeSchemaForLLM(
 ): string {
   if (schema.fields.length === 0) return "(no fields yet)";
 
+  // Section headings in the field list (unless groups are listed below)
+  const sectionStarts = new Map<string, string>();
+  if (!opts.groups) {
+    for (const g of schema.groups) {
+      const first = schema.fields.find((f) => g.fieldIds.includes(f.id));
+      if (first) sectionStarts.set(first.id, g.label);
+    }
+  }
+
   const lines = schema.fields.map((f) => {
+    const section = sectionStarts.get(f.id);
+    const heading = section ? `Section ${JSON.stringify(section)}:\n` : "";
     const id = opts.ids ? `[${f.id}] ` : "";
     const required = f.required ? ", required" : "";
     const description = f.description ? ` — ${f.description}` : "";
@@ -573,7 +584,7 @@ export function serializeSchemaForLLM(
         .join("; ");
       line += `\n    constraints: ${constraints}`;
     }
-    return line;
+    return heading + line;
   });
 
   if (opts.groups && schema.groups.length > 0) {

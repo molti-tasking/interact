@@ -9,6 +9,7 @@ import {
 } from "@/app/actions/design-probe-actions";
 import type { DetectedStandard } from "@/lib/domain-standards";
 import { commitPortfolioChange, type CommitResult } from "@/lib/engine/commit";
+import { findingProbe, type Finding } from "@/lib/engine/findings";
 import { mergeIntentChange, mergeSchemaChange } from "@/lib/engine/merge";
 import {
   MAX_OPEN_PROBES,
@@ -112,6 +113,12 @@ export async function fetchDesignDecisions(portfolioId: string) {
 }
 
 /**
+ * Probes curation never retires: standards have their own accept/skip flow,
+ * and findings from the responses rest on data the curating LLM doesn't see.
+ */
+const PROTECTED_SOURCES: ReadonlySet<string> = new Set(["standard", "data"]);
+
+/**
  * Per portfolio: the form (`schemaFingerprint`) the open probes were last
  * generated or curated against, so a change to the form triggers exactly
  * one curation pass. Module-level so it survives the deck remounting.
@@ -197,8 +204,8 @@ export interface CurateProbesResult {
  * Review the open probes against the form as it is now: retire the ones
  * that no longer apply (settled, duplicated, off-purpose), re-rank the rest,
  * add new ones where something important is uncovered — and keep at most
- * `MAX_OPEN_PROBES` open. Standard probes have their own flow and are left
- * alone.
+ * `MAX_OPEN_PROBES` open. Standard probes and findings from the responses
+ * are left alone (`PROTECTED_SOURCES`).
  */
 export function useCurateDesignProbes(portfolioId: string) {
   const queryClient = useQueryClient();
@@ -221,7 +228,7 @@ export function useCurateDesignProbes(portfolioId: string) {
       return trackActivity(portfolioId, "Updating questions", async () => {
         const probes = await fetchDesignProbes(portfolioId);
         const open = rankProbes(
-          probes.filter((p) => p.status === "pending" && p.source !== "standard"),
+          probes.filter((p) => p.status === "pending" && !PROTECTED_SOURCES.has(p.source)),
         );
         if (open.length === 0 && mode === "changes") {
           return { dropped: 0, added: 0 };
@@ -302,7 +309,7 @@ export function useAutoCurateProbes(
   const fingerprint = schemaFingerprint(portfolio.schema);
   const loaded = probes !== undefined;
   const openCount =
-    probes?.filter((p) => p.status === "pending" && p.source !== "standard")
+    probes?.filter((p) => p.status === "pending" && !PROTECTED_SOURCES.has(p.source))
       .length ?? 0;
 
   const latest = useRef(portfolio);
@@ -993,6 +1000,64 @@ export function useInsertStandardProbes(portfolioId: string) {
       if (error) throw error;
     },
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: designProbesKey(portfolioId) });
+    },
+  });
+}
+
+/**
+ * Send a finding from the response dashboard to the Design deck as a probe
+ * (source "data", keyed by the finding). Its answers are computed already,
+ * so they apply instantly. A finding that is already open isn't sent twice.
+ */
+export function useSendFindingToDeck(portfolioId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      finding,
+      schema,
+    }: {
+      finding: Finding;
+      schema: PortfolioSchema;
+    }): Promise<{ alreadyOpen: boolean }> => {
+      const probe = findingProbe(finding, schema);
+      const field = schema.fields.find((f) => f.id === finding.fieldId);
+      if (!probe || !field) {
+        throw new Error("This finding doesn't apply to the form anymore.");
+      }
+
+      const supabase = createClient();
+      const { data: open, error: readError } = await supabase
+        .from("design_probes")
+        .select("id")
+        .eq("portfolio_id", portfolioId)
+        .eq("source", "data")
+        .eq("dimension_id", finding.key)
+        .in("status", ["pending", "loading"])
+        .limit(1);
+      if (readError) throw readError;
+      if (open?.length) return { alreadyOpen: true };
+
+      const { error } = await supabase.from("design_probes").insert({
+        portfolio_id: portfolioId,
+        text: probe.text,
+        explanation: probe.explanation,
+        layer: "dimensions",
+        source: "data",
+        options: JSON.parse(JSON.stringify(probe.options)),
+        selected_option: null,
+        status: "pending",
+        priority: 2,
+        // Answers are computed from the form — no LLM preview needed
+        preview_status: "ready",
+        dimension_id: finding.key,
+        dimension_name: field.label,
+      });
+      if (error) throw error;
+      return { alreadyOpen: false };
+    },
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: designProbesKey(portfolioId) });
     },
   });

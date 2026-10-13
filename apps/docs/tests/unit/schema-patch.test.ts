@@ -133,6 +133,11 @@ describe("mergeRegeneratedSchema", () => {
     version: 1,
   };
 
+  it("keeps the response dashboard", () => {
+    const dashboard = { widgets: [{ id: "w", kind: "kpi" as const, title: "Overview", fieldIds: [] }] };
+    expect(mergeRegeneratedSchema({ ...current, dashboard }, generated).dashboard).toEqual(dashboard);
+  });
+
   it("keeps ids, type details, creator fields and metadata", () => {
     const merged = mergeRegeneratedSchema(current, generated);
     const weight = merged.fields.find((f) => f.name === "weight")!;

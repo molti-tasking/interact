@@ -7,7 +7,8 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import type { Field } from "@/lib/types";
+import { sectionOf } from "@/lib/engine/sections";
+import type { Field, PortfolioSchema } from "@/lib/types";
 import { FieldEditForm } from "./FieldEditForm";
 
 // ---------------------------------------------------------------------------
@@ -16,9 +17,11 @@ import { FieldEditForm } from "./FieldEditForm";
 
 interface FieldEditDrawerProps {
   field: Field | null;
+  /** The form, for the field's section */
+  schema?: PortfolioSchema;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSave: (fieldId: string, updates: Partial<Field>) => void;
+  onSave: (fieldId: string, updates: Partial<Field>, section?: string | null) => void;
   onRemove: (fieldId: string) => void;
 }
 
@@ -28,6 +31,7 @@ interface FieldEditDrawerProps {
 
 export function FieldEditDrawer({
   field,
+  schema,
   open,
   onOpenChange,
   onSave,
@@ -49,6 +53,8 @@ export function FieldEditDrawer({
         <FieldEditForm
           key={field.id}
           field={field}
+          sections={schema?.groups.map((g) => g.label)}
+          section={schema ? sectionOf(schema, field.id)?.label : undefined}
           onSave={onSave}
           onRemove={onRemove}
           onClose={() => onOpenChange(false)}

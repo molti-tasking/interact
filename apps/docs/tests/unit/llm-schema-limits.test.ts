@@ -1,4 +1,8 @@
 import { conflictChangesSchema } from "@/lib/engine/conflict-changes";
+import {
+  dashboardSuggestionSchema,
+  widgetRevisionSchema,
+} from "@/lib/engine/dashboard";
 import { schemaPatchSchema } from "@/lib/engine/form-model";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
@@ -36,6 +40,11 @@ describe("structured output size", () => {
   it("leaves room in schema patches for the responses that embed them", () => {
     // Preview and resolve responses add an optional follow-up question
     expect(optionalCount(schemaPatchSchema) + 1).toBeLessThanOrEqual(PROVIDER_LIMIT);
+  });
+
+  it("keeps dashboard suggestions free of optional parameters", () => {
+    expect(optionalCount(dashboardSuggestionSchema)).toBe(0);
+    expect(optionalCount(widgetRevisionSchema)).toBe(0);
   });
 
   it("keeps conflict fixes within the limit", () => {

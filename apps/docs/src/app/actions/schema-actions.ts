@@ -4,6 +4,7 @@ import type { DetectedStandard } from "@/lib/domain-standards";
 import {
   FORM_MODEL_RULES,
   SCALE_FIELD_RULES,
+  SECTION_RULES,
   scaleSpecSchema,
   schemaPatchRules,
   schemaPatchSchema,
@@ -13,6 +14,7 @@ import {
   newFieldId,
   type SchemaPatch,
 } from "@/lib/engine/schema-patch";
+import { sectionsFromTitles } from "@/lib/engine/sections";
 import {
   normalizeFieldKey,
   serializeForLLM,
@@ -63,32 +65,35 @@ const optionSchema = z.object({
   value: z.string(),
 });
 
-const fieldSchema = z.object({
+/**
+ * Property order matters: the model writes them in this order and tends to
+ * skip an optional property placed far from the one it depends on (select
+ * options, scale points after `type`) — and then leaks what it meant into
+ * the next string, e.g. the key.
+ */
+const namedFieldSchema = z.object({
+  key: z.string().describe("camelCase field key, e.g. firstName"),
   label: z.string().describe("Human-readable field label"),
-  description: z.string().optional().describe("Brief help text shown below the field — omit if the label is self-explanatory"),
-  tooltip: z.string().optional().describe("Extra guidance shown on hover — omit if not needed"),
   type: z
     .enum(["string", "number", "boolean", "date", "email", "select", "scale"])
     .describe("Field input type"),
-  // Right after `type`: further away, the model tends to skip it
-  scale: scaleSpecSchema.optional(),
-  required: z.boolean(),
+  // Required-but-nullable: a skipped optional here derails the rest of the output
   validation: z
-    .object({
-      options: z
-        .array(optionSchema)
-        .optional()
-        .describe("Required for select fields"),
-    })
-    .optional(),
+    .object({ options: z.array(optionSchema) })
+    .nullable()
+    .describe("Select fields: { options }; null for other types"),
+  scale: scaleSpecSchema.nullable().describe("Scale fields: the scale; null for other types"),
+  required: z.boolean(),
+  description: z.string().optional().describe("Brief help text shown below the field — omit if the label is self-explanatory"),
+  tooltip: z.string().optional().describe("Extra guidance shown on hover — omit if not needed"),
   standardReference: z
     .string()
     .optional()
     .describe("Reference to the domain standard, e.g. FHIR Patient.birthDate"),
-});
-
-const namedFieldSchema = fieldSchema.extend({
-  key: z.string().describe("camelCase field key, e.g. firstName"),
+  section: z
+    .string()
+    .optional()
+    .describe("Title of the section this field is in — omit when the form has no sections"),
 });
 
 const schemaResponseSchema = z.object({
@@ -96,6 +101,17 @@ const schemaResponseSchema = z.object({
     name: z.string(),
     description: z.string(),
     appliedStandards: z.array(z.string()).optional(),
+    sections: z
+      .array(
+        z.object({
+          title: z.string(),
+          description: z
+            .string()
+            .describe("Intro shown under the title, e.g. instructions for rating statements; empty if none"),
+        }),
+      )
+      .optional()
+      .describe("The form's sections in order — omit when it needs none"),
     fields: z.array(namedFieldSchema).describe("Form fields — the minimum viable set for this domain (max 15)"),
   }),
 });
@@ -171,6 +187,7 @@ Design the form fields using these types:
 
 RULES:
 ${SCALE_FIELD_RULES}
+${SECTION_RULES} A questionnaire's rating statements usually get their own section, with the rating instructions as its description.
 - Generate ONLY the fields the user explicitly mentioned or that are absolutely unavoidable (e.g. a name field for a registration). Typically 3-6 fields for an initial generation. Do NOT anticipate domain-specific requirements — those will be elicited through design probes. Err on the side of fewer fields; it is better to add fields through probes than to pre-generate fields the user didn't ask for.
 - Field keys MUST be camelCase and descriptive
 - "description" should be SHORT (a few words) — omit entirely if the label already makes the field obvious
@@ -215,6 +232,7 @@ ${SCALE_FIELD_RULES}
     // and unique — a duplicate key from the model is dropped.
     const usedNames = new Set<string>();
     const fields: Field[] = [];
+    const sectionOfField = new Map<string, string>();
     for (const [index, f] of parsedResult.artifactFormSchema.fields.entries()) {
       const standardKey = f.standardReference
         ? keyByReference.get(f.standardReference.trim().toLowerCase())
@@ -226,8 +244,10 @@ ${SCALE_FIELD_RULES}
         continue;
       }
       usedNames.add(name);
+      const id = newFieldId();
+      if (f.section?.trim()) sectionOfField.set(id, f.section);
       fields.push({
-        id: newFieldId(),
+        id,
         name,
         label: f.label,
         type: convertPatchFieldType(f.type, f.validation, f.scale),
@@ -240,11 +260,15 @@ ${SCALE_FIELD_RULES}
       });
     }
 
-    const artifactFormSchema: PortfolioSchema = {
-      fields: applyStandardPatterns(fields, acceptedStandards),
-      groups: [],
-      version: 1,
-    };
+    const artifactFormSchema: PortfolioSchema = sectionsFromTitles(
+      {
+        fields: applyStandardPatterns(fields, acceptedStandards),
+        groups: [],
+        version: 1,
+      },
+      (field) => sectionOfField.get(field.id),
+      parsedResult.artifactFormSchema.sections,
+    );
 
     // Compliance validation: check mandatory standard fields are present
     if (acceptedStandards.length > 0) {
@@ -381,7 +405,8 @@ Current form schema (it already reflects earlier decisions and direct edits):
 ${serializeSchemaForLLM(currentSchema)}
 ${decisionBlock}${standardsBlock}
 Return a "schemaPatch" with ONLY the changes the edit calls for:
-- "addFields": data the edited description now asks for that the form doesn't collect yet
+- "addFields": data the edited description now asks for that the form doesn't collect yet — all of it (e.g. "three questions about X" means three fields)
+- "sections": when the form has sections, place new fields in one (a set of related new questions can get its own)
 - "updateFields": fields whose meaning, options or required status the edit changes (full field definition, same key)
 - "removeFieldKeys": only fields collecting something the edit explicitly drops or excludes
 Fields the edit doesn't touch stay as they are, even when the description doesn't mention them — they come from earlier decisions or edits. Never undo a decision listed above unless the edit explicitly reverses it. If the edit doesn't affect the form (e.g. rewording), return an empty patch.

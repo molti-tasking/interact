@@ -145,6 +145,8 @@ function ResponseDetail({
           mode="live"
           defaultValues={response.data}
           onSubmit={handleSubmit}
+          // Reviewing a stored answer: everything on one page
+          paginate={false}
         />
       </Card>
 
