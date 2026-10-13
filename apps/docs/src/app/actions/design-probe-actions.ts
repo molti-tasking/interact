@@ -3,6 +3,16 @@
 import type { DimensionObject } from "@/lib/dimension-types";
 import type { DetectedStandard } from "@/lib/domain-standards";
 import {
+  FORM_MODEL_RULES,
+  schemaPatchRules,
+  schemaPatchSchema,
+} from "@/lib/engine/form-model";
+import {
+  MAX_OPEN_PROBES,
+  planProbeCuration,
+  type ProbeReview,
+} from "@/lib/engine/probe-curation";
+import {
   applySchemaPatch,
   type ApplyPatchResult,
   type SchemaPatch,
@@ -62,91 +72,42 @@ export interface GenerateDesignProbesResponse {
 // Structured output schemas
 // ---------------------------------------------------------------------------
 
-const probeResponseSchema = z.object({
-  interactions: z.array(
+const priorityEnum = z
+  .enum(["high", "medium", "low"])
+  .describe(
+    "high: shapes what the form fundamentally collects or its structure; medium: a specific field decision; low: polish",
+  );
+
+const probeItemSchema = z.object({
+  text: z.string().describe("Very short headline question, max ~8 words"),
+  explanation: z
+    .string()
+    .optional()
+    .describe("One short sentence of context — omit unless essential"),
+  layer: z.enum(["intent", "dimensions", "both"]),
+  priority: priorityEnum,
+  dimensionName: z
+    .string()
+    .optional()
+    .describe("Exact dimension name if applicable"),
+  options: z.array(
     z.object({
-      text: z.string().describe("Very short headline question, max ~8 words"),
-      explanation: z
-        .string()
-        .optional()
-        .describe("One short sentence of context — omit unless essential"),
-      layer: z.enum(["intent", "dimensions", "both"]),
-      priority: z
-        .enum(["high", "medium", "low"])
-        .describe(
-          "high: shapes what the form fundamentally collects or its structure; medium: a specific field decision; low: polish",
-        ),
-      dimensionName: z
-        .string()
-        .optional()
-        .describe("Exact dimension name if applicable"),
-      options: z.array(
-        z.object({
-          value: z.string().describe("camelCase identifier"),
-          label: z.string().describe("2-5 words max"),
-        }),
-      ),
+      value: z.string().describe("camelCase identifier"),
+      label: z.string().describe("2-5 words max"),
     }),
   ),
 });
 
-const optionSchema = z.object({
-  label: z.string().describe("2-5 words max"),
-  value: z.string(),
+const probeResponseSchema = z.object({
+  interactions: z.array(probeItemSchema),
 });
 
-const schemaPatchFieldSchema = z.object({
-  key: z.string().describe("camelCase field key"),
-  label: z.string(),
-  description: z
-    .string()
-    .optional()
-    .describe("Brief help text — omit if the label is self-explanatory"),
-  tooltip: z
-    .string()
-    .optional()
-    .describe("Extra hover guidance — omit if not needed"),
-  type: z.enum([
-    "string",
-    "number",
-    "boolean",
-    "date",
-    "email",
-    "select",
-    "reference",
-  ]),
-  required: z.boolean(),
-  validation: z
-    .object({ options: z.array(optionSchema).optional() })
-    .optional(),
-  referenceTarget: z
-    .string()
-    .optional()
-    .describe(
-      "For type 'reference' only: the id of the space table this field links to — must be one of the listed table ids",
-    ),
-});
-
-const schemaPatchSchema = z
-  .object({
-    addFields: z
-      .array(schemaPatchFieldSchema)
-      .optional()
-      .describe("New fields to add to the schema"),
-    removeFieldKeys: z
-      .array(z.string())
-      .optional()
-      .describe("camelCase keys of fields to remove"),
-    updateFields: z
-      .array(schemaPatchFieldSchema)
-      .optional()
-      .describe(
-        "Fields to update — include the full field definition with the same key",
-      ),
-  })
-  .describe(
-    "Only the changes to apply to the current schema. Omit sections with no changes.",
-  );
+/** Shared by every prompt that writes design probes. */
+const PROBE_QUESTION_RULES = `- Question "text" must be VERY SHORT — max ~8 words, like a headline. No preamble.
+- Omit "explanation" unless the headline is genuinely ambiguous without it; then keep it to one short sentence.
+- Option labels must be SHORT: 2-5 words max, mutually exclusive
+- Values should be camelCase identifiers
+- Only ask about decisions the form can express: which fields it has, their types and options, wording, and whether they're required. Never offer an option that needs something the form can't do (see HOW FORMS WORK HERE) — e.g. a field for staff to fill in later.`;
 
 const followUpQuestionSchema = z.object({
   text: z.string().describe("Very short headline, max ~8 words"),
@@ -192,18 +153,6 @@ const previewOptionsSchema = z.object({
   ),
 });
 
-/** Rules for "schemaPatch" output, shared by the preview and resolve prompts. */
-function schemaPatchRules(hasSpaceTables: boolean): string {
-  return `- Use valid field types: "string", "number", "boolean", "date", "email", "select"${hasSpaceTables ? `, "reference"
-- Use type "reference" when a field should link each entry to an item in one of the OTHER TABLES IN THIS SPACE (e.g. inventory entries referencing a product template). Set "referenceTarget" to that table's id EXACTLY as listed — never invent table ids.` : ""}
-- For select fields, ALWAYS include options in validation.options as [{label, value}] objects
-- CRITICAL: When updating a select field (even if only changing its label), you MUST re-include the full validation.options array. Omitting options will erase them.
-- Field keys MUST be camelCase and descriptive
-- "description" should be SHORT (a few words) — omit entirely if the label already makes the field obvious
-- "tooltip" is for extra guidance that helps the user fill in the field correctly — omit if not needed
-- IMPORTANT: Only include fields that CHANGE in schemaPatch. Leave unchanged fields alone.`;
-}
-
 function spaceTablesBlock(spacePortfolios: { id: string; title: string }[]): string {
   return spacePortfolios.length
     ? `\nOTHER TABLES IN THIS SPACE (valid targets for "reference" fields):
@@ -220,6 +169,8 @@ export async function generateDesignProbesAction(
   acceptedStandards?: DetectedStandard[],
   externalPrompt?: string,
   currentSchema?: PortfolioSchema,
+  /** Questions already open or answered — the new ones must not repeat them */
+  existingQuestions?: string[],
 ): Promise<GenerateDesignProbesResponse> {
   const basePrompt = serializeForLLM(intent);
   if (process.env.USE_FIXTURES || process.env.RECORD_FIXTURES) {
@@ -235,6 +186,7 @@ export async function generateDesignProbesAction(
           acceptedStandards,
           externalPrompt,
           currentSchema,
+          existingQuestions,
         ),
       { prompt: externalPrompt || basePrompt },
     );
@@ -246,6 +198,7 @@ export async function generateDesignProbesAction(
     acceptedStandards,
     externalPrompt,
     currentSchema,
+    existingQuestions,
   );
 }
 
@@ -256,6 +209,7 @@ async function generateDesignProbesReal(
   requestedStandards?: DetectedStandard[],
   externalPrompt?: string,
   currentSchema?: PortfolioSchema,
+  existingQuestions: string[] = [],
 ): Promise<GenerateDesignProbesResponse> {
   if (requestedProbes <= 0) return { success: true, interactions: [] };
 
@@ -266,6 +220,7 @@ async function generateDesignProbesReal(
     capJson(dimensions, LIMITS.document, "Dimensions");
     capJson(requestedStandards, LIMITS.document, "Accepted standards");
     capJson(currentSchema, LIMITS.document, "Schema");
+    capJson(existingQuestions, LIMITS.document, "Existing questions");
     await guardLlmRequest();
 
     // Prompt content comes from the curated registry, not the request payload
@@ -313,10 +268,18 @@ async function generateDesignProbesReal(
       );
     }
 
+    if (existingQuestions.length > 0) {
+      sections.push(
+        `ALREADY ASKED (open or answered) — do not repeat or rephrase these:\n${existingQuestions.map((q) => `- ${q}`).join("\n")}`,
+      );
+    }
+
     const contextBlock =
       sections.length > 0 ? `\n\n${sections.join("\n\n")}` : "";
 
-    const system = `You are a form design assistant.`;
+    const system = `You are a form design assistant.
+
+${FORM_MODEL_RULES}`;
 
     const prompt = `Generate ${Math.min(maxProbes, 3)}-${maxProbes} refinement questions to improve this form design. Each question has 2-4 options.
 
@@ -334,11 +297,8 @@ Each question must also get a "priority":
 
 Rules:
 - Return the questions ordered by impact: the most consequential decision first.
-- Question "text" must be VERY SHORT — max ~8 words, like a headline. No preamble.
-- Omit "explanation" unless the headline is genuinely ambiguous without it; then keep it to one short sentence.
-- Option labels must be SHORT: 2-5 words max, mutually exclusive
 - Mix of intent-level and dimension-level questions
-- Values should be camelCase identifiers`;
+${PROBE_QUESTION_RULES}`;
 
     const result = await withTracing(
       { tags: ["design-probes", externalPrompt ? "external-prompt" : "generate"] },
@@ -472,7 +432,9 @@ async function resolveDesignProbeReal(
     capJson(spacePortfolios, LIMITS.document, "Space tables");
     await guardLlmRequest();
 
-    const system = `You are a form design assistant. The user is refining a form through interactive design probes.`;
+    const system = `You are a form design assistant. The user is refining a form through interactive design probes.
+
+${FORM_MODEL_RULES}`;
 
     const prompt = `Current form description: ${basePrompt}
 
@@ -493,7 +455,8 @@ Based on this choice, you must:
 4. Optionally generate 0-${maxFollowUps} follow-up design probes if the choice opens up new design decisions${maxFollowUps === 0 ? ". Do NOT generate any follow-up questions, return an empty followUpInteractions array." : ""}
 
 RULES:
-${schemaPatchRules(spacePortfolios.length > 0)}`;
+${schemaPatchRules(spacePortfolios.length > 0)}
+- Interpret the answer within HOW FORMS WORK HERE: if it asks for something the form can't do, make the closest change that fits (or none) rather than adding fields that only work with it.`;
 
     const result = await withTracing(
       { tags: ["design-probes", "resolve"] },
@@ -633,7 +596,9 @@ async function previewDesignProbeOptionsReal(
     capJson(spacePortfolios, LIMITS.document, "Space tables");
     await guardLlmRequest();
 
-    const system = `You are a form design assistant. The user is refining a form through interactive design probes.`;
+    const system = `You are a form design assistant. The user is refining a form through interactive design probes.
+
+${FORM_MODEL_RULES}`;
 
     const prompt = `Current form description: ${basePrompt}
 
@@ -657,7 +622,8 @@ For EACH option, work out exactly how the form would change if the user chose it
 
 RULES:
 ${schemaPatchRules(spacePortfolios.length > 0)}
-- The options are mutually exclusive, so their patches should differ in a way that reflects each choice.`;
+- The options are mutually exclusive, so their patches should differ in a way that reflects each choice.
+- If an option asks for something the form can't do (see HOW FORMS WORK HERE), make the closest change that fits, or none — never add fields that only work with it.`;
 
     const result = await withTracing(
       { tags: ["design-probes", "preview"] },
@@ -706,6 +672,218 @@ ${schemaPatchRules(spacePortfolios.length > 0)}
     return { success: true, options };
   } catch (error) {
     console.error("Design probe preview error:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Unknown error",
+    };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Curate: keep the open probes current after the form changed — retire the
+// ones that no longer apply, re-rank the rest, add only what's missing
+// ---------------------------------------------------------------------------
+
+export interface CurateDesignProbesRequest {
+  intent: StructuredIntent;
+  currentSchema: PortfolioSchema;
+  /** Open probes in deck order (most important first) */
+  openProbes: {
+    id: string;
+    text: string;
+    options: { value: string; label: string }[];
+    priority: ProbePriority;
+  }[];
+  /** Answered probes, most recent first */
+  decisions: { question: string; answer: string }[];
+  /**
+   * "refine": the intent was just edited — also look for decisions it raises.
+   * "changes": the form changed (answers, edits) — mostly retire what no
+   * longer applies.
+   */
+  mode: "refine" | "changes";
+  maxOpen?: number;
+}
+
+export interface CurateDesignProbesResponse {
+  success: boolean;
+  result?: {
+    /** Ids of open probes to retire */
+    drop: string[];
+    /** Kept probes whose priority changed */
+    priorities: Record<string, ProbePriority>;
+    add: DesignProbeRaw[];
+  };
+  error?: string;
+}
+
+const PRIORITY_NAMES: Record<ProbePriority, "high" | "medium" | "low"> = {
+  1: "high",
+  2: "medium",
+  3: "low",
+};
+
+const curateProbesSchema = z.object({
+  open: z
+    .array(
+      z.object({
+        ref: z.string().describe('The open question\'s ref exactly as listed, e.g. "q2"'),
+        keep: z.boolean().describe("false retires the question"),
+        priority: priorityEnum,
+      }),
+    )
+    .describe("One entry per open question"),
+  add: z.array(probeItemSchema).describe("New questions — often none"),
+});
+
+function normalizeQuestion(text: string): string {
+  return text.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
+}
+
+export async function curateDesignProbesAction(
+  request: CurateDesignProbesRequest,
+): Promise<CurateDesignProbesResponse> {
+  if (process.env.USE_FIXTURES || process.env.RECORD_FIXTURES) {
+    const { fixtureGuard } = await import("@/lib/testing/fixture-guard");
+    return fixtureGuard(
+      "curateDesignProbesAction",
+      request,
+      () => curateDesignProbesReal(request),
+      { prompt: request.mode },
+    );
+  }
+  return curateDesignProbesReal(request);
+}
+
+async function curateDesignProbesReal(
+  request: CurateDesignProbesRequest,
+): Promise<CurateDesignProbesResponse> {
+  try {
+    const { intent, currentSchema, openProbes, decisions, mode } = request;
+    const maxOpen = clampCount(request.maxOpen, 1, 10, MAX_OPEN_PROBES);
+    const maxNew = mode === "refine" ? Math.min(5, maxOpen) : 2;
+
+    const basePrompt = serializeForLLM(intent);
+    capText(basePrompt, LIMITS.document, "Intent");
+    capJson(currentSchema, LIMITS.document, "Schema");
+    capJson(openProbes, LIMITS.document, "Open questions");
+    capJson(decisions, LIMITS.document, "Decisions");
+    await guardLlmRequest();
+
+    // Short refs instead of ids: fewer tokens, and nothing to mangle
+    const byRef = new Map(openProbes.map((p, i) => [`q${i + 1}`, p]));
+    const openList =
+      openProbes.length > 0
+        ? [...byRef]
+            .map(
+              ([ref, p]) =>
+                `- ${ref} [${PRIORITY_NAMES[p.priority] ?? "medium"}] "${p.text}" — options: ${p.options.map((o) => o.label).join(" | ")}`,
+            )
+            .join("\n")
+        : "(none)";
+    const decisionList =
+      decisions.length > 0
+        ? decisions.map((d) => `- "${d.question}" → "${d.answer}"`).join("\n")
+        : "(none yet)";
+
+    const system = `You are a form design assistant. You keep the list of open design questions ("design probes") about a form short, current and free of repeats.
+
+${FORM_MODEL_RULES}`;
+
+    const prompt = `Form description:
+${basePrompt}
+
+Current form schema:
+${serializeSchemaForLLM(currentSchema)}
+
+Decisions already made:
+${decisionList}
+
+Open questions:
+${openList}
+
+${
+  mode === "refine"
+    ? "The form description was just edited, so some open questions may no longer fit and the edit may raise new decisions."
+    : "The form just changed (answers applied or fields edited), so some open questions may no longer apply."
+}
+
+1. Review EVERY open question and return one "open" entry per ref:
+   - keep: false when it is already settled by the current form or a decision, repeats or overlaps another open question (keep the better one), no longer fits the description, or asks for something the form can't do.
+   - otherwise keep: true, with its priority re-assessed for the form as it is now.
+2. "add" at most ${maxNew} NEW questions — ${
+      mode === "refine"
+        ? "for important decisions the edited description raises that no open question covers"
+        : "only for an important decision that is now open and not covered; usually none"
+    }. Never repeat a decision already made or an open question.
+At most ${maxOpen} questions should stay open in total (kept + added); when more are worth asking, keep the most consequential.
+
+Question rules:
+- "priority": high = shapes what the form fundamentally collects or its structure; medium = a specific field decision; low = polish
+${PROBE_QUESTION_RULES}`;
+
+    const result = await withTracing(
+      { tags: ["design-probes", "curate", mode] },
+      () =>
+        generateText({
+          // Retiring questions is classification; writing new ones after an
+          // intent edit deserves the main model.
+          model: mode === "refine" ? model : fastModel,
+          system,
+          prompt,
+          output: Output.object({ schema: curateProbesSchema }),
+          temperature: 0.2,
+          experimental_telemetry: telemetry("design-probe-curate"),
+        }),
+    );
+
+    if (!result.output) {
+      return { success: false, error: "No structured output from LLM" };
+    }
+
+    const reviews = new Map<string, ProbeReview>();
+    for (const entry of result.output.open) {
+      const probe = byRef.get(entry.ref.trim());
+      if (!probe) continue;
+      reviews.set(probe.id, {
+        keep: entry.keep,
+        priority: PRIORITY_VALUES[entry.priority] ?? probe.priority,
+      });
+    }
+
+    const asked = new Set(
+      [
+        ...openProbes.map((p) => p.text),
+        ...decisions.map((d) => d.question),
+      ].map(normalizeQuestion),
+    );
+    const added: DesignProbeRaw[] = [];
+    for (const p of result.output.add) {
+      const key = normalizeQuestion(p.text);
+      if (!key || asked.has(key) || p.options.length < 2) continue;
+      asked.add(key);
+      added.push({
+        id: `probe-${Date.now()}-curated-${added.length}`,
+        text: p.text,
+        explanation: p.explanation || undefined,
+        layer: p.layer,
+        source: "llm",
+        options: p.options,
+        selectedOption: null,
+        status: "pending",
+        priority: PRIORITY_VALUES[p.priority] ?? 2,
+        dimensionId: null,
+        dimensionName: null,
+      });
+      if (added.length >= maxNew) break;
+    }
+
+    return {
+      success: true,
+      result: planProbeCuration(openProbes, reviews, added, maxOpen),
+    };
+  } catch (error) {
+    console.error("Design probe curation error:", error);
     return {
       success: false,
       error: error instanceof Error ? error.message : "Unknown error",

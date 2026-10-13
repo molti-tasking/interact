@@ -28,11 +28,16 @@ import {
 import { applyConflictChanges } from "@/lib/engine/conflict-changes";
 import { deriveSchemaAction } from "@/app/actions/derive-actions";
 import {
+  curateDesignProbesAction,
   generateDesignProbesAction,
   previewDesignProbeOptionsAction,
   resolveDesignProbeAction,
 } from "@/app/actions/design-probe-actions";
-import { intentToSchemaAction } from "@/app/actions/schema-actions";
+import {
+  intentToSchemaAction,
+  refineSchemaFromIntentAction,
+} from "@/app/actions/schema-actions";
+import { interpretSpokenAnswerAction } from "@/app/actions/spoken-answer-actions";
 import { serializeForLLM } from "@/lib/engine/structured-intent";
 import { getStandardById } from "@/lib/standards";
 
@@ -220,6 +225,163 @@ describe("generateDesignProbesAction", () => {
     );
     expect(response.success).toBe(true);
     expect(response.interactions!.map((p) => p.priority)).toEqual([1, 2]);
+  });
+
+  it("tells the model what forms can do and what was already asked", async () => {
+    generateText.mockResolvedValue({ output: { interactions: [] } });
+    await generateDesignProbesAction(
+      intentWith({ purpose: "Study consent form" }),
+      5,
+      undefined,
+      undefined,
+      undefined,
+      baseSchema,
+      ["Track weight?"],
+    );
+    const call = generateText.mock.calls[0][0];
+    expect(call.system).toContain("HOW FORMS WORK HERE");
+    expect(call.prompt).toContain("ALREADY ASKED");
+    expect(call.prompt).toContain("- Track weight?");
+  });
+});
+
+describe("curateDesignProbesAction", () => {
+  const openProbes = [
+    { id: "id-a", text: "Track weight?", priority: 2 as const, options: [{ value: "yes", label: "Yes" }] },
+    { id: "id-b", text: "Weight unit?", priority: 3 as const, options: [{ value: "kg", label: "kg" }] },
+  ];
+  const request = {
+    intent: intentWith({ purpose: "Fitness check-in" }),
+    currentSchema: baseSchema,
+    openProbes,
+    decisions: [{ question: "Collect email?", answer: "Yes" }],
+    mode: "changes" as const,
+  };
+
+  it("maps refs back to ids, re-ranks, and skips repeated or option-less new questions", async () => {
+    generateText.mockResolvedValue({
+      output: {
+        open: [
+          { ref: "q1", keep: false, priority: "medium" },
+          { ref: "q2", keep: true, priority: "high" },
+          { ref: "q9", keep: false, priority: "low" }, // unknown ref — ignored
+        ],
+        add: [
+          { text: "Collect email?", layer: "both", priority: "high", options: [{ value: "a", label: "A" }, { value: "b", label: "B" }] },
+          { text: "Only one option", layer: "both", priority: "high", options: [{ value: "a", label: "A" }] },
+          { text: "Track sleep?", layer: "dimensions", priority: "medium", options: [{ value: "y", label: "Yes" }, { value: "n", label: "No" }] },
+        ],
+      },
+    });
+
+    const response = await curateDesignProbesAction(request);
+    expect(response.success).toBe(true);
+    expect(response.result!.drop).toEqual(["id-a"]);
+    expect(response.result!.priorities).toEqual({ "id-b": 1 });
+    expect(response.result!.add.map((p) => p.text)).toEqual(["Track sleep?"]);
+
+    const call = generateText.mock.calls[0][0];
+    expect(call.system).toContain("HOW FORMS WORK HERE");
+    expect(call.prompt).toContain('- q1 [medium] "Track weight?"');
+    expect(call.prompt).toContain('- "Collect email?" → "Yes"');
+    expect(call.prompt).not.toContain("id-a");
+  });
+});
+
+describe("interpretSpokenAnswerAction", () => {
+  const questions = [
+    {
+      id: "probe-1",
+      text: "Include nutrition tracking?",
+      options: [
+        { value: "daily", label: "Daily log" },
+        { value: "none", label: "No nutrition" },
+      ],
+      allowCustom: true,
+    },
+    {
+      id: "conflict-1",
+      text: "'Email' and 'Contact email' overlap",
+      options: [{ value: "merge", label: "Merge them" }],
+      allowCustom: false,
+    },
+  ];
+
+  it("maps refs to ids and keeps only valid answers", async () => {
+    generateText.mockResolvedValue({
+      output: {
+        answers: [
+          { ref: "q1", action: "option", option: "Daily log" }, // label instead of value
+          { ref: "q1", action: "skip" }, // second answer to the same question
+          { ref: "q2", action: "custom", customAnswer: "keep both" }, // custom not allowed
+          { ref: "q7", action: "skip" }, // unknown ref
+        ],
+      },
+    });
+
+    const response = await interpretSpokenAnswerAction({
+      utterance: "a daily log I guess, and keep both emails",
+      questions,
+      currentId: "probe-1",
+      previous: { utterance: "skip", outcome: "Skipped" },
+    });
+
+    expect(response.success).toBe(true);
+    expect(response.answers).toEqual([
+      { questionId: "probe-1", answer: { action: "option", value: "daily" } },
+    ]);
+    const call = generateText.mock.calls[0][0];
+    expect(call.prompt).toContain('q1 (CURRENT — on screen): "Include nutrition tracking?"');
+    expect(call.prompt).toContain('[daily] "Daily log"');
+    expect(call.prompt).toContain("free-text answers: not allowed");
+    expect(call.prompt).toContain('Previous phrase: "skip" → Skipped');
+  });
+
+  it("passes the note on when nothing was answered", async () => {
+    generateText.mockResolvedValue({
+      output: { answers: [], note: "thinking aloud" },
+    });
+    const response = await interpretSpokenAnswerAction({
+      utterance: "hmm let me think",
+      questions,
+      currentId: "probe-1",
+    });
+    expect(response.answers).toEqual([]);
+    expect(response.note).toBe("thinking aloud");
+  });
+});
+
+describe("refineSchemaFromIntentAction", () => {
+  it("returns only the patch for the edit, with normalized new keys", async () => {
+    generateText.mockResolvedValue({
+      output: {
+        summary: "Added a dietary preference field.",
+        schemaPatch: {
+          addFields: [{ key: "Dietary Preference", label: "Dietary preference", type: "string", required: false }],
+          updateFields: [{ key: "email", label: "Email", type: "email", required: true }],
+        },
+      },
+    });
+
+    const response = await refineSchemaFromIntentAction({
+      previousIntent: intentWith({ purpose: "Fitness check-in" }),
+      intent: intentWith({ purpose: "Fitness check-in with nutrition" }),
+      currentSchema: baseSchema,
+      decisions: [{ question: "Track weight?", answer: "Yes, in kg" }],
+    });
+
+    expect(response.success).toBe(true);
+    const patch = response.result!.schemaPatch;
+    expect(patch.addFields!.map((f) => f.key)).toEqual(["dietaryPreference"]);
+    expect(patch.updateFields!.map((f) => f.key)).toEqual(["email"]);
+
+    const call = generateText.mock.calls[0][0];
+    expect(call.system).toContain("HOW FORMS WORK HERE");
+    expect(call.prompt).toContain("Previous form description:\n## Purpose\nFitness check-in");
+    expect(call.prompt).toContain("Edited form description:\n## Purpose\nFitness check-in with nutrition");
+    expect(call.prompt).toContain('- "Track weight?" → "Yes, in kg"');
+    expect(call.prompt).toContain('- weight: "Weight"');
+    expect(call.maxRetries).toBe(0);
   });
 });
 

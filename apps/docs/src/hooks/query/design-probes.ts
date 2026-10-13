@@ -1,13 +1,20 @@
 "use client";
 
 import {
+  curateDesignProbesAction,
   generateDesignProbesAction,
   previewDesignProbeOptionsAction,
   resolveDesignProbeAction,
+  type DesignProbeRaw,
 } from "@/app/actions/design-probe-actions";
 import type { DetectedStandard } from "@/lib/domain-standards";
 import { commitPortfolioChange, type CommitResult } from "@/lib/engine/commit";
 import { mergeIntentChange, mergeSchemaChange } from "@/lib/engine/merge";
+import {
+  MAX_OPEN_PROBES,
+  schemaFingerprint,
+} from "@/lib/engine/probe-curation";
+import { rankProbes } from "@/lib/engine/probe-preview";
 import { applySchemaPatch } from "@/lib/engine/schema-patch";
 import { sanitizePurposeText } from "@/lib/engine/structured-intent";
 import { createClient } from "@/lib/supabase/client";
@@ -24,10 +31,23 @@ import type {
 import { trackActivity } from "@/lib/workspace-activity";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef } from "react";
+import { toast } from "sonner";
 import { applyCommitToCache, portfolioKey } from "./portfolios";
 
 function designProbesKey(portfolioId: string) {
   return ["design-probes", portfolioId] as const;
+}
+
+async function fetchDesignProbes(portfolioId: string): Promise<DesignProbe[]> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("design_probes")
+    .select("*")
+    .eq("portfolio_id", portfolioId)
+    .order("created_at", { ascending: false });
+
+  if (error) throw error;
+  return (data ?? []).map(rowToDesignProbe);
 }
 
 /**
@@ -36,21 +56,67 @@ function designProbesKey(portfolioId: string) {
 export function useDesignProbes(portfolioId: string | undefined) {
   return useQuery({
     queryKey: designProbesKey(portfolioId ?? ""),
-    queryFn: async (): Promise<DesignProbe[]> => {
-      if (!portfolioId) return [];
-      const supabase = createClient();
-      const { data, error } = await supabase
-        .from("design_probes")
-        .select("*")
-        .eq("portfolio_id", portfolioId)
-        .order("created_at", { ascending: false });
-
-      if (error) throw error;
-      return (data ?? []).map(rowToDesignProbe);
-    },
+    queryFn: async (): Promise<DesignProbe[]> =>
+      portfolioId ? fetchDesignProbes(portfolioId) : [],
     enabled: !!portfolioId,
   });
 }
+
+/** A new pending probe as a `design_probes` row. */
+function newProbeRow(portfolioId: string, probe: DesignProbeRaw) {
+  return {
+    portfolio_id: portfolioId,
+    text: probe.text,
+    explanation: probe.explanation ?? null,
+    layer: probe.layer,
+    source: probe.source,
+    options: JSON.parse(JSON.stringify(probe.options)),
+    selected_option: null,
+    status: "pending",
+    priority: probe.priority,
+    // What each option changes is computed in the background
+    // (usePrecomputeProbePreviews)
+    preview_status: "pending",
+    dimension_id: probe.dimensionId ?? null,
+    dimension_name: probe.dimensionName ?? null,
+  };
+}
+
+function answerLabel(probe: DesignProbe): string | null {
+  const value = probe.selectedOption;
+  if (!value) return null;
+  if (value.startsWith("custom:")) return value.slice("custom:".length);
+  return probe.options.find((o) => o.value === value)?.label ?? value;
+}
+
+/** Answered probes as question → answer, most recent first (for prompts). */
+export function designDecisions(
+  probes: readonly DesignProbe[],
+  limit = 20,
+): { question: string; answer: string }[] {
+  return probes
+    .filter((p) => p.status === "resolved")
+    .sort((a, b) =>
+      (b.resolvedAt ?? b.createdAt).localeCompare(a.resolvedAt ?? a.createdAt),
+    )
+    .flatMap((p) => {
+      const answer = answerLabel(p);
+      return answer ? [{ question: p.text, answer }] : [];
+    })
+    .slice(0, limit);
+}
+
+/** The answered probes of a portfolio, fresh from the database. */
+export async function fetchDesignDecisions(portfolioId: string) {
+  return designDecisions(await fetchDesignProbes(portfolioId));
+}
+
+/**
+ * Per portfolio: the form (`schemaFingerprint`) the open probes were last
+ * generated or curated against, so a change to the form triggers exactly
+ * one curation pass. Module-level so it survives the deck remounting.
+ */
+const curatedFingerprints = new Map<string, string>();
 
 /**
  * Generate new design probes and persist them to the DB.
@@ -72,6 +138,17 @@ export function useGenerateDesignProbes(portfolioId: string) {
       externalPrompt?: string;
       currentSchema?: PortfolioSchema;
     }) => {
+      // The new probes are written for this form — no curation needed for it
+      if (currentSchema) {
+        curatedFingerprints.set(portfolioId, schemaFingerprint(currentSchema));
+      }
+      const existingQuestions = (
+        queryClient.getQueryData<DesignProbe[]>(designProbesKey(portfolioId)) ??
+        []
+      )
+        .filter((p) => p.status === "pending" || p.status === "resolved")
+        .map((p) => p.text);
+
       const result = await trackActivity(
         portfolioId,
         "Generating questions",
@@ -83,6 +160,7 @@ export function useGenerateDesignProbes(portfolioId: string) {
             acceptedStandards?.length ? acceptedStandards : undefined,
             externalPrompt,
             currentSchema,
+            existingQuestions.length ? existingQuestions : undefined,
           ),
       );
 
@@ -92,26 +170,9 @@ export function useGenerateDesignProbes(portfolioId: string) {
 
       // Persist to DB
       const supabase = createClient();
-      const rows = result.interactions.map((interaction) => ({
-        portfolio_id: portfolioId,
-        text: interaction.text,
-        explanation: interaction.explanation ?? null,
-        layer: interaction.layer,
-        source: interaction.source,
-        options: JSON.parse(JSON.stringify(interaction.options)),
-        selected_option: null,
-        status: "pending",
-        priority: interaction.priority,
-        // What each option changes is computed in the background
-        // (usePrecomputeProbePreviews)
-        preview_status: "pending",
-        dimension_id: interaction.dimensionId ?? null,
-        dimension_name: interaction.dimensionName ?? null,
-      }));
-
       const { data, error } = await supabase
         .from("design_probes")
-        .insert(rows)
+        .insert(result.interactions.map((p) => newProbeRow(portfolioId, p)))
         .select();
 
       if (error) throw error;
@@ -121,6 +182,165 @@ export function useGenerateDesignProbes(portfolioId: string) {
       queryClient.invalidateQueries({ queryKey: designProbesKey(portfolioId) });
     },
   });
+}
+
+// ---------------------------------------------------------------------------
+// Curation: keep the open probes few and current as the form changes
+// ---------------------------------------------------------------------------
+
+export interface CurateProbesResult {
+  dropped: number;
+  added: number;
+}
+
+/**
+ * Review the open probes against the form as it is now: retire the ones
+ * that no longer apply (settled, duplicated, off-purpose), re-rank the rest,
+ * add new ones where something important is uncovered — and keep at most
+ * `MAX_OPEN_PROBES` open. Standard probes have their own flow and are left
+ * alone.
+ */
+export function useCurateDesignProbes(portfolioId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      intent,
+      currentSchema,
+      mode,
+    }: {
+      intent: StructuredIntent;
+      currentSchema: PortfolioSchema;
+      /** "refine": the intent was edited; "changes": the form changed */
+      mode: "refine" | "changes";
+    }): Promise<CurateProbesResult> => {
+      // Recorded up front, so a failed pass isn't retried until the form
+      // changes again
+      curatedFingerprints.set(portfolioId, schemaFingerprint(currentSchema));
+
+      return trackActivity(portfolioId, "Updating questions", async () => {
+        const probes = await fetchDesignProbes(portfolioId);
+        const open = rankProbes(
+          probes.filter((p) => p.status === "pending" && p.source !== "standard"),
+        );
+        if (open.length === 0 && mode === "changes") {
+          return { dropped: 0, added: 0 };
+        }
+
+        const response = await curateDesignProbesAction({
+          intent,
+          currentSchema,
+          openProbes: open.map((p) => ({
+            id: p.id,
+            text: p.text,
+            priority: p.priority,
+            options: p.options.map(({ value, label }) => ({ value, label })),
+          })),
+          decisions: designDecisions(probes),
+          mode,
+        });
+        if (!response.success || !response.result) {
+          throw new Error(response.error ?? "Failed to update the questions");
+        }
+
+        const { drop, priorities, add } = response.result;
+        const supabase = createClient();
+
+        // Only probes still open: one answered meanwhile stays answered
+        if (drop.length > 0) {
+          const { error } = await supabase
+            .from("design_probes")
+            .update({ status: "dismissed" })
+            .in("id", drop)
+            .eq("status", "pending");
+          if (error) throw new Error(`Failed to retire questions: ${error.message}`);
+        }
+        await Promise.all(
+          Object.entries(priorities).map(async ([id, priority]) => {
+            const { error } = await supabase
+              .from("design_probes")
+              .update({ priority })
+              .eq("id", id)
+              .eq("status", "pending");
+            if (error) {
+              console.error("[design-probes] re-rank failed:", error);
+            }
+          }),
+        );
+        if (add.length > 0) {
+          const { error } = await supabase
+            .from("design_probes")
+            .insert(add.map((p) => newProbeRow(portfolioId, p)));
+          if (error) throw new Error(`Failed to add questions: ${error.message}`);
+        }
+
+        return { dropped: drop.length, added: add.length };
+      });
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: designProbesKey(portfolioId) });
+    },
+  });
+}
+
+/** Quiet time after a form change before the open probes are reviewed. */
+const AUTO_CURATE_DELAY_MS = 4000;
+
+/**
+ * Keep the open probes current while the form changes: once the workspace
+ * has been idle for a moment after a change (an answer, an edit, a fix),
+ * run one curation pass. A deck that has grown past `MAX_OPEN_PROBES`
+ * (e.g. from before curation existed) is trimmed on the first visit.
+ */
+export function useAutoCurateProbes(
+  portfolio: Portfolio,
+  probes: DesignProbe[] | undefined,
+  /** True while other AI work runs for the portfolio, or an answer applies */
+  paused: boolean,
+) {
+  const { mutate, isPending } = useCurateDesignProbes(portfolio.id);
+  const fingerprint = schemaFingerprint(portfolio.schema);
+  const loaded = probes !== undefined;
+  const openCount =
+    probes?.filter((p) => p.status === "pending" && p.source !== "standard")
+      .length ?? 0;
+
+  const latest = useRef(portfolio);
+  useEffect(() => {
+    latest.current = portfolio;
+  });
+
+  useEffect(() => {
+    if (!loaded || paused || isPending) return;
+    const last = curatedFingerprints.get(portfolio.id);
+    if (last === fingerprint) return;
+    if (last === undefined && openCount <= MAX_OPEN_PROBES) {
+      // First look this visit: the form as it is is the baseline
+      curatedFingerprints.set(portfolio.id, fingerprint);
+      return;
+    }
+    if (openCount === 0) return;
+
+    const timer = setTimeout(() => {
+      const { intent, schema } = latest.current;
+      mutate(
+        { intent, currentSchema: schema, mode: "changes" },
+        {
+          onSuccess: ({ dropped }) => {
+            if (dropped > 0) {
+              toast(
+                `Removed ${dropped} question${dropped === 1 ? " that no longer applies" : "s that no longer apply"}`,
+              );
+            }
+          },
+          // Optional upkeep — the deck still works with stale questions
+          onError: (err) =>
+            console.warn("[design-probes] curation failed:", err),
+        },
+      );
+    }, AUTO_CURATE_DELAY_MS);
+    return () => clearTimeout(timer);
+  }, [portfolio.id, fingerprint, openCount, loaded, paused, isPending, mutate]);
 }
 
 type ResolveResult = NonNullable<
@@ -167,7 +387,14 @@ async function commitResolution(
       result.artifactFormSchema,
       current.schema,
     ),
-    intent: mergeIntentChange(snapshot.intent, ourIntent, current.intent),
+    // The purpose rewrite is automated: if the purpose changed meanwhile
+    // (e.g. the user refined the intent), theirs stays.
+    intent: mergeIntentChange(
+      snapshot.intent,
+      ourIntent,
+      current.intent,
+      "theirs",
+    ),
     provenance: { layer: "dimensions", ...provenance },
   }));
 
@@ -225,7 +452,8 @@ export function useResolveDesignProbe(portfolioId: string) {
             currentSchema: snapshot.schema,
             interactionText: probe.text,
             selectedOptionLabel: optionLabel,
-            maxFollowUps: 3,
+            // One, like a pre-computed answer — curation adds more if needed
+            maxFollowUps: 1,
             spacePortfolios,
           });
 
@@ -253,25 +481,13 @@ export function useResolveDesignProbe(portfolioId: string) {
 
           // Insert follow-ups
           if (response.result.followUpInteractions?.length) {
-            const followUpRows = response.result.followUpInteractions.map(
-              (f) => ({
-                portfolio_id: portfolioId,
-                text: f.text,
-                explanation: f.explanation ?? null,
-                layer: f.layer,
-                source: f.source,
-                options: JSON.parse(JSON.stringify(f.options)),
-                selected_option: null,
-                status: "pending",
-                priority: f.priority,
-                preview_status: "pending",
-                dimension_id: f.dimensionId ?? null,
-                dimension_name: f.dimensionName ?? null,
-              }),
-            );
             const { error } = await createClient()
               .from("design_probes")
-              .insert(followUpRows);
+              .insert(
+                response.result.followUpInteractions.map((f) =>
+                  newProbeRow(portfolioId, f),
+                ),
+              );
             if (error) {
               console.error("[design-probes] follow-up insert failed:", error);
             }
@@ -363,6 +579,15 @@ export function usePrecomputeProbePreviews(
       previewsStarted.add(probe.id);
 
       runPreviewTask(async () => {
+        // Answered or retired while queued — no preview needed anymore
+        const cached = queryClient
+          .getQueryData<DesignProbe[]>(key)
+          ?.find((p) => p.id === probe.id);
+        if (cached && cached.status !== "pending") {
+          previewsStarted.delete(probe.id); // picked up again if reopened
+          return;
+        }
+
         const { portfolio: current, spacePortfolios: space } = latest.current;
         try {
           const response = await previewDesignProbeOptionsAction({

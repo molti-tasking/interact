@@ -17,6 +17,7 @@ import type {
   SectionKey,
   StructuredIntent,
 } from "../types";
+import { applySchemaPatch, type SchemaPatch } from "./schema-patch";
 
 export type ConflictPolicy = "ours" | "theirs";
 
@@ -123,6 +124,23 @@ export function mergeSchemaChange(
     columnActions: pick("columnActions"),
     version: Math.max(theirs.version, ours.version) + (same(base, theirs) ? 0 : 1),
   };
+}
+
+/**
+ * Replay a patch the LLM computed against `base` onto the latest schema:
+ * what it adds, changes and removes is applied, while properties changed
+ * meanwhile (e.g. by a design probe answered during the call) keep their
+ * newer value. Returns null when the patch changes nothing.
+ */
+export function mergePatchOntoLatest(
+  base: PortfolioSchema,
+  patch: SchemaPatch,
+  latest: PortfolioSchema,
+): PortfolioSchema | null {
+  const { schema: ours, applied } = applySchemaPatch(base, patch);
+  const changed =
+    applied.added.length + applied.updated.length + applied.removed.length;
+  return changed > 0 ? mergeSchemaChange(base, ours, latest, "theirs") : null;
 }
 
 // ---------------------------------------------------------------------------

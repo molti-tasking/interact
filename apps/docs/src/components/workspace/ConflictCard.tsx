@@ -25,6 +25,7 @@ const KIND_LABELS: Record<SchemaConflict["kind"], string> = {
   orphaned_group: "Broken group",
   semantic_overlap: "Overlapping fields",
   naming_inconsistency: "Inconsistent naming",
+  unanswerable_field: "Can't be answered",
 };
 
 export function conflictKindLabel(kind: SchemaConflict["kind"]): string {

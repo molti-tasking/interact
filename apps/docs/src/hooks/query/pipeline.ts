@@ -17,9 +17,13 @@ import type {
 import { trackActivity } from "@/lib/workspace-activity";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { useGenerateDesignProbes } from "./design-probes";
+import {
+  fetchDesignDecisions,
+  useCurateDesignProbes,
+  useGenerateDesignProbes,
+} from "./design-probes";
 import { applyCommitToCache } from "./portfolios";
-import { useGenerateSchema } from "./schema-generation";
+import { useGenerateSchema, useRefineSchema } from "./schema-generation";
 import { findStandard, useDetectStandards } from "./standards";
 
 export interface PipelineResult {
@@ -37,7 +41,9 @@ export interface PipelineResult {
 export function usePipelineGenerate(portfolioId: string) {
   const queryClient = useQueryClient();
   const generateSchema = useGenerateSchema(portfolioId);
+  const refineSchema = useRefineSchema(portfolioId);
   const generateDesignProbes = useGenerateDesignProbes(portfolioId);
+  const curateDesignProbes = useCurateDesignProbes(portfolioId);
   const detectStandards = useDetectStandards(portfolioId);
 
   return useMutation({
@@ -63,6 +69,12 @@ export function usePipelineGenerate(portfolioId: string) {
       }
 
       return trackActivity(portfolioId, "Updating the form", async () => {
+        // Context for refining an existing form, fetched alongside the commit
+        const decisions =
+          strategy.kind === "full" && hasExistingSchema
+            ? fetchDesignDecisions(portfolioId).catch(() => [])
+            : null;
+
         // Persist the user's intent edit first — merged onto the latest
         // state — so it survives even if generation fails afterwards.
         const needsCommit =
@@ -138,6 +150,46 @@ export function usePipelineGenerate(portfolioId: string) {
             const acceptedStandards = (schema.acceptedStandards ?? [])
               .map((ref) => findStandard(ref.standardId, standardsResult))
               .filter((s): s is DetectedStandard => !!s);
+
+            if (decisions) {
+              // Refine: patch the form for what the edit changed instead of
+              // regenerating it — faster, and fields from answered probes
+              // and direct edits stay. Diffed against the intent the user
+              // started editing from, not the latest one: a purpose re-synced
+              // by a probe answer meanwhile must not read as the user
+              // dropping that topic.
+              const refineCommit = await refineSchema.mutateAsync({
+                previousIntent,
+                intent,
+                baseSchema: schema,
+                decisions: await decisions,
+                acceptedStandards,
+                actor,
+              });
+              const newSchema = refineCommit?.portfolio.schema ?? schema;
+
+              // Retire questions the edit made obsolete, add what it raised
+              // (fire-and-forget; the deck shows progress)
+              curateDesignProbes.mutate(
+                { intent, currentSchema: newSchema, mode: "refine" },
+                {
+                  onSuccess: ({ dropped, added }) => {
+                    if (dropped + added === 0) return;
+                    const parts = [
+                      added > 0 && `${added} new`,
+                      dropped > 0 && `${dropped} no longer relevant`,
+                    ].filter(Boolean);
+                    toast(`Design probes updated: ${parts.join(", ")}`);
+                  },
+                  onError: (err) =>
+                    toast.error(
+                      `Couldn't update design probes: ${err instanceof Error ? err.message : "unknown error"}`,
+                    ),
+                },
+              );
+
+              return { strategy, intent, schema: newSchema };
+            }
 
             // Step 3: Generate schema and merge it into the current one
             const schemaCommit = await generateSchema.mutateAsync({

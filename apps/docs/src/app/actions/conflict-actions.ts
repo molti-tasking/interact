@@ -5,6 +5,7 @@ import {
   conflictChangesSchema,
   type ConflictFixPreview,
 } from "@/lib/engine/conflict-changes";
+import { FORM_MODEL_RULES } from "@/lib/engine/form-model";
 import {
   hashSection,
   mergeIntentText,
@@ -31,7 +32,8 @@ export interface SchemaConflict {
     | "contradictory_constraints"
     | "orphaned_group"
     | "semantic_overlap"
-    | "naming_inconsistency";
+    | "naming_inconsistency"
+    | "unanswerable_field";
   severity: "error" | "warning" | "info";
   description: string;
   fieldIds: string[];
@@ -77,7 +79,7 @@ export interface ResolveConflictResponse {
 
 const detectConflictsSchema = z.object({
   conflicts: z.array(z.object({
-    kind: z.enum(["semantic_overlap", "type_mismatch", "contradictory_constraints", "naming_inconsistency", "missing_required"]),
+    kind: z.enum(["unanswerable_field", "semantic_overlap", "type_mismatch", "contradictory_constraints", "naming_inconsistency", "missing_required"]),
     severity: z.enum(["error", "warning", "info"]),
     description: z
       .string()
@@ -242,7 +244,9 @@ async function detectSchemaConflictsReal(
       return `  ${f.id} | ${f.name}${req} (${f.type.kind}): "${f.label}"${desc}`;
     });
 
-    const system = `You are a form schema quality analyzer. Detect conflicts, inconsistencies, and issues in this form schema.`;
+    const system = `You are a form schema quality analyzer. Detect conflicts, inconsistencies, and issues in this form schema.
+
+${FORM_MODEL_RULES}`;
 
     const prompt = `Form intent: ${intent}
 
@@ -250,11 +254,12 @@ Schema fields (* = required):
 ${fieldLines.join("\n")}
 
 Look for these issues (only report REAL problems, not minor style preferences):
-1. **semantic_overlap**: Fields that capture the same information differently (e.g., "email" and "contactEmail")
-2. **type_mismatch**: Field type doesn't match its label/description (e.g., a "date of birth" stored as text)
-3. **contradictory_constraints**: Constraints that conflict with each other or the field type
-4. **naming_inconsistency**: Mix of naming conventions (e.g., camelCase and snake_case) or unclear labels
-5. **missing_required**: Fields that should logically be required but aren't, given the form's purpose
+1. **unanswerable_field**: A field the person filling in the form can't answer at that moment (see HOW FORMS WORK HERE) — e.g. a session number assigned by the researcher in a participant's form, a staff-only note, a score computed later. Severity "error" when the field is required (nobody could submit the form), otherwise "warning". Offer fixes such as removing the field or making it optional.
+2. **semantic_overlap**: Fields that capture the same information differently (e.g., "email" and "contactEmail")
+3. **type_mismatch**: Field type doesn't match its label/description (e.g., a "date of birth" stored as text)
+4. **contradictory_constraints**: Constraints that conflict with each other or the field type
+5. **naming_inconsistency**: Mix of naming conventions (e.g., camelCase and snake_case) or unclear labels
+6. **missing_required**: Fields that should logically be required but aren't, given the form's purpose — only when everyone filling in the form can answer them
 
 For EACH conflict found, provide 2-3 concrete fix options (not generic advice).
 If no conflicts found, return an empty conflicts array.

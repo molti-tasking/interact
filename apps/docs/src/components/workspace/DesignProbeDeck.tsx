@@ -34,6 +34,7 @@ import {
 } from "@/hooks/query/conflicts";
 import {
   useApplyProbePreview,
+  useAutoCurateProbes,
   useDesignProbes,
   useDismissDesignProbe,
   useGenerateDesignProbes,
@@ -52,6 +53,10 @@ import {
   useDetectedStandards,
 } from "@/hooks/query/standards";
 import { useUndoToast } from "@/hooks/query/undo";
+import {
+  useVoiceAnswers,
+  type VoiceAnswerResult,
+} from "@/hooks/voice/useVoiceAnswers";
 import type { ConflictFixPreview } from "@/lib/engine/conflict-changes";
 import { rankProbes } from "@/lib/engine/probe-preview";
 import { formatActor } from "@/lib/mock-users";
@@ -62,7 +67,9 @@ import type {
   ProbeOptionPreview,
 } from "@/lib/types";
 import { cn } from "@/lib/utils";
-import { Loader2, RefreshCw } from "lucide-react";
+import type { SpokenAnswer } from "@/lib/voice/spoken-answer";
+import { usePortfolioActivity } from "@/lib/workspace-activity";
+import { Loader2, Mic, RefreshCw, Square } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
@@ -147,6 +154,14 @@ export function DesignProbeDeck({
       return next;
     });
 
+  // Retire questions the latest changes made obsolete — once things settle
+  const activity = usePortfolioActivity(portfolio.id);
+  useAutoCurateProbes(
+    portfolio,
+    designProbes,
+    busyIds.size > 0 || activity.length > 0,
+  );
+
   // Conflict detection + resolution
   const { data: conflicts } = useDetectConflicts(
     portfolio.id,
@@ -177,21 +192,22 @@ export function DesignProbeDeck({
   });
 
   // -------------------------------------------------------------------
-  // Design probe interaction: select an option
+  // Design probe interaction: select an option. Handlers resolve to whether
+  // the answer was applied (failures are reported here), for voice answers.
   // -------------------------------------------------------------------
   const handleStandardProbe = async (
     probeId: string,
     standardId: string | null | undefined,
     selectedValue: string,
-  ) => {
+  ): Promise<boolean> => {
     if (selectedValue !== "accept" || !standardId) {
       dismissDesignProbe.mutate(probeId);
-      return;
+      return true;
     }
     const detected = findStandard(standardId, detectedStandards);
     if (!detected) {
       toast.error("This standard is no longer available.");
-      return;
+      return false;
     }
     setBusy(probeId, true);
     try {
@@ -203,8 +219,10 @@ export function DesignProbeDeck({
       notifyUndo(result, `Applied standard: ${detected.standard.name}`, {
         onUndone: () => reopenProbe.mutateAsync(probeId),
       });
+      return true;
     } catch (err) {
       toast.error(errorMessage(err, "Failed to apply the standard"));
+      return false;
     } finally {
       setBusy(probeId, false);
     }
@@ -214,7 +232,7 @@ export function DesignProbeDeck({
   const handlePreviewedAnswer = async (
     probe: DesignProbe,
     option: DesignProbeOption & { preview: ProbeOptionPreview },
-  ) => {
+  ): Promise<boolean> => {
     setBusy(probe.id, true);
     try {
       const result = await applyProbePreview.mutateAsync({
@@ -250,17 +268,24 @@ export function DesignProbeDeck({
           },
         },
       });
+      return true;
     } catch (err) {
       console.error("[DesignProbeDeck] Apply answer error:", err);
       toast.error(errorMessage(err, "Failed to apply your answer"));
+      return false;
     } finally {
       setBusy(probe.id, false);
     }
   };
 
-  const handleProbeSelect = async (probeId: string, selectedValue: string) => {
+  const handleProbeSelect = async (
+    probeId: string,
+    selectedValue: string,
+  ): Promise<boolean> => {
     const probe = (designProbes ?? []).find((o) => o.id === probeId);
-    if (!probe || probe.status !== "pending" || busyIds.has(probeId)) return;
+    if (!probe || probe.status !== "pending" || busyIds.has(probeId)) {
+      return false;
+    }
 
     if (probe.source === "standard") {
       return handleStandardProbe(probeId, probe.dimensionId, selectedValue);
@@ -288,9 +313,11 @@ export function DesignProbeDeck({
         // Undoing the answer reopens the question
         onUndone: () => reopenProbe.mutateAsync(probeId),
       });
+      return true;
     } catch (err) {
       console.error("[DesignProbeDeck] Design probe error:", err);
       toast.error(errorMessage(err, "Failed to apply your answer"));
+      return false;
     } finally {
       setBusy(probeId, false);
     }
@@ -312,7 +339,7 @@ export function DesignProbeDeck({
     conflict: SchemaConflict,
     fix: ConflictFix,
     preview: ConflictFixPreview,
-  ) => {
+  ): Promise<boolean> => {
     setBusy(conflict.id, true);
     try {
       const commit = await applyConflictFix.mutateAsync({
@@ -346,9 +373,11 @@ export function DesignProbeDeck({
           },
         },
       });
+      return true;
     } catch (err) {
       console.error("[DesignProbeDeck] Apply fix error:", err);
       toast.error(errorMessage(err, "Failed to apply the fix"));
+      return false;
     } finally {
       setBusy(conflict.id, false);
     }
@@ -357,8 +386,8 @@ export function DesignProbeDeck({
   const handleConflictFix = async (
     conflict: SchemaConflict,
     fix: ConflictFix,
-  ) => {
-    if (busyIds.has(conflict.id)) return;
+  ): Promise<boolean> => {
+    if (busyIds.has(conflict.id)) return false;
     const preview = fixPreviews.get(conflict.id)?.previews[fix.value];
     if (preview) return handlePreviewedFix(conflict, fix, preview);
 
@@ -375,9 +404,11 @@ export function DesignProbeDeck({
       notifyUndo(result, `Fixed: ${fix.label}`, {
         onUndone: () => dismissConflict(conflict.id, false),
       });
+      return true;
     } catch (err) {
       console.error("[DesignProbeDeck] Conflict fix error:", err);
       toast.error(errorMessage(err, "Failed to apply the fix"));
+      return false;
     } finally {
       setBusy(conflict.id, false);
     }
@@ -437,6 +468,69 @@ export function DesignProbeDeck({
   const hasCards = entries.length > 0;
   const hasIntent = !!portfolio.intent.purpose.content.trim();
 
+  // -------------------------------------------------------------------
+  // Talk to the deck: spoken answers go to the open card
+  // -------------------------------------------------------------------
+  const answerByVoice = async (
+    id: string,
+    answer: SpokenAnswer,
+  ): Promise<string | null> => {
+    const entry = entries.find((e) => e.id === id);
+    if (!entry) return null;
+    if (answer.action === "skip") {
+      if (entry.kind === "conflict") dismissConflict(id, true);
+      else await dismissDesignProbe.mutateAsync(id);
+      return "Skipped";
+    }
+    if (entry.kind === "conflict") {
+      const fix =
+        answer.action === "option" &&
+        entry.conflict.fixes.find((f) => f.value === answer.value);
+      return fix && (await handleConflictFix(entry.conflict, fix))
+        ? fix.label
+        : null;
+    }
+    if (answer.action === "custom") {
+      return (await handleProbeSelect(id, `custom:${answer.text}`))
+        ? `“${answer.text}”`
+        : null;
+    }
+    const option = entry.probe.options.find((o) => o.value === answer.value);
+    return option && (await handleProbeSelect(id, option.value))
+      ? option.label
+      : null;
+  };
+
+  const voice = useVoiceAnswers({
+    getQuestions: () => ({
+      questions: entries
+        .filter((e) => !busyIds.has(e.id))
+        .map((e) =>
+          e.kind === "probe"
+            ? {
+                id: e.id,
+                text: e.probe.text,
+                options: e.probe.options.map(({ value, label }) => ({
+                  value,
+                  label,
+                })),
+                allowCustom: e.probe.source !== "standard",
+              }
+            : {
+                id: e.id,
+                text: e.conflict.description,
+                options: e.conflict.fixes.map(({ value, label }) => ({
+                  value,
+                  label,
+                })),
+                allowCustom: false,
+              },
+        ),
+      currentId: expandedId,
+    }),
+    onAnswer: answerByVoice,
+  });
+
   return (
     <div
       data-testid="card-deck-section"
@@ -450,7 +544,13 @@ export function DesignProbeDeck({
             <span className="tabular-nums"> · {entries.length}</span>
           )}
         </h3>
-        <div className="flex justify-center pt-1">
+        <div className="flex items-center gap-0.5 pt-1">
+          <VoiceAnswerToggle
+            listening={voice.listening}
+            starting={voice.starting}
+            disabled={!hasCards}
+            onToggle={voice.toggle}
+          />
           <GenerateProbesDialog
             disabled={isGenerating || !hasIntent}
             isGenerating={isGenerating}
@@ -458,6 +558,16 @@ export function DesignProbeDeck({
           />
         </div>
       </div>
+
+      {(voice.listening || voice.working) && (
+        <VoiceAnswerStrip
+          listening={voice.listening}
+          starting={voice.starting}
+          working={voice.working}
+          caption={voice.caption}
+          last={voice.last}
+        />
+      )}
 
       {isGenerating && pendingProbes.length === 0 && (
         <div
@@ -480,41 +590,51 @@ export function DesignProbeDeck({
 
       {hasCards && (
         <div className="flex flex-col gap-1">
-          {entries.map((entry) =>
-            entry.kind === "conflict" ? (
-              <ConflictCard
-                key={entry.id}
-                conflict={entry.conflict}
-                expanded={entry.id === expandedId}
-                onExpand={() => setFocusedId(entry.id)}
-                busy={busyIds.has(entry.id)}
-                schema={portfolioSchema}
-                previewStatus={fixPreviews.get(entry.id)?.status ?? "pending"}
-                previews={fixPreviews.get(entry.id)?.previews ?? NO_PREVIEWS}
-                onSelect={(value) => {
-                  const fix = entry.conflict.fixes.find(
-                    (f) => f.value === value,
-                  );
-                  if (fix) handleConflictFix(entry.conflict, fix);
-                }}
-                onDismiss={() => dismissConflict(entry.id, true)}
-                onRetryPreview={() => fixPreviews.get(entry.id)?.retry()}
-              />
-            ) : (
-              <ProbeCard
-                key={entry.id}
-                probe={entry.probe}
-                expanded={entry.id === expandedId}
-                onExpand={() => setFocusedId(entry.id)}
-                busy={busyIds.has(entry.id)}
-                schema={portfolioSchema}
-                validTargetIds={validTargetIds}
-                onSelect={(value) => handleProbeSelect(entry.id, value)}
-                onDismiss={() => dismissDesignProbe.mutate(entry.id)}
-                onRetryPreview={() => retryPreview.mutate(entry.id)}
-              />
-            ),
-          )}
+          {entries.map((entry) => (
+            <div
+              key={entry.id}
+              data-voice-target={
+                voice.listening && entry.id === expandedId ? "true" : undefined
+              }
+              className="rounded-xl transition-shadow data-voice-target:ring-2 data-voice-target:ring-primary/40 data-voice-target:ring-offset-2 data-voice-target:ring-offset-background"
+            >
+              {entry.kind === "conflict" ? (
+                <ConflictCard
+                  conflict={entry.conflict}
+                  expanded={entry.id === expandedId}
+                  onExpand={() => setFocusedId(entry.id)}
+                  busy={busyIds.has(entry.id)}
+                  schema={portfolioSchema}
+                  previewStatus={
+                    fixPreviews.get(entry.id)?.status ?? "pending"
+                  }
+                  previews={
+                    fixPreviews.get(entry.id)?.previews ?? NO_PREVIEWS
+                  }
+                  onSelect={(value) => {
+                    const fix = entry.conflict.fixes.find(
+                      (f) => f.value === value,
+                    );
+                    if (fix) handleConflictFix(entry.conflict, fix);
+                  }}
+                  onDismiss={() => dismissConflict(entry.id, true)}
+                  onRetryPreview={() => fixPreviews.get(entry.id)?.retry()}
+                />
+              ) : (
+                <ProbeCard
+                  probe={entry.probe}
+                  expanded={entry.id === expandedId}
+                  onExpand={() => setFocusedId(entry.id)}
+                  busy={busyIds.has(entry.id)}
+                  schema={portfolioSchema}
+                  validTargetIds={validTargetIds}
+                  onSelect={(value) => handleProbeSelect(entry.id, value)}
+                  onDismiss={() => dismissDesignProbe.mutate(entry.id)}
+                  onRetryPreview={() => retryPreview.mutate(entry.id)}
+                />
+              )}
+            </div>
+          ))}
         </div>
       )}
 
@@ -535,6 +655,109 @@ export function DesignProbeDeck({
 }
 
 const NO_PREVIEWS: Record<string, ConflictFixPreview> = {};
+
+// ---------------------------------------------------------------------------
+// Voice answers
+// ---------------------------------------------------------------------------
+
+/** Start/stop answering the open questions by talking. */
+function VoiceAnswerToggle({
+  listening,
+  starting,
+  disabled,
+  onToggle,
+}: {
+  listening: boolean;
+  starting: boolean;
+  /** Prevents starting; listening can always be stopped */
+  disabled: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <Button
+      data-testid="voice-answer-toggle"
+      variant={listening ? "destructiveSoft" : "ghost"}
+      size="sm"
+      disabled={disabled && !listening}
+      onClick={onToggle}
+      aria-pressed={listening}
+      title={
+        starting
+          ? "Waiting for the microphone… (click to cancel)"
+          : listening
+            ? "Stop answering by voice"
+            : "Answer the questions by talking"
+      }
+      className={cn("h-7 text-xs", !listening && "text-muted-foreground")}
+    >
+      {listening ? (
+        <Square className="h-3 w-3 mr-1" aria-hidden />
+      ) : (
+        <Mic className="h-3 w-3 mr-1" aria-hidden />
+      )}
+      {listening ? "Stop" : "Talk"}
+    </Button>
+  );
+}
+
+/** What the deck is hearing, and what the last phrase did. */
+function VoiceAnswerStrip({
+  listening,
+  starting,
+  working,
+  caption,
+  last,
+}: {
+  listening: boolean;
+  starting: boolean;
+  working: boolean;
+  caption: string;
+  last: VoiceAnswerResult | null;
+}) {
+  const status = starting
+    ? "Waiting for the microphone…"
+    : !listening
+      ? "Finishing what you said…"
+      : working
+        ? "Working on what you said…"
+        : "Listening — answer the highlighted question, or say “skip”";
+
+  return (
+    <div
+      data-testid="voice-answer-strip"
+      role="status"
+      aria-live="polite"
+      className="mb-2 rounded-xl border border-primary/20 bg-primary/5 px-3 py-2 text-xs"
+    >
+      <div className="flex items-center gap-2 text-foreground/80">
+        {working || starting ? (
+          <Loader2 className="h-3 w-3 shrink-0 animate-spin" aria-hidden />
+        ) : (
+          <span className="relative flex h-2 w-2 shrink-0" aria-hidden>
+            <span className="absolute inline-flex h-full w-full rounded-full bg-red-500 opacity-60 motion-safe:animate-ping" />
+            <span className="relative inline-flex h-2 w-2 rounded-full bg-red-500" />
+          </span>
+        )}
+        <span>{status}</span>
+      </div>
+      {caption && (
+        <p className="mt-1 truncate italic text-muted-foreground">
+          {caption}…
+        </p>
+      )}
+      {last && (
+        <p className="mt-1 line-clamp-2 text-muted-foreground">
+          <span className="italic">“{last.heard}”</span> →{" "}
+          <span
+            className={cn(last.applied && "font-medium text-foreground")}
+          >
+            {last.result}
+          </span>
+        </p>
+      )}
+    </div>
+  );
+}
 
 /** Tell the canvas which fields to mark as conflicting. */
 function PublishConflictMarks({

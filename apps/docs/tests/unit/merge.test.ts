@@ -1,4 +1,8 @@
-import { mergeIntentChange, mergeSchemaChange } from "@/lib/engine/merge";
+import {
+  mergeIntentChange,
+  mergePatchOntoLatest,
+  mergeSchemaChange,
+} from "@/lib/engine/merge";
 import type { Field, PortfolioSchema, StructuredIntent } from "@/lib/types";
 import { describe, expect, it } from "vitest";
 
@@ -89,6 +93,40 @@ describe("mergeSchemaChange", () => {
     const ours = schema([...base.fields, field("c", "phone")]);
     const merged = mergeSchemaChange(base, ours, theirs);
     expect(merged.acceptedStandards).toHaveLength(1);
+  });
+});
+
+describe("mergePatchOntoLatest (refining the form for an intent edit)", () => {
+  const base = schema([field("a", "name"), field("b", "email")]);
+
+  it("keeps fields added by probes answered while the refinement ran", () => {
+    // A probe answer landed during the LLM call: `goal` added, `email` required
+    const latest = schema(
+      [
+        field("a", "name"),
+        field("b", "email", { required: true }),
+        field("g", "goal"),
+      ],
+      { version: 2 },
+    );
+    const merged = mergePatchOntoLatest(
+      base,
+      {
+        addFields: [{ key: "diet", label: "Diet", type: "string", required: false }],
+        updateFields: [{ key: "email", label: "Email", type: "email", required: false }],
+      },
+      latest,
+    )!;
+    expect(merged.fields.map((f) => f.name)).toEqual(["name", "email", "goal", "diet"]);
+    // Both sides changed `required` — the probe answer (theirs) wins
+    expect(merged.fields.find((f) => f.name === "email")?.required).toBe(true);
+  });
+
+  it("removes what the edit drops and returns null for an empty patch", () => {
+    const merged = mergePatchOntoLatest(base, { removeFieldKeys: ["email"] }, base)!;
+    expect(merged.fields.map((f) => f.name)).toEqual(["name"]);
+    expect(mergePatchOntoLatest(base, {}, base)).toBeNull();
+    expect(mergePatchOntoLatest(base, { removeFieldKeys: ["phone"] }, base)).toBeNull();
   });
 });
 

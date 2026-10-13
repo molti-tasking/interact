@@ -1,10 +1,20 @@
 "use server";
 
 import type { DetectedStandard } from "@/lib/domain-standards";
-import { convertPatchFieldType, newFieldId } from "@/lib/engine/schema-patch";
+import {
+  FORM_MODEL_RULES,
+  schemaPatchRules,
+  schemaPatchSchema,
+} from "@/lib/engine/form-model";
+import {
+  convertPatchFieldType,
+  newFieldId,
+  type SchemaPatch,
+} from "@/lib/engine/schema-patch";
 import {
   normalizeFieldKey,
   serializeForLLM,
+  serializeSchemaForLLM,
 } from "@/lib/engine/structured-intent";
 import { capJson, capText, guardLlmRequest, LIMITS } from "@/lib/llm-guard";
 import { model, withLlmRetry } from "@/lib/model";
@@ -21,7 +31,6 @@ export interface IntentToSchemaResponse {
   success: boolean;
   result?: {
     artifactFormSchema: PortfolioSchema;
-    configuratorFormValues: Record<string, string | number | boolean>;
   };
   error?: string;
 }
@@ -85,14 +94,6 @@ const schemaResponseSchema = z.object({
     appliedStandards: z.array(z.string()).optional(),
     fields: z.array(namedFieldSchema).describe("Form fields — the minimum viable set for this domain (max 15)"),
   }),
-  configuratorFormValues: z
-    .array(
-      z.object({
-        key: z.string(),
-        value: z.union([z.string(), z.number(), z.boolean()]),
-      }),
-    )
-    .describe("2-4 meta-settings about form behavior"),
 });
 
 // ---------------------------------------------------------------------------
@@ -142,7 +143,9 @@ ${constraintLines.join("\n")}
 `;
     }
 
-    const system = `You are a form schema generator. Given a description of what a form should collect, design a concrete form schema with appropriate fields.`;
+    const system = `You are a form schema generator. Given a description of what a form should collect, design a concrete form schema with appropriate fields.
+
+${FORM_MODEL_RULES}`;
 
     const prompt = `User's form description: ${basePrompt}
 ${standardsSection}
@@ -262,17 +265,160 @@ RULES:
       }
     }
 
-    return {
-      success: true,
-      result: {
-        artifactFormSchema,
-        configuratorFormValues: Object.fromEntries(
-          (parsedResult.configuratorFormValues ?? []).map((kv) => [kv.key, kv.value]),
-        ),
-      },
-    };
+    return { success: true, result: { artifactFormSchema } };
   } catch (error) {
     console.error("Intent to schema error:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Unknown error",
+    };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Refine: patch an existing schema for an intent edit
+// ---------------------------------------------------------------------------
+
+export interface RefineSchemaRequest {
+  /** The intent the current schema was built from */
+  previousIntent: StructuredIntent;
+  /** The edited intent */
+  intent: StructuredIntent;
+  currentSchema: PortfolioSchema;
+  /** Answered design probes, most recent first — why fields exist */
+  decisions?: { question: string; answer: string }[];
+  /** Names of accepted standards, whose fields must stay */
+  standardNames?: string[];
+}
+
+export interface RefineSchemaResponse {
+  success: boolean;
+  result?: {
+    /** Changelog line for provenance */
+    summary: string;
+    /**
+     * Only what the intent edit changes. The client applies it to the
+     * latest schema, so answers given while this ran survive.
+     */
+    schemaPatch: SchemaPatch;
+  };
+  error?: string;
+}
+
+const refineResponseSchema = z.object({
+  summary: z
+    .string()
+    .describe(
+      "One tight changelog sentence, e.g. 'Added dietary preference fields.' — or 'No form changes needed.'",
+    ),
+  schemaPatch: schemaPatchSchema,
+});
+
+/**
+ * Update an existing form for an intent edit by returning a patch instead of
+ * regenerating the schema: the output is a few changed fields (fast), and
+ * everything the edit doesn't touch — fields added by design probes, direct
+ * edits — is left alone.
+ */
+export async function refineSchemaFromIntentAction(
+  request: RefineSchemaRequest,
+): Promise<RefineSchemaResponse> {
+  if (process.env.USE_FIXTURES || process.env.RECORD_FIXTURES) {
+    const { fixtureGuard } = await import("@/lib/testing/fixture-guard");
+    return fixtureGuard(
+      "refineSchemaFromIntent",
+      request,
+      () => refineSchemaReal(request),
+      { prompt: serializeForLLM(request.intent) },
+    );
+  }
+  return refineSchemaReal(request);
+}
+
+async function refineSchemaReal({
+  previousIntent,
+  intent,
+  currentSchema,
+  decisions = [],
+  standardNames = [],
+}: RefineSchemaRequest): Promise<RefineSchemaResponse> {
+  try {
+    const previousPrompt = serializeForLLM(previousIntent);
+    const basePrompt = serializeForLLM(intent);
+    capText(previousPrompt, LIMITS.document, "Previous intent");
+    capText(basePrompt, LIMITS.document, "Intent");
+    capJson(currentSchema, LIMITS.document, "Schema");
+    capJson(decisions, LIMITS.document, "Decisions");
+    capJson(standardNames, LIMITS.shortText, "Standards");
+    await guardLlmRequest();
+
+    const system = `You are a form schema editor. The description of an existing form was edited; you update the form to match, changing only what the edit requires.
+
+${FORM_MODEL_RULES}`;
+
+    const decisionBlock =
+      decisions.length > 0
+        ? `\nDecisions the user made earlier while refining the form (the schema reflects them):\n${decisions.map((d) => `- "${d.question}" → "${d.answer}"`).join("\n")}\n`
+        : "";
+    const standardsBlock =
+      standardNames.length > 0
+        ? `\nThe form follows these standards — keep their fields: ${standardNames.join(", ")}\n`
+        : "";
+
+    const prompt = `Previous form description:
+${previousPrompt || "(empty)"}
+
+Edited form description:
+${basePrompt}
+
+Current form schema (it already reflects earlier decisions and direct edits):
+${serializeSchemaForLLM(currentSchema)}
+${decisionBlock}${standardsBlock}
+Return a "schemaPatch" with ONLY the changes the edit calls for:
+- "addFields": data the edited description now asks for that the form doesn't collect yet
+- "updateFields": fields whose meaning, options or required status the edit changes (full field definition, same key)
+- "removeFieldKeys": only fields collecting something the edit explicitly drops or excludes
+Fields the edit doesn't touch stay as they are, even when the description doesn't mention them — they come from earlier decisions or edits. Never undo a decision listed above unless the edit explicitly reverses it. If the edit doesn't affect the form (e.g. rewording), return an empty patch.
+
+RULES:
+${schemaPatchRules(false)}`;
+
+    const result = await withLlmRetry("schema-refine", (abortSignal) =>
+      withTracing({ tags: ["schema", "refine"] }, () =>
+        generateText({
+          model,
+          output: Output.object({ schema: refineResponseSchema }),
+          system,
+          prompt,
+          temperature: 0.2,
+          abortSignal,
+          maxRetries: 0,
+          experimental_telemetry: telemetry("schema-refine"),
+        }),
+      ),
+    );
+
+    if (!result.output) {
+      return {
+        success: false,
+        error: "Model did not return structured output",
+      };
+    }
+
+    const { summary, schemaPatch } = result.output;
+    // New keys become stored response keys — make them proper identifiers.
+    // Updates/removals must match existing keys verbatim, so they're left.
+    const addFields = schemaPatch.addFields?.map((f, i) => ({
+      ...f,
+      key: normalizeFieldKey(f.key || f.label, `field${i + 1}`),
+    }));
+
+    return {
+      success: true,
+      result: { summary, schemaPatch: { ...schemaPatch, addFields } },
+    };
+  } catch (error) {
+    console.error("Refine schema error:", error);
     return {
       success: false,
       error: error instanceof Error ? error.message : "Unknown error",

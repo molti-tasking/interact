@@ -17,6 +17,7 @@ import type {
 
 const ACTION_LABELS = new Map<string, string>([
   ["schema_generated", "Generated the form from the intent"],
+  ["schema_refined", "Refined the form for an intent edit"],
   ["intent_updated", "Updated the intent"],
   ["intent_synced_from_edit", "Synced the intent with a form edit"],
   ["design_probe_resolved", "Answered a design probe"],
