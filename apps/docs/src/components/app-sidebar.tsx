@@ -2,6 +2,7 @@
 
 import * as React from "react";
 
+import { BrandMark } from "@/components/brand-mark";
 import {
   Sidebar,
   SidebarContent,
@@ -39,7 +40,6 @@ import {
   CornerDownRight,
   FileText,
   FlaskConical,
-  GalleryVerticalEnd,
   LayoutGrid,
   Loader2,
   Mic,
@@ -82,9 +82,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       <SidebarHeader>
         <Link href="/" onClick={closeOnMobile}>
           <div className="p-2.5 flex flex-row items-center gap-3 rounded-xl transition-colors hover:bg-sidebar-accent">
-            <div className="bg-primary text-primary-foreground flex aspect-square size-8 items-center justify-center rounded-lg shadow-sm">
-              <GalleryVerticalEnd className="size-4" aria-hidden />
-            </div>
+            <BrandMark className="size-8 drop-shadow-sm" />
             <div className="flex flex-col gap-0.5 leading-none">
               <span className="font-display text-[15px] text-primary tracking-tight">
                 Malleable Forms
