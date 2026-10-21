@@ -43,8 +43,9 @@ The workspace and all collected data are private; only published forms are publi
 | Who | Can do |
 | --- | --- |
 | Anyone with a form link | Load a **published** form (title, fields, purpose) and submit a response, incl. file uploads |
-| Signed-in admin (`app_admins`) | Everything: all forms incl. drafts, responses, files, LLM features |
-| Anyone else (also other signed-in accounts) | Nothing — redirected to `/login`, no data access |
+| Signed-in admin (`app_admins`) | Everything: all forms incl. drafts, responses, files, LLM features; runs workshops |
+| Workshop participant (anonymous sign-in + join code) | Their own form only (design it, read its responses and files), LLM features while the session runs, peer forms of the same session during the answer phase |
+| Anyone else (also other signed-in accounts) | Nothing — redirected to `/login` (or `/join`), no data access |
 
 How it's enforced:
 
@@ -53,7 +54,7 @@ How it's enforced:
 
 **Setup (once per Supabase instance):**
 
-1. Turn off public sign-ups. Self-hosted / Coolify: `DISABLE_SIGNUP=true` in the Supabase service. Hosted: Authentication → Sign In / Providers → disable "Allow new users to sign up". Local: `enable_signup = false` in `supabase/config.toml`.
+1. Turn off public sign-ups (unless you run workshops — see [Workshops](#workshops-study-mode)). Self-hosted / Coolify: `DISABLE_SIGNUP=true` in the Supabase service. Hosted: Authentication → Sign In / Providers → disable "Allow new users to sign up". Local: `enable_signup = false` in `supabase/config.toml`.
 2. Create your account: Studio → Authentication → Users → **Add user** (email + password, auto-confirm).
 3. Make it an admin (Studio → SQL editor):
 
@@ -63,6 +64,23 @@ How it's enforced:
    ```
 
 Publishing a form = setting its status to *published* in the workspace; unpublishing stops new submissions immediately. New tables need RLS plus an `app_admin_all` policy (see migration 010), otherwise the app can't reach them.
+
+## Workshops (study mode)
+
+A facilitator (admin) runs a workshop under **Workshops** (`/studies`): participants open `/join`, enter the session code and a name, and the facilitator moves everyone through *create → answer → review & refine → reflect* (questionnaire). Participants only ever see `/study/<session>`, limited to what the current phase needs; the presenter screen (`/studies/<id>/screen`) shows the code, phase, countdown and room progress on a projector. Export (JSON + CSVs) is on the session page.
+
+How it's enforced (`supabase/migrations/011_study_mode.sql`):
+
+- Participants are **anonymous Supabase users**. RLS lets them read/update only the portfolio they own (`portfolios.owner_id`) and its probes, history and responses; a trigger stops them from changing a form's status, owner or lineage; they can't create or delete forms (joining creates their one form).
+- Peer forms are never published: `get_published_form` / `submit_response` also accept *study peers* while the session is answering (plus 2 minutes' grace), once per form.
+- Server actions accept admins and participants of a running session (`requireDesigner()`); the LLM rate limit is per user, since a room shares one IP.
+- Leaving *create* and *review* snapshots every form (`study_snapshots`); interactions are logged to `study_events`.
+
+**Setup (once per Supabase instance):** enable anonymous sign-ins. Self-hosted / Coolify: `GOTRUE_EXTERNAL_ANONYMOUS_USERS_ENABLED=true` and raise `GOTRUE_RATE_LIMIT_ANONYMOUS_USERS` (default 30 per hour **per IP** — a room shares one). Hosted: Authentication → Sign In / Providers → "Allow anonymous sign-ins". Local: already on in `supabase/config.toml` (restart with `npx supabase stop && npx supabase start`).
+
+**Allow sign-ups: `DISABLE_SIGNUP=false`.** GoTrue treats anonymous sign-ins as sign-ups, so `DISABLE_SIGNUP=true` rejects them (`422 signup_disabled`, verified on v2.188.1) and nobody can join. With sign-ups allowed, a stray email sign-up creates an account that still has no access: it is neither in `app_admins` nor a participant, so RLS and the server actions refuse it.
+
+**Before the workshop:** rehearse with a few browsers at once (the facilitator in a separate browser profile — joining replaces that browser's admin session), and check that the LLM endpoint copes with ten workspaces at once.
 
 ## Learn More
 
