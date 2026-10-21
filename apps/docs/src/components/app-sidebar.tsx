@@ -45,6 +45,7 @@ import {
   Mic,
   Plus,
   Search,
+  Users,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -67,6 +68,7 @@ const PRIMARY_NAV: {
   { key: "portfolios", href: "/portfolios", label: "Portfolios", icon: LayoutGrid },
   { key: "new", href: "/portfolios/new", label: "New portfolio", icon: Plus },
   { key: "record", href: "/record", label: "Record mode", icon: Mic },
+  { key: "studies", href: "/studies", label: "Workshops", icon: Users },
   { key: "evaluation", href: "/evaluation", label: "Evaluation", icon: FlaskConical },
 ];
 
