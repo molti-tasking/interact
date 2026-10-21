@@ -6,6 +6,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { DesignProbeDetailDialog } from "@/components/workspace/DesignProbeDetailDialog";
+import { useStudyLog } from "@/context/study-context";
 import {
   patchSize,
   previewSchemaChange,
@@ -16,7 +17,7 @@ import { applySchemaPatch } from "@/lib/engine/schema-patch";
 import type { DesignProbe, PortfolioSchema, ProbePriority } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { BarChart3, ChevronRight, Info, Loader2, X } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   useProbePreviewActions,
   type ProbePreview,
@@ -357,6 +358,8 @@ export function OptionTile({
   onApply: () => void;
 }) {
   const { show, hide, clear } = useProbePreviewActions();
+  const log = useStudyLog();
+  const previewStartedAt = useRef<number | null>(null);
 
   const summary = useMemo(
     () =>
@@ -367,10 +370,23 @@ export function OptionTile({
   );
 
   const startPreview = () => {
-    if (preview && !disabled) show(preview);
+    if (preview && !disabled) {
+      show(preview);
+      previewStartedAt.current ??= Date.now();
+    }
   };
   const stopPreview = () => {
     if (preview) hide(preview.ownerId, preview.optionValue);
+    // Study log: previews looked at (not just brushed past), with dwell time
+    const started = previewStartedAt.current;
+    previewStartedAt.current = null;
+    if (preview && started !== null && Date.now() - started >= 300) {
+      log("option_previewed", {
+        ownerId: preview.ownerId,
+        option: value,
+        ms: Date.now() - started,
+      });
+    }
   };
 
   // Applied or unmounted while hovered: don't leave the canvas previewing

@@ -124,8 +124,15 @@ export function useResponse(responseId: string | undefined) {
   });
 }
 
-/** All responses of a portfolio (paged under the hood — no 1000-row cut-off). */
-export function useResponses(portfolioId: string | undefined) {
+/**
+ * All responses of a portfolio (paged under the hood — no 1000-row cut-off).
+ * `refetchInterval` keeps a view live while answers still arrive (workshop
+ * review phase).
+ */
+export function useResponses(
+  portfolioId: string | undefined,
+  options: { refetchInterval?: number } = {},
+) {
   return useQuery({
     queryKey: responsesKey(portfolioId ?? ""),
     queryFn: async (): Promise<FormResponse[]> => {
@@ -134,6 +141,7 @@ export function useResponses(portfolioId: string | undefined) {
       return rows.map(rowToResponse);
     },
     enabled: !!portfolioId,
+    refetchInterval: options.refetchInterval,
   });
 }
 

@@ -11,6 +11,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { useCapabilities } from "@/context/capabilities-context";
 import type { ResponseRowLike } from "@/lib/form-renderer/response-rows";
 import { ResponseValue } from "@/lib/form-renderer/ResponseValue";
 import { orphanKeys } from "@/lib/form-renderer/values";
@@ -50,6 +51,8 @@ const OTHER_DATA_COLUMN = "__other";
 /** Per-render values the (stable) header/cell components read. */
 interface ResponsesTableMeta {
   portfolio: Portfolio;
+  /** Rows open for editing, AI column actions (off in study mode) */
+  editable: boolean;
   openColumnAction: (field: Field, savedAction?: SavedColumnAction) => void;
 }
 
@@ -84,8 +87,15 @@ function responseHref(portfolioId: string, responseId: string) {
 
 function SubmittedCell({ row, table }: CellContext<Row, unknown>) {
   "use no memo";
-  const { portfolio } = metaOf(table);
+  const { portfolio, editable } = metaOf(table);
   const submitted = new Date(row.original.submittedAt).toLocaleString();
+  if (!editable) {
+    return (
+      <span className="whitespace-nowrap text-xs text-muted-foreground">
+        {submitted}
+      </span>
+    );
+  }
   return (
     <Link
       href={responseHref(portfolio.id, row.original.id)}
@@ -111,10 +121,12 @@ function OriginCell({ row }: CellContext<Row, unknown>) {
 
 function FieldHeader({ column, table }: HeaderContext<Row, unknown>) {
   "use no memo";
-  const { portfolio, openColumnAction } = metaOf(table);
+  const { portfolio, editable, openColumnAction } = metaOf(table);
+  const field = fieldOf(column);
+  if (!editable) return <span>{field.label}</span>;
   return (
     <ColumnHeader
-      field={fieldOf(column)}
+      field={field}
       portfolio={portfolio}
       onOpenAction={openColumnAction}
     />
@@ -233,6 +245,7 @@ export function ResponsesDataTable({
   responses,
 }: ResponsesDataTableProps) {
   const router = useRouter();
+  const { editResponses: editable } = useCapabilities();
   const schema = portfolio.schema;
   const fields = schema.fields;
   const isDerived = !!portfolio.base_id;
@@ -265,6 +278,7 @@ export function ResponsesDataTable({
 
   const meta: ResponsesTableMeta = {
     portfolio,
+    editable,
     openColumnAction: (field, savedAction) =>
       setActionTarget({ field, savedAction }),
   };
@@ -318,10 +332,10 @@ export function ResponsesDataTable({
               rows.map((row) => (
                 <TableRow
                   key={row.id}
-                  className="cursor-pointer hover:bg-muted/50"
+                  className={editable ? "cursor-pointer hover:bg-muted/50" : undefined}
                   onClick={(e) => {
                     // Keyboard users open rows via the link in the first cell.
-                    if (isInteractiveTarget(e.target)) return;
+                    if (!editable || isInteractiveTarget(e.target)) return;
                     router.push(responseHref(portfolio.id, row.original.id));
                   }}
                 >

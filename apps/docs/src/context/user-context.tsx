@@ -84,6 +84,24 @@ export function UserProvider({ children }: { children: ReactNode }) {
   return <UserContext.Provider value={value}>{children}</UserContext.Provider>;
 }
 
+/**
+ * A fixed acting user, e.g. a workshop participant acting as themselves:
+ * provenance shows "Name (Participant)", and the switcher can't change it.
+ */
+export function StaticUserProvider({
+  user,
+  children,
+}: {
+  user: MockUser;
+  children: ReactNode;
+}) {
+  const value = useMemo(
+    () => ({ currentUser: user, setCurrentUser: () => {} }),
+    [user],
+  );
+  return <UserContext.Provider value={value}>{children}</UserContext.Provider>;
+}
+
 export function useCurrentUser(): UserContextValue {
   const ctx = useContext(UserContext);
   if (!ctx) throw new Error("useCurrentUser must be used within UserProvider");
