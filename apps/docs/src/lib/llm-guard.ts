@@ -1,4 +1,4 @@
-import { requireOwner, UnauthorizedError } from "@/lib/auth";
+import { requireDesigner, UnauthorizedError } from "@/lib/auth";
 import { headers } from "next/headers";
 
 /**
@@ -6,9 +6,10 @@ import { headers } from "next/headers";
  *
  * Server actions are reachable by anyone who can POST to the app, so every
  * LLM entry point calls `guardLlmRequest()`: (1) only signed-in app admins
- * (see `requireOwner`), (2) a per-client sliding-window rate limit, plus
- * hard size caps on free-text inputs (`capText`/`capJson`). The limiter is
- * in-memory, i.e. per server instance — fine for a single deployment.
+ * and workshop participants (see `requireDesigner`), (2) a per-user
+ * sliding-window rate limit, plus hard size caps on free-text inputs
+ * (`capText`/`capJson`). The limiter is in-memory, i.e. per server
+ * instance — fine for a single deployment.
  */
 
 export class LlmGuardError extends Error {
@@ -18,7 +19,7 @@ export class LlmGuardError extends Error {
   }
 }
 
-/** Not signed in as an app admin (HTTP 401 in route handlers). */
+/** Not signed in as an admin or participant (HTTP 401 in route handlers). */
 export class LlmUnauthorizedError extends LlmGuardError {
   constructor(message: string) {
     super(message);
@@ -74,12 +75,18 @@ async function clientKey(): Promise<string> {
 }
 
 /**
- * Sliding-window rate limit per client IP and bucket. Disabled when
- * `LLM_RATE_LIMIT_PER_MIN=0`.
+ * Sliding-window rate limit per caller and bucket. Disabled when
+ * `LLM_RATE_LIMIT_PER_MIN=0`. `userId` (from the verified session, never
+ * from client input) keys the limit per user: a workshop room shares one
+ * NAT IP, so a per-IP limit would throttle all participants together.
+ * Falls back to the client IP.
  */
-export async function checkRateLimit(bucket = "llm"): Promise<void> {
+export async function checkRateLimit(
+  bucket = "llm",
+  userId?: string,
+): Promise<void> {
   if (process.env.LLM_RATE_LIMIT_PER_MIN === "0") return;
-  const key = `${bucket}:${await clientKey()}`;
+  const key = `${bucket}:${userId ? `user:${userId}` : await clientKey()}`;
   const now = Date.now();
   const recent = (calls.get(key) ?? []).filter((t) => now - t < WINDOW_MS);
   if (recent.length >= MAX_CALLS_PER_WINDOW) {
@@ -91,16 +98,18 @@ export async function checkRateLimit(bucket = "llm"): Promise<void> {
 
 /**
  * Call at the top of every LLM entry point (server action / route handler):
- * rejects anyone but an app admin, then applies the rate limit.
+ * rejects anyone but an app admin or a workshop participant, then applies
+ * the rate limit.
  */
 export async function guardLlmRequest(bucket = "llm"): Promise<void> {
+  let userId: string | undefined;
   try {
-    await requireOwner();
+    userId = (await requireDesigner())?.userId;
   } catch (error) {
     if (error instanceof UnauthorizedError) {
       throw new LlmUnauthorizedError(error.message);
     }
     throw error;
   }
-  await checkRateLimit(bucket);
+  await checkRateLimit(bucket, userId);
 }

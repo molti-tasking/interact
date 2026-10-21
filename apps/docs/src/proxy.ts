@@ -5,19 +5,43 @@ import { NextResponse, type NextRequest } from "next/server";
  * Route guard (Next 16 "proxy", formerly middleware).
  *
  * Everything requires a signed-in session except the respondent-facing
- * pages: published forms (`/forms/*`) and the login page. It also refreshes
- * the Supabase session cookie on every request.
+ * pages: published forms (`/forms/*`), the login page and the workshop join
+ * page (`/join`). It also refreshes the Supabase session cookie on every
+ * request.
+ *
+ * Workshop participants are anonymous users (migration 011). They are kept
+ * to the study pages; everything else sends them back to `/join`.
  *
  * This is a UX layer: data access is enforced by RLS in the database
- * (migration 010) and server actions/API routes call `requireOwner()`.
+ * (migrations 010, 011) and server actions/API routes call
+ * `requireDesigner()` / `requireOwner()`.
  */
 
-const PUBLIC_PREFIXES = ["/forms/", "/login"];
+const PUBLIC_PREFIXES = ["/forms/", "/login", "/join"];
 
-function isPublicPath(pathname: string): boolean {
-  return PUBLIC_PREFIXES.some(
+/** Where anonymous workshop participants may go (API routes check auth). */
+const PARTICIPANT_PREFIXES = ["/join", "/study/", "/forms/", "/api/"];
+
+function isUnder(pathname: string, prefixes: string[]): boolean {
+  return prefixes.some(
     (prefix) => pathname === prefix.replace(/\/$/, "") || pathname.startsWith(prefix),
   );
+}
+
+/** Redirect, keeping any session cookies refreshed on `response`. */
+function redirectTo(
+  request: NextRequest,
+  response: NextResponse,
+  pathname: string,
+  next?: string,
+) {
+  const url = request.nextUrl.clone();
+  url.pathname = pathname;
+  url.search = "";
+  if (next) url.searchParams.set("next", next);
+  const redirect = NextResponse.redirect(url);
+  for (const cookie of response.cookies.getAll()) redirect.cookies.set(cookie);
+  return redirect;
 }
 
 export async function proxy(request: NextRequest) {
@@ -50,17 +74,24 @@ export async function proxy(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   const { pathname, search } = request.nextUrl;
-  if (user || isPublicPath(pathname)) return response;
+
+  if (user?.is_anonymous) {
+    if (isUnder(pathname, PARTICIPANT_PREFIXES)) return response;
+    return redirectTo(request, response, "/join");
+  }
+  if (user || isUnder(pathname, PUBLIC_PREFIXES)) return response;
 
   if (pathname.startsWith("/api/")) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  if (pathname.startsWith("/study/")) return redirectTo(request, response, "/join");
 
-  const loginUrl = request.nextUrl.clone();
-  loginUrl.pathname = "/login";
-  loginUrl.search = "";
-  if (pathname !== "/") loginUrl.searchParams.set("next", pathname + search);
-  return NextResponse.redirect(loginUrl);
+  return redirectTo(
+    request,
+    response,
+    "/login",
+    pathname !== "/" ? pathname + search : undefined,
+  );
 }
 
 export const config = {

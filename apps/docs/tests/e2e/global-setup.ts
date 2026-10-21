@@ -33,6 +33,7 @@ export default async function globalSetup() {
         "postgresql://postgres:postgres@127.0.0.1:54322/postgres",
     });
     await client.connect();
+    // CASCADE also clears the study tables that reference portfolios
     await client.query(
       "TRUNCATE design_probes, responses, provenance_log, portfolios CASCADE",
     );
@@ -49,8 +50,11 @@ export default async function globalSetup() {
   }
 }
 
-/** Create `E2E_ADMIN` in local Supabase Auth and add it to `app_admins`. */
-async function ensureE2eAdmin() {
+/**
+ * Create `E2E_ADMIN` in local Supabase Auth and add it to `app_admins`.
+ * Also used by the study RLS integration test.
+ */
+export async function ensureE2eAdmin() {
   const statusEnv = execSync("npx supabase status -o env", {
     cwd: process.cwd(),
     stdio: "pipe",

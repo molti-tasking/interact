@@ -134,6 +134,7 @@ export type Database = {
           field_count: number | null
           id: string
           intent: Json
+          owner_id: string | null
           projection: Json | null
           revision: number
           schema: Json
@@ -149,6 +150,7 @@ export type Database = {
           field_count?: never
           id?: string
           intent: Json
+          owner_id?: string | null
           projection?: Json | null
           revision?: number
           schema: Json
@@ -164,6 +166,7 @@ export type Database = {
           field_count?: never
           id?: string
           intent?: Json
+          owner_id?: string | null
           projection?: Json | null
           revision?: number
           schema?: Json
@@ -193,6 +196,7 @@ export type Database = {
         Row: {
           action: string
           actor: string
+          actor_user_id: string | null
           created_at: string | null
           creator_role: string | null
           diff: Json
@@ -206,6 +210,7 @@ export type Database = {
         Insert: {
           action: string
           actor: string
+          actor_user_id?: string | null
           created_at?: string | null
           creator_role?: string | null
           diff: Json
@@ -219,6 +224,7 @@ export type Database = {
         Update: {
           action?: string
           actor?: string
+          actor_user_id?: string | null
           created_at?: string | null
           creator_role?: string | null
           diff?: Json
@@ -244,18 +250,21 @@ export type Database = {
           data: Json
           id: string
           portfolio_id: string
+          respondent_id: string | null
           submitted_at: string | null
         }
         Insert: {
           data: Json
           id?: string
           portfolio_id: string
+          respondent_id?: string | null
           submitted_at?: string | null
         }
         Update: {
           data?: Json
           id?: string
           portfolio_id?: string
+          respondent_id?: string | null
           submitted_at?: string | null
         }
         Relationships: [
@@ -295,11 +304,363 @@ export type Database = {
         }
         Relationships: []
       }
+      study_events: {
+        Row: {
+          client_at: string | null
+          created_at: string
+          id: number
+          participant_id: string | null
+          payload: Json
+          phase: string | null
+          portfolio_id: string | null
+          session_id: string
+          type: string
+        }
+        Insert: {
+          client_at?: string | null
+          created_at?: string
+          id?: number
+          participant_id?: string | null
+          payload?: Json
+          phase?: string | null
+          portfolio_id?: string | null
+          session_id: string
+          type: string
+        }
+        Update: {
+          client_at?: string | null
+          created_at?: string
+          id?: number
+          participant_id?: string | null
+          payload?: Json
+          phase?: string | null
+          portfolio_id?: string | null
+          session_id?: string
+          type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "study_events_participant_id_fkey"
+            columns: ["participant_id"]
+            isOneToOne: false
+            referencedRelation: "study_participants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "study_events_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "study_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      study_participants: {
+        Row: {
+          display_name: string
+          id: string
+          joined_at: string
+          last_seen_at: string
+          portfolio_id: string | null
+          rejoin_until: string | null
+          session_id: string
+          user_id: string
+        }
+        Insert: {
+          display_name: string
+          id?: string
+          joined_at?: string
+          last_seen_at?: string
+          portfolio_id?: string | null
+          rejoin_until?: string | null
+          session_id: string
+          user_id: string
+        }
+        Update: {
+          display_name?: string
+          id?: string
+          joined_at?: string
+          last_seen_at?: string
+          portfolio_id?: string | null
+          rejoin_until?: string | null
+          session_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "study_participants_portfolio_id_fkey"
+            columns: ["portfolio_id"]
+            isOneToOne: false
+            referencedRelation: "portfolios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "study_participants_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "study_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      study_questionnaire_responses: {
+        Row: {
+          answers: Json
+          id: string
+          instrument: string
+          participant_id: string
+          session_id: string
+          submitted_at: string
+        }
+        Insert: {
+          answers: Json
+          id?: string
+          instrument: string
+          participant_id: string
+          session_id: string
+          submitted_at?: string
+        }
+        Update: {
+          answers?: Json
+          id?: string
+          instrument?: string
+          participant_id?: string
+          session_id?: string
+          submitted_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "study_questionnaire_responses_participant_id_fkey"
+            columns: ["participant_id"]
+            isOneToOne: false
+            referencedRelation: "study_participants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "study_questionnaire_responses_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "study_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      study_sessions: {
+        Row: {
+          created_at: string
+          id: string
+          join_code: string
+          name: string
+          phase: string
+          phase_durations: Json
+          phase_ends_at: string | null
+          phase_started_at: string
+          settings: Json
+          space_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          join_code: string
+          name: string
+          phase?: string
+          phase_durations?: Json
+          phase_ends_at?: string | null
+          phase_started_at?: string
+          settings?: Json
+          space_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          join_code?: string
+          name?: string
+          phase?: string
+          phase_durations?: Json
+          phase_ends_at?: string | null
+          phase_started_at?: string
+          settings?: Json
+          space_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "study_sessions_space_id_fkey"
+            columns: ["space_id"]
+            isOneToOne: false
+            referencedRelation: "spaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      study_snapshots: {
+        Row: {
+          created_at: string
+          design_probes: Json
+          id: string
+          intent: Json | null
+          label: string
+          participant_id: string | null
+          portfolio_id: string
+          revision: number | null
+          schema: Json | null
+          session_id: string
+          title: string | null
+        }
+        Insert: {
+          created_at?: string
+          design_probes?: Json
+          id?: string
+          intent?: Json | null
+          label: string
+          participant_id?: string | null
+          portfolio_id: string
+          revision?: number | null
+          schema?: Json | null
+          session_id: string
+          title?: string | null
+        }
+        Update: {
+          created_at?: string
+          design_probes?: Json
+          id?: string
+          intent?: Json | null
+          label?: string
+          participant_id?: string | null
+          portfolio_id?: string
+          revision?: number | null
+          schema?: Json | null
+          session_id?: string
+          title?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
+      advance_study_phase: {
+        Args: { p_phase: string; p_session_id: string }
+        Returns: {
+          created_at: string
+          id: string
+          join_code: string
+          name: string
+          phase: string
+          phase_durations: Json
+          phase_ends_at: string | null
+          phase_started_at: string
+          settings: Json
+          space_id: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "study_sessions"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      create_study_session: {
+        Args: { p_name: string; p_phase_durations?: Json; p_settings?: Json }
+        Returns: {
+          created_at: string
+          id: string
+          join_code: string
+          name: string
+          phase: string
+          phase_durations: Json
+          phase_ends_at: string | null
+          phase_started_at: string
+          settings: Json
+          space_id: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "study_sessions"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      extend_study_phase: {
+        Args: { p_seconds: number; p_session_id: string }
+        Returns: {
+          created_at: string
+          id: string
+          join_code: string
+          name: string
+          phase: string
+          phase_durations: Json
+          phase_ends_at: string | null
+          phase_started_at: string
+          settings: Json
+          space_id: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "study_sessions"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      get_my_study_state: { Args: { p_session_id: string }; Returns: Json }
+      get_study_forms: {
+        Args: { p_session_id: string }
+        Returns: {
+          answered_by_me: boolean
+          field_count: number
+          owner_name: string
+          participant_id: string
+          portfolio_id: string
+          title: string
+        }[]
+      }
+      get_study_roster: {
+        Args: { p_session_id: string }
+        Returns: {
+          display_name: string
+          field_count: number | null
+          joined_at: string
+          last_seen_at: string
+          participant_id: string
+          portfolio_id: string | null
+          probes_resolved: number
+          questionnaire_done: boolean
+          rejoin_until: string | null
+          responses_given: number
+          responses_received: number
+          revision: number | null
+          title: string | null
+        }[]
+      }
+      is_study_participant: { Args: never; Returns: boolean }
+      is_study_peer_form: {
+        Args: { p_portfolio_id: string }
+        Returns: boolean
+      }
+      join_study_session: {
+        Args: {
+          p_code: string
+          p_display_name: string
+          p_intent: Json
+          p_schema: Json
+        }
+        Returns: {
+          participant_id: string
+          portfolio_id: string
+          session_id: string
+        }[]
+      }
+      my_participant_ids: { Args: never; Returns: string[] }
+      my_session_ids: { Args: never; Returns: string[] }
+      owns_portfolio: { Args: { p_portfolio_id: string }; Returns: boolean }
+      owns_portfolio_text: {
+        Args: { p_portfolio_id: string }
+        Returns: boolean
+      }
+      reassign_study_seat: {
+        Args: { p_participant_id: string }
+        Returns: undefined
+      }
       get_published_form: {
         Args: { p_id: string }
         Returns: {
@@ -335,6 +696,7 @@ export type Database = {
           field_count: number | null
           id: string
           intent: Json
+          owner_id: string | null
           projection: Json | null
           revision: number
           schema: Json
