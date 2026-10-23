@@ -51,9 +51,9 @@ export const PHASE_COPY: Record<StudyPhase, PhaseCopy> = {
     instruction: "Fill in everyone else's forms as yourself. Answer honestly.",
   },
   review: {
-    label: "Review & refine",
+    label: "Refine",
     instruction:
-      "Look at the answers to your form. Is their structure useful? Refine your form where it isn't.",
+      "Read the answers to your form, then change the form wherever they show it could ask better.",
   },
   questionnaire: {
     label: "Reflect",

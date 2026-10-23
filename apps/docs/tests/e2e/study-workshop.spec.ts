@@ -101,7 +101,7 @@ test.describe("Study mode workshop", () => {
     sessionId = undefined;
   });
 
-  test("join → create → answer → review & refine → questionnaire → export", async ({
+  test("join → create → answer → refine → questionnaire → export", async ({
     browser,
     page: admin,
   }) => {
@@ -162,32 +162,28 @@ test.describe("Study mode workshop", () => {
       await expect(page.locator('[data-testid="peer-form-card"]:not([disabled])')).toHaveCount(0);
     }
 
-    // --- Review & refine ----------------------------------------------------
-    await advance(admin, "Review & refine");
-    await expect(ana.getByTestId("review-tab-answers")).toContainText("Answers (2)");
-    const findings = ana.getByTestId("findings-panel");
-    await expect(findings).toBeVisible();
+    // --- Refine ---------------------------------------------------------------
+    await advance(admin, "Refine");
+    const answers = ana.getByTestId("answers-panel");
+    await expect(answers).toContainText("Answers to your form (2)");
     await closeTour(ana);
-    await findings.getByRole("button", { name: "Ask in Design" }).first().click();
-    await expect(findings.getByText("In Design").first()).toBeVisible();
+    // Raw answers, one respondent at a time — no dashboard, no suggestions
+    await expect(ana.getByTestId("findings-panel")).toHaveCount(0);
+    await expect(ana.getByTestId("responses-dashboard")).toHaveCount(0);
+    await expect(answers.getByText("Answer 1 of 2")).toBeVisible();
+    await expect(answers.getByTestId("answer-detail")).toContainText(/weekly/i);
+    await answers.getByTestId("answers-next").click();
+    await expect(answers.getByText("Answer 2 of 2")).toBeVisible();
 
     const [before] = await sql<{ revision: number }>(
       `SELECT revision FROM portfolios WHERE id =
          (SELECT portfolio_id FROM study_participants WHERE session_id = $1 AND display_name = 'Ana')`,
       [sessionId],
     );
-    await ana.getByTestId("review-tab-refine").click();
-    // The finding's probe ("Remove "Daily"…") — expand it if another card is open
-    const dataProbe = ana
-      .locator('[data-testid^="deck-card-"]', { hasText: 'Remove "Daily"' })
-      .first();
-    await expect(dataProbe).toBeVisible();
-    if ((await dataProbe.getAttribute("data-expanded")) !== "true") await dataProbe.click();
-    await ana
-      .locator('[data-testid^="deck-card-"][data-expanded="true"]', { hasText: 'Remove "Daily"' })
-      .locator('[data-testid^="deck-option-"]')
-      .first()
-      .click();
+    // Refine in the same workspace as in Create: nobody picked "Daily"
+    await ana.getByRole("button", { name: /^Edit field How often/ }).click();
+    await ana.getByLabel("Options (one per line)").fill("Weekly\nMonthly\nRarely");
+    await ana.getByRole("button", { name: "Save", exact: true }).click();
     await expect
       .poll(async () => {
         const [row] = await sql<{ revision: number; actors: string[] }>(

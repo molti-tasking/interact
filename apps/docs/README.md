@@ -67,7 +67,7 @@ Publishing a form = setting its status to *published* in the workspace; unpublis
 
 ## Workshops (study mode)
 
-A facilitator (admin) runs a workshop under **Workshops** (`/studies`): participants open `/join`, enter the session code and a name, and the facilitator moves everyone through *create → answer → review & refine → reflect* (questionnaire). Participants only ever see `/study/<session>`, limited to what the current phase needs; the presenter screen (`/studies/<id>/screen`) shows the code, phase, countdown and room progress on a projector. Export (JSON + CSVs) is on the session page.
+A facilitator (admin) runs a workshop under **Workshops** (`/studies`): participants open `/join`, enter the session code and a name, and the facilitator moves everyone through *create → answer → refine → reflect* (questionnaire). Participants only ever see `/study/<session>`, limited to what the current phase needs; the presenter screen (`/studies/<id>/screen`) shows the code, phase, countdown and room progress on a projector. Export (JSON + CSVs) is on the session page.
 
 How it's enforced (`supabase/migrations/011_study_mode.sql`):
 

@@ -210,7 +210,7 @@ export const FINAL_QUESTIONNAIRE: PortfolioSchema = {
     section(
       "responses",
       "The answers you received",
-      "Think about the review phase: the answers to your form and how you refined it.",
+      "Think about the refine phase: the answers to your form and how you refined it.",
       responseFields,
     ),
     section("about", "About you", "Optional.", aboutFields),
