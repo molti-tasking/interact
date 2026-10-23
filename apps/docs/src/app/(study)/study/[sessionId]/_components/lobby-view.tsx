@@ -17,8 +17,8 @@ const STEPS = [
   },
   {
     icon: MessageSquareText,
-    title: "Review & refine",
-    text: "Read the answers to your form. Did you get what you needed, in a useful shape? Improve the form.",
+    title: "Refine",
+    text: "Back in the design tool with the answers to your form. Did you get what you needed? Improve the form.",
   },
 ];
 

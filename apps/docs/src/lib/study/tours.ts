@@ -46,25 +46,18 @@ export const TOURS: Record<TourId, TourStep[]> = {
   ],
   review: [
     {
-      element: '[data-tour="review-tabs"]',
-      title: "Answers, then refine",
+      element: '[data-testid="answers-panel"]',
+      title: "The answers to your form",
       description:
-        "Everyone has answered your form. Look at the answers first, then switch to Refine to improve the form.",
+        "Everyone has answered your form. Step through the answers one person at a time. Did you get what you needed, in the shape you need it?",
       side: "bottom",
     },
     {
-      element: '[data-testid="responses-dashboard"]',
-      title: "The answers at a glance",
+      element: '[data-testid="card-deck-section"]',
+      title: "Refine your form",
       description:
-        "Charts summarise the answers. Ask yourself: is this the information you wanted? Is it structured the way you need it?",
-      side: "top",
-    },
-    {
-      element: '[data-testid="findings-panel"]',
-      title: "What the answers suggest",
-      description:
-        "Patterns the tool noticed, like options nobody picks. “Ask in Design” turns one into a design question in the Refine tab.",
-      side: "bottom",
+        "Change the form just as before: edit the intent, use the design questions, or click a field on the form to edit it.",
+      side: "right",
     },
   ],
 };

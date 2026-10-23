@@ -49,7 +49,7 @@ export default function StudiesPage() {
         <h1 className="text-3xl tracking-tight text-primary">Workshops</h1>
         <p className="text-muted-foreground">
           Run a study session: participants join with a code, create a form
-          about their hobby, answer each other&apos;s forms, then review the
+          about their hobby, answer each other&apos;s forms, then read the
           answers and refine their own.
         </p>
       </div>

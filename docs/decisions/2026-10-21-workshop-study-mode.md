@@ -8,8 +8,9 @@ workshop instead: ~10 expert participants in one room.
 
 1. **Create** (≈15 min): each participant designs a form about their hobby.
 2. **Answer** (≈30 min): each participant answers *every* other form.
-3. **Review & refine** (≈15 min): each participant reads the answers to
-   their own form — is the structure of the responses useful? — and refines it.
+3. **Refine** (≈15 min): each participant returns to their own form in the
+   design workspace, reads the raw answers it received, and refines it
+   (see decision 6, revised 2026-10-23).
 4. **Reflect**: one final questionnaire (SUS, CDN items, open reflection).
 
 ## Design Decisions
@@ -57,12 +58,22 @@ so countdowns agree). The countdown is a soft deadline.
 - `provenance_log.actor_user_id`: server-side attribution of every change.
 - Langfuse `userId` = Supabase user id, so LLM cost/latency per participant.
 
-### 6. Review phase connects responses back to design
+### 6. Refine phase: raw answers, authoring only (revised 2026-10-23)
 
-Findings ("nobody picks X", "everyone skips Y") normally need 20 responses;
-a workshop form gets ~9, so the threshold is a session setting (default 3).
-"Ask in Design" turns a finding into a design probe — the response→schema
-backpropagation the paper argues for, now observable in a study.
+*Originally:* an answers dashboard and table with findings ("nobody picks X",
+threshold lowered to 3 responses), and "Ask in Design" turning a finding into
+a design probe.
+
+*Now:* answer analytics are out of scope for the study, which focuses on the
+form-authoring interaction. The phase shows the participant's workspace from
+Create with an answers panel above it: one respondent's raw answers at a
+time, read-only, no charts and no answer-derived probes. What to change, and
+through which channel (intent edit, probe, direct field edit), is up to the
+creator. Reasons: ~9 peers answering as themselves are too few and not the
+target audience, so findings would mostly reflect the setup; and the
+dashboard is not part of the paper's contribution. Logged: `answers_panel`
+(open/close), `response_viewed` / `response_left` (dwell time). The
+`findingsMinResponses` setting is still parsed but no longer offered.
 
 ### 7. Voice off by default
 
@@ -73,7 +84,7 @@ toggle for setups with headsets.
 
 | Principle | What the study can now observe |
 |---|---|
-| Iterative convergence | Snapshots end of create vs. end of review; revisions per participant |
+| Iterative convergence | Snapshots end of create vs. end of refine; revisions per participant |
 | Intent-schema co-persistence | Intent edits and schema changes in provenance, per participant |
-| Decision traceability | Probe answers, previews looked at, findings sent to Design |
-| Scenario-driven derivation | Real answers from peers driving refinements |
+| Decision traceability | Probe answers, previews looked at, changes in Refine with their channel and reason |
+| Scenario-driven derivation | Real answers from peers prompting refinements |

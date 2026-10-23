@@ -16,7 +16,7 @@ import { DoneView } from "./_components/done-view";
 import { LobbyView } from "./_components/lobby-view";
 import { PhaseBar } from "./_components/phase-bar";
 import { QuestionnaireView } from "./_components/questionnaire-view";
-import { ReviewView } from "./_components/review-view";
+import { RefineView } from "./_components/refine-view";
 
 /** How long a phase change waits for in-flight AI edits at most. */
 const SETTLE_TIMEOUT_MS = 20_000;
@@ -110,7 +110,7 @@ function StudyShell() {
             shown === "create" ? (
               <DesignView portfolio={portfolio.data} withTour replayTour={replayTour} />
             ) : (
-              <ReviewView portfolio={portfolio.data} replayTour={replayTour} />
+              <RefineView portfolio={portfolio.data} replayTour={replayTour} />
             )
           ) : portfolio.isPending ? (
             <Centered><Spinner /></Centered>

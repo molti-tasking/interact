@@ -11,7 +11,7 @@ import {
 
 const TIMED_PHASES = ["create", "answer", "review", "questionnaire"] as const;
 
-/** Planned minutes per phase + voice + findings threshold. */
+/** Planned minutes per phase + voice. */
 export function SessionSettingsFields({
   durations,
   onDurationsChange,
@@ -75,30 +75,6 @@ export function SessionSettingsFields({
         </div>
       </div>
 
-      <div className="space-y-1">
-        <Label htmlFor="findings-min">Suggestions from answers after</Label>
-        <div className="flex items-center gap-2">
-          <Input
-            id="findings-min"
-            type="number"
-            min={1}
-            max={50}
-            className="w-20"
-            value={settings.findingsMinResponses}
-            onChange={(e) =>
-              onSettingsChange({
-                ...settings,
-                findingsMinResponses: Math.max(1, Number(e.target.value) || 1),
-              })
-            }
-            disabled={disabled}
-          />
-          <span className="text-sm text-muted-foreground">answers per form</span>
-        </div>
-        <p className="text-xs text-muted-foreground">
-          “What the answers suggest” in the review phase (the app default is 20).
-        </p>
-      </div>
     </div>
   );
 }
