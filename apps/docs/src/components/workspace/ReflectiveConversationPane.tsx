@@ -3,6 +3,8 @@
 import { PromptDiff } from "@/components/form/configurator/PromptDiff";
 import { Button } from "@/components/ui/button";
 import { MicButton } from "@/components/voice/MicButton";
+import { useCapabilities } from "@/context/capabilities-context";
+import { useStudyLog } from "@/context/study-context";
 import { useCurrentUser } from "@/context/user-context";
 import { usePipelineGenerate } from "@/hooks/query/pipeline";
 import { usePreviousPurpose } from "@/hooks/query/provenance";
@@ -71,6 +73,8 @@ export function ReflectiveConversationPane({
   const portfolioSchema = portfolio.schema;
   const { currentUser } = useCurrentUser();
   const actor = formatActor(currentUser);
+  const { voice: voiceEnabled } = useCapabilities();
+  const log = useStudyLog();
 
   // While the user edits, the editor shows their draft; otherwise it shows
   // the saved intent, so external updates (resolved probes, field-edit
@@ -137,6 +141,10 @@ export function ReflectiveConversationPane({
         actor,
       });
 
+      log("intent_applied", {
+        strategy: result.strategy.kind,
+        refine: hasFields,
+      });
       if (result.strategy.kind === "noop") {
         setError("No changes detected. Edit the intent to refine the form.");
         return;
@@ -252,10 +260,12 @@ export function ReflectiveConversationPane({
                 {!showDiff ? "View" : "Hide"} last change
               </Button>
             )}
-            <MicButton
-              onTranscript={handleVoiceTranscript}
-              disabled={isGenerating}
-            />
+            {voiceEnabled && (
+              <MicButton
+                onTranscript={handleVoiceTranscript}
+                disabled={isGenerating}
+              />
+            )}
           </div>
         </div>
 

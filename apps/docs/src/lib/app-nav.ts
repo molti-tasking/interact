@@ -24,7 +24,12 @@ export function activePortfolioIdFromPath(
   }
 }
 
-export type PrimaryNavKey = "portfolios" | "new" | "record" | "evaluation";
+export type PrimaryNavKey =
+  | "portfolios"
+  | "new"
+  | "record"
+  | "studies"
+  | "evaluation";
 
 /** Whether a primary sidebar entry is the current page. */
 export function isPrimaryNavActive(
@@ -39,6 +44,8 @@ export function isPrimaryNavActive(
       return path === "/portfolios/new";
     case "record":
       return path === "/record" || path.startsWith("/record/");
+    case "studies":
+      return path === "/studies" || path.startsWith("/studies/");
     case "evaluation":
       return path === "/evaluation" || path.startsWith("/evaluation/");
   }
@@ -74,6 +81,10 @@ export function buildBreadcrumbs(
   if (path === "/evaluation" || path.startsWith("/evaluation/"))
     return [{ label: "Evaluation" }];
   if (path === "/record") return [{ label: "Record mode" }];
+  if (path === "/studies") return [{ label: "Workshops" }];
+  if (path.startsWith("/studies/")) {
+    return [{ label: "Workshops", href: "/studies" }, { label: "Session" }];
+  }
 
   if (path === "/portfolios") return [{ label: "Portfolios" }];
   if (path === "/portfolios/new")

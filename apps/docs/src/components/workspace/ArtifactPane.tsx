@@ -12,6 +12,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { useCapabilities } from "@/context/capabilities-context";
 import { useCurrentUser } from "@/context/user-context";
 import { useCommitPortfolio, useUpdatePortfolio } from "@/hooks/query/portfolios";
 import { useUndoToast } from "@/hooks/query/undo";
@@ -88,6 +89,7 @@ export function ArtifactPane({
 
   // Sections: edit from their heading on the canvas; one page or one per page
   const commitPortfolio = useCommitPortfolio(portfolio.id);
+  const capabilities = useCapabilities();
   const notifyUndo = useUndoToast();
   const { currentUser } = useCurrentUser();
   const actor = formatActor(currentUser);
@@ -291,23 +293,27 @@ export function ArtifactPane({
           </button>
         )}
       </div>
-      <div className="flex h-8 items-center gap-0.5 rounded-lg border bg-background/90 px-0.5 shadow-sm backdrop-blur">
-        <PublishDialog portfolio={portfolio} />
-        <Button
-          variant="ghost"
-          size="sm"
-          className="text-muted-foreground h-7 text-xs"
-          asChild
-        >
-          <Link
-            href={`/portfolios/${portfolio.id}/derive`}
-            title="Derive a variant of this form for a specific scenario"
-          >
-            <Network className="h-3.5 w-3.5" aria-hidden />
-            Derive variant
-          </Link>
-        </Button>
-      </div>
+      {(capabilities.publish || capabilities.derive) && (
+        <div className="flex h-8 items-center gap-0.5 rounded-lg border bg-background/90 px-0.5 shadow-sm backdrop-blur">
+          {capabilities.publish && <PublishDialog portfolio={portfolio} />}
+          {capabilities.derive && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-muted-foreground h-7 text-xs"
+              asChild
+            >
+              <Link
+                href={`/portfolios/${portfolio.id}/derive`}
+                title="Derive a variant of this form for a specific scenario"
+              >
+                <Network className="h-3.5 w-3.5" aria-hidden />
+                Derive variant
+              </Link>
+            </Button>
+          )}
+        </div>
+      )}
     </>
   );
 

@@ -111,6 +111,8 @@ interface FormRendererProps {
    * false keeps everything on one page (e.g. editing a stored response).
    */
   paginate?: boolean;
+  /** Live forms: offer the "Random" fill button (off for study respondents) */
+  randomFill?: boolean;
   className?: string;
 }
 
@@ -365,6 +367,7 @@ export function FormRenderer({
   fieldMarks,
   onSectionClick,
   paginate = true,
+  randomFill = true,
   className,
 }: FormRendererProps) {
   const zodSchema = useMemo(() => schemaToZod(schema), [schema]);
@@ -580,14 +583,16 @@ export function FormRenderer({
         {mode === "live" && onSubmit && (!paged || pageIndex === blocks.length - 1) && (
           <div className="flex gap-2 pt-4">
             <FormSaveButton />
-            <button
-              type="button"
-              onClick={fillRandom}
-              className="inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs text-muted-foreground hover:bg-muted transition-colors"
-            >
-              <Dices className="h-3.5 w-3.5" aria-hidden />
-              Random
-            </button>
+            {randomFill && (
+              <button
+                type="button"
+                onClick={fillRandom}
+                className="inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs text-muted-foreground hover:bg-muted transition-colors"
+              >
+                <Dices className="h-3.5 w-3.5" aria-hidden />
+                Random
+              </button>
+            )}
           </div>
         )}
       </form>

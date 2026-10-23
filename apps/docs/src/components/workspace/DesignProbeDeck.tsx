@@ -25,6 +25,8 @@ import {
 } from "@/components/workspace/deck-canvas-context";
 import { ProbeCard } from "@/components/workspace/ProbeCard";
 import { ResolvedSection } from "@/components/workspace/ResolvedSection";
+import { useCapabilities } from "@/context/capabilities-context";
+import { useStudyLog } from "@/context/study-context";
 import { useCurrentUser } from "@/context/user-context";
 import {
   useApplyConflictFix,
@@ -112,6 +114,8 @@ export function DesignProbeDeck({
   const portfolioSchema = portfolio.schema;
   const { currentUser } = useCurrentUser();
   const actor = formatActor(currentUser);
+  const { voice: voiceEnabled } = useCapabilities();
+  const log = useStudyLog();
   const notifyUndo = useUndoToast();
   const spacePortfolios = useSpaceSiblings(portfolio);
   const targetKey = spacePortfolios.map((p) => p.id).join(",");
@@ -457,6 +461,7 @@ export function DesignProbeDeck({
     if (!portfolio.intent.purpose.content.trim()) return;
 
     const prompt = externalPrompt.trim();
+    log("probes_requested", { prompt: prompt || null });
     const acceptedStds = (portfolioSchema.acceptedStandards ?? [])
       .map((ref) => findStandard(ref.standardId, detectedStandards))
       .filter((s) => !!s);
@@ -517,6 +522,7 @@ export function DesignProbeDeck({
   ): Promise<string | null> => {
     const entry = entries.find((e) => e.id === id);
     if (!entry) return null;
+    log("probe_answered_by_voice", { id, kind: entry.kind, action: answer.action });
     if (answer.action === "skip") {
       if (entry.kind === "conflict") dismissConflict(id, true);
       else await dismissDesignProbe.mutateAsync(id);
@@ -585,12 +591,17 @@ export function DesignProbeDeck({
           )}
         </h3>
         <div className="flex items-center gap-0.5 pt-1">
-          <VoiceAnswerToggle
-            listening={voice.listening}
-            starting={voice.starting}
-            disabled={!hasCards}
-            onToggle={voice.toggle}
-          />
+          {voiceEnabled && (
+            <VoiceAnswerToggle
+              listening={voice.listening}
+              starting={voice.starting}
+              disabled={!hasCards}
+              onToggle={() => {
+                log("voice_answers_toggled", { listening: !voice.listening });
+                voice.toggle();
+              }}
+            />
+          )}
           <GenerateProbesDialog
             disabled={isGenerating || !hasIntent}
             isGenerating={isGenerating}
@@ -642,7 +653,10 @@ export function DesignProbeDeck({
                 <ConflictCard
                   conflict={entry.conflict}
                   expanded={entry.id === expandedId}
-                  onExpand={() => setFocusedId(entry.id)}
+                  onExpand={() => {
+                    log("probe_expanded", { id: entry.id, kind: entry.kind });
+                    setFocusedId(entry.id);
+                  }}
                   busy={busyIds.has(entry.id)}
                   schema={portfolioSchema}
                   previewStatus={
@@ -655,21 +669,39 @@ export function DesignProbeDeck({
                     const fix = entry.conflict.fixes.find(
                       (f) => f.value === value,
                     );
+                    log("conflict_fixed", { id: entry.id, fix: value });
                     if (fix) handleConflictFix(entry.conflict, fix);
                   }}
-                  onDismiss={() => dismissConflict(entry.id, true)}
+                  onDismiss={() => {
+                    log("conflict_dismissed", { id: entry.id });
+                    dismissConflict(entry.id, true);
+                  }}
                   onRetryPreview={() => fixPreviews.get(entry.id)?.retry()}
                 />
               ) : (
                 <ProbeCard
                   probe={entry.probe}
                   expanded={entry.id === expandedId}
-                  onExpand={() => setFocusedId(entry.id)}
+                  onExpand={() => {
+                    log("probe_expanded", { id: entry.id, kind: entry.kind });
+                    setFocusedId(entry.id);
+                  }}
                   busy={busyIds.has(entry.id)}
                   schema={portfolioSchema}
                   validTargetIds={validTargetIds}
-                  onSelect={(value) => handleProbeSelect(entry.id, value)}
-                  onDismiss={() => dismissDesignProbe.mutate(entry.id)}
+                  onSelect={(value) => {
+                    log("probe_answered", {
+                      id: entry.id,
+                      text: entry.probe.text,
+                      source: entry.probe.source,
+                      option: value,
+                    });
+                    return handleProbeSelect(entry.id, value);
+                  }}
+                  onDismiss={() => {
+                    log("probe_dismissed", { id: entry.id, text: entry.probe.text });
+                    dismissDesignProbe.mutate(entry.id);
+                  }}
                   onRetryPreview={() => retryPreview.mutate(entry.id)}
                 />
               )}

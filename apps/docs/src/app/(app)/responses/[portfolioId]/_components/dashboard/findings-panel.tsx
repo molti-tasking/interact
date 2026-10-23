@@ -2,21 +2,19 @@
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { useCapabilities } from "@/context/capabilities-context";
+import { useStudyLog } from "@/context/study-context";
 import {
   useDesignProbes,
   useSendFindingToDeck,
 } from "@/hooks/query/design-probes";
-import {
-  detectFindings,
-  FINDING_THRESHOLDS,
-  type Finding,
-} from "@/lib/engine/findings";
+import { detectFindings, type Finding } from "@/lib/engine/findings";
 import { buildFieldStats, type FieldStats } from "@/lib/engine/response-stats";
 import type { ResponseRowLike } from "@/lib/form-renderer/response-rows";
 import type { Portfolio } from "@/lib/types";
 import { Lightbulb, Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { toast } from "sonner";
 import type { RecodeTarget } from "./recode-dialog";
 
@@ -59,26 +57,42 @@ export function FindingsPanel({
 }: {
   portfolio: Portfolio;
   rows: readonly ResponseRowLike[];
-  onFixData: (target: RecodeTarget) => void;
+  /** Omitted: no "Fix data" (recoding isn't offered) */
+  onFixData?: (target: RecodeTarget) => void;
 }) {
   const router = useRouter();
+  const { findingsThresholds: thresholds, workspaceHref } = useCapabilities();
+  const log = useStudyLog();
   const schema = portfolio.schema;
   const stats = useMemo(() => buildFieldStats(schema, rows), [schema, rows]);
-  const findings = useMemo(() => detectFindings(schema, stats), [schema, stats]);
+  const findings = useMemo(
+    () => detectFindings(schema, stats, thresholds),
+    [schema, stats, thresholds],
+  );
   const { data: probes } = useDesignProbes(portfolio.id);
   const send = useSendFindingToDeck(portfolio.id);
 
-  if (rows.length < FINDING_THRESHOLDS.minResponses) {
+  // Study log: which suggestions the responses produced (once per set)
+  const shownKeys =
+    rows.length >= thresholds.minResponses
+      ? findings.map((f) => f.key).join("|")
+      : "";
+  useEffect(() => {
+    if (shownKeys) log("findings_shown", { keys: shownKeys.split("|") });
+  }, [shownKeys, log]);
+
+  if (rows.length < thresholds.minResponses) {
     return (
       <p className="text-xs text-muted-foreground">
         Suggestions for the form appear once there are{" "}
-        {FINDING_THRESHOLDS.minResponses} responses.
+        {thresholds.minResponses} responses.
       </p>
     );
   }
   if (findings.length === 0) return null;
 
-  const sendToDesign = (finding: Finding) =>
+  const sendToDesign = (finding: Finding) => {
+    log("finding_sent_to_design", { key: finding.key, text: finding.text });
     send.mutate(
       { finding, schema },
       {
@@ -87,13 +101,14 @@ export function FindingsPanel({
             description: finding.text,
             action: {
               label: "Open",
-              onClick: () => router.push(`/portfolios/${portfolio.id}`),
+              onClick: () => router.push(workspaceHref(portfolio.id)),
             },
           }),
         onError: (err) =>
           toast.error(err instanceof Error ? err.message : "Couldn't send it to Design"),
       },
     );
+  };
 
   return (
     <section
@@ -121,7 +136,7 @@ export function FindingsPanel({
                 <p className="text-xs text-muted-foreground">{finding.evidence}</p>
               </div>
               <div className="flex items-center gap-1.5">
-                {fix && (
+                {fix && onFixData && (
                   <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => onFixData(fix)}>
                     Fix data
                   </Button>

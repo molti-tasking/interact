@@ -1,3 +1,4 @@
+import { getPrincipal } from "@/lib/auth";
 import { propagateAttributes } from "@langfuse/tracing";
 import { cookies } from "next/headers";
 import { after } from "next/server";
@@ -86,6 +87,7 @@ function flushAfterResponse(): void {
 
 /**
  * Wraps an async function with Langfuse trace attributes (userId, sessionId, tags).
+ * `userId` is the Supabase user id when signed in, else an anonymous cookie.
  *
  * Usage in server actions:
  * ```ts
@@ -102,7 +104,9 @@ export async function withTracing<T>(
   },
   fn: () => Promise<T>,
 ): Promise<T> {
-  const userId = await getAnonymousUserId();
+  // The signed-in user (admin or workshop participant) when known, so LLM
+  // cost and latency can be broken down per participant.
+  const userId = (await getPrincipal())?.userId ?? (await getAnonymousUserId());
 
   try {
     return await propagateAttributes(

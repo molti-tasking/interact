@@ -37,6 +37,9 @@ describe("isPrimaryNavActive", () => {
     expect(isPrimaryNavActive("new", "/portfolios/new")).toBe(true);
     expect(isPrimaryNavActive("record", "/record")).toBe(true);
     expect(isPrimaryNavActive("record", "/portfolios/abc/record")).toBe(false);
+    expect(isPrimaryNavActive("studies", "/studies")).toBe(true);
+    expect(isPrimaryNavActive("studies", "/studies/abc")).toBe(true);
+    expect(isPrimaryNavActive("studies", "/study/abc")).toBe(false);
     expect(isPrimaryNavActive("evaluation", "/evaluation")).toBe(true);
   });
 });

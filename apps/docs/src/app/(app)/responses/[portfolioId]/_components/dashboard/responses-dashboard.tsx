@@ -1,6 +1,7 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
+import { useCapabilities } from "@/context/capabilities-context";
 import { useCurrentUser } from "@/context/user-context";
 import {
   useReviseWidget,
@@ -58,6 +59,7 @@ export function ResponsesDashboard({
   /** Fresh rows for recoding (re-planned on them before writing) */
   refetchRows: () => Promise<readonly ResponseRowLike[]>;
 }) {
+  const { recode: canRecode } = useCapabilities();
   const schema = portfolio.schema;
   const saved = schema.dashboard;
   const fallback = useMemo(() => defaultDashboard(schema), [schema]);
@@ -168,7 +170,7 @@ export function ResponsesDashboard({
       toast.error(err instanceof Error ? err.message : "Couldn't recode the responses");
     }
   };
-  const widgetExtras = {
+  const widgetExtras = !canRecode ? {} : {
     categoryActions: (field: Field, bucket: CategoryBucket) => (
       <BucketMenu field={field} bucket={bucket} onPick={setRecodeTarget} />
     ),
@@ -289,7 +291,7 @@ export function ResponsesDashboard({
         <FindingsPanel
           portfolio={portfolio}
           rows={responses}
-          onFixData={setRecodeTarget}
+          onFixData={canRecode ? setRecodeTarget : undefined}
         />
       )}
 
