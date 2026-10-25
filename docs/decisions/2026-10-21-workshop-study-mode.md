@@ -58,22 +58,30 @@ so countdowns agree). The countdown is a soft deadline.
 - `provenance_log.actor_user_id`: server-side attribution of every change.
 - Langfuse `userId` = Supabase user id, so LLM cost/latency per participant.
 
-### 6. Refine phase: raw answers, authoring only (revised 2026-10-23)
+### 6. Refine phase: answers inside the authoring interaction (revised 2026-10-25)
 
-*Originally:* an answers dashboard and table with findings ("nobody picks X",
-threshold lowered to 3 responses), and "Ask in Design" turning a finding into
-a design probe.
+*Originally:* an answers dashboard and table with findings and "Ask in
+Design". *2026-10-23:* dashboard and findings removed; raw answers only.
 
-*Now:* answer analytics are out of scope for the study, which focuses on the
-form-authoring interaction. The phase shows the participant's workspace from
-Create with an answers panel above it: one respondent's raw answers at a
-time, read-only, no charts and no answer-derived probes. What to change, and
-through which channel (intent edit, probe, direct field edit), is up to the
-creator. Reasons: ~9 peers answering as themselves are too few and not the
-target audience, so findings would mostly reflect the setup; and the
-dashboard is not part of the paper's contribution. Logged: `answers_panel`
-(open/close), `response_viewed` / `response_left` (dwell time). The
-`findingsMinResponses` setting is still parsed but no longer offered.
+*Now:* still no dashboard — the answers feed the authoring interaction
+itself, because collecting ~9 answers per form and then barely using them
+made the phase feel like a continuation of Create without a task:
+
+- A short three-step guide says what the phase is for.
+- An answers panel shows all answers as a table (default) or one
+  respondent at a time.
+- On the form canvas each question carries an "N answers" badge; hovering or
+  focusing it shows its answers (counts per option incl. options nobody
+  picked, number range, or text samples).
+- Findings (unused options, one dominant answer, optional questions everyone
+  skips; threshold `findingsMinResponses`, default 3) are added to the probe
+  deck automatically as "From responses" probes, once each.
+- A "My form is ready" bar in Create and Refine tells participants they don't
+  have to answer every probe and logs when they consider the form done.
+
+Logged: `answers_panel`, `answers_mode`, `response_viewed` /
+`response_left` (dwell time), `findings_to_deck`, `form_marked_ready` /
+`form_ready_undone`.
 
 ### 7. Voice off by default
 
@@ -86,5 +94,5 @@ toggle for setups with headsets.
 |---|---|
 | Iterative convergence | Snapshots end of create vs. end of refine; revisions per participant |
 | Intent-schema co-persistence | Intent edits and schema changes in provenance, per participant |
-| Decision traceability | Probe answers, previews looked at, changes in Refine with their channel and reason |
+| Decision traceability | Probe answers (incl. probes from responses), previews looked at, changes in Refine with their reason |
 | Scenario-driven derivation | Real answers from peers prompting refinements |

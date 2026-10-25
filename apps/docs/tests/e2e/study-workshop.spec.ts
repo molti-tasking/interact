@@ -5,7 +5,7 @@ import { E2E_ADMIN, signIn } from "../auth";
 /**
  * Study mode: a whole workshop with a facilitator and three participants in
  * separate browser contexts. Forms are seeded in the database so the run
- * doesn't depend on the LLM; the review loop (findings → design probe →
+ * doesn't depend on the LLM; the refine loop (answers → design probe →
  * apply) is deterministic.
  */
 
@@ -167,13 +167,22 @@ test.describe("Study mode workshop", () => {
     const answers = ana.getByTestId("answers-panel");
     await expect(answers).toContainText("Answers to your form (2)");
     await closeTour(ana);
-    // Raw answers, one respondent at a time — no dashboard, no suggestions
-    await expect(ana.getByTestId("findings-panel")).toHaveCount(0);
+    // No dashboard: the answers come as a table or one respondent at a time
     await expect(ana.getByTestId("responses-dashboard")).toHaveCount(0);
+    await expect(answers.getByTestId("answers-table")).toContainText(/weekly/i);
+    await answers.getByTestId("answers-mode-cards").click();
     await expect(answers.getByText("Answer 1 of 2")).toBeVisible();
     await expect(answers.getByTestId("answer-detail")).toContainText(/weekly/i);
     await answers.getByTestId("answers-next").click();
     await expect(answers.getByText("Answer 2 of 2")).toBeVisible();
+    // On the form: each question shows its number of answers
+    await expect(ana.getByTestId("field-insight-badge").first()).toContainText("2 answers");
+    // Patterns in the answers arrive as design probes ("nobody picks Daily")
+    await expect(
+      ana.locator('[data-testid^="deck-card-"]', { hasText: 'Remove "Daily"' }).first(),
+    ).toBeVisible();
+    await ana.getByTestId("mark-ready").click();
+    await expect(ana.getByText("Marked as ready.")).toBeVisible();
 
     const [before] = await sql<{ revision: number }>(
       `SELECT revision FROM portfolios WHERE id =

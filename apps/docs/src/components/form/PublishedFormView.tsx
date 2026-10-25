@@ -3,17 +3,9 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
 import { usePublishedForm, useSubmitResponse } from "@/hooks/query/public-form";
 import { FormRenderer } from "@/lib/form-renderer/FormRenderer";
-import { AlertTriangle, FileText, Info, Loader2 } from "lucide-react";
+import { AlertTriangle, FileText, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 interface PublishedFormViewProps {
@@ -117,28 +109,19 @@ export function PublishedFormView({
         </div>
         <h1 className="text-3xl tracking-tight">{portfolio.title}</h1>
 
+        {portfolio.purpose && (
+          <p
+            data-testid="form-about"
+            className="mx-auto max-w-xl whitespace-pre-line text-base leading-relaxed text-muted-foreground"
+          >
+            {portfolio.purpose}
+          </p>
+        )}
+
         <div className="flex items-center justify-center gap-2 pt-1">
           <Badge variant="secondary" className="text-xs">
             {fieldCount} field{fieldCount !== 1 ? "s" : ""}
           </Badge>
-          {portfolio.purpose && (
-            <Dialog>
-              <DialogTrigger asChild>
-                <button className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors cursor-pointer">
-                  <Info className="h-3 w-3" aria-hidden />
-                  About
-                </button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>About this form</DialogTitle>
-                  <DialogDescription>
-                    {portfolio.purpose}
-                  </DialogDescription>
-                </DialogHeader>
-              </DialogContent>
-            </Dialog>
-          )}
         </div>
       </div>
 
