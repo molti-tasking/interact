@@ -202,6 +202,7 @@ function answerInsights(
     const answered = rows.filter((r) => !isEmptyValue(r.data[field.name])).length;
     result[field.id] = {
       label: `${answered} ${answered === 1 ? "answer" : "answers"}`,
+      share: answered / rows.length,
       content: (
         <FieldAnswers field={field} rows={rows} entry={stats.get(field.id)} answered={answered} />
       ),
