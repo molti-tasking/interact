@@ -49,14 +49,21 @@ export const TOURS: Record<TourId, TourStep[]> = {
       element: '[data-testid="answers-panel"]',
       title: "The answers to your form",
       description:
-        "Everyone has answered your form. Step through the answers one person at a time. Did you get what you needed, in the shape you need it?",
+        "Everyone has answered your form. See all answers in the table, or switch to one person at a time.",
       side: "bottom",
     },
     {
-      element: '[data-testid="card-deck-section"]',
-      title: "Refine your form",
+      element: '[data-testid="preview-pane"]',
+      title: "Answers on your form",
       description:
-        "Change the form just as before: edit the intent, use the design questions, or click a field on the form to edit it.",
+        "Each question shows how many answered it. Hover a question to see its answers, click it to change it.",
+      side: "left",
+    },
+    {
+      element: '[data-testid="card-deck-section"]',
+      title: "Design questions",
+      description:
+        "Some design questions now come from the answers, like an option nobody picked. Answer or skip them, or ask for new ones.",
       side: "right",
     },
   ],

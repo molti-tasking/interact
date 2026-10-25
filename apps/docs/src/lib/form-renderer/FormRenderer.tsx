@@ -25,6 +25,7 @@ import {
 } from "react";
 import { useForm, useFormState } from "react-hook-form";
 import { renderFieldComponent } from "./field-components";
+import { useFieldInsight } from "./field-insights";
 import {
   LikertGridHeader,
   LikertRow,
@@ -193,6 +194,9 @@ function FieldShell({
 }) {
   // A pending change takes precedence over pointing out an issue
   const mark = annotation ? undefined : markProp;
+  // Insights (e.g. the answers received) belong to the editable preview only
+  const fieldInsight = useFieldInsight(field.id);
+  const insight = onEdit ? fieldInsight : undefined;
   return (
     <div
       data-testid={`form-field-${field.name}`}
@@ -200,6 +204,7 @@ function FieldShell({
       className={cn(
         className,
         onEdit && "group relative",
+        insight && "hover:z-30 focus-within:z-30",
         annotation && "relative",
         annotation && annotationStyles[annotation].wrapper,
         mark && "relative",
@@ -235,6 +240,22 @@ function FieldShell({
         >
           {annotationStyles[annotation].label}
         </span>
+      )}
+      {insight && (
+        <>
+          <span
+            data-testid="field-insight-badge"
+            className="absolute -top-3 left-0 z-20 rounded-full border bg-background px-1.5 py-px text-[10px] font-medium leading-4 text-muted-foreground shadow-sm"
+          >
+            {insight.label}
+          </span>
+          <div
+            data-testid="field-insight"
+            className="pointer-events-none invisible absolute left-0 top-full z-30 mt-2 w-80 max-w-full rounded-lg border bg-popover p-3 text-popover-foreground opacity-0 shadow-lg transition-opacity group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100 motion-reduce:transition-none"
+          >
+            {insight.content}
+          </div>
+        </>
       )}
       {/* Clickable edit overlay in preview mode */}
       {onEdit && (

@@ -12,8 +12,9 @@ import { useCommitPortfolio } from "@/hooks/query/portfolios";
 import { formatActor } from "@/lib/mock-users";
 import { deriveTitleFromIntent } from "@/lib/new-portfolio";
 import type { Portfolio } from "@/lib/types";
-import { Loader2 } from "lucide-react";
-import { useState } from "react";
+import { CheckCircle2, Loader2 } from "lucide-react";
+import { useEffect, useState } from "react";
+import { ExampleCarousel } from "./example-carousel";
 import { toast } from "sonner";
 import { useCoachTour } from "./use-coach-tour";
 
@@ -55,11 +56,74 @@ export function DesignView({
     return <StartCard portfolio={portfolio} onStarted={() => setAutoGenerate(true)} />;
   }
   return (
-    <PortfolioWorkspace
-      portfolio={portfolio}
-      autoGenerate={autoGenerate}
-      onAutoGenerateStarted={() => setAutoGenerate(false)}
-    />
+    <div className="space-y-4">
+      <ReadyBar />
+      <PortfolioWorkspace
+        portfolio={portfolio}
+        autoGenerate={autoGenerate}
+        onAutoGenerateStarted={() => setAutoGenerate(false)}
+      />
+    </div>
+  );
+}
+
+/**
+ * When am I done? Participants don't have to answer every design probe; they
+ * can mark the form as ready (logged, so time to "ready" can be analysed)
+ * and keep improving it until the facilitator moves on.
+ */
+function ReadyBar() {
+  const { state, log } = useStudy()!;
+  const phase = state.session.phase;
+  const storageKey = `mf-study-ready:${state.participant.id}:${phase}`;
+  const [ready, setReady] = useState(false);
+
+  useEffect(() => {
+    try {
+      setReady(sessionStorage.getItem(storageKey) === "1");
+    } catch {
+      // storage unavailable: start unmarked
+    }
+  }, [storageKey]);
+
+  const mark = (next: boolean) => {
+    setReady(next);
+    log(next ? "form_marked_ready" : "form_ready_undone", { phase });
+    try {
+      if (next) sessionStorage.setItem(storageKey, "1");
+      else sessionStorage.removeItem(storageKey);
+    } catch {
+      // not persisted; the log has it
+    }
+  };
+
+  return (
+    <div
+      data-testid="ready-bar"
+      className="flex flex-wrap items-center justify-between gap-3 rounded-xl border bg-card px-4 py-3"
+    >
+      {ready ? (
+        <p className="flex items-center gap-2 text-sm" role="status">
+          <CheckCircle2 className="h-4 w-4 text-primary" aria-hidden />
+          Marked as ready. You can keep improving it until the time is up.
+        </p>
+      ) : (
+        <p className="text-sm text-muted-foreground">
+          <span className="font-medium text-foreground">When are you done?</span>{" "}
+          When the form asks what you want to know. You don&apos;t have to answer
+          every design question; skip what doesn&apos;t matter.
+        </p>
+      )}
+      {ready ? (
+        <Button variant="ghost" size="sm" onClick={() => mark(false)}>
+          Undo
+        </Button>
+      ) : (
+        <Button size="sm" onClick={() => mark(true)} data-testid="mark-ready">
+          My form is ready
+        </Button>
+      )}
+    </div>
   );
 }
 
@@ -136,7 +200,7 @@ function StartCard({
                   void handleStart();
                 }
               }}
-              placeholder="e.g. I go bouldering every week and would like to know how others got into climbing, where they train and what keeps them motivated…"
+              placeholder="e.g. I go bouldering every week and want to know how others got into it."
               className="min-h-32 bg-background text-base"
               disabled={commit.isPending}
             />
@@ -167,6 +231,7 @@ function StartCard({
           </Button>
         </form>
       </Card>
+      <ExampleCarousel />
     </div>
   );
 }

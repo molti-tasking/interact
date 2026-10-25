@@ -11,7 +11,7 @@ import {
 
 const TIMED_PHASES = ["create", "answer", "review", "questionnaire"] as const;
 
-/** Planned minutes per phase + voice. */
+/** Planned minutes per phase + voice + threshold for probes from answers. */
 export function SessionSettingsFields({
   durations,
   onDurationsChange,
@@ -73,6 +73,32 @@ export function SessionSettingsFields({
             unless participants have headsets.
           </p>
         </div>
+      </div>
+
+      <div className="space-y-1">
+        <Label htmlFor="findings-min">Design questions from answers after</Label>
+        <div className="flex items-center gap-2">
+          <Input
+            id="findings-min"
+            type="number"
+            min={1}
+            max={50}
+            className="w-20"
+            value={settings.findingsMinResponses}
+            onChange={(e) =>
+              onSettingsChange({
+                ...settings,
+                findingsMinResponses: Math.max(1, Number(e.target.value) || 1),
+              })
+            }
+            disabled={disabled}
+          />
+          <span className="text-sm text-muted-foreground">answers per form</span>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          In Refine, patterns in the answers (an option nobody picks, a question
+          everyone answers the same way) become design questions. The app default is 20.
+        </p>
       </div>
 
     </div>
