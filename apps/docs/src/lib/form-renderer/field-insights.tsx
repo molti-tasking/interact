@@ -10,6 +10,8 @@ import { createContext, useContext, type ReactNode } from "react";
 export interface FieldInsight {
   /** Badge text, e.g. "9 answers" */
   label: string;
+  /** 0–1, drawn as a faint fill behind the badge (e.g. share who answered) */
+  share?: number;
   content: ReactNode;
 }
 

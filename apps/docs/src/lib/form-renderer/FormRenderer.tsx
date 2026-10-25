@@ -243,12 +243,23 @@ function FieldShell({
       )}
       {insight && (
         <>
-          <span
-            data-testid="field-insight-badge"
-            className="absolute -top-3 left-0 z-20 rounded-full border bg-background px-1.5 py-px text-[10px] font-medium leading-4 text-muted-foreground shadow-sm"
-          >
-            {insight.label}
-          </span>
+          {/* Hidden while a pending change or an issue badge takes the corner */}
+          {!annotation && !mark && (
+            <span
+              data-testid="field-insight-badge"
+              className="pointer-events-none absolute -top-2.5 right-1 z-20 overflow-hidden rounded-full bg-background/75 px-2 pb-1 pt-px text-[10px] font-medium leading-4 text-muted-foreground opacity-75 shadow-[0_1px_6px_rgb(0_0_0/0.08)] ring-1 ring-black/5 backdrop-blur-sm transition-opacity group-hover:opacity-100 dark:ring-white/10"
+            >
+              {insight.label}
+              {insight.share !== undefined && (
+                <span aria-hidden className="absolute inset-x-2 bottom-0.5 h-0.5 overflow-hidden rounded-full bg-muted">
+                  <span
+                    className="block h-full rounded-full bg-primary/50"
+                    style={{ width: `${Math.round(Math.min(1, Math.max(0, insight.share)) * 100)}%` }}
+                  />
+                </span>
+              )}
+            </span>
+          )}
           <div
             data-testid="field-insight"
             className="pointer-events-none invisible absolute left-0 top-full z-30 mt-2 w-80 max-w-full rounded-lg border bg-popover p-3 text-popover-foreground opacity-0 shadow-lg transition-opacity group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100 motion-reduce:transition-none"

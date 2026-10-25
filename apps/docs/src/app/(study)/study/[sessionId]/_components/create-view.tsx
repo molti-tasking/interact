@@ -169,10 +169,10 @@ function StartCard({
   return (
     <div className="mx-auto max-w-2xl space-y-6 py-4">
       <div className="space-y-1">
-        <h1 className="text-3xl tracking-tight text-primary">Your hobby form</h1>
+        <h1 className="text-3xl tracking-tight text-primary">Create a form</h1>
         <p className="text-muted-foreground">
-          Start with a few sentences. The tool drafts a first form and then
-          asks you design questions to refine it.
+          Say what you want to find out. The tool drafts a form and helps you
+          improve it.
         </p>
       </div>
       <Card className="p-4 sm:p-6">
@@ -186,7 +186,7 @@ function StartCard({
         >
           <div className="space-y-2">
             <Label htmlFor="study-intent" className="text-base">
-              Which hobby, and what would you like to find out from others?
+              What would you like to find out?
             </Label>
             <Textarea
               id="study-intent"
@@ -200,13 +200,12 @@ function StartCard({
                   void handleStart();
                 }
               }}
-              placeholder="e.g. I go bouldering every week and want to know how others got into it."
+              placeholder="A sentence or two is enough."
               className="min-h-32 bg-background text-base"
               disabled={commit.isPending}
             />
             <p className="text-xs text-muted-foreground">
-              Who fills it in, what it&apos;s for, anything you don&apos;t want
-              to ask. Rough is fine.
+              Rough is fine. Stuck? See the examples below.
             </p>
           </div>
           <div className="space-y-2">
@@ -219,7 +218,7 @@ function StartCard({
               value={title}
               maxLength={120}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder={derivedTitle || "e.g. Bouldering habits"}
+              placeholder={derivedTitle || "Made from your description if left empty"}
               disabled={commit.isPending}
             />
           </div>
