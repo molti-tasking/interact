@@ -14,10 +14,13 @@ import {
   Dices,
   Pencil,
   TriangleAlert,
+  GripVertical,
+  Lock,
 } from "lucide-react";
 import {
   Fragment,
   useCallback,
+  useEffect,
   useMemo,
   useRef,
   useState,
@@ -103,6 +106,18 @@ interface FormRendererProps {
    * fields are highlighted; removed fields are shown struck through.
    */
   fieldAnnotations?: Record<string, FieldAnnotation>;
+  /**
+   * With `fieldAnnotations`: field id → what the pending change does to an
+   * existing field (e.g. "type text → choice"), shown on its badge so a
+   * change to a field the creator already had is never just "Changed".
+   */
+  fieldChangeNotes?: Record<string, string[]>;
+  /**
+   * Preview: let the creator reorder fields by dragging a handle (or with
+   * the arrow keys on it). Dropping on another field moves next to it and
+   * into its section.
+   */
+  onFieldMove?: (move: FieldMove) => void;
   /** Field id → an issue to point out on the field (e.g. a schema conflict) */
   fieldMarks?: Record<string, FieldMark>;
   /** Preview: make section headings editable */
@@ -116,6 +131,12 @@ interface FormRendererProps {
   randomFill?: boolean;
   className?: string;
 }
+
+export type FieldMove =
+  | { fieldId: string; targetId: string; place: "before" | "after" }
+  | { fieldId: string; delta: -1 | 1 };
+
+const FIELD_DRAG_TYPE = "application/x-form-field-id";
 
 export interface FieldMark {
   tone: "error" | "warning" | "info";
@@ -181,6 +202,8 @@ function FieldShell({
   field,
   onEdit,
   annotation,
+  changeNotes,
+  onMove,
   mark: markProp,
   className,
   children,
@@ -188,6 +211,8 @@ function FieldShell({
   field: Field;
   onEdit?: () => void;
   annotation?: FieldAnnotation;
+  changeNotes?: string[];
+  onMove?: (move: FieldMove) => void;
   mark?: FieldMark;
   className?: string;
   children: ReactNode;
@@ -197,12 +222,60 @@ function FieldShell({
   // Insights (e.g. the answers received) belong to the editable preview only
   const fieldInsight = useFieldInsight(field.id);
   const insight = onEdit ? fieldInsight : undefined;
+  // Drag to reorder: only from the handle, so text in the field stays
+  // selectable; the drop line shows where the field will land.
+  const [dragArmed, setDragArmed] = useState(false);
+  // Released anywhere (not only over the handle): disarm, so the field
+  // doesn't stay draggable and its text selectable again
+  useEffect(() => {
+    if (!dragArmed) return;
+    const disarm = () => setDragArmed(false);
+    window.addEventListener("pointerup", disarm);
+    window.addEventListener("pointercancel", disarm);
+    return () => {
+      window.removeEventListener("pointerup", disarm);
+      window.removeEventListener("pointercancel", disarm);
+    };
+  }, [dragArmed]);
+  const [dropPlace, setDropPlace] = useState<"before" | "after" | null>(null);
+  const placeFor = (e: React.DragEvent<HTMLDivElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    return e.clientY < rect.top + rect.height / 2 ? "before" : "after";
+  };
+  const dragProps = onMove
+    ? {
+        draggable: dragArmed,
+        onDragStart: (e: React.DragEvent<HTMLDivElement>) => {
+          e.dataTransfer.setData(FIELD_DRAG_TYPE, field.id);
+          e.dataTransfer.effectAllowed = "move";
+        },
+        onDragEnd: () => setDragArmed(false),
+        onDragOver: (e: React.DragEvent<HTMLDivElement>) => {
+          if (!e.dataTransfer.types.includes(FIELD_DRAG_TYPE)) return;
+          e.preventDefault();
+          e.dataTransfer.dropEffect = "move";
+          setDropPlace(placeFor(e));
+        },
+        onDragLeave: () => setDropPlace(null),
+        onDrop: (e: React.DragEvent<HTMLDivElement>) => {
+          const fieldId = e.dataTransfer.getData(FIELD_DRAG_TYPE);
+          setDropPlace(null);
+          if (!fieldId || fieldId === field.id) return;
+          e.preventDefault();
+          onMove({ fieldId, targetId: field.id, place: placeFor(e) });
+        },
+      }
+    : {};
   return (
     <div
       data-testid={`form-field-${field.name}`}
       data-annotation={annotation}
+      {...dragProps}
       className={cn(
         className,
+        onMove && "relative",
+        dropPlace === "before" && "shadow-[0_-2px_0_0_var(--primary)]",
+        dropPlace === "after" && "shadow-[0_2px_0_0_var(--primary)]",
         onEdit && "group relative",
         insight && "hover:z-30 focus-within:z-30",
         annotation && "relative",
@@ -233,12 +306,27 @@ function FieldShell({
       )}
       {annotation && (
         <span
+          data-testid="field-annotation"
+          title={changeNotes?.join(", ")}
           className={cn(
-            "absolute -top-3 right-0 z-10 rounded-full px-1.5 py-px text-[10px] font-medium leading-4",
+            "absolute -top-3 right-0 z-10 max-w-[75%] truncate rounded-full px-1.5 py-px text-[10px] font-medium leading-4",
             annotationStyles[annotation].badge,
           )}
         >
           {annotationStyles[annotation].label}
+          {annotation === "updated" && changeNotes?.length
+            ? `: ${changeNotes.join(" · ")}`
+            : null}
+        </span>
+      )}
+      {field.locked && (onEdit || annotation) && (
+        <span
+          data-testid="field-locked"
+          title="Locked — automated changes leave this field as it is"
+          className="absolute -top-2.5 left-1 z-10 flex items-center gap-0.5 rounded-full bg-background px-1 py-px text-[10px] leading-4 text-muted-foreground shadow-sm ring-1 ring-black/5 dark:ring-white/10"
+        >
+          <Lock className="h-2.5 w-2.5" aria-hidden />
+          <span className="sr-only">Locked</span>
         </span>
       )}
       {insight && (
@@ -267,6 +355,28 @@ function FieldShell({
             {insight.content}
           </div>
         </>
+      )}
+      {onMove && (
+        <button
+          type="button"
+          data-testid="field-move-handle"
+          aria-label={`Move field ${field.label} — drag, or press the up and down arrow keys`}
+          title="Drag to move (or use ↑ ↓)"
+          onPointerDown={() => setDragArmed(true)}
+          onKeyDown={(e) => {
+            if (e.key !== "ArrowUp" && e.key !== "ArrowDown") return;
+            e.preventDefault();
+            onMove({ fieldId: field.id, delta: e.key === "ArrowUp" ? -1 : 1 });
+          }}
+          className={cn(
+            "absolute -left-5 top-1/2 z-20 -translate-y-1/2 cursor-grab rounded p-0.5 text-muted-foreground/60 opacity-0 transition-opacity active:cursor-grabbing",
+            "group-hover:opacity-100 hover:text-foreground focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+            // HTML drag and drop doesn't work with touch: no handle there
+            "[@media(hover:none)]:hidden",
+          )}
+        >
+          <GripVertical className="h-3.5 w-3.5" aria-hidden />
+        </button>
       )}
       {/* Clickable edit overlay in preview mode */}
       {onEdit && (
@@ -396,6 +506,8 @@ export function FormRenderer({
   onSubmit,
   onFieldClick,
   fieldAnnotations,
+  fieldChangeNotes,
+  onFieldMove,
   fieldMarks,
   onSectionClick,
   paginate = true,
@@ -489,6 +601,11 @@ export function FormRenderer({
             ? () => onFieldClick(field)
             : undefined,
         annotation: fieldAnnotations?.[field.id],
+        changeNotes: fieldChangeNotes?.[field.id],
+        onMove:
+          mode === "preview" && onFieldClick && onFieldMove
+            ? onFieldMove
+            : undefined,
         mark: fieldMarks?.[field.id],
         className,
       });

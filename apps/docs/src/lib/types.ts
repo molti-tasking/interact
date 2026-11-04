@@ -152,6 +152,7 @@ export const fieldZ: z.ZodType<Field> = z.lazy(() =>
     origin: z.enum(["creator", "system"]),
     tags: z.array(z.string()),
     derivedFrom: z.string().optional(),
+    locked: z.boolean().optional(),
   }),
 );
 
@@ -167,6 +168,12 @@ export interface Field {
   origin: "creator" | "system";
   tags: string[];
   derivedFrom?: string;
+  /**
+   * Set by the creator: automated changes (probe answers, intent refinement,
+   * conflict fixes, regeneration) must leave this field exactly as it is.
+   * Direct edits by the creator still work. See `engine/guards.ts`.
+   */
+  locked?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -435,6 +442,20 @@ export interface ProbeOptionPreview {
   schemaPatch: SchemaPatch;
   /** A question this answer opens up, asked after it is applied */
   followUp?: { text: string; options: { value: string; label: string }[] };
+  /**
+   * Field keys the patch touched when the preview was computed. When set,
+   * applying the preview later may only touch these fields (see
+   * `scopePatch`): a patch replayed on a newer schema can't spill onto
+   * fields the creator wasn't shown. Absent on previews from before scoping.
+   */
+  scope?: PatchScope;
+}
+
+/** Field keys a patch adds, changes and removes. */
+export interface PatchScope {
+  added: string[];
+  updated: string[];
+  removed: string[];
 }
 
 export interface DesignProbeOption {

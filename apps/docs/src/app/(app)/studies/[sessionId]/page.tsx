@@ -5,9 +5,13 @@ import { PhaseStepper } from "@/components/study/PhaseStepper";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   useAdvanceStudyPhase,
+  useCompletionUrl,
   useExtendStudyPhase,
+  useSaveCompletionUrl,
   useStudyRoster,
   useStudySession,
   useUpdateStudySession,
@@ -17,6 +21,7 @@ import {
   nextPhase,
   PHASE_COPY,
   previousPhase,
+  safeCompletionUrl,
   type PhaseDurations,
   type StudyPhase,
   type StudySession,
@@ -301,6 +306,59 @@ function SettingsCard({ session }: { session: StudySession }) {
         {update.isPending && <Loader2 className="h-4 w-4 animate-spin" aria-hidden />}
         Save settings
       </Button>
+      <CompletionUrlField sessionId={session.id} />
     </Card>
+  );
+}
+
+/**
+ * Where panel participants go at the end (e.g. Prolific's completion URL).
+ * Stored apart from the settings: it carries the completion code, which
+ * participants must not see before they're done.
+ */
+function CompletionUrlField({ sessionId }: { sessionId: string }) {
+  const stored = useCompletionUrl(sessionId);
+  const save = useSaveCompletionUrl(sessionId);
+  const [draft, setDraft] = useState<string | null>(null);
+  const value = draft ?? stored.data ?? "";
+  const trimmed = value.trim();
+  const valid = trimmed === "" || safeCompletionUrl(trimmed) !== null;
+  const dirty = draft !== null && trimmed !== (stored.data ?? "");
+
+  return (
+    <div className="space-y-1 border-t pt-4">
+      <Label htmlFor="completion-url">Completion URL (Prolific)</Label>
+      <div className="flex gap-2">
+        <Input
+          id="completion-url"
+          type="url"
+          placeholder="https://app.prolific.com/submissions/complete?cc=…"
+          value={value}
+          onChange={(e) => setDraft(e.target.value)}
+          aria-invalid={!valid || undefined}
+          disabled={stored.isLoading || save.isPending}
+        />
+        <Button
+          variant="outline"
+          disabled={!dirty || !valid || save.isPending}
+          onClick={() =>
+            save.mutate(trimmed || null, {
+              onSuccess: () => {
+                setDraft(null);
+                toast.success("Completion URL saved");
+              },
+              onError: (err) => toast.error(err.message),
+            })
+          }
+        >
+          Save
+        </Button>
+      </div>
+      <p className={valid ? "text-xs text-muted-foreground" : "text-xs text-destructive"}>
+        {valid
+          ? "Participants from a Prolific link are sent here when the session is done. Only they see it, and only then."
+          : "Enter a full https:// link."}
+      </p>
+    </div>
   );
 }

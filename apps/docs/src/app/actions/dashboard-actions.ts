@@ -12,7 +12,7 @@ import {
   serializeSchemaForLLM,
 } from "@/lib/engine/structured-intent";
 import { capJson, capText, guardLlmRequest, LIMITS } from "@/lib/llm-guard";
-import { fastModel, model, withLlmRetry } from "@/lib/model";
+import { fastModel, model, withLlmRetry, llmErrorMessage } from "@/lib/model";
 import { telemetry, withTracing } from "@/lib/telemetry";
 import type {
   DashboardWidget,
@@ -122,7 +122,7 @@ ${CHART_RULES}
     console.error("Dashboard suggestion error:", error);
     return {
       success: false,
-      error: error instanceof Error ? error.message : "Unknown error",
+      error: llmErrorMessage(error),
     };
   }
 }
@@ -244,7 +244,7 @@ ${CHART_RULES}`;
     console.error("Widget revision error:", error);
     return {
       success: false,
-      error: error instanceof Error ? error.message : "Unknown error",
+      error: llmErrorMessage(error),
     };
   }
 }

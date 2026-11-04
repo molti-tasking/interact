@@ -1,6 +1,8 @@
 import { applySchemaPatch } from "@/lib/engine/schema-patch";
 import {
   assignSection,
+  moveFieldBy,
+  moveFieldNextTo,
   moveSection,
   normalizeSections,
   removeSection,
@@ -135,5 +137,42 @@ describe("sections", () => {
         '- q2: "q2" (string)',
       ].join("\n"),
     );
+  });
+});
+
+describe("moving fields", () => {
+  const f = (id: string) => ({
+    id,
+    name: id,
+    label: id.toUpperCase(),
+    type: { kind: "text" as const },
+    required: false,
+    constraints: [],
+    origin: "system" as const,
+    tags: [],
+  });
+  const schema = {
+    fields: [f("a"), f("b"), f("c"), f("d")],
+    groups: [{ id: "s1", label: "Section", fieldIds: ["c", "d"] }],
+    version: 1,
+  };
+
+  it("drops a field next to another, joining its section", () => {
+    const moved = moveFieldNextTo(schema, "a", "d", "before");
+    expect(moved.fields.map((x) => x.id)).toEqual(["b", "c", "a", "d"]);
+    expect(moved.groups[0].fieldIds).toEqual(["c", "a", "d"]);
+  });
+
+  it("leaves a section when dropped among loose fields", () => {
+    const moved = moveFieldNextTo(schema, "d", "a", "after");
+    expect(moved.fields.map((x) => x.id)).toEqual(["a", "d", "b", "c"]);
+    expect(moved.groups[0].fieldIds).toEqual(["c"]);
+  });
+
+  it("moves one step at a time, across a section boundary", () => {
+    expect(moveFieldBy(schema, "b", 1).fields.map((x) => x.id)).toEqual(["a", "b", "c", "d"]);
+    expect(moveFieldBy(schema, "b", 1).groups[0].fieldIds).toEqual(["b", "c", "d"]);
+    expect(moveFieldBy(schema, "a", -1)).toBe(schema);
+    expect(moveFieldBy(schema, "d", -1).fields.map((x) => x.id)).toEqual(["a", "b", "d", "c"]);
   });
 });

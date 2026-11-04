@@ -13,7 +13,7 @@ import {
   summarizeChange,
   type PatchSummary,
 } from "@/lib/engine/probe-preview";
-import { applySchemaPatch } from "@/lib/engine/schema-patch";
+import { applyProbeOption, describeSchemaChange } from "@/lib/engine/guards";
 import type { DesignProbe, PortfolioSchema, ProbePriority } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { BarChart3, ChevronRight, Info, Loader2, X } from "lucide-react";
@@ -113,9 +113,10 @@ export function ProbeCard({
               optionValue: option.value,
               label: option.label,
               summary: preview.summary,
+              // Same scoping + lock rules as the commit, so the preview
+              // shows exactly what applying it does
               apply: (s: PortfolioSchema) =>
-                applySchemaPatch(s, preview.schemaPatch, { validTargetIds })
-                  .schema,
+                applyProbeOption(s, preview, { validTargetIds }).schema,
             } satisfies ProbePreview,
           ];
         }),
@@ -361,13 +362,12 @@ export function OptionTile({
   const log = useStudyLog();
   const previewStartedAt = useRef<number | null>(null);
 
-  const summary = useMemo(
-    () =>
-      preview
-        ? summarizeChange(previewSchemaChange(schema, preview.apply(schema)))
-        : null,
-    [schema, preview],
-  );
+  const summary = useMemo(() => {
+    if (!preview) return null;
+    const next = preview.apply(schema);
+    const change = previewSchemaChange(schema, next);
+    return { ...summarizeChange(change), items: diffItems(change, schema, next) };
+  }, [schema, preview]);
 
   const startPreview = () => {
     if (preview && !disabled) {
@@ -449,10 +449,43 @@ export function OptionTile({
   );
 }
 
-const MAX_DIFF_ITEMS = 3;
+/** Added fields shown before "+N more"; changes to existing fields always show. */
+const MAX_ADDED_ITEMS = 2;
 
-/** e.g. "+ Session length  + Goal  − Notes  +1 more" */
-function PatchDiffLine({ summary }: { summary: PatchSummary }) {
+interface DiffItem {
+  label: string;
+  kind: "added" | "updated" | "removed";
+  /** For updates: what changes, e.g. "type text → choice" */
+  note?: string;
+}
+
+/**
+ * The change as a list, existing fields first: a change to something the
+ * creator already has (an update or removal) is what the pilot showed people
+ * missed, so it is listed with what changes and never folded into "+N more".
+ */
+function diffItems(
+  change: ReturnType<typeof previewSchemaChange>,
+  before: PortfolioSchema,
+  after: PortfolioSchema,
+): DiffItem[] {
+  const notes = describeSchemaChange(before, after);
+  const items: DiffItem[] = [];
+  for (const kind of ["updated", "removed", "added"] as const) {
+    for (const field of change.schema.fields) {
+      if (change.annotations[field.id] !== kind) continue;
+      items.push({
+        label: field.label,
+        kind,
+        note: kind === "updated" ? notes[field.id]?.join(", ") : undefined,
+      });
+    }
+  }
+  return items;
+}
+
+/** e.g. "~ Age (now required)  − Notes  + Session length  +1 more" */
+function PatchDiffLine({ summary }: { summary: PatchSummary & { items: DiffItem[] } }) {
   if (patchSize(summary) === 0) {
     return (
       <span className="mt-0.5 block text-[11px] text-muted-foreground">
@@ -461,17 +494,17 @@ function PatchDiffLine({ summary }: { summary: PatchSummary }) {
     );
   }
 
-  const items = [
-    ...summary.added.map((label) => ({ label, kind: "added" as const })),
-    ...summary.updated.map((label) => ({ label, kind: "updated" as const })),
-    ...summary.removed.map((label) => ({ label, kind: "removed" as const })),
-  ];
-  const shown = items.slice(0, MAX_DIFF_ITEMS);
-  const more = items.length - shown.length;
+  const existing = summary.items.filter((i) => i.kind !== "added");
+  const added = summary.items.filter((i) => i.kind === "added");
+  const shown = [...existing, ...added.slice(0, MAX_ADDED_ITEMS)];
+  const more = added.length - Math.min(added.length, MAX_ADDED_ITEMS);
 
   return (
-    <span className="mt-0.5 flex flex-wrap gap-x-2 text-[11px] leading-4 text-muted-foreground">
-      {shown.map(({ label, kind }, i) => (
+    <span
+      data-testid="option-diff"
+      className="mt-0.5 flex flex-wrap gap-x-2 text-[11px] leading-4 text-muted-foreground"
+    >
+      {shown.map(({ label, kind, note }, i) => (
         <span key={`${kind}-${i}`} className="inline-flex min-w-0 gap-0.5">
           <span className="sr-only">
             {kind === "added"
@@ -495,9 +528,12 @@ function PatchDiffLine({ summary }: { summary: PatchSummary }) {
             className={cn(
               "max-w-36 truncate",
               kind === "removed" && "line-through",
+              kind !== "added" && "text-foreground/80",
             )}
+            title={note ? `${label}: ${note}` : label}
           >
             {label}
+            {note && <span className="text-muted-foreground"> ({note})</span>}
           </span>
         </span>
       ))}

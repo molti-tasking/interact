@@ -34,10 +34,19 @@ export function previewSchemaChange(
   const annotations: Record<string, FieldAnnotation> = {};
 
   const before = new Map(current.fields.map((f) => [f.id, f]));
+  // A move to another section is a change too (it shows up on the card and
+  // the canvas, not only once applied)
+  const sectionOf = (s: PortfolioSchema, id: string) =>
+    s.groups.find((g) => g.fieldIds.includes(id))?.id ?? null;
   for (const field of next.fields) {
     const old = before.get(field.id);
     if (!old) annotations[field.id] = "added";
-    else if (!sameField(old, field)) annotations[field.id] = "updated";
+    else if (
+      !sameField(old, field) ||
+      sectionOf(current, field.id) !== sectionOf(next, field.id)
+    ) {
+      annotations[field.id] = "updated";
+    }
   }
 
   // A key removed and re-added in the same change reads as a change, not

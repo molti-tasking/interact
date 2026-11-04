@@ -88,6 +88,7 @@ export function RefineView({
 
 /** What this phase is for, in three steps. */
 function RefineGuide({ count }: { count: number }) {
+  const { designProbes } = useCapabilities();
   const steps = [
     {
       title: "Look at the answers",
@@ -95,11 +96,15 @@ function RefineGuide({ count }: { count: number }) {
     },
     {
       title: "Spot what to change",
-      text: "Hover a question on your form to see its answers. Design questions marked “From responses” point at patterns in them.",
+      text: designProbes
+        ? "Hover a question on your form to see its answers. Design questions marked “From responses” point at patterns in them."
+        : "Hover a question on your form to see its answers.",
     },
     {
       title: "Improve the form",
-      text: "Answer design questions, click a question to edit it, or update the intent. You don't have to answer every design question.",
+      text: designProbes
+        ? "Answer design questions, click a question to edit it, or update the intent. You don't have to answer every design question."
+        : "Click a question to edit it, drag it to move it, or update the intent.",
     },
   ];
   return (
@@ -149,7 +154,7 @@ function useFindingsAsProbes(
   loaded: boolean,
 ) {
   const { log } = useStudy()!;
-  const { findingsThresholds } = useCapabilities();
+  const { findingsThresholds, designProbes } = useCapabilities();
   const { data: probes, isSuccess: probesLoaded } = useDesignProbes(portfolio.id);
   const { mutateAsync: send } = useSendFindingToDeck(portfolio.id);
   const sent = useRef(new Set<string>());
@@ -164,7 +169,9 @@ function useFindingsAsProbes(
   );
 
   useEffect(() => {
-    if (!loaded || !probesLoaded) return;
+    // No deck in the "no-probes" condition: findings would be invisible
+    // probes, and would show up in that participant's data
+    if (!designProbes || !loaded || !probesLoaded) return;
     const fresh = findings.filter(
       (f) =>
         !sent.current.has(f.key) &&
@@ -182,7 +189,7 @@ function useFindingsAsProbes(
         }
       }
     })();
-  }, [findings, probes, probesLoaded, loaded, schema, send, log]);
+  }, [findings, probes, probesLoaded, loaded, schema, send, log, designProbes]);
 }
 
 // ---------------------------------------------------------------------------

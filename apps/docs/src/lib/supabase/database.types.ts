@@ -51,6 +51,7 @@ export type Database = {
       }
       design_probes: {
         Row: {
+          closed_reason: string | null
           created_at: string | null
           dimension_id: string | null
           dimension_name: string | null
@@ -73,6 +74,7 @@ export type Database = {
           text: string
         }
         Insert: {
+          closed_reason?: string | null
           created_at?: string | null
           dimension_id?: string | null
           dimension_name?: string | null
@@ -95,6 +97,7 @@ export type Database = {
           text: string
         }
         Update: {
+          closed_reason?: string | null
           created_at?: string | null
           dimension_id?: string | null
           dimension_name?: string | null
@@ -304,6 +307,54 @@ export type Database = {
         }
         Relationships: []
       }
+      study_assignments: {
+        Row: {
+          condition: string | null
+          created_at: string
+          external_id: string | null
+          external_session_id: string | null
+          external_source: string | null
+          external_study_id: string | null
+          participant_id: string
+          session_id: string
+        }
+        Insert: {
+          condition?: string | null
+          created_at?: string
+          external_id?: string | null
+          external_session_id?: string | null
+          external_source?: string | null
+          external_study_id?: string | null
+          participant_id: string
+          session_id: string
+        }
+        Update: {
+          condition?: string | null
+          created_at?: string
+          external_id?: string | null
+          external_session_id?: string | null
+          external_source?: string | null
+          external_study_id?: string | null
+          participant_id?: string
+          session_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "study_assignments_participant_id_fkey"
+            columns: ["participant_id"]
+            isOneToOne: true
+            referencedRelation: "study_participants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "study_assignments_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "study_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       study_events: {
         Row: {
           client_at: string | null
@@ -440,6 +491,32 @@ export type Database = {
             foreignKeyName: "study_questionnaire_responses_session_id_fkey"
             columns: ["session_id"]
             isOneToOne: false
+            referencedRelation: "study_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      study_session_secrets: {
+        Row: {
+          completion_url: string | null
+          session_id: string
+          updated_at: string
+        }
+        Insert: {
+          completion_url?: string | null
+          session_id: string
+          updated_at?: string
+        }
+        Update: {
+          completion_url?: string | null
+          session_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "study_session_secrets_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: true
             referencedRelation: "study_sessions"
             referencedColumns: ["id"]
           },
@@ -636,6 +713,22 @@ export type Database = {
       is_study_peer_form: {
         Args: { p_portfolio_id: string }
         Returns: boolean
+      }
+      join_study_session_external: {
+        Args: {
+          p_code: string
+          p_source: string
+          p_external_id: string
+          p_external_study_id: string | null
+          p_external_session_id: string | null
+          p_intent: Json
+          p_schema: Json
+        }
+        Returns: {
+          participant_id: string
+          portfolio_id: string
+          session_id: string
+        }[]
       }
       join_study_session: {
         Args: {

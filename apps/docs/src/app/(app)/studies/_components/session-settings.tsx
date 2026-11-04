@@ -5,9 +5,16 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   PHASE_COPY,
+  STUDY_CONDITIONS,
   type PhaseDurations,
+  type StudyCondition,
   type StudySettings,
 } from "@/lib/study/types";
+
+const CONDITION_COPY: Record<StudyCondition, string> = {
+  full: "Full tool",
+  "no-probes": "Without design probes (ablation)",
+};
 
 const TIMED_PHASES = ["create", "answer", "review", "questionnaire"] as const;
 
@@ -101,6 +108,44 @@ export function SessionSettingsFields({
         </p>
       </div>
 
+      <fieldset className="space-y-2">
+        <legend className="text-sm font-medium">Panel participants (Prolific)</legend>
+        <p className="text-xs text-muted-foreground">
+          Study link for Prolific:{" "}
+          <code className="break-all">
+            /join?code=CODE&amp;PROLIFIC_PID={"{{%PROLIFIC_PID%}}"}&amp;STUDY_ID=
+            {"{{%STUDY_ID%}}"}&amp;SESSION_ID={"{{%SESSION_ID%}}"}
+          </code>
+          . Participants from that link get a neutral name and one of the
+          conditions below, balanced. People joining by code get the full tool.
+          Set the completion URL on the session page.
+        </p>
+        <div className="space-y-1.5">
+          {STUDY_CONDITIONS.map((condition) => (
+            <div key={condition} className="flex items-center gap-2">
+              <Checkbox
+                id={`condition-${condition}`}
+                checked={settings.conditions.includes(condition)}
+                onCheckedChange={(checked) =>
+                  onSettingsChange({
+                    ...settings,
+                    conditions:
+                      checked === true
+                        ? STUDY_CONDITIONS.filter(
+                            (c) => c === condition || settings.conditions.includes(c),
+                          )
+                        : settings.conditions.filter((c) => c !== condition),
+                  })
+                }
+                disabled={disabled}
+              />
+              <Label htmlFor={`condition-${condition}`} className="font-normal">
+                {CONDITION_COPY[condition]}
+              </Label>
+            </div>
+          ))}
+        </div>
+      </fieldset>
     </div>
   );
 }

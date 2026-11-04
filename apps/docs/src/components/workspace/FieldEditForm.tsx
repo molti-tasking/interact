@@ -61,6 +61,7 @@ const fieldEditSchema = z
     label: z.string().trim().min(1, "Label is required"),
     kind: z.string(),
     required: z.boolean(),
+    locked: z.boolean(),
     description: z.string(),
     tooltip: z.string(),
     options: z.string(),
@@ -137,6 +138,7 @@ function valuesFromField(field: Field, section: string | undefined): FieldEditFo
     label: field.label,
     kind: t.kind,
     required: field.required,
+    locked: field.locked === true,
     description: field.description ?? "",
     tooltip: field.tooltip ?? "",
     options: t.kind === "select" ? t.options.map((o) => o.label).join("\n") : "",
@@ -195,6 +197,7 @@ export function FieldEditForm({
     const updates: Partial<Field> = {};
     if (dirty.label) updates.label = values.label.trim();
     if (dirty.required) updates.required = values.required;
+    if (dirty.locked) updates.locked = values.locked || undefined;
     if (dirty.description) updates.description = values.description || undefined;
     if (dirty.tooltip) updates.tooltip = values.tooltip || undefined;
     if (!lockedKind && TYPE_KEYS.some((k) => dirty[k])) {
@@ -435,6 +438,12 @@ export function FieldEditForm({
           />
 
           <CheckboxField form={form} name="required" label="Required" />
+          <CheckboxField
+            form={form}
+            name="locked"
+            label="Lock this field"
+            description="Answers, fixes and edits to the description won't change, move or remove it. You can still edit it here."
+          />
 
           <FormField
             control={form.control}
@@ -514,10 +523,12 @@ function CheckboxField({
   form,
   name,
   label,
+  description,
 }: {
   form: FormApi;
-  name: "required" | "multiple";
+  name: "required" | "multiple" | "locked";
   label: string;
+  description?: string;
 }) {
   return (
     <FormField
@@ -539,6 +550,9 @@ function CheckboxField({
             </FormControl>
             <FormLabel className="font-normal">{label}</FormLabel>
           </div>
+          {description && (
+            <p className="pl-6 text-xs text-muted-foreground">{description}</p>
+          )}
           <FormMessage />
         </FormItem>
       )}

@@ -35,8 +35,10 @@ import {
   useResolveConflict,
 } from "@/hooks/query/conflicts";
 import {
+  prioritizeProbePreview,
   useApplyProbePreview,
   useAutoCurateProbes,
+  useAwaitProbePreview,
   useDesignProbes,
   useDismissDesignProbe,
   useGenerateDesignProbes,
@@ -73,6 +75,7 @@ import { cn } from "@/lib/utils";
 import type { SpokenAnswer } from "@/lib/voice/spoken-answer";
 import { usePortfolioActivity } from "@/lib/workspace-activity";
 import { Loader2, Mic, RefreshCw, Square } from "lucide-react";
+import { probeAnsweredPayload, probeShownPayload } from "@/lib/study/probe-log";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
@@ -139,6 +142,7 @@ export function DesignProbeDeck({
   const undoAppliedPreview = useUndoAppliedPreview(portfolio.id);
   const retryPreview = useRetryProbePreview(portfolio.id);
   const applyConflictFix = useApplyConflictFix(portfolio.id);
+  const awaitPreview = useAwaitProbePreview(portfolio.id);
 
   // Work out what each answer would change before it's chosen
   usePrecomputeProbePreviews(portfolio, designProbes, spacePortfolios);
@@ -175,7 +179,9 @@ export function DesignProbeDeck({
   const { mutate: dismissProbe } = dismissDesignProbe;
   useEffect(() => {
     if (!staleFindingIds) return;
-    for (const id of staleFindingIds.split(",")) dismissProbe(id);
+    for (const id of staleFindingIds.split(",")) {
+      dismissProbe({ probeId: id, reason: "stale_finding" });
+    }
   }, [staleFindingIds, dismissProbe]);
 
   // The card whose options are shown; defaults to the most important one.
@@ -207,6 +213,7 @@ export function DesignProbeDeck({
     portfolio.id,
     portfolioSchema,
     portfolio.intent,
+    busyIds.size > 0 || activity.length > 0,
   );
   const resolveConflict = useResolveConflict(portfolio.id);
   const [dismissedConflicts, setDismissedConflicts] = useState<Set<string>>(
@@ -241,7 +248,7 @@ export function DesignProbeDeck({
     selectedValue: string,
   ): Promise<boolean> => {
     if (selectedValue !== "accept" || !standardId) {
-      dismissDesignProbe.mutate(probeId);
+      dismissDesignProbe.mutate({ probeId, reason: "declined" });
       return true;
     }
     const detected = findStandard(standardId, detectedStandards);
@@ -337,6 +344,28 @@ export function DesignProbeDeck({
         ...option,
         preview: option.preview,
       });
+    }
+
+    // A predefined answer whose preview is still being computed: wait for
+    // it rather than start a second LLM call for the same answer
+    if (option) {
+      setBusy(probeId, true);
+      const waitedFrom = Date.now();
+      let ready: DesignProbeOption | undefined;
+      let fresh: DesignProbe | null = null;
+      try {
+        fresh = await awaitPreview(probeId);
+        ready = fresh?.options.find((o) => o.value === selectedValue);
+      } finally {
+        setBusy(probeId, false);
+      }
+      // Answered or retired while we waited (another tab, the curator):
+      // nothing to do
+      if (fresh && fresh.status !== "pending") return false;
+      if (ready?.preview) {
+        log("probe_preview_awaited", { id: probeId, ms: Date.now() - waitedFrom });
+        return handlePreviewedAnswer(probe, { ...ready, preview: ready.preview });
+      }
     }
 
     // Custom answer, or no preview yet: resolve with the LLM
@@ -509,6 +538,28 @@ export function DesignProbeDeck({
   const expandedId = entries.some((e) => e.id === focusedId)
     ? focusedId
     : (entries[0]?.id ?? null);
+
+  // The open card's answers are the ones about to be clicked: compute first
+  useEffect(() => {
+    if (expandedId) prioritizeProbePreview(expandedId);
+  }, [expandedId]);
+
+  // Study log: what the creator was shown, once per probe, in display order
+  // (and again when its previews arrive, so "no change" positions are known)
+  const expandedEntry = entries.find((e) => e.id === expandedId);
+  const expandedProbe =
+    expandedEntry?.kind === "probe" ? expandedEntry.probe : undefined;
+  const shownKey = expandedProbe
+    ? `${expandedProbe.id}:${expandedProbe.previewStatus ?? ""}`
+    : null;
+  const [loggedShown] = useState(() => new Set<string>());
+  useEffect(() => {
+    if (!shownKey || !expandedProbe || loggedShown.has(shownKey)) return;
+    loggedShown.add(shownKey);
+    log("probe_shown", probeShownPayload(expandedProbe, portfolioSchema, validTargetIds));
+    // Logged per probe + preview state; later schema changes don't re-log
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shownKey]);
 
   const hasCards = entries.length > 0;
   const hasIntent = !!portfolio.intent.purpose.content.trim();
@@ -690,12 +741,15 @@ export function DesignProbeDeck({
                   schema={portfolioSchema}
                   validTargetIds={validTargetIds}
                   onSelect={(value) => {
-                    log("probe_answered", {
-                      id: entry.id,
-                      text: entry.probe.text,
-                      source: entry.probe.source,
-                      option: value,
-                    });
+                    log(
+                      "probe_answered",
+                      probeAnsweredPayload(
+                        entry.probe,
+                        value,
+                        portfolioSchema,
+                        validTargetIds,
+                      ),
+                    );
                     return handleProbeSelect(entry.id, value);
                   }}
                   onDismiss={() => {

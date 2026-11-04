@@ -146,3 +146,38 @@ export async function withLlmRetry<T>(
     return call(AbortSignal.timeout(timeoutMs));
   }
 }
+
+// ---------------------------------------------------------------------------
+// Error messages for the person using the app
+// ---------------------------------------------------------------------------
+
+/**
+ * What to show for a failed LLM call. The gateway's own messages are long
+ * and technical — e.g. in the pilot the per-key spending cap ran out mid
+ * session and 50 calls failed with "ExceededBudget: User=… over budget",
+ * shown to participants as is. Budget and rate-limit failures get a plain
+ * sentence (and a loud server log, so the operator notices); anything else
+ * keeps its message.
+ */
+export function llmErrorMessage(error: unknown): string {
+  // After the SDK's own retries, the cause is the last attempt's error
+  if (RetryError.isInstance(error) && error.lastError) {
+    return llmErrorMessage(error.lastError);
+  }
+  const message = error instanceof Error ? error.message : String(error ?? "");
+  const status = APICallError.isInstance(error) ? error.statusCode : undefined;
+  if (/ExceededBudget|budget.*exceeded|over budget/i.test(message)) {
+    console.error(
+      "[LLM BUDGET] The LLM gateway key is over its budget — raise it now:",
+      message.slice(0, 200),
+    );
+    return "The AI service has reached its usage limit. Please tell the study team; your work so far is saved.";
+  }
+  if (status === 429 || /rate.?limit/i.test(message)) {
+    return "The AI service is busy right now. Please try again in a moment.";
+  }
+  if (error instanceof Error && (error.name === "TimeoutError" || error.name === "AbortError")) {
+    return "The AI took too long to answer. Please try again.";
+  }
+  return message || "Unknown error";
+}

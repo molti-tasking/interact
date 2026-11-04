@@ -1,5 +1,6 @@
 "use client";
 
+import { useCapabilities } from "@/context/capabilities-context";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -73,6 +74,7 @@ export function DesignView({
  * and keep improving it until the facilitator moves on.
  */
 function ReadyBar() {
+  const { designProbes } = useCapabilities();
   const { state, log } = useStudy()!;
   const phase = state.session.phase;
   const storageKey = `mf-study-ready:${state.participant.id}:${phase}`;
@@ -110,8 +112,9 @@ function ReadyBar() {
       ) : (
         <p className="text-sm text-muted-foreground">
           <span className="font-medium text-foreground">When are you done?</span>{" "}
-          When the form asks what you want to know. You don&apos;t have to answer
-          every design question; skip what doesn&apos;t matter.
+          When the form asks what you want to know.
+          {designProbes &&
+            " You don’t have to answer every design question; skip what doesn’t matter."}
         </p>
       )}
       {ready ? (
@@ -160,6 +163,9 @@ function StartCard({
         },
       }));
       log("intent_started", { length: intentText.length, titled: !!title.trim() });
+      // The creator's own first description, verbatim: the baseline for
+      // "requirements added through probes that weren't asked for upfront"
+      log("first_prompt", { text: intentText, title: title.trim() || null });
       onStarted();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Couldn't save that");

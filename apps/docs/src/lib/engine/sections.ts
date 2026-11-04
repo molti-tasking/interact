@@ -175,3 +175,51 @@ export function sectionsFromTitles(
   }
   return normalizeSections({ ...schema, groups });
 }
+
+/**
+ * Move a field next to another one — before or after it — joining that
+ * field's section (or none). Drag-and-drop on the canvas.
+ */
+export function moveFieldNextTo(
+  schema: PortfolioSchema,
+  fieldId: string,
+  targetId: string,
+  place: "before" | "after",
+): PortfolioSchema {
+  if (fieldId === targetId) return schema;
+  const moved = schema.fields.find((f) => f.id === fieldId);
+  if (!moved || !schema.fields.some((f) => f.id === targetId)) return schema;
+
+  const targetSection = sectionOf(schema, targetId);
+  const groups = schema.groups.map((g) => {
+    const fieldIds = g.fieldIds.filter((id) => id !== fieldId);
+    if (g.id !== targetSection?.id) return { ...g, fieldIds };
+    const at = fieldIds.indexOf(targetId) + (place === "after" ? 1 : 0);
+    return { ...g, fieldIds: [...fieldIds.slice(0, at), fieldId, ...fieldIds.slice(at)] };
+  });
+  const others = schema.fields.filter((f) => f.id !== fieldId);
+  const at = others.findIndex((f) => f.id === targetId) + (place === "after" ? 1 : 0);
+  const fields = [...others.slice(0, at), moved, ...others.slice(at)];
+  return normalizeSections({ ...schema, fields, groups });
+}
+
+/**
+ * Move a field one place up (-1) or down (+1) in the form as shown, across
+ * section boundaries (it then joins the neighbouring section). Keyboard
+ * alternative to dragging.
+ */
+export function moveFieldBy(
+  schema: PortfolioSchema,
+  fieldId: string,
+  delta: -1 | 1,
+): PortfolioSchema {
+  const order = sectionBlocks(schema).flatMap((b) => b.fields);
+  const index = order.findIndex((f) => f.id === fieldId);
+  const neighbour = order[index + delta];
+  if (index === -1 || !neighbour) return schema;
+  // Into a neighbouring section: join it at the near end first, so a step
+  // never jumps over a field
+  const crossing = sectionOf(schema, fieldId)?.id !== sectionOf(schema, neighbour.id)?.id;
+  const place = crossing === delta > 0 ? "before" : "after";
+  return moveFieldNextTo(schema, fieldId, neighbour.id, place);
+}

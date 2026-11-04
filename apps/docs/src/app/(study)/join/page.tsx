@@ -6,14 +6,15 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   useJoinStudy,
+  useJoinStudyExternal,
   useMySeats,
   useSessionUser,
   useSignOut,
 } from "@/hooks/query/study";
-import { PHASE_COPY } from "@/lib/study/types";
+import { PHASE_COPY, panelParams } from "@/lib/study/types";
 import { ArrowRight, Loader2, LogOut, Users } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 
 /**
  * Workshop entry: code + display name. The browser is signed in
@@ -42,6 +43,12 @@ function JoinContent() {
 
   const openSeats = (seats.data ?? []).filter((s) => s.phase !== "done");
   const isFacilitator = !!user && !user.isAnonymous;
+  const panel = panelParams(searchParams);
+
+  // Panel link (Prolific): join straight away, no name to type
+  if (panel && code && !userLoading && !isFacilitator) {
+    return <PanelJoin code={code} panel={panel} />;
+  }
   const canSubmit = code.trim().length > 0 && name.trim().length > 0 && !join.isPending;
 
   const handleJoin = () => {
@@ -166,6 +173,65 @@ function JoinContent() {
           </Card>
         )}
       </div>
+    </main>
+  );
+}
+
+/**
+ * Joining from a panel link: signs in anonymously and takes (or resumes)
+ * the participant's seat, then opens the session. Retries on demand.
+ */
+function PanelJoin({
+  code,
+  panel,
+}: {
+  code: string;
+  panel: NonNullable<ReturnType<typeof panelParams>>;
+}) {
+  const router = useRouter();
+  const join = useJoinStudyExternal();
+  const { mutate } = join;
+  const started = useRef(false);
+
+  const start = () =>
+    mutate(
+      { code, ...panel },
+      { onSuccess: ({ sessionId }) => router.replace(`/study/${sessionId}`) },
+    );
+
+  useEffect(() => {
+    if (started.current) return;
+    started.current = true;
+    start();
+    // Once per page load
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  return (
+    <main className="flex flex-1 items-center justify-center px-4 py-12">
+      <Card className="w-full max-w-md space-y-4 p-6 text-center">
+        {join.isError ? (
+          <>
+            <h1 className="text-xl tracking-tight">Couldn&apos;t start the study</h1>
+            <p role="alert" className="text-sm text-destructive">
+              {join.error.message}
+            </p>
+            <Button onClick={start} disabled={join.isPending}>
+              Try again
+            </Button>
+          </>
+        ) : (
+          <>
+            <Loader2
+              className="mx-auto h-6 w-6 animate-spin text-primary"
+              aria-hidden
+            />
+            <p className="text-muted-foreground" role="status">
+              Starting the study…
+            </p>
+          </>
+        )}
+      </Card>
     </main>
   );
 }

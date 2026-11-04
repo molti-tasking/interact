@@ -13,19 +13,24 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { useCapabilities } from "@/context/capabilities-context";
+import { useStudyLog } from "@/context/study-context";
 import { useCurrentUser } from "@/context/user-context";
 import { useCommitPortfolio, useUpdatePortfolio } from "@/hooks/query/portfolios";
 import { useUndoToast } from "@/hooks/query/undo";
 import { formatActor } from "@/lib/mock-users";
 import {
+  moveFieldBy,
+  moveFieldNextTo,
   moveSection,
   removeSection,
   updateSection,
 } from "@/lib/engine/sections";
 import { previewSchemaChange } from "@/lib/engine/probe-preview";
+import { describeSchemaChange } from "@/lib/engine/guards";
 import {
   FormRenderer,
   type FieldMark,
+  type FieldMove,
 } from "@/lib/form-renderer/FormRenderer";
 import type { Field, FieldGroup, Portfolio, PortfolioSchema } from "@/lib/types";
 import {
@@ -93,6 +98,7 @@ export function ArtifactPane({
   const notifyUndo = useUndoToast();
   const { currentUser } = useCurrentUser();
   const actor = formatActor(currentUser);
+  const log = useStudyLog();
   const [editingSection, setEditingSection] = useState<FieldGroup | null>(null);
   const sectionIndex = editingSection
     ? schema.groups.findIndex((g) => g.id === editingSection.id)
@@ -138,6 +144,44 @@ export function ArtifactPane({
           : `Edited the intro of section "${section.label}"`,
       );
     }
+  };
+
+  // Direct manipulation: drag a field (or step it with the arrow keys)
+  const handleFieldMove = (move: FieldMove) => {
+    const label =
+      schema.fields.find((f) => f.id === move.fieldId)?.label ?? "a field";
+    const rationale =
+      "targetId" in move
+        ? `Moved "${label}" ${move.place} "${schema.fields.find((f) => f.id === move.targetId)?.label ?? "another field"}"`
+        : `Moved "${label}" ${move.delta < 0 ? "up" : "down"}`;
+    log("field_moved", {
+      fieldId: move.fieldId,
+      ...("targetId" in move
+        ? { targetId: move.targetId, place: move.place, via: "drag" }
+        : { delta: move.delta, via: "keyboard" }),
+    });
+    void (async () => {
+      try {
+        await commitPortfolio.mutateAsync((current) => ({
+          schema:
+            "targetId" in move
+              ? moveFieldNextTo(current.schema, move.fieldId, move.targetId, move.place)
+              : moveFieldBy(current.schema, move.fieldId, move.delta),
+          provenance: { layer: "configuration", action: "field_moved", actor, rationale },
+        }));
+        // Keep the handle focused for the next arrow key press
+        if (!("targetId" in move)) {
+          const name = schema.fields.find((f) => f.id === move.fieldId)?.name;
+          requestAnimationFrame(() =>
+            (name ? fieldElement(name) : null)
+              ?.querySelector<HTMLElement>('[data-testid="field-move-handle"]')
+              ?.focus(),
+          );
+        }
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Couldn't move the field");
+      }
+    })();
   };
 
   const paged = schema.layout === "paged";
@@ -189,13 +233,15 @@ export function ArtifactPane({
 
   // A probe answer or conflict fix hovered in the deck: show what it'd do
   const probePreview = useProbePreview();
-  const preview = useMemo(
-    () =>
-      probePreview
-        ? previewSchemaChange(schema, probePreview.apply(schema))
-        : null,
-    [schema, probePreview],
-  );
+  const preview = useMemo(() => {
+    if (!probePreview) return null;
+    const next = probePreview.apply(schema);
+    return {
+      ...previewSchemaChange(schema, next),
+      // What changes about fields the creator already has
+      notes: describeSchemaChange(schema, next),
+    };
+  }, [schema, probePreview]);
 
   // Fields involved in a detected conflict; the open conflict stands out.
   // Clicking a marker opens that conflict in the deck.
@@ -364,6 +410,8 @@ export function ArtifactPane({
           onFieldClick={preview ? undefined : onFieldClick}
           onSectionClick={preview ? undefined : setEditingSection}
           fieldAnnotations={preview?.annotations}
+          fieldChangeNotes={preview?.notes}
+          onFieldMove={preview ? undefined : handleFieldMove}
           fieldMarks={preview ? undefined : fieldMarks}
           className="space-y-4"
         />

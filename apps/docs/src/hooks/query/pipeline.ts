@@ -1,7 +1,8 @@
 "use client";
 
+import { useCapabilities } from "@/context/capabilities-context";
 import type { DetectedStandard } from "@/lib/domain-standards";
-import { commitPortfolioChange } from "@/lib/engine/commit";
+import { commitPortfolioChange, type CommitResult } from "@/lib/engine/commit";
 import { mergeIntentChange } from "@/lib/engine/merge";
 import {
   computeDelta,
@@ -30,6 +31,12 @@ export interface PipelineResult {
   strategy: PipelineStrategy;
   intent: StructuredIntent;
   schema?: PortfolioSchema;
+  /**
+   * The form change the edit led to (refinement or generation), so the
+   * caller can say what changed and offer to undo it — an intent edit must
+   * never change fields silently.
+   */
+  formCommit?: CommitResult | null;
 }
 
 /**
@@ -45,6 +52,8 @@ export function usePipelineGenerate(portfolioId: string) {
   const generateDesignProbes = useGenerateDesignProbes(portfolioId);
   const curateDesignProbes = useCurateDesignProbes(portfolioId);
   const detectStandards = useDetectStandards(portfolioId);
+  // "no-probes" study condition: no deck, so no probes to generate or curate
+  const { designProbes } = useCapabilities();
 
   return useMutation({
     mutationFn: async ({
@@ -99,6 +108,7 @@ export function usePipelineGenerate(portfolioId: string) {
               return {
                 intent,
                 schema: filtered,
+                automated: true,
                 provenance: {
                   layer: "configuration",
                   action: "exclusions_applied",
@@ -170,7 +180,7 @@ export function usePipelineGenerate(portfolioId: string) {
 
               // Retire questions the edit made obsolete, add what it raised
               // (fire-and-forget; the deck shows progress)
-              curateDesignProbes.mutate(
+              if (designProbes) curateDesignProbes.mutate(
                 { intent, currentSchema: newSchema, mode: "refine" },
                 {
                   onSuccess: ({ dropped, added }) => {
@@ -188,7 +198,12 @@ export function usePipelineGenerate(portfolioId: string) {
                 },
               );
 
-              return { strategy, intent, schema: newSchema };
+              return {
+                strategy,
+                intent,
+                schema: newSchema,
+                formCommit: refineCommit,
+              };
             }
 
             // Step 3: Generate schema and merge it into the current one
@@ -201,7 +216,7 @@ export function usePipelineGenerate(portfolioId: string) {
 
             // Step 4: Generate design probes against the new schema
             // (fire-and-forget; the deck shows progress)
-            generateDesignProbes.mutate(
+            if (designProbes) generateDesignProbes.mutate(
               {
                 intent,
                 acceptedStandards:

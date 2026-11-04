@@ -104,7 +104,7 @@ describe("applySchemaPatch", () => {
       updateFields: [patchField("ghost")],
       removeFieldKeys: ["phantom"],
     });
-    expect(result.skipped).toEqual({ updated: ["ghost"], removed: ["phantom"] });
+    expect(result.skipped).toEqual({ updated: ["ghost"], removed: ["phantom"], locked: [] });
     expect(result.schema.version).toBe(4);
   });
 

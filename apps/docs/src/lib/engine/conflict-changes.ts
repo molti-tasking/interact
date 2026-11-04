@@ -94,7 +94,7 @@ export const conflictChangesSchema = z
     "Only the changes needed to apply the fix. Fields and groups you don't mention stay unchanged. Omit sections with no changes.",
   );
 
-type ConflictChanges = z.infer<typeof conflictChangesSchema>;
+export type ConflictChanges = z.infer<typeof conflictChangesSchema>;
 
 /** What a conflict fix would change, computed before it's chosen. */
 export interface ConflictFixPreview {

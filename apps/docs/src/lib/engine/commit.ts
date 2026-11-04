@@ -8,6 +8,7 @@ import type {
   ProvenanceLayer,
   StructuredIntent,
 } from "../types";
+import { protectLockedFields } from "./guards";
 import { diffSchemas, isDiffEmpty } from "./schema-ops";
 
 // ---------------------------------------------------------------------------
@@ -33,6 +34,12 @@ export interface PortfolioChange {
   title?: string;
   status?: PortfolioStatus;
   provenance?: ProvenanceSpec | null;
+  /**
+   * The schema was produced by the system (LLM patch, regeneration, conflict
+   * fix), not typed by the creator: fields the creator locked are restored
+   * before writing, whatever the change did to them (`protectLockedFields`).
+   */
+  automated?: boolean;
 }
 
 /**
@@ -45,6 +52,8 @@ export type ChangeFn = (current: Portfolio) => PortfolioChange | null;
 export interface CommitResult {
   portfolio: Portfolio;
   previous: Portfolio;
+  /** Labels of locked fields an automated change tried to alter */
+  protectedFields?: string[];
 }
 
 export class PortfolioConflictError extends Error {
@@ -90,8 +99,13 @@ export async function commitPortfolioChange(
     }
     const current = rowToPortfolio(row);
 
-    const next = change(current);
-    if (!next) return null;
+    const proposed = change(current);
+    if (!proposed) return null;
+    const guarded =
+      proposed.automated && proposed.schema
+        ? protectLockedFields(current.schema, proposed.schema)
+        : null;
+    const next = guarded ? { ...proposed, schema: guarded.schema } : proposed;
 
     const diff = next.schema
       ? diffSchemas(current.schema, next.schema)
@@ -124,7 +138,13 @@ export async function commitPortfolioChange(
 
     const committed = Array.isArray(data) ? data[0] : data;
     if (committed) {
-      return { portfolio: rowToPortfolio(committed), previous: current };
+      return {
+        portfolio: rowToPortfolio(committed),
+        previous: current,
+        ...(guarded?.restored.length
+          ? { protectedFields: guarded.restored }
+          : {}),
+      };
     }
     // Revision moved underneath us — loop and re-apply on fresh state.
   }

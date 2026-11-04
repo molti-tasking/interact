@@ -5,7 +5,9 @@ import { FINAL_QUESTIONNAIRE, susScore } from "@/lib/study/instruments";
 import {
   formatCountdown,
   nextPhase,
+  panelParams,
   parseSettings,
+  safeCompletionUrl,
   previousPhase,
   secondsLeft,
   seededShuffle,
@@ -54,11 +56,43 @@ describe("countdown", () => {
 
 describe("parseSettings", () => {
   it("falls back to safe defaults", () => {
-    expect(parseSettings(null)).toEqual({ allowVoice: false, findingsMinResponses: 3 });
-    expect(parseSettings({ allowVoice: true, findingsMinResponses: 0 })).toEqual({
+    expect(parseSettings(null)).toEqual({
+      allowVoice: false,
+      findingsMinResponses: 3,
+      conditions: [],
+    });
+    expect(parseSettings({ allowVoice: true, findingsMinResponses: 0 })).toMatchObject({
       allowVoice: true,
       findingsMinResponses: 3,
     });
+  });
+
+  it("keeps known conditions", () => {
+    expect(
+      parseSettings({ conditions: ["full", "bogus", "no-probes"] }).conditions,
+    ).toEqual(["full", "no-probes"]);
+  });
+
+  it("accepts only https completion links", () => {
+    expect(safeCompletionUrl("https://app.prolific.com/submissions/complete?cc=ABC")).toBe(
+      "https://app.prolific.com/submissions/complete?cc=ABC",
+    );
+    expect(safeCompletionUrl("javascript:alert(1)")).toBeNull();
+    expect(safeCompletionUrl("http://example.com")).toBeNull();
+    expect(safeCompletionUrl("  ")).toBeNull();
+  });
+});
+
+describe("panelParams", () => {
+  const params = (q: string) => new URLSearchParams(q);
+  it("reads Prolific's URL parameters", () => {
+    expect(
+      panelParams(params("code=AB12&PROLIFIC_PID=5f1a&STUDY_ID=s1&SESSION_ID=x9")),
+    ).toEqual({ source: "prolific", externalId: "5f1a", studyId: "s1", sessionId: "x9" });
+  });
+  it("ignores links without a usable participant id", () => {
+    expect(panelParams(params("code=AB12"))).toBeNull();
+    expect(panelParams(params("PROLIFIC_PID={{%PROLIFIC_PID%}}"))).toBeNull();
   });
 });
 
@@ -117,6 +151,7 @@ describe("export CSVs", () => {
         payload: {},
       },
     ],
+    assignments: [],
     questionnaires: [
       {
         participant_id: "p1",

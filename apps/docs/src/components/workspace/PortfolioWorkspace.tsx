@@ -213,10 +213,12 @@ export function PortfolioWorkspace({
                 />
               </div>
 
-              <DesignProbeDeck
-                portfolio={portfolio}
-                onDecisionApplied={scheduleSync}
-              />
+              {capabilities.designProbes && (
+                <DesignProbeDeck
+                  portfolio={portfolio}
+                  onDecisionApplied={scheduleSync}
+                />
+              )}
             </div>
 
             {/* Artifact (form on a canvas) */}

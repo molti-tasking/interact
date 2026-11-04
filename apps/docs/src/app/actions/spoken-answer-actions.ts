@@ -1,7 +1,7 @@
 "use server";
 
 import { capJson, capText, guardLlmRequest, LIMITS } from "@/lib/llm-guard";
-import { fastModel, withLlmRetry } from "@/lib/model";
+import { fastModel, withLlmRetry, llmErrorMessage } from "@/lib/model";
 import { telemetry, withTracing } from "@/lib/telemetry";
 import type { SpokenAnswer, VoiceQuestion } from "@/lib/voice/spoken-answer";
 import { generateText, Output } from "ai";
@@ -166,7 +166,7 @@ Return "answers":
     console.error("Spoken answer interpretation error:", error);
     return {
       success: false,
-      error: error instanceof Error ? error.message : "Unknown error",
+      error: llmErrorMessage(error),
     };
   }
 }

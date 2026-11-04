@@ -24,6 +24,11 @@ export interface Capabilities {
   workspaceHref: (portfolioId: string) => string;
   /** Finding thresholds (fewer responses in a workshop than in the field) */
   findingsThresholds: typeof FINDING_THRESHOLDS;
+  /**
+   * The design probe deck (probes, conflict checks). Off for study
+   * participants in the "no-probes" ablation condition.
+   */
+  designProbes: boolean;
 }
 
 const FULL_CAPABILITIES: Capabilities = {
@@ -34,6 +39,7 @@ const FULL_CAPABILITIES: Capabilities = {
   recode: true,
   workspaceHref: (portfolioId) => `/portfolios/${portfolioId}`,
   findingsThresholds: FINDING_THRESHOLDS,
+  designProbes: true,
 };
 
 const CapabilitiesContext = createContext<Capabilities>(FULL_CAPABILITIES);

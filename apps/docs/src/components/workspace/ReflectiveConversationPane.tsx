@@ -8,6 +8,8 @@ import { useStudyLog } from "@/context/study-context";
 import { useCurrentUser } from "@/context/user-context";
 import { usePipelineGenerate } from "@/hooks/query/pipeline";
 import { usePreviousPurpose } from "@/hooks/query/provenance";
+import { useUndoToast } from "@/hooks/query/undo";
+import { diffSchemas } from "@/lib/engine/schema-ops";
 import { formatActor } from "@/lib/mock-users";
 import type { Portfolio, StructuredIntent } from "@/lib/types";
 import { ChevronDown, Loader2, Sparkles } from "lucide-react";
@@ -75,6 +77,7 @@ export function ReflectiveConversationPane({
   const actor = formatActor(currentUser);
   const { voice: voiceEnabled } = useCapabilities();
   const log = useStudyLog();
+  const notifyUndo = useUndoToast();
 
   // While the user edits, the editor shows their draft; otherwise it shows
   // the saved intent, so external updates (resolved probes, field-edit
@@ -145,6 +148,19 @@ export function ReflectiveConversationPane({
         strategy: result.strategy.kind,
         refine: hasFields,
       });
+      // Say what the edit did to the form, with Undo — never change silently
+      const commit = result.formCommit;
+      if (commit && hasFields) {
+        const d = diffSchemas(commit.previous.schema, commit.portfolio.schema);
+        const parts = [
+          d.added.length && `${d.added.length} added`,
+          d.modified.length && `${d.modified.length} changed`,
+          d.removed.length && `${d.removed.length} removed`,
+        ].filter(Boolean);
+        if (parts.length) {
+          notifyUndo(commit, `Form updated from your description: ${parts.join(", ")}`);
+        }
+      }
       if (result.strategy.kind === "noop") {
         setError("No changes detected. Edit the intent to refine the form.");
         return;
