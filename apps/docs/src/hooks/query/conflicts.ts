@@ -1,17 +1,14 @@
 "use client";
 
+import { callLlm } from "@/lib/llm-client";
 import {
-  detectSchemaConflictsAction,
-  previewConflictFixesAction,
   resolveSchemaConflictAction,
   type ConflictFix,
   type SchemaConflict,
 } from "@/app/actions/conflict-actions";
 import { commitPortfolioChange } from "@/lib/engine/commit";
-import {
-  applyConflictChanges,
-  type ConflictFixPreview,
-} from "@/lib/engine/conflict-changes";
+import { type ConflictFixPreview } from "@/lib/engine/conflict-changes";
+import { applyConflictFix, limitChangeToFields } from "@/lib/engine/guards";
 import { mergeIntentChange, mergeSchemaChange } from "@/lib/engine/merge";
 import type { Portfolio, PortfolioSchema, StructuredIntent } from "@/lib/types";
 import { trackActivity } from "@/lib/workspace-activity";
@@ -58,6 +55,10 @@ function contentHash(
   );
 }
 
+/** Results of a detection whose LLM check didn't complete (see `partial`). */
+const partialResults = new WeakSet<object>();
+const PARTIAL_RETRY_MS = 60_000;
+
 function useDebounced<T>(value: T, delayMs: number): T {
   const [debounced, setDebounced] = useState(value);
   useEffect(() => {
@@ -82,6 +83,12 @@ export function useDetectConflicts(
   portfolioId: string,
   schema: PortfolioSchema | undefined,
   intent: StructuredIntent,
+  /**
+   * While an answer or edit is still being applied: the form is about to
+   * change again, so checking now would be wasted (pilot: 333 checks for
+   * 11 people, ~30 each, the slowest call in the app).
+   */
+  paused = false,
 ) {
   const searchParams = useSearchParams();
   const skipConflicts = searchParams.get("skipConflicts") === "true";
@@ -92,17 +99,29 @@ export function useDetectConflicts(
     queryKey: [...conflictsKey(portfolioId), hash],
     queryFn: async () => {
       if (!schema || schema.fields.length === 0) return [];
-      const result = await detectSchemaConflictsAction(schema, intent);
+      const result = await callLlm("detect-conflicts", schema, intent);
       if (!result.success) throw new Error(result.error);
-      return result.conflicts ?? [];
+      const conflicts = result.conflicts ?? [];
+      if (result.partial) partialResults.add(conflicts);
+      return conflicts;
     },
     enabled:
       !skipConflicts &&
+      !paused &&
       settled &&
       !!portfolioId &&
       !!schema &&
       schema.fields.length > 0,
-    staleTime: Infinity,
+    // Cached for good per content — unless the semantic check didn't
+    // finish: then it's tried again after a minute
+    staleTime: (query) =>
+      query.state.data && partialResults.has(query.state.data)
+        ? PARTIAL_RETRY_MS
+        : Infinity,
+    refetchInterval: (query) =>
+      query.state.data && partialResults.has(query.state.data)
+        ? PARTIAL_RETRY_MS
+        : false,
     gcTime: 30 * 60_000,
     placeholderData: keepPreviousData,
     refetchOnWindowFocus: false,
@@ -142,13 +161,15 @@ export function useResolveConflict(portfolioId: string) {
         }
 
         const { updatedSchema, updatedIntent, rationale } = response.result;
+        // Like a pre-computed fix: only the conflict's own fields change
+        const scoped = limitChangeToFields(
+          snapshot.schema,
+          updatedSchema,
+          conflict.fieldIds,
+        );
 
         return commitPortfolioChange(portfolioId, (current) => ({
-          schema: mergeSchemaChange(
-            snapshot.schema,
-            updatedSchema,
-            current.schema,
-          ),
+          schema: mergeSchemaChange(snapshot.schema, scoped, current.schema),
           intent: mergeIntentChange(
             snapshot.intent,
             updatedIntent,
@@ -160,6 +181,7 @@ export function useResolveConflict(portfolioId: string) {
             actor,
             rationale: `${conflict.kind}: "${conflict.description}" → fix: "${fix.label}". ${rationale}`,
           },
+          automated: true,
         }));
       }),
     onSuccess: (commit) => applyCommitToCache(queryClient, commit),
@@ -204,7 +226,7 @@ export function useConflictFixPreviews(
       ],
       queryFn: async () => {
         const { schema, intent } = latest.current;
-        const response = await previewConflictFixesAction(
+        const response = await callLlm("preview-conflict-fixes", 
           schema,
           intent,
           conflict,
@@ -269,13 +291,16 @@ export function useApplyConflictFix(portfolioId: string) {
     }) =>
       trackActivity(portfolioId, "Fixing a conflict", () =>
         commitPortfolioChange(portfolioId, (current) => {
-          const { schema } = applyConflictChanges(
+          // Only the conflict's own fields, never a locked one
+          const { schema, changed } = applyConflictFix(
             current.schema,
             preview.changes,
+            conflict.fieldIds,
           );
-          if (sameStructure(schema, current.schema)) return null;
+          if (!changed || sameStructure(schema, current.schema)) return null;
           return {
             schema,
+            automated: true,
             provenance: {
               layer: "configuration",
               action: "conflict_resolved",
@@ -285,14 +310,18 @@ export function useApplyConflictFix(portfolioId: string) {
           };
         }),
       ),
-    onMutate: ({ preview }) => {
+    onMutate: ({ conflict, preview }) => {
       const previous = queryClient.getQueryData<Portfolio>(
         portfolioKey(portfolioId),
       );
       if (previous) {
         queryClient.setQueryData(portfolioKey(portfolioId), {
           ...previous,
-          schema: applyConflictChanges(previous.schema, preview.changes).schema,
+          schema: applyConflictFix(
+            previous.schema,
+            preview.changes,
+            conflict.fieldIds,
+          ).schema,
         });
       }
       return { previous };

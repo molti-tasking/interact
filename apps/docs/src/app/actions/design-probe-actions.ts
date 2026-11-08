@@ -22,7 +22,7 @@ import {
   serializeSchemaForLLM,
 } from "@/lib/engine/structured-intent";
 import { capJson, capText, guardLlmRequest, LIMITS } from "@/lib/llm-guard";
-import { fastModel, model } from "@/lib/model";
+import { fastModel, model, llmErrorMessage } from "@/lib/model";
 import { resolveDetectedStandards } from "@/lib/standards";
 import { telemetry, withTracing } from "@/lib/telemetry";
 import type {
@@ -358,7 +358,7 @@ ${PROBE_QUESTION_RULES}`;
     console.error("Design probe generation error:", error);
     return {
       success: false,
-      error: error instanceof Error ? error.message : "Unknown error",
+      error: llmErrorMessage(error),
     };
   }
 }
@@ -490,7 +490,8 @@ ${schemaPatchRules(spacePortfolios.length > 0)}
 
     const appliedCount =
       applied.added.length + applied.updated.length + applied.removed.length;
-    const skippedCount = skipped.updated.length + skipped.removed.length;
+    const skippedCount =
+      skipped.updated.length + skipped.removed.length + skipped.locked.length;
     if (skippedCount > 0) {
       console.warn(
         "[resolveDesignProbe] Patch referenced unknown fields:",
@@ -538,7 +539,7 @@ ${schemaPatchRules(spacePortfolios.length > 0)}
     console.error("Design probe resolution error:", error);
     return {
       success: false,
-      error: error instanceof Error ? error.message : "Unknown error",
+      error: llmErrorMessage(error),
     };
   }
 }
@@ -655,7 +656,8 @@ ${schemaPatchRules(spacePortfolios.length > 0)}
       });
       const appliedCount =
         applied.added.length + applied.updated.length + applied.removed.length;
-      const skippedCount = skipped.updated.length + skipped.removed.length;
+      const skippedCount =
+        skipped.updated.length + skipped.removed.length + skipped.locked.length;
 
       const preview: ProbeOptionPreview = {
         // Don't let the summary claim a change the patch can't make
@@ -664,6 +666,12 @@ ${schemaPatchRules(spacePortfolios.length > 0)}
             ? "No form change"
             : outcome.summary,
         schemaPatch,
+        // What it touches now is all it may ever touch (see `scopePatch`)
+        scope: {
+          added: applied.added,
+          updated: applied.updated,
+          removed: applied.removed,
+        },
       };
       if (outcome.followUp?.options.length) preview.followUp = outcome.followUp;
       return { value: option.value, label: option.label, preview };
@@ -674,7 +682,7 @@ ${schemaPatchRules(spacePortfolios.length > 0)}
     console.error("Design probe preview error:", error);
     return {
       success: false,
-      error: error instanceof Error ? error.message : "Unknown error",
+      error: llmErrorMessage(error),
     };
   }
 }
@@ -886,7 +894,7 @@ ${PROBE_QUESTION_RULES}`;
     console.error("Design probe curation error:", error);
     return {
       success: false,
-      error: error instanceof Error ? error.message : "Unknown error",
+      error: llmErrorMessage(error),
     };
   }
 }
@@ -996,7 +1004,7 @@ ${
     return {
       success: false,
       shouldUpdate: false,
-      error: error instanceof Error ? error.message : "Unknown error",
+      error: llmErrorMessage(error),
     };
   }
 }

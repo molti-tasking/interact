@@ -1,9 +1,8 @@
 "use client";
 
+import { callLlm } from "@/lib/llm-client";
 import {
-  curateDesignProbesAction,
   generateDesignProbesAction,
-  previewDesignProbeOptionsAction,
   resolveDesignProbeAction,
   type DesignProbeRaw,
 } from "@/app/actions/design-probe-actions";
@@ -16,7 +15,7 @@ import {
   schemaFingerprint,
 } from "@/lib/engine/probe-curation";
 import { rankProbes } from "@/lib/engine/probe-preview";
-import { applySchemaPatch } from "@/lib/engine/schema-patch";
+import { applyProbeOption } from "@/lib/engine/guards";
 import { sanitizePurposeText } from "@/lib/engine/structured-intent";
 import { createClient } from "@/lib/supabase/client";
 import type { Database } from "@/lib/supabase/database.types";
@@ -31,7 +30,7 @@ import type {
 } from "@/lib/types";
 import { trackActivity } from "@/lib/workspace-activity";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { toast } from "sonner";
 import { applyCommitToCache, portfolioKey } from "./portfolios";
 
@@ -234,7 +233,7 @@ export function useCurateDesignProbes(portfolioId: string) {
           return { dropped: 0, added: 0 };
         }
 
-        const response = await curateDesignProbesAction({
+        const response = await callLlm("curate-probes", {
           intent,
           currentSchema,
           openProbes: open.map((p) => ({
@@ -257,7 +256,7 @@ export function useCurateDesignProbes(portfolioId: string) {
         if (drop.length > 0) {
           const { error } = await supabase
             .from("design_probes")
-            .update({ status: "dismissed" })
+            .update({ status: "dismissed", closed_reason: "curated" })
             .in("id", drop)
             .eq("status", "pending");
           if (error) throw new Error(`Failed to retire questions: ${error.message}`);
@@ -403,6 +402,7 @@ async function commitResolution(
       "theirs",
     ),
     provenance: { layer: "dimensions", ...provenance },
+    automated: true,
   }));
 
   return { commit, newIntent: commit?.portfolio.intent ?? ourIntent };
@@ -454,7 +454,7 @@ export function useResolveDesignProbe(portfolioId: string) {
 
         let committed: Awaited<ReturnType<typeof commitResolution>>;
         try {
-          const response = await resolveDesignProbeAction({
+          const response = await callLlm("resolve-probe", {
             intent: snapshot.intent,
             currentSchema: snapshot.schema,
             interactionText: probe.text,
@@ -535,15 +535,50 @@ function needsPreview(probe: DesignProbe): boolean {
 
 /** Probes whose previews were started in this tab (never re-run on their own). */
 const previewsStarted = new Set<string>();
-const MAX_CONCURRENT_PREVIEWS = 3;
+/**
+ * Pilot: with 3 at a time in arrival order, 27–44 of 104 answers were
+ * clicked before their preview existed and fell back to a second, on-demand
+ * LLM call. Now more run at once, the most important probe goes first (it's
+ * the one shown open), and a click waits for a preview already under way
+ * instead of starting another call (`waitForProbePreview`).
+ */
+const MAX_CONCURRENT_PREVIEWS = 5;
 let previewsRunning = 0;
-const previewQueue: (() => Promise<void>)[] = [];
+interface PreviewTask {
+  probeId: string;
+  /** Lower runs first: probe priority, then newest */
+  rank: [number, string];
+  run: () => Promise<void>;
+}
+const previewQueue: PreviewTask[] = [];
+/** Settles when the probe's preview task is done (whatever the outcome). */
+const previewDone = new Map<string, Promise<void>>();
 
-function runPreviewTask(task: () => Promise<void>) {
-  previewQueue.push(task);
+function byRank(a: PreviewTask, b: PreviewTask) {
+  return a.rank[0] - b.rank[0] || b.rank[1].localeCompare(a.rank[1]);
+}
+
+function runPreviewTask(
+  task: () => Promise<void>,
+  { probeId, rank }: Omit<PreviewTask, "run">,
+) {
+  let settle!: () => void;
+  const done = new Promise<void>((resolve) => (settle = resolve));
+  previewDone.set(probeId, done);
+  previewQueue.push({
+    probeId,
+    rank,
+    run: () =>
+      task().finally(() => {
+        // A retry may have registered a newer task meanwhile: keep its entry
+        if (previewDone.get(probeId) === done) previewDone.delete(probeId);
+        settle();
+      }),
+  });
+  previewQueue.sort(byRank);
   const next = () => {
     while (previewsRunning < MAX_CONCURRENT_PREVIEWS && previewQueue.length) {
-      const run = previewQueue.shift()!;
+      const { run } = previewQueue.shift()!;
       previewsRunning++;
       void run().finally(() => {
         previewsRunning--;
@@ -552,6 +587,54 @@ function runPreviewTask(task: () => Promise<void>) {
     }
   };
   next();
+}
+
+/** Move a queued preview to the front (e.g. the probe the creator opened). */
+export function prioritizeProbePreview(probeId: string) {
+  const task = previewQueue.find((t) => t.probeId === probeId);
+  if (task) {
+    task.rank = [-1, task.rank[1]];
+    previewQueue.sort(byRank);
+  }
+}
+
+/**
+ * Wait (up to `timeoutMs`) for a preview of this probe that is queued or
+ * running in this tab. Resolves true if there was one to wait for — the
+ * caller then reads the fresh options from the cache.
+ */
+async function waitForProbePreview(
+  probeId: string,
+  timeoutMs = 30_000,
+): Promise<boolean> {
+  const done = previewDone.get(probeId);
+  if (!done) return false;
+  prioritizeProbePreview(probeId);
+  await Promise.race([
+    done,
+    new Promise((resolve) => setTimeout(resolve, timeoutMs)),
+  ]);
+  return true;
+}
+
+/**
+ * `(probeId) => probe | null`: waits for a preview of that probe already
+ * queued or running, then returns the probe as cached (with its previews if
+ * they came through). Null when there was nothing to wait for.
+ */
+export function useAwaitProbePreview(portfolioId: string) {
+  const queryClient = useQueryClient();
+  return useCallback(
+    async (probeId: string): Promise<DesignProbe | null> => {
+      if (!(await waitForProbePreview(probeId))) return null;
+      return (
+        queryClient
+          .getQueryData<DesignProbe[]>(designProbesKey(portfolioId))
+          ?.find((p) => p.id === probeId) ?? null
+      );
+    },
+    [portfolioId, queryClient],
+  );
 }
 
 /**
@@ -597,7 +680,7 @@ export function usePrecomputeProbePreviews(
 
         const { portfolio: current, spacePortfolios: space } = latest.current;
         try {
-          const response = await previewDesignProbeOptionsAction({
+          const response = await callLlm("preview-probe-options", {
             intent: current.intent,
             currentSchema: current.schema,
             probe: {
@@ -632,7 +715,7 @@ export function usePrecomputeProbePreviews(
         } finally {
           queryClient.invalidateQueries({ queryKey: key });
         }
-      });
+      }, { probeId: probe.id, rank: [probe.priority, probe.createdAt] });
     }
   }, [portfolio.id, probes, queryClient]);
 }
@@ -677,20 +760,16 @@ export function useApplyProbePreview(portfolioId: string) {
       const validTargetIds = (spacePortfolios ?? []).map((p) => p.id);
 
       return trackActivity(portfolioId, "Applying your answer", async () => {
+        // Within the preview's scope, never on locked fields — the change
+        // the creator was shown is the change that lands
         const commit = await commitPortfolioChange(portfolioId, (current) => {
-          const { schema, applied } = applySchemaPatch(
-            current.schema,
-            preview.schemaPatch,
-            { validTargetIds },
-          );
-          const changed =
-            applied.added.length +
-              applied.updated.length +
-              applied.removed.length >
-            0;
+          const { schema, changed } = applyProbeOption(current.schema, preview, {
+            validTargetIds,
+          });
           if (!changed) return null;
           return {
             schema,
+            automated: true,
             provenance: {
               layer: "dimensions",
               action: "design_probe_resolved",
@@ -761,9 +840,9 @@ export function useApplyProbePreview(portfolioId: string) {
         portfolioKey(portfolioId),
       );
       if (previousPortfolio) {
-        const { schema } = applySchemaPatch(
+        const { schema } = applyProbeOption(
           previousPortfolio.schema,
-          option.preview.schemaPatch,
+          option.preview,
           { validTargetIds: (spacePortfolios ?? []).map((p) => p.id) },
         );
         queryClient.setQueryData(portfolioKey(portfolioId), {
@@ -839,7 +918,7 @@ export function useUndoAppliedPreview(portfolioId: string) {
       if (followUpId) {
         const { error } = await createClient()
           .from("design_probes")
-          .update({ status: "dismissed" })
+          .update({ status: "dismissed", closed_reason: "withdrawn" })
           .eq("id", followUpId)
           .eq("status", "pending");
         if (error) {
@@ -889,7 +968,7 @@ export function useReResolveDesignProbe(portfolioId: string) {
         });
 
         try {
-          const response = await resolveDesignProbeAction({
+          const response = await callLlm("resolve-probe", {
             intent: snapshot.intent,
             currentSchema: snapshot.schema,
             interactionText: probe.text,
@@ -1104,6 +1183,7 @@ export function useReopenDesignProbe(portfolioId: string) {
         selected_option: null,
         resolved_at: null,
         resolved_by: null,
+        closed_reason: null,
       }),
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: designProbesKey(portfolioId) });
@@ -1136,15 +1216,28 @@ export function useRestoreProbeAnswer(portfolioId: string) {
 /**
  * Dismiss a design probe.
  */
+/** Why a probe left the deck unanswered (`closed_reason`, migration 012). */
+type ProbeClosedReason =
+  | "user"
+  | "curated"
+  | "stale_finding"
+  | "declined"
+  | "withdrawn";
+
 export function useDismissDesignProbe(portfolioId: string) {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (probeId: string) => {
+    /** A probe id (dismissed by the creator), or an id with another reason */
+    mutationFn: async (
+      arg: string | { probeId: string; reason: ProbeClosedReason },
+    ) => {
+      const { probeId, reason } =
+        typeof arg === "string" ? { probeId: arg, reason: "user" as const } : arg;
       const supabase = createClient();
       const { error } = await supabase
         .from("design_probes")
-        .update({ status: "dismissed" })
+        .update({ status: "dismissed", closed_reason: reason })
         .eq("id", probeId);
 
       if (error) throw error;

@@ -10,7 +10,7 @@ import {
 } from "@/lib/llm-guard";
 import { telemetry, withTracing } from "@/lib/telemetry";
 import type { Field, FieldType } from "@/lib/types";
-import { model } from "@/lib/model";
+import { model, llmErrorMessage } from "@/lib/model";
 import { generateText, Output } from "ai";
 import { z } from "zod";
 
@@ -179,7 +179,7 @@ Rules:
     console.error("Column prompt processing error:", error);
     return {
       success: false,
-      error: error instanceof Error ? error.message : "Unknown error",
+      error: llmErrorMessage(error),
     };
   }
 }
@@ -284,7 +284,7 @@ Rules:
     console.error("Field derivation error:", error);
     return {
       success: false,
-      error: error instanceof Error ? error.message : "Unknown error",
+      error: llmErrorMessage(error),
     };
   }
 }

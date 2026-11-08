@@ -1,6 +1,6 @@
 "use client";
 
-import { syncIntentFromFieldEditAction } from "@/app/actions/design-probe-actions";
+import { callLlm } from "@/lib/llm-client";
 import { commitPortfolioChange } from "@/lib/engine/commit";
 import { sanitizePurposeText } from "@/lib/engine/structured-intent";
 import type { Field, Portfolio } from "@/lib/types";
@@ -61,7 +61,7 @@ export function useIntentBackpropagation(
 
     const run = trackActivity(p.id, "Syncing intent", async () => {
       try {
-        const syncResult = await syncIntentFromFieldEditAction({
+        const syncResult = await callLlm("sync-intent", {
           intent: p.intent,
           currentSchema: p.schema,
           editDescription: bulkDescription,

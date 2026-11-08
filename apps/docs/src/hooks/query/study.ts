@@ -150,6 +150,49 @@ export function useJoinStudy() {
   });
 }
 
+/**
+ * Join from a panel link (Prolific): no name to type — the participant gets
+ * a neutral one and a condition (migration 013). Rejoining with the same
+ * panel id, even from another browser, continues the same seat.
+ */
+export function useJoinStudyExternal() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: {
+      code: string;
+      source: string;
+      externalId: string;
+      studyId: string | null;
+      sessionId: string | null;
+    }) => {
+      const supabase = createClient();
+      const { data: current } = await supabase.auth.getUser();
+      if (!current.user) {
+        const { error } = await supabase.auth.signInAnonymously();
+        if (error) throw error;
+      }
+      const { data, error } = await supabase.rpc("join_study_session_external", {
+        p_code: input.code,
+        p_source: input.source,
+        p_external_id: input.externalId,
+        p_external_study_id: input.studyId,
+        p_external_session_id: input.sessionId,
+        p_intent: emptyStructuredIntent() as unknown as Json,
+        p_schema: emptyPortfolioSchema() as unknown as Json,
+      });
+      if (error) throw asError(error);
+      const row = data?.[0];
+      if (!row) throw new Error("Couldn't join the session");
+      return {
+        sessionId: row.session_id,
+        participantId: row.participant_id,
+        portfolioId: row.portfolio_id,
+      };
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: STUDY_KEY }),
+  });
+}
+
 export interface MyStudyStateWithClock extends Omit<MyStudyState, "server_now"> {
   /** server time − client time (rounded to seconds), for countdowns */
   clockOffsetMs: number;
@@ -344,6 +387,44 @@ export function useCreateStudySession() {
 }
 
 /** Name, settings and planned durations (not the phase — see useAdvanceStudyPhase). */
+/**
+ * The session's panel completion URL (admin-only, migration 013). Kept out
+ * of `settings` because participants can read those.
+ */
+export function useCompletionUrl(sessionId: string) {
+  return useQuery({
+    queryKey: [...sessionKey(sessionId), "completion-url"],
+    queryFn: async (): Promise<string | null> => {
+      const { data, error } = await createClient()
+        .from("study_session_secrets")
+        .select("completion_url")
+        .eq("session_id", sessionId)
+        .maybeSingle();
+      if (error) throw asError(error);
+      return data?.completion_url ?? null;
+    },
+  });
+}
+
+export function useSaveCompletionUrl(sessionId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (url: string | null) => {
+      const { error } = await createClient()
+        .from("study_session_secrets")
+        .upsert({
+          session_id: sessionId,
+          completion_url: url,
+          updated_at: new Date().toISOString(),
+        });
+      if (error) throw asError(error);
+      return url;
+    },
+    onSuccess: (url) =>
+      queryClient.setQueryData([...sessionKey(sessionId), "completion-url"], url),
+  });
+}
+
 export function useUpdateStudySession() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -507,6 +588,11 @@ export interface StudyExport {
   designProbes: Tables<"design_probes">[];
   events: Tables<"study_events">[];
   questionnaires: Tables<"study_questionnaire_responses">[];
+  /**
+   * Conditions and panel ids (migration 013). Panel ids are personal data:
+   * keep the export out of shared folders and repos.
+   */
+  assignments: Tables<"study_assignments">[];
 }
 
 export function useStudyExport() {
@@ -532,8 +618,16 @@ export function useStudyExport() {
         .map((p) => p.portfolio_id)
         .filter((id): id is string => !!id);
 
-      const [portfolios, snapshots, responses, provenance, designProbes, events, questionnaires] =
-        await Promise.all([
+      const [
+        portfolios,
+        snapshots,
+        responses,
+        provenance,
+        designProbes,
+        events,
+        questionnaires,
+        assignments,
+      ] = await Promise.all([
           fetchAll((from, to) =>
             supabase.from("portfolios").select("*").in("id", portfolioIds).range(from, to),
           ),
@@ -585,6 +679,14 @@ export function useStudyExport() {
               .order("submitted_at")
               .range(from, to),
           ),
+          fetchAll((from, to) =>
+            supabase
+              .from("study_assignments")
+              .select("*")
+              .eq("session_id", sessionId)
+              .order("created_at")
+              .range(from, to),
+          ),
         ]);
 
       return {
@@ -598,6 +700,7 @@ export function useStudyExport() {
         designProbes,
         events,
         questionnaires,
+        assignments,
       };
     },
   });

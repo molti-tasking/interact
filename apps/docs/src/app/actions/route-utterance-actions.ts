@@ -8,7 +8,7 @@ import {
   LIMITS,
   LlmGuardError,
 } from "@/lib/llm-guard";
-import { fastModel, withLlmRetry } from "@/lib/model";
+import { fastModel, withLlmRetry, llmErrorMessage } from "@/lib/model";
 import { telemetry, withTracing } from "@/lib/telemetry";
 import type {
   FieldType,
@@ -232,7 +232,7 @@ Always return a one-sentence "summary" of what you understood, phrased as a conf
     console.error("Utterance routing error:", error);
     return {
       success: false,
-      error: error instanceof Error ? error.message : "Unknown error",
+      error: llmErrorMessage(error),
     };
   }
 }

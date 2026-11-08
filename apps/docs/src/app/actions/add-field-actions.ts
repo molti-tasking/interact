@@ -4,7 +4,7 @@ import { scaleSpecSchema } from "@/lib/engine/form-model";
 import { scaleFromSpec } from "@/lib/engine/scale";
 import { newFieldId } from "@/lib/engine/schema-patch";
 import { capJson, capText, guardLlmRequest, LIMITS } from "@/lib/llm-guard";
-import { model } from "@/lib/model";
+import { model, llmErrorMessage } from "@/lib/model";
 import { telemetry, withTracing } from "@/lib/telemetry";
 import type { Field, PortfolioSchema } from "@/lib/types";
 import { generateText, Output } from "ai";
@@ -130,7 +130,7 @@ Rules:
     console.error("Add field from prompt error:", error);
     return {
       success: false,
-      error: error instanceof Error ? error.message : "Unknown error",
+      error: llmErrorMessage(error),
     };
   }
 }

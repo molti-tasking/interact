@@ -21,7 +21,7 @@ import {
   serializeSchemaForLLM,
 } from "@/lib/engine/structured-intent";
 import { capJson, capText, guardLlmRequest, LIMITS } from "@/lib/llm-guard";
-import { model, withLlmRetry } from "@/lib/model";
+import { model, withLlmRetry, llmErrorMessage } from "@/lib/model";
 import {
   applyStandardPatterns,
   resolveDetectedStandards,
@@ -300,7 +300,7 @@ ${SECTION_RULES} A questionnaire's rating statements usually get their own secti
     console.error("Intent to schema error:", error);
     return {
       success: false,
-      error: error instanceof Error ? error.message : "Unknown error",
+      error: llmErrorMessage(error),
     };
   }
 }
@@ -452,7 +452,7 @@ ${schemaPatchRules(false)}`;
     console.error("Refine schema error:", error);
     return {
       success: false,
-      error: error instanceof Error ? error.message : "Unknown error",
+      error: llmErrorMessage(error),
     };
   }
 }

@@ -12,7 +12,7 @@ import {
   serializeForLLM,
 } from "@/lib/engine/structured-intent";
 import { capJson, capText, guardLlmRequest, LIMITS } from "@/lib/llm-guard";
-import { model, withLlmRetry } from "@/lib/model";
+import { model, withLlmRetry, llmErrorMessage } from "@/lib/model";
 import { getStandardById } from "@/lib/standards";
 import { telemetry, withTracing } from "@/lib/telemetry";
 import {
@@ -278,7 +278,7 @@ ${SCALE_FIELD_RULES}`;
     console.error("Derive schema error:", error);
     return {
       success: false,
-      error: error instanceof Error ? error.message : "Unknown error",
+      error: llmErrorMessage(error),
     };
   }
 }

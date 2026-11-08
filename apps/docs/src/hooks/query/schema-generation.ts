@@ -49,6 +49,7 @@ export function useGenerateSchema(portfolioId: string) {
           actor: "system",
           rationale: `Generated ${generated.fields.length} fields from intent`,
         },
+        automated: true,
       }));
     },
     onSuccess: (commit) => applyCommitToCache(queryClient, commit),
@@ -112,6 +113,7 @@ export function useRefineSchema(portfolioId: string) {
             actor,
             rationale: summary,
           },
+          automated: true,
         };
       });
     },

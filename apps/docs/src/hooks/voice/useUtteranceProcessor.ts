@@ -1,6 +1,6 @@
 "use client";
 
-import { resolveDesignProbeAction } from "@/app/actions/design-probe-actions";
+import { callLlm } from "@/lib/llm-client";
 import { routeUtteranceAction } from "@/app/actions/route-utterance-actions";
 import { usePipelineGenerate } from "@/hooks/query/pipeline";
 import { applyCommitToCache } from "@/hooks/query/portfolios";
@@ -262,7 +262,7 @@ export function useUtteranceProcessor(
       base: UtteranceState,
       job: Job,
     ): Promise<void> => {
-      const response = await resolveDesignProbeAction({
+      const response = await callLlm("resolve-probe", {
         intent: base.intent,
         currentSchema: base.schema,
         interactionText: "The user dictated a direct edit to the form",
@@ -304,6 +304,7 @@ export function useUtteranceProcessor(
             actor: params.actor,
             rationale: params.text,
           },
+          automated: true,
         };
       });
       if (cancelled || !result) throw new UtteranceCancelled();

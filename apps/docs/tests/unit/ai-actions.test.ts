@@ -188,7 +188,7 @@ describe("resolveDesignProbeAction", () => {
       },
     });
     const response = await resolveDesignProbeAction(request);
-    expect(response.result!.skipped).toEqual({ updated: [], removed: ["phone"] });
+    expect(response.result!.skipped).toEqual({ updated: [], removed: ["phone"], locked: [] });
     expect(response.result!.refinementDelta).toBe("No schema changes applied.");
     expect(response.result!.artifactFormSchema.version).toBe(baseSchema.version);
   });

@@ -577,7 +577,10 @@ export function serializeSchemaForLLM(
     const id = opts.ids ? `[${f.id}] ` : "";
     const required = f.required ? ", required" : "";
     const description = f.description ? ` — ${f.description}` : "";
-    let line = `- ${id}${f.name}: ${JSON.stringify(f.label)} (${describeFieldType(f.type)}${required})${description}`;
+    // Locked fields are skipped by every patch anyway; telling the model
+    // keeps it from planning a change around them.
+    const locked = f.locked ? " [LOCKED by the creator: never change, move or remove]" : "";
+    let line = `- ${id}${f.name}: ${JSON.stringify(f.label)} (${describeFieldType(f.type)}${required})${locked}${description}`;
     if (opts.constraints && f.constraints.length > 0) {
       const constraints = f.constraints
         .map((c) => `${c.type} ${JSON.stringify(c.rule)} → ${JSON.stringify(c.message)}`)

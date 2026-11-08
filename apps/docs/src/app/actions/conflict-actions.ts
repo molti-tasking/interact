@@ -13,7 +13,7 @@ import {
   serializeSchemaForLLM,
 } from "@/lib/engine/structured-intent";
 import { capJson, capText, guardLlmRequest, LIMITS } from "@/lib/llm-guard";
-import { fastModel, model } from "@/lib/model";
+import { fastModel, model, llmErrorMessage } from "@/lib/model";
 import { telemetry, withTracing } from "@/lib/telemetry";
 import type { PortfolioSchema, StructuredIntent } from "@/lib/types";
 import { generateText, Output } from "ai";
@@ -51,6 +51,12 @@ export interface ConflictFix {
 export interface DetectConflictsResponse {
   success: boolean;
   conflicts?: SchemaConflict[];
+  /**
+   * The semantic (LLM) check didn't complete — timeout, error, unparsable
+   * output — so only the deterministic conflicts are listed. Don't cache
+   * this as the answer for the form's state.
+   */
+  partial?: boolean;
   error?: string;
 }
 
@@ -84,11 +90,13 @@ const detectConflictsSchema = z.object({
     description: z
       .string()
       .describe("One short sentence naming fields by their label, never by id"),
-    fieldIds: z.array(z.string()),
+    fieldIds: z
+      .array(z.string())
+      .describe('Refs of the fields involved, exactly as listed, e.g. "f3"'),
     fixes: z.array(z.object({
       value: z.string(),
       label: z.string().describe("SHORT label, 2-6 words"),
-      description: z.string(),
+      description: z.string().describe("One short sentence, max ~12 words"),
     })),
   })),
 });
@@ -116,6 +124,8 @@ const previewFixesSchema = z.object({
     }),
   ),
 });
+
+const DETECT_TIMEOUT_MS = 30_000;
 
 /** Deterministic conflict id, so a dismissed conflict stays dismissed on re-detection. */
 function llmConflictId(kind: string, fieldIds: string[], taken: Set<string>): string {
@@ -164,7 +174,7 @@ async function detectSchemaConflictsReal(
   } catch (error) {
     return {
       success: false,
-      error: error instanceof Error ? error.message : "Unknown error",
+      error: llmErrorMessage(error),
     };
   }
 
@@ -237,11 +247,15 @@ async function detectSchemaConflictsReal(
 
   // --- Phase 2: LLM semantic analysis ---
   try {
-    // Compact field summary to reduce token count (~50% fewer tokens vs full JSON)
-    const fieldLines = schema.fields.map((f) => {
+    // Compact field summary. Fields are cited by a short ref ("f3") rather
+    // than their id: ids are ~25 tokens each and the model writes them back
+    // in every conflict, and output length is what makes this call slow
+    // (pilot: median 14 s, up to 92 s at ~900 output tokens).
+    const refs = schema.fields.map((f, i) => ({ ref: `f${i + 1}`, field: f }));
+    const fieldLines = refs.map(({ ref, field: f }) => {
       const req = f.required ? "*" : "";
       const desc = f.description ? ` — ${f.description}` : "";
-      return `  ${f.id} | ${f.name}${req} (${f.type.kind}): "${f.label}"${desc}`;
+      return `  ${ref} | ${f.name}${req} (${f.type.kind}): "${f.label}"${desc}`;
     });
 
     const system = `You are a form schema quality analyzer. Detect conflicts, inconsistencies, and issues in this form schema.
@@ -261,14 +275,14 @@ Look for these issues (only report REAL problems, not minor style preferences):
 5. **naming_inconsistency**: Mix of naming conventions (e.g., camelCase and snake_case) or unclear labels
 6. **missing_required**: Fields that should logically be required but aren't, given the form's purpose — only when everyone filling in the form can answer them
 
-For EACH conflict found, provide 2-3 concrete fix options (not generic advice).
+For EACH conflict found, provide 2 concrete fix options (not generic advice).
 If no conflicts found, return an empty conflicts array.
 Rules:
 - Only real issues, not nitpicks
 - Don't report fields that share the same name — those are already detected
 - "description": one short sentence (max ~12 words) that names fields by their label in quotes, never by id or key — e.g. 'Email' and 'Contact email' collect the same thing.
-- "fieldIds": the ids of the fields involved, exactly as listed
-- Max 5 conflicts
+- "fieldIds": the refs of the fields involved, exactly as listed (e.g. "f3")
+- Max 4 conflicts, the most important first
 - Fix labels must be SHORT (2-6 words)
 - severity: "error" for breaking issues, "warning" for quality issues, "info" for suggestions`;
 
@@ -282,19 +296,24 @@ Rules:
           temperature: 0.2,
           output: Output.object({ schema: detectConflictsSchema }),
           experimental_telemetry: telemetry("detect-conflicts"),
+          // Background check: past this, deterministic results are shown
+          // and the next edit tries again
+          abortSignal: AbortSignal.timeout(DETECT_TIMEOUT_MS),
+          maxRetries: 1,
         }),
     );
 
     if (!result.output) {
       // Structured output parse failure — just return deterministic results
-      return { success: true, conflicts: deterministicConflicts };
+      return { success: true, conflicts: deterministicConflicts, partial: true };
     }
 
-    // The model sometimes cites field names instead of ids
+    // Refs back to ids; the model sometimes cites names or ids instead
     const idByName = new Map(schema.fields.map((f) => [f.name, f.id]));
+    for (const { ref, field } of refs) idByName.set(ref, field.id);
     const takenIds = new Set(deterministicConflicts.map((c) => c.id));
     const llmConflicts: SchemaConflict[] = (result.output.conflicts ?? [])
-      .slice(0, 5)
+      .slice(0, 4)
       .map((c) => {
         const ids = c.fieldIds.map((ref) =>
           fieldIds.has(ref) ? ref : (idByName.get(ref) ?? ref),
@@ -313,7 +332,7 @@ Rules:
   } catch (error) {
     console.error("Conflict detection LLM error:", error);
     // Return deterministic results even if LLM fails
-    return { success: true, conflicts: deterministicConflicts };
+    return { success: true, conflicts: deterministicConflicts, partial: true };
   }
 }
 
@@ -413,7 +432,7 @@ Each fix is applied on its own to the current schema — never assume another fi
     console.error("Conflict fix preview error:", error);
     return {
       success: false,
-      error: error instanceof Error ? error.message : "Unknown error",
+      error: llmErrorMessage(error),
     };
   }
 }
@@ -519,7 +538,7 @@ Apply this fix and return ONLY the schema changes it needs, plus the updated int
     console.error("Conflict resolution error:", error);
     return {
       success: false,
-      error: error instanceof Error ? error.message : "Unknown error",
+      error: llmErrorMessage(error),
     };
   }
 }

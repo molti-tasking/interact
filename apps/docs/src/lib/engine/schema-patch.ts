@@ -54,7 +54,12 @@ export interface ApplyPatchResult {
   /** Field names that were actually changed */
   applied: { added: string[]; updated: string[]; removed: string[] };
   /** Ops that referenced fields that don't exist (no-ops) */
-  skipped: { updated: string[]; removed: string[] };
+  skipped: {
+    updated: string[];
+    removed: string[];
+    /** Ops on fields the creator locked — automated changes never touch them */
+    locked: string[];
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -263,15 +268,30 @@ export function applySchemaPatch(
     updated: [],
     removed: [],
   };
-  const skipped: ApplyPatchResult["skipped"] = { updated: [], removed: [] };
+  const skipped: ApplyPatchResult["skipped"] = {
+    updated: [],
+    removed: [],
+    locked: [],
+  };
 
   let fields = [...schema.fields];
+  // Locked fields are off limits to every patch (they're all automated):
+  // no update, no removal, no section move.
+  const lockedNames = new Set(
+    fields.filter((f) => f.locked).map((f) => f.name),
+  );
+  const skipLocked = (key: string) => {
+    if (!lockedNames.has(key)) return false;
+    if (!skipped.locked.includes(key)) skipped.locked.push(key);
+    return true;
+  };
 
   // Remove
   if (patch.removeFieldKeys?.length) {
     const existingNames = new Set(fields.map((f) => f.name));
     const removeSet = new Set<string>();
     for (const key of patch.removeFieldKeys) {
+      if (skipLocked(key)) continue;
       if (existingNames.has(key)) removeSet.add(key);
       else skipped.removed.push(key);
     }
@@ -281,7 +301,9 @@ export function applySchemaPatch(
 
   // Update (+ adds that collide with an existing key)
   const updates = new Map<string, PatchField>();
-  for (const u of patch.updateFields ?? []) updates.set(u.key, u);
+  for (const u of patch.updateFields ?? []) {
+    if (!skipLocked(u.key)) updates.set(u.key, u);
+  }
   const namesAfterRemove = new Set(fields.map((f) => f.name));
   const genuineAdds: PatchField[] = [];
   const seenAddKeys = new Set<string>();
@@ -289,6 +311,7 @@ export function applySchemaPatch(
     if (seenAddKeys.has(a.key)) continue; // duplicate add in the same patch
     seenAddKeys.add(a.key);
     if (namesAfterRemove.has(a.key)) {
+      if (skipLocked(a.key)) continue;
       if (!updates.has(a.key)) updates.set(a.key, a);
     } else {
       genuineAdds.push(a);
@@ -342,7 +365,7 @@ export function applySchemaPatch(
   for (const placement of patch.sections ?? []) {
     for (const key of placement.fieldKeys) {
       const field = result.fields.find((x) => x.name === key);
-      if (!field) continue;
+      if (!field || skipLocked(key)) continue;
       const before = sectionTitle(result, field.id);
       result = assignSection(result, field.id, placement.title || null);
       if (sectionTitle(result, field.id) !== before && !applied.updated.includes(key)) {

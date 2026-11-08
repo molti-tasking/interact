@@ -43,6 +43,7 @@ export function StudyProvider({
   });
 
   const { allowVoice, findingsMinResponses } = session.settings;
+  const designProbes = participant.condition !== "no-probes";
   const capabilities = useMemo<Capabilities>(
     () => ({
       publish: false,
@@ -55,8 +56,9 @@ export function StudyProvider({
         ...FINDING_THRESHOLDS,
         minResponses: findingsMinResponses,
       },
+      designProbes,
     }),
-    [allowVoice, findingsMinResponses, session.id],
+    [allowVoice, findingsMinResponses, session.id, designProbes],
   );
 
   const user = useMemo<MockUser>(

@@ -1,10 +1,8 @@
 "use client";
 
 import type { SchemaConflict } from "@/app/actions/conflict-actions";
-import {
-  applyConflictChanges,
-  type ConflictFixPreview,
-} from "@/lib/engine/conflict-changes";
+import type { ConflictFixPreview } from "@/lib/engine/conflict-changes";
+import { applyConflictFix } from "@/lib/engine/guards";
 import type { PortfolioSchema } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { TriangleAlert } from "lucide-react";
@@ -108,12 +106,13 @@ export function ConflictCard({
               label: fix.label,
               summary: preview.summary,
               apply: (s: PortfolioSchema) =>
-                applyConflictChanges(s, preview.changes).schema,
+                applyConflictFix(s, preview.changes, conflict.fieldIds)
+                  .schema,
             } satisfies ProbePreview,
           ];
         }),
       ),
-    [conflict.id, conflict.fixes, previews],
+    [conflict.id, conflict.fieldIds, conflict.fixes, previews],
   );
 
   const icon = (className?: string) => (

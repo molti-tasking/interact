@@ -31,6 +31,13 @@ const schema: PortfolioSchema = {
 };
 
 describe("buildPreviewSchema", () => {
+  it("annotates a move to another section as a change", () => {
+    const { annotations } = buildPreviewSchema(schema, {
+      sections: [{ title: "About you", fieldKeys: ["age"] }],
+    });
+    expect(annotations).toEqual({ "f-age": "updated" });
+  });
+
   it("annotates added, changed and removed fields, keeping removed ones in place", () => {
     const { schema: preview, annotations } = buildPreviewSchema(schema, {
       addFields: [{ key: "goal", label: "Goal", type: "string", required: true }],

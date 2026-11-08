@@ -6,6 +6,7 @@ import {
   type CommitResult,
 } from "@/lib/engine/commit";
 import { createClient } from "@/lib/supabase/client";
+import { toast } from "sonner";
 import { Json } from "@/lib/supabase/database.types";
 import type { PortfolioUpdate } from "@/lib/supabase/types";
 import { rowToPortfolio } from "@/lib/supabase/types";
@@ -54,6 +55,12 @@ export function applyCommitToCache(
   if (!result) return;
   const { portfolio } = result;
   queryClient.setQueryData(portfolioKey(portfolio.id), portfolio);
+  // An automated change ran into locked fields: say they were kept, so the
+  // creator knows the lock did its job (and why the change looks smaller)
+  if (result.protectedFields?.length) {
+    const names = result.protectedFields.map((l) => `“${l}”`).join(", ");
+    toast(`Kept locked ${result.protectedFields.length === 1 ? "field" : "fields"} as is: ${names}`);
+  }
   invalidatePortfolioLists(queryClient);
   queryClient.invalidateQueries({ queryKey: ["provenance", portfolio.id] });
   queryClient.invalidateQueries({ queryKey: ["lineage"] });

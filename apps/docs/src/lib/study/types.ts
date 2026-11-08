@@ -70,11 +70,29 @@ export interface StudySettings {
   allowVoice: boolean;
   /** Findings appear from this many responses (default app: 20) */
   findingsMinResponses: number;
+  /**
+   * Conditions assigned to panel participants (balanced, migration 013),
+   * e.g. ["full", "no-probes"]. Empty: everyone gets the full tool.
+   */
+  conditions: StudyCondition[];
+}
+
+/**
+ * - "full": the tool as is
+ * - "no-probes": ablation without the design probe deck (no probes, no
+ *   conflict checks); creating and editing the form works the same
+ */
+export const STUDY_CONDITIONS = ["full", "no-probes"] as const;
+export type StudyCondition = (typeof STUDY_CONDITIONS)[number];
+
+function isCondition(value: unknown): value is StudyCondition {
+  return STUDY_CONDITIONS.includes(value as StudyCondition);
 }
 
 export const DEFAULT_STUDY_SETTINGS: StudySettings = {
   allowVoice: false,
   findingsMinResponses: 3,
+  conditions: [],
 };
 
 /** Planned seconds per phase (soft deadline) */
@@ -105,6 +123,10 @@ interface StudyParticipantSelf {
   display_name: string;
   portfolio_id: string | null;
   joined_at: string;
+  /** Assigned condition (migration 013); null/absent = full tool */
+  condition?: string | null;
+  /** e.g. "prolific" when they joined from a panel link */
+  external_source?: string | null;
 }
 
 /** `get_my_study_state()`: everything the participant shell needs */
@@ -112,6 +134,12 @@ export interface MyStudyState {
   session: Omit<StudySession, "space_id" | "created_at">;
   participant: StudyParticipantSelf;
   participant_count: number;
+  /**
+   * Panel participants, once the session is done: where to return
+   * (migration 013 — the link carries the completion code, so it is never
+   * sent earlier)
+   */
+  completion_url?: string | null;
   /** Server clock at the time of the poll (countdowns ignore client skew) */
   server_now: string;
 }
@@ -127,6 +155,41 @@ export function parseSettings(value: unknown): StudySettings {
       typeof raw.findingsMinResponses === "number" && raw.findingsMinResponses > 0
         ? raw.findingsMinResponses
         : DEFAULT_STUDY_SETTINGS.findingsMinResponses,
+    conditions: Array.isArray(raw.conditions)
+      ? raw.conditions.filter(isCondition)
+      : DEFAULT_STUDY_SETTINGS.conditions,
+  };
+}
+
+/**
+ * Only absolute https links: the URL is put in front of participants
+ * (the database enforces the same).
+ */
+export function safeCompletionUrl(value: unknown): string | null {
+  if (typeof value !== "string" || !value.trim()) return null;
+  try {
+    const url = new URL(value.trim());
+    return url.protocol === "https:" ? url.toString() : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Panel parameters from a join link. Prolific appends
+ * `PROLIFIC_PID`, `STUDY_ID` and `SESSION_ID`; null when the link has no
+ * participant id.
+ */
+export function panelParams(
+  params: { get(name: string): string | null },
+): { source: "prolific"; externalId: string; studyId: string | null; sessionId: string | null } | null {
+  const pid = params.get("PROLIFIC_PID")?.trim();
+  if (!pid || !/^[A-Za-z0-9_-]{1,64}$/.test(pid)) return null;
+  return {
+    source: "prolific",
+    externalId: pid,
+    studyId: params.get("STUDY_ID")?.trim() || null,
+    sessionId: params.get("SESSION_ID")?.trim() || null,
   };
 }
 
