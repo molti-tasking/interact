@@ -33,6 +33,7 @@ apps/docs/            The Next.js app (workspace, public forms, responses, study
 packages/interact/    The engine: packages/interact/src/forms — pure TypeScript,
                       no database, framework or model client
 docs/decisions/       Why things are the way they are, by date
+docs/study/           How to run the Prolific study
 docs/demo/            The walkthrough video and the script that records it
 ```
 
@@ -67,6 +68,7 @@ system message at the gateway (LiteLLM: `cache_control_injection_points` with
 pnpm test                 # unit tests (two integration files need the local database)
 pnpm test:e2e             # Playwright, replays recorded LLM fixtures
 pnpm --filter docs eval:replay   # replay recorded cases against the live model
+pnpm --filter docs study:agreement a.csv b.csv   # agreement between two raters' coding sheets
 ```
 
 [apps/docs/tests/README.md](apps/docs/tests/README.md) describes the suites;

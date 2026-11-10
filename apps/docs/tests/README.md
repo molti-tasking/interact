@@ -14,6 +14,17 @@ tests/
 - Local Supabase running: `npx supabase start`
 - Dependencies installed: `pnpm install`
 
+## Unit and Integration Tests
+
+```sh
+pnpm test                       # Vitest
+```
+
+Files named `*.integration.test.ts` run against the local Supabase and are
+skipped when it isn't reachable. `study-briefs.integration.test.ts`
+(migration 014) also checks that the stack has this app's schema, and can be
+pointed at a stack on other ports — see the comment at its top.
+
 ## E2E Tests
 
 Functional tests that exercise the full application flow using fixture replay.
