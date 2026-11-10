@@ -1,6 +1,7 @@
 "use client";
 
 import { ArtifactPane } from "@/components/workspace/ArtifactPane";
+import { ChatEditPane } from "@/components/workspace/ChatEditPane";
 import { DerivationBanner } from "@/components/workspace/DerivationBanner";
 import { DesignProbeDeck } from "@/components/workspace/DesignProbeDeck";
 import { FieldEditDrawer } from "@/components/workspace/FieldEditDrawer";
@@ -64,7 +65,10 @@ export function PortfolioWorkspace({
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   // Debounced intent backpropagation from field edits
-  const { scheduleSync } = useIntentBackpropagation(portfolio);
+  const { scheduleSync } = useIntentBackpropagation(
+    portfolio,
+    capabilities.intentPortfolio,
+  );
 
   const handleFieldClick = useCallback(
     (field: Field) => {
@@ -202,16 +206,24 @@ export function PortfolioWorkspace({
         <div className="@container">
           <div className="grid grid-cols-1 gap-6 @5xl:grid-cols-[minmax(320px,400px)_minmax(0,1fr)]">
             <div className="flex min-w-0 flex-col gap-5">
-              <div
-                data-testid="reflective-conversation-pane"
-                className="flex flex-col"
-              >
-                <ReflectiveConversationPane
+              {capabilities.chatEdits ? (
+                <ChatEditPane
                   portfolio={portfolio}
                   autoGenerate={autoGenerate}
                   onAutoGenerateStarted={onAutoGenerateStarted}
                 />
-              </div>
+              ) : (
+                <div
+                  data-testid="reflective-conversation-pane"
+                  className="flex flex-col"
+                >
+                  <ReflectiveConversationPane
+                    portfolio={portfolio}
+                    autoGenerate={autoGenerate}
+                    onAutoGenerateStarted={onAutoGenerateStarted}
+                  />
+                </div>
+              )}
 
               {capabilities.designProbes && (
                 <DesignProbeDeck

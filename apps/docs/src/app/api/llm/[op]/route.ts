@@ -1,3 +1,4 @@
+import { chatEditFormAction } from "@/app/actions/chat-edit-actions";
 import {
   detectSchemaConflictsAction,
   previewConflictFixesAction,
@@ -37,6 +38,7 @@ const OPERATIONS = {
   "preview-conflict-fixes": previewConflictFixesAction,
   "simulate-respondents": simulateRespondentsAction,
   "find-answer-themes": findAnswerThemesAction,
+  "chat-edit": chatEditFormAction,
 } as const;
 
 export type LlmOperation = keyof typeof OPERATIONS;

@@ -30,6 +30,17 @@ export interface Capabilities {
    */
   designProbes: boolean;
   /**
+   * The intent portfolio: the editable, structured description that stays
+   * in step with the form. Off in the "baseline" study condition, where the
+   * first description is used once and never shown or re-synced.
+   */
+  intentPortfolio: boolean;
+  /**
+   * Free-text change requests ("make the phone number optional") in place
+   * of the intent pane. The "baseline" study condition.
+   */
+  chatEdits: boolean;
+  /**
    * Let the creator turn on AI help for respondents ("What does this
    * mean?", "Fill from text"). Off for study participants: the peers
    * answering their forms must all get the same, plain form.
@@ -57,6 +68,8 @@ const FULL_CAPABILITIES: Capabilities = {
   workspaceHref: (portfolioId) => `/portfolios/${portfolioId}`,
   findingsThresholds: FINDING_THRESHOLDS,
   designProbes: true,
+  intentPortfolio: true,
+  chatEdits: false,
   respondentAssist: true,
   pretest: true,
   answerThemes: true,

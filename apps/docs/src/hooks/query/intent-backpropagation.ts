@@ -30,6 +30,8 @@ const DEBOUNCE_MS = 2000;
  */
 export function useIntentBackpropagation(
   portfolio: Portfolio | null | undefined,
+  /** False where there is no intent portfolio to keep in step (baseline) */
+  enabled = true,
 ) {
   const queryClient = useQueryClient();
 
@@ -116,6 +118,7 @@ export function useIntentBackpropagation(
       editDescription: string,
       kind: "field-edit" | "design-decision" = "field-edit",
     ) => {
+      if (!enabled) return;
       pendingEditsRef.current.push(editDescription);
       if (kind === "design-decision") pendingDecisionRef.current = true;
       if (timerRef.current) clearTimeout(timerRef.current);
@@ -124,7 +127,7 @@ export function useIntentBackpropagation(
         void flush();
       }, DEBOUNCE_MS);
     },
-    [flush],
+    [flush, enabled],
   );
 
   // Leaving the workspace: flush what's pending now instead of dropping it

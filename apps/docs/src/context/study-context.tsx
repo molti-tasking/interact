@@ -57,6 +57,8 @@ export function StudyProvider({
         minResponses: findingsMinResponses,
       },
       designProbes,
+      intentPortfolio: true,
+      chatEdits: false,
       respondentAssist: false,
       pretest: false,
       answerThemes: false,
