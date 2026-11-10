@@ -75,14 +75,40 @@ export interface StudySettings {
    * e.g. ["full", "no-probes"]. Empty: everyone gets the full tool.
    */
   conditions: StudyCondition[];
+  /**
+   * "workshop": a facilitator moves the room through the phases (011).
+   * "briefs": self-paced, one form per fixed brief (014) — the panel study.
+   */
+  mode: StudyMode;
+  /** Brief keys of a briefs session, in their canonical order */
+  briefs: string[];
+  /** Time limit per task in a briefs session, in seconds */
+  taskSeconds: number;
+  /** Shown on the consent page of a briefs session */
+  contact: StudyContact;
 }
+
+export const STUDY_MODES = ["workshop", "briefs"] as const;
+export type StudyMode = (typeof STUDY_MODES)[number];
+
+/** Who runs the study: named on the consent page. */
+export interface StudyContact {
+  name: string;
+  email: string;
+  institution: string;
+}
+
+export const EMPTY_CONTACT: StudyContact = { name: "", email: "", institution: "" };
 
 /**
  * - "full": the tool as is
  * - "no-probes": ablation without the design probe deck (no probes, no
  *   conflict checks); creating and editing the form works the same
+ * - "baseline": no probes and no intent portfolio — one description, one
+ *   generated form, then free-text change requests to the same model
+ *   (and the same direct editing of fields as in "full")
  */
-export const STUDY_CONDITIONS = ["full", "no-probes"] as const;
+export const STUDY_CONDITIONS = ["full", "no-probes", "baseline"] as const;
 export type StudyCondition = (typeof STUDY_CONDITIONS)[number];
 
 function isCondition(value: unknown): value is StudyCondition {
@@ -93,6 +119,10 @@ export const DEFAULT_STUDY_SETTINGS: StudySettings = {
   allowVoice: false,
   findingsMinResponses: 3,
   conditions: [],
+  mode: "workshop",
+  briefs: [],
+  taskSeconds: 720,
+  contact: EMPTY_CONTACT,
 };
 
 /** Planned seconds per phase (soft deadline) */
@@ -129,10 +159,29 @@ interface StudyParticipantSelf {
   external_source?: string | null;
 }
 
+/** A participant's place in a briefs session (migration 014) */
+export interface StudyProgress {
+  step: string;
+  step_started_at: string;
+  outcome: "completed" | "declined" | null;
+}
+
+/** One brief of a participant, in their order */
+export interface StudyTask {
+  position: number;
+  brief: string;
+  portfolio_id: string | null;
+  started_at: string | null;
+  finished_at: string | null;
+}
+
 /** `get_my_study_state()`: everything the participant shell needs */
 export interface MyStudyState {
   session: Omit<StudySession, "space_id" | "created_at">;
   participant: StudyParticipantSelf;
+  /** Briefs sessions only */
+  progress?: StudyProgress | null;
+  tasks?: StudyTask[];
   participant_count: number;
   /**
    * Panel participants, once the session is done: where to return
@@ -158,7 +207,53 @@ export function parseSettings(value: unknown): StudySettings {
     conditions: Array.isArray(raw.conditions)
       ? raw.conditions.filter(isCondition)
       : DEFAULT_STUDY_SETTINGS.conditions,
+    mode: raw.mode === "briefs" ? "briefs" : "workshop",
+    briefs: Array.isArray(raw.briefs)
+      ? raw.briefs.filter((b): b is string => typeof b === "string" && !!b)
+      : DEFAULT_STUDY_SETTINGS.briefs,
+    taskSeconds:
+      typeof raw.taskSeconds === "number" && raw.taskSeconds >= 60
+        ? Math.round(raw.taskSeconds)
+        : DEFAULT_STUDY_SETTINGS.taskSeconds,
+    contact: {
+      name: typeof raw.contact?.name === "string" ? raw.contact.name : "",
+      email: typeof raw.contact?.email === "string" ? raw.contact.email : "",
+      institution:
+        typeof raw.contact?.institution === "string" ? raw.contact.institution : "",
+    },
   };
+}
+
+// ---------------------------------------------------------------------------
+// Briefs sessions: steps
+// ---------------------------------------------------------------------------
+
+/**
+ * The steps of a briefs session with `tasks` tasks — the same list as
+ * `study_brief_steps()` in migration 014, which is the one that decides.
+ */
+export function briefSteps(tasks: number): string[] {
+  const steps = ["consent", "intro"];
+  for (let i = 1; i <= tasks; i++) steps.push(`brief:${i}`, `task:${i}`, `quiz:${i}`);
+  return [...steps, "questionnaire", "done"];
+}
+
+export type BriefStep =
+  | { kind: "consent" | "intro" | "questionnaire" | "done" }
+  | { kind: "brief" | "task" | "quiz"; position: number };
+
+export function parseBriefStep(step: string): BriefStep | null {
+  if (step === "consent" || step === "intro" || step === "questionnaire" || step === "done") {
+    return { kind: step };
+  }
+  const match = /^(brief|task|quiz):(\d+)$/.exec(step);
+  if (!match) return null;
+  return { kind: match[1] as "brief" | "task" | "quiz", position: Number(match[2]) };
+}
+
+/** The briefs in the order a participant with `order` gets them (Latin square). */
+export function briefOrder(briefs: readonly string[], order: number): string[] {
+  return briefs.map((_, i) => briefs[(i + order) % briefs.length]);
 }
 
 /**

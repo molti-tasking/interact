@@ -38,12 +38,14 @@ export function StudyProvider({
   const log = useStudyEventLogger({
     sessionId: session.id,
     participantId: participant.id,
-    phase: session.phase,
+    // A self-paced participant's own step, else the room's phase
+    phase: state.progress?.step ?? session.phase,
     portfolioId: participant.portfolio_id,
   });
 
   const { allowVoice, findingsMinResponses } = session.settings;
-  const designProbes = participant.condition !== "no-probes";
+  const baseline = participant.condition === "baseline";
+  const designProbes = participant.condition !== "no-probes" && !baseline;
   const capabilities = useMemo<Capabilities>(
     () => ({
       publish: false,
@@ -57,13 +59,13 @@ export function StudyProvider({
         minResponses: findingsMinResponses,
       },
       designProbes,
-      intentPortfolio: true,
-      chatEdits: false,
+      intentPortfolio: !baseline,
+      chatEdits: baseline,
       respondentAssist: false,
       pretest: false,
       answerThemes: false,
     }),
-    [allowVoice, findingsMinResponses, session.id, designProbes],
+    [allowVoice, findingsMinResponses, session.id, designProbes, baseline],
   );
 
   const user = useMemo<MockUser>(

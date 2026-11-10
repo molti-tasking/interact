@@ -130,12 +130,32 @@ function ReadyBar() {
   );
 }
 
-function StartCard({
+/** Wording of the start card; the workshop's by default. */
+interface StartCopy {
+  heading: string;
+  intro: string;
+  label: string;
+  hint: string;
+  /** Show example descriptions (they would prime a fixed brief) */
+  examples: boolean;
+}
+
+const WORKSHOP_START: StartCopy = {
+  heading: "Create a form",
+  intro: "Say what you want to find out. The tool drafts a form and helps you improve it.",
+  label: "What would you like to find out?",
+  hint: "Rough is fine. Stuck? See the examples below.",
+  examples: true,
+};
+
+export function StartCard({
   portfolio,
   onStarted,
+  copy = WORKSHOP_START,
 }: {
   portfolio: Portfolio;
   onStarted: () => void;
+  copy?: StartCopy;
 }) {
   const { log } = useStudy()!;
   const { currentUser } = useCurrentUser();
@@ -175,11 +195,8 @@ function StartCard({
   return (
     <div className="mx-auto max-w-2xl space-y-6 py-4">
       <div className="space-y-1">
-        <h1 className="text-3xl tracking-tight text-primary">Create a form</h1>
-        <p className="text-muted-foreground">
-          Say what you want to find out. The tool drafts a form and helps you
-          improve it.
-        </p>
+        <h1 className="text-3xl tracking-tight text-primary">{copy.heading}</h1>
+        <p className="text-muted-foreground">{copy.intro}</p>
       </div>
       <Card className="p-4 sm:p-6">
         <form
@@ -192,7 +209,7 @@ function StartCard({
         >
           <div className="space-y-2">
             <Label htmlFor="study-intent" className="text-base">
-              What would you like to find out?
+              {copy.label}
             </Label>
             <Textarea
               id="study-intent"
@@ -210,9 +227,7 @@ function StartCard({
               className="min-h-32 bg-background text-base"
               disabled={commit.isPending}
             />
-            <p className="text-xs text-muted-foreground">
-              Rough is fine. Stuck? See the examples below.
-            </p>
+            <p className="text-xs text-muted-foreground">{copy.hint}</p>
           </div>
           <div className="space-y-2">
             <Label htmlFor="study-title">
@@ -236,7 +251,7 @@ function StartCard({
           </Button>
         </form>
       </Card>
-      <ExampleCarousel />
+      {copy.examples && <ExampleCarousel />}
     </div>
   );
 }

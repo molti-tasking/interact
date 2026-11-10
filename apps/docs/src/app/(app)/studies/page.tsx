@@ -6,11 +6,13 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useCreateStudySession, useStudySessions } from "@/hooks/query/study";
+import { BRIEF_KEYS } from "@/lib/study/briefs";
 import {
   DEFAULT_PHASE_DURATIONS,
   DEFAULT_STUDY_SETTINGS,
   PHASE_COPY,
   type PhaseDurations,
+  type StudyMode,
   type StudySettings,
 } from "@/lib/study/types";
 import { ChevronRight, Loader2, Plus } from "lucide-react";
@@ -32,6 +34,19 @@ export default function StudiesPage() {
   const [durations, setDurations] = useState<PhaseDurations>(DEFAULT_PHASE_DURATIONS);
   const [settings, setSettings] = useState<StudySettings>(DEFAULT_STUDY_SETTINGS);
 
+  const setMode = (mode: StudyMode) =>
+    setSettings(
+      mode === "briefs"
+        ? {
+            ...DEFAULT_STUDY_SETTINGS,
+            mode,
+            briefs: BRIEF_KEYS,
+            conditions: ["full", "baseline"],
+            contact: settings.contact,
+          }
+        : { ...DEFAULT_STUDY_SETTINGS, contact: settings.contact },
+    );
+
   const handleCreate = () => {
     if (!name.trim() || create.isPending) return;
     create.mutate(
@@ -46,11 +61,11 @@ export default function StudiesPage() {
   return (
     <div className="mx-auto max-w-3xl space-y-8">
       <div className="space-y-1">
-        <h1 className="text-3xl tracking-tight text-primary">Workshops</h1>
+        <h1 className="text-3xl tracking-tight text-primary">Studies</h1>
         <p className="text-muted-foreground">
-          Run a study session: participants join with a code, create a form
-          about their hobby, answer each other&apos;s forms, then read the
-          answers and refine their own.
+          A workshop in a room (participants join with a code and you move
+          everyone through the phases), or a self-paced online study with
+          fixed situations for a panel such as Prolific.
         </p>
       </div>
 
@@ -80,7 +95,13 @@ export default function StudiesPage() {
                   </span>
                   <span className="font-mono text-sm tracking-widest">{session.join_code}</span>
                   <Badge variant={session.phase === "done" ? "outline" : "secondary"}>
-                    {PHASE_COPY[session.phase].label}
+                    {session.settings.mode === "briefs"
+                      ? session.phase === "create"
+                        ? "Online · open"
+                        : session.phase === "done"
+                          ? "Online · closed"
+                          : "Online · not open"
+                      : PHASE_COPY[session.phase].label}
                   </Badge>
                   <ChevronRight className="h-4 w-4 text-muted-foreground" aria-hidden />
                 </Link>
@@ -99,6 +120,31 @@ export default function StudiesPage() {
           }}
         >
           <h2 className="text-lg font-medium">New session</h2>
+          <fieldset className="space-y-2">
+            <legend className="text-sm font-medium">Kind</legend>
+            <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Kind of session">
+              {(
+                [
+                  ["workshop", "Workshop in a room"],
+                  ["briefs", "Online study (self-paced)"],
+                ] as const
+              ).map(([mode, label]) => (
+                <Button
+                  key={mode}
+                  type="button"
+                  role="radio"
+                  aria-checked={settings.mode === mode}
+                  variant={settings.mode === mode ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setMode(mode)}
+                  disabled={create.isPending}
+                  data-testid={`mode-${mode}`}
+                >
+                  {label}
+                </Button>
+              ))}
+            </div>
+          </fieldset>
           <div className="space-y-2">
             <Label htmlFor="session-name">Name</Label>
             <Input

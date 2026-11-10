@@ -6,15 +6,15 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   useJoinStudy,
-  useJoinStudyExternal,
   useMySeats,
+  usePanelJoin,
   useSessionUser,
   useSignOut,
 } from "@/hooks/query/study";
 import { PHASE_COPY, panelParams } from "@/lib/study/types";
 import { ArrowRight, Loader2, LogOut, Users } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useEffect, useRef, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 
 /**
  * Workshop entry: code + display name. The browser is signed in
@@ -189,23 +189,12 @@ function PanelJoin({
   panel: NonNullable<ReturnType<typeof panelParams>>;
 }) {
   const router = useRouter();
-  const join = useJoinStudyExternal();
-  const { mutate } = join;
-  const started = useRef(false);
+  const join = usePanelJoin({ code, ...panel });
 
-  const start = () =>
-    mutate(
-      { code, ...panel },
-      { onSuccess: ({ sessionId }) => router.replace(`/study/${sessionId}`) },
-    );
-
+  const joinedSessionId = join.data?.sessionId;
   useEffect(() => {
-    if (started.current) return;
-    started.current = true;
-    start();
-    // Once per page load
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    if (joinedSessionId) router.replace(`/study/${joinedSessionId}`);
+  }, [joinedSessionId, router]);
 
   return (
     <main className="flex flex-1 items-center justify-center px-4 py-12">
@@ -216,7 +205,7 @@ function PanelJoin({
             <p role="alert" className="text-sm text-destructive">
               {join.error.message}
             </p>
-            <Button onClick={start} disabled={join.isPending}>
+            <Button onClick={() => void join.refetch()} disabled={join.isFetching}>
               Try again
             </Button>
           </>

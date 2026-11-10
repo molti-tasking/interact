@@ -3,6 +3,7 @@
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { BRIEF_KEYS } from "@/lib/study/briefs";
 import {
   PHASE_COPY,
   STUDY_CONDITIONS,
@@ -14,6 +15,7 @@ import {
 const CONDITION_COPY: Record<StudyCondition, string> = {
   full: "Full tool",
   "no-probes": "Without design probes (ablation)",
+  baseline: "Baseline: one generated form, then free-text change requests",
 };
 
 const TIMED_PHASES = ["create", "answer", "review", "questionnaire"] as const;
@@ -32,6 +34,131 @@ export function SessionSettingsFields({
   onSettingsChange: (next: StudySettings) => void;
   disabled?: boolean;
 }) {
+  const conditionChoice = (
+    <div className="space-y-1.5">
+      {STUDY_CONDITIONS.map((condition) => (
+        <div key={condition} className="flex items-center gap-2">
+          <Checkbox
+            id={`condition-${condition}`}
+            checked={settings.conditions.includes(condition)}
+            onCheckedChange={(checked) =>
+              onSettingsChange({
+                ...settings,
+                conditions:
+                  checked === true
+                    ? STUDY_CONDITIONS.filter(
+                        (c) => c === condition || settings.conditions.includes(c),
+                      )
+                    : settings.conditions.filter((c) => c !== condition),
+              })
+            }
+            disabled={disabled}
+          />
+          <Label htmlFor={`condition-${condition}`} className="font-normal">
+            {CONDITION_COPY[condition]}
+          </Label>
+        </div>
+      ))}
+    </div>
+  );
+
+  if (settings.mode === "briefs") {
+    const setContact = (key: keyof StudySettings["contact"], value: string) =>
+      onSettingsChange({ ...settings, contact: { ...settings.contact, [key]: value } });
+    return (
+      <div className="space-y-5">
+        <fieldset className="space-y-2">
+          <legend className="text-sm font-medium">Situations</legend>
+          <div className="space-y-1.5">
+            {BRIEF_KEYS.map((key) => (
+              <div key={key} className="flex items-center gap-2">
+                <Checkbox
+                  id={`brief-${key}`}
+                  checked={settings.briefs.includes(key)}
+                  onCheckedChange={(checked) =>
+                    onSettingsChange({
+                      ...settings,
+                      briefs:
+                        checked === true
+                          ? BRIEF_KEYS.filter((k) => k === key || settings.briefs.includes(k))
+                          : settings.briefs.filter((k) => k !== key),
+                    })
+                  }
+                  disabled={disabled}
+                />
+                <Label htmlFor={`brief-${key}`} className="font-normal">
+                  {key}
+                </Label>
+              </div>
+            ))}
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Every participant builds one form per situation; the order is
+            counterbalanced. Don&apos;t change this once people have started.
+          </p>
+        </fieldset>
+
+        <div className="space-y-1">
+          <Label htmlFor="task-minutes">Time limit per form</Label>
+          <div className="flex items-center gap-2">
+            <Input
+              id="task-minutes"
+              type="number"
+              min={1}
+              max={60}
+              className="w-20"
+              value={Math.round(settings.taskSeconds / 60)}
+              onChange={(e) =>
+                onSettingsChange({
+                  ...settings,
+                  taskSeconds: Math.max(1, Number(e.target.value) || 1) * 60,
+                })
+              }
+              disabled={disabled}
+            />
+            <span className="text-sm text-muted-foreground">minutes</span>
+          </div>
+        </div>
+
+        <fieldset className="space-y-2">
+          <legend className="text-sm font-medium">Conditions</legend>
+          <p className="text-xs text-muted-foreground">
+            Each participant gets one, balanced together with the order of the
+            situations.
+          </p>
+          {conditionChoice}
+        </fieldset>
+
+        <fieldset className="space-y-2">
+          <legend className="text-sm font-medium">Contact on the consent page</legend>
+          <div className="grid gap-3 sm:grid-cols-3">
+            {(
+              [
+                ["name", "Researcher", "text"],
+                ["institution", "Institution", "text"],
+                ["email", "Email", "email"],
+              ] as const
+            ).map(([key, label, type]) => (
+              <div key={key} className="space-y-1">
+                <Label htmlFor={`contact-${key}`} className="text-xs text-muted-foreground">
+                  {label}
+                </Label>
+                <Input
+                  id={`contact-${key}`}
+                  type={type}
+                  maxLength={120}
+                  value={settings.contact[key]}
+                  onChange={(e) => setContact(key, e.target.value)}
+                  disabled={disabled}
+                />
+              </div>
+            ))}
+          </div>
+        </fieldset>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-5">
       <fieldset className="space-y-2">
@@ -120,31 +247,7 @@ export function SessionSettingsFields({
           conditions below, balanced. People joining by code get the full tool.
           Set the completion URL on the session page.
         </p>
-        <div className="space-y-1.5">
-          {STUDY_CONDITIONS.map((condition) => (
-            <div key={condition} className="flex items-center gap-2">
-              <Checkbox
-                id={`condition-${condition}`}
-                checked={settings.conditions.includes(condition)}
-                onCheckedChange={(checked) =>
-                  onSettingsChange({
-                    ...settings,
-                    conditions:
-                      checked === true
-                        ? STUDY_CONDITIONS.filter(
-                            (c) => c === condition || settings.conditions.includes(c),
-                          )
-                        : settings.conditions.filter((c) => c !== condition),
-                  })
-                }
-                disabled={disabled}
-              />
-              <Label htmlFor={`condition-${condition}`} className="font-normal">
-                {CONDITION_COPY[condition]}
-              </Label>
-            </div>
-          ))}
-        </div>
+        {conditionChoice}
       </fieldset>
     </div>
   );

@@ -9,6 +9,14 @@ import {
   formsCsv,
   questionnaireCsv,
 } from "@/lib/study/export";
+import {
+  codingFieldsCsv,
+  codingFormsMarkdown,
+  codingKeyCsv,
+  codingRequirementsCsv,
+  participantsCsv,
+} from "@/lib/study/coding";
+import type { BriefDefinition } from "@/lib/study/briefs.server";
 import type { StudySession } from "@/lib/study/types";
 import { Download, Loader2 } from "lucide-react";
 import { toast } from "sonner";
@@ -22,13 +30,67 @@ function download(filename: string, content: string, type: string) {
   setTimeout(() => URL.revokeObjectURL(url), 1_000);
 }
 
-const FILES: {
+type Briefs = Record<string, BriefDefinition>;
+
+interface ExportFile {
   key: string;
   label: string;
   file: (code: string, day: string) => string;
-  build: (data: StudyExport) => string;
+  build: (data: StudyExport, briefs: Briefs) => string;
   type: string;
-}[] = [
+}
+
+/** Stories and requirement lists: admins only, never bundled for the browser. */
+async function fetchBriefs(): Promise<Briefs> {
+  const res = await fetch("/api/study/briefs");
+  if (!res.ok) throw new Error("Couldn't load the requirement lists");
+  return (await res.json()) as Briefs;
+}
+
+/** Briefs sessions: sheets for the two raters (no condition, no participant). */
+const RATER_FILES: ExportFile[] = [
+  {
+    key: "coding-forms",
+    label: "Forms to code (Markdown)",
+    file: (code, day) => `study-${code}-${day}-coding-forms.md`,
+    build: codingFormsMarkdown,
+    type: "text/markdown",
+  },
+  {
+    key: "coding-requirements",
+    label: "Requirement sheet (CSV)",
+    file: (code, day) => `study-${code}-${day}-coding-requirements.csv`,
+    build: codingRequirementsCsv,
+    type: "text/csv",
+  },
+  {
+    key: "coding-fields",
+    label: "Question sheet (CSV)",
+    file: (code, day) => `study-${code}-${day}-coding-fields.csv`,
+    build: (data) => codingFieldsCsv(data),
+    type: "text/csv",
+  },
+];
+
+/** Briefs sessions: for the analyst only — they unblind the form codes. */
+const ANALYST_FILES: ExportFile[] = [
+  {
+    key: "coding-key",
+    label: "Key: form code → condition (CSV)",
+    file: (code, day) => `study-${code}-${day}-coding-key.csv`,
+    build: (data) => codingKeyCsv(data),
+    type: "text/csv",
+  },
+  {
+    key: "participants",
+    label: "Participants and questionnaire (CSV)",
+    file: (code, day) => `study-${code}-${day}-participants.csv`,
+    build: (data) => participantsCsv(data),
+    type: "text/csv",
+  },
+];
+
+const FILES: ExportFile[] = [
   {
     key: "json",
     label: "Everything (JSON)",
@@ -70,11 +132,16 @@ const FILES: {
 export function ExportCard({ session }: { session: StudySession }) {
   const exportSession = useStudyExport();
 
-  const handle = async (entry: (typeof FILES)[number]) => {
+  const briefsMode = session.settings.mode === "briefs";
+
+  const handle = async (entry: ExportFile) => {
     try {
-      const data = await exportSession.mutateAsync(session.id);
+      const [data, briefs] = await Promise.all([
+        exportSession.mutateAsync(session.id),
+        briefsMode ? fetchBriefs() : Promise.resolve({}),
+      ]);
       const day = data.exportedAt.slice(0, 10);
-      download(entry.file(session.join_code, day), entry.build(data), entry.type);
+      download(entry.file(session.join_code, day), entry.build(data, briefs), entry.type);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Export failed");
     }
@@ -84,28 +151,62 @@ export function ExportCard({ session }: { session: StudySession }) {
     <Card className="space-y-3 p-4 sm:p-6">
       <h2 className="text-lg font-medium">Export</h2>
       <p className="text-sm text-muted-foreground">
-        Forms (final and at each phase boundary), answers with who gave them,
-        design history, probes, the interaction log and questionnaires.
-        Facilitator test answers carry your account id — filter them out.
+        {briefsMode
+          ? "Everything recorded: forms (final and when each task ended), design history, probes, the interaction log, questionnaires and Prolific ids. The JSON file contains the ids — treat it as personal data."
+          : "Forms (final and at each phase boundary), answers with who gave them, design history, probes, the interaction log and questionnaires. Facilitator test answers carry your account id — filter them out."}
       </p>
-      <div className="flex flex-wrap gap-2">
-        {FILES.map((entry) => (
-          <Button
-            key={entry.key}
-            variant={entry.key === "json" ? "default" : "outline"}
-            size="sm"
-            disabled={exportSession.isPending}
-            onClick={() => void handle(entry)}
-          >
-            {exportSession.isPending ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
-            ) : (
-              <Download className="h-3.5 w-3.5" aria-hidden />
-            )}
-            {entry.label}
-          </Button>
-        ))}
-      </div>
+      <FileButtons
+        files={briefsMode ? FILES.filter((f) => f.key === "json" || f.key === "events") : FILES}
+        pending={exportSession.isPending}
+        onPick={handle}
+      />
+      {briefsMode && (
+        <>
+          <h3 className="pt-2 text-sm font-medium">For the two raters</h3>
+          <p className="text-sm text-muted-foreground">
+            Finished forms under a code, without participant or condition. Each
+            rater fills in both sheets on their own; compare them with{" "}
+            <code>pnpm study:agreement</code>.
+          </p>
+          <FileButtons files={RATER_FILES} pending={exportSession.isPending} onPick={handle} />
+          <h3 className="pt-2 text-sm font-medium">For the analysis</h3>
+          <p className="text-sm text-muted-foreground">
+            The key unblinds the form codes — keep it away from the raters.
+          </p>
+          <FileButtons files={ANALYST_FILES} pending={exportSession.isPending} onPick={handle} />
+        </>
+      )}
     </Card>
+  );
+}
+
+function FileButtons({
+  files,
+  pending,
+  onPick,
+}: {
+  files: ExportFile[];
+  pending: boolean;
+  onPick: (file: ExportFile) => Promise<void>;
+}) {
+  return (
+    <div className="flex flex-wrap gap-2">
+      {files.map((entry) => (
+        <Button
+          key={entry.key}
+          variant={entry.key === "json" ? "default" : "outline"}
+          size="sm"
+          disabled={pending}
+          onClick={() => void onPick(entry)}
+        >
+          {pending ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+          ) : (
+            <Download className="h-3.5 w-3.5" aria-hidden />
+          )}
+          {entry.label}
+        </Button>
+      ))}
+    </div>
   );
 }

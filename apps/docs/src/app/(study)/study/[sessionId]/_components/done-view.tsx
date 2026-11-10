@@ -15,6 +15,7 @@ export function DoneView() {
   // is how the panel records the submission as complete. The server sends
   // it only to them, and only now.
   const returnUrl = safeCompletionUrl(state.completion_url);
+  const selfPaced = state.session.settings.mode === "briefs";
 
   useEffect(() => {
     if (!returnUrl) return;
@@ -49,7 +50,9 @@ export function DoneView() {
         </>
       ) : (
         <p className="text-muted-foreground">
-          The workshop is complete. You can close this window.
+          {selfPaced
+            ? "The study is complete and your answers are saved. You can close this window."
+            : "The workshop is complete. You can close this window."}
         </p>
       )}
     </div>
