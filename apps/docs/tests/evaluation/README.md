@@ -18,7 +18,7 @@ Automated evaluation harness for the UIST '26 paper.
 │       ▼              ▼              ▼                 │
 │  Playwright against live/local app                   │
 │  → Creates portfolio, enters intent, resolves        │
-│    design probes based on persona profile             │
+│    elicitation questions based on persona profile             │
 │  → Collects artifacts: intent, conversation log,     │
 │    final schema, provenance                          │
 │                                                       │
@@ -79,7 +79,7 @@ pnpm eval
 ```
 
 The evaluation automatically skips conflict detection during simulation
-(`?skipConflicts=true`) to save ~25s per design probe resolution.
+(`?skipConflicts=true`) to save ~25s per elicitation question resolution.
 
 ## Environment Variables
 
@@ -99,13 +99,13 @@ The evaluation automatically skips conflict detection during simulation
 
 # Replay: regression check for automated form changes
 
-`pnpm eval:replay` replays recorded cases — a form, its intent, and the probe,
+`pnpm eval:replay` replays recorded cases — a form, its intent, and the question,
 answer or edit that came next — against the current prompts and model, and
 reports how the automated changes behaved. Run it before and after a prompt or
 model change; the second run is compared with the first.
 
 It measures what the workshop pilot complained about
-(`docs/decisions/2026-11-04-pilot-findings.md`): 5 of 112 probe answers changed
+(`docs/decisions/2026-11-04-pilot-findings.md`): 5 of 112 answers to questions changed
 fields their preview didn't show, and 8 of 11 participants said the tool made
 changes they did not want.
 
@@ -164,13 +164,13 @@ the form and intent as they were just before it:
 
 | Provenance action | Case |
 |---|---|
-| `design_probe_resolved`, `design_probe_re_resolved` | `resolve-probe`; once per probe also `preview-probe-options`, with the recorded previews and the final form as the later state |
+| `design_probe_resolved`, `design_probe_re_resolved` | `resolve-probe`; once per question also `preview-probe-options`, with the recorded previews and the final form as the later state |
 | `schema_refined` | `refine-schema` (previous intent from the `intent_updated` row before it; earlier answers as decisions) |
 | `intent_synced_from_edit` | `sync-intent` |
 | `schema_generated` | `generate-probes`, on the form generation produced |
 
 **Personal data.** The converter reads only portfolios, provenance and design
-probes; it never copies participant ids, user ids, names, panel ids, events or
+questions; it never copies participant ids, user ids, names, panel ids, events or
 questionnaire answers, and it renumbers portfolios. What remains is what
 participants typed into their forms — descriptions, labels, custom answers —
 which can still identify someone. Converted cases belong in `replay/private/`
@@ -222,7 +222,7 @@ the change may alter or remove), `mustKeep`, `mayAdd: false`, `noFormChange`,
 | purpose changed against expectation | The purpose changed although `purposeUnchanged` was set |
 | disagreement ops, mean vote entropy, unanimous ops | Committee: how many differences the drafts produced and how split they were (1 bit = even split) |
 | fell back to prompted | The committee found too little and the model was asked directly |
-| probes with ready previews | Probes that arrive with every answer's preview computed |
+| questions with ready previews | Questions that arrive with every answer's preview computed |
 | latency, tokens, cached input share | Per case and per LLM call |
 
 Unit tests: `tests/unit/replay-metrics.test.ts`, `tests/unit/replay-cases.test.ts`.

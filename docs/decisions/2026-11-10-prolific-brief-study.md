@@ -2,7 +2,7 @@
 
 **Date:** 2026-11-10
 **Context:** The main study is a between-subjects comparison run on Prolific:
-Malleable Forms against the same app without probes and without the intent
+Malleable Forms against the same app without elicitation questions and without the intent
 portfolio, on two fixed briefs. Prolific recruits and pays; everything else
 happens in the app. The workshop mode (2026-10-21) is moved along by a
 facilitator and has one free task, so it could not run this. How to run the
@@ -46,7 +46,7 @@ completion code.
 
 One description, one generated form, then free-text change requests applied
 as patches by the same model (`chatEditFormAction`, `ChatEditPane`). No
-probes, no intent pane, no intent sync, no conflict checks. The prompt tells
+elicitation questions, no intent pane, no intent sync, no conflict checks. The prompt tells
 the model to do what was asked and not to ask back or suggest more: the
 comparison is about who raises the open decisions.
 
@@ -111,7 +111,7 @@ final form before reporting the score.
   one participant per condition from the study link to the completion link;
   the time limit (60 s test: recorded as `timeout` after 60 s); every export
   file downloaded and read.
-- Probe previews worked with the configured model
+- Answer previews worked with the configured model
   (`anthropic/claude-sonnet-5-5`) in these runs.
 
 ## Not done here
