@@ -1,0 +1,598 @@
+{
+  "actionName": "generateDesignProbesAction",
+  "callIndex": 0,
+  "input": {
+    "basePrompt": "## Purpose\nI want to collect intake information from new fitness coaching clients including their health history, fitness goals, and availability.",
+    "maxProbes": 5
+  },
+  "output": {
+    "success": true,
+    "interactions": [
+      {
+        "id": "probe-dd298234-0280-499b-a2a1-5e5827fd99a9",
+        "text": "Ask a medical clearance question?",
+        "explanation": "Drafts split on how to screen for physical activity limits.",
+        "layer": "dimensions",
+        "source": "committee",
+        "options": [
+          {
+            "value": "advisedLimit",
+            "label": "Doctor advised limiting activity",
+            "preview": {
+              "summary": "Add \"Has a doctor ever advised you to limit physical activity?\"",
+              "schemaPatch": {
+                "addFields": [
+                  {
+                    "key": "doctorAdvisedLimits",
+                    "label": "Has a doctor ever advised you to limit physical activity?",
+                    "type": "boolean",
+                    "validation": null,
+                    "scale": null,
+                    "required": true
+                  }
+                ],
+                "removeFieldKeys": [],
+                "updateFields": []
+              },
+              "scope": {
+                "added": [
+                  "doctorAdvisedLimits"
+                ],
+                "updated": [],
+                "removed": []
+              }
+            }
+          },
+          {
+            "value": "clearedToExercise",
+            "label": "Cleared by doctor",
+            "preview": {
+              "summary": "Add \"Cleared by a doctor to exercise?\"",
+              "schemaPatch": {
+                "addFields": [
+                  {
+                    "key": "currentlyCleared",
+                    "label": "Cleared by a doctor to exercise?",
+                    "type": "boolean",
+                    "validation": null,
+                    "scale": null,
+                    "required": true
+                  }
+                ],
+                "removeFieldKeys": [],
+                "updateFields": []
+              },
+              "scope": {
+                "added": [
+                  "currentlyCleared"
+                ],
+                "updated": [],
+                "removed": []
+              }
+            }
+          },
+          {
+            "value": "neither",
+            "label": "Neither, keep health history",
+            "preview": {
+              "summary": "No form change",
+              "schemaPatch": {},
+              "scope": {
+                "added": [],
+                "updated": [],
+                "removed": []
+              }
+            },
+            "unchanged": true
+          }
+        ],
+        "selectedOption": null,
+        "status": "pending",
+        "priority": 1,
+        "previewStatus": "ready",
+        "dimensionId": null,
+        "dimensionName": null
+      },
+      {
+        "id": "probe-9eb3dd10-e6d6-41eb-816b-f2e39a4cc5a6",
+        "text": "Collect date of birth and emergency contact?",
+        "explanation": "2 of 4 design drafts would change this.",
+        "layer": "dimensions",
+        "source": "committee",
+        "options": [
+          {
+            "value": "both",
+            "label": "Add both",
+            "preview": {
+              "summary": "Add \"Date of birth\", \"Emergency contact\"",
+              "schemaPatch": {
+                "addFields": [
+                  {
+                    "key": "dateOfBirth",
+                    "label": "Date of birth",
+                    "type": "date",
+                    "validation": null,
+                    "scale": null,
+                    "required": true
+                  },
+                  {
+                    "key": "emergencyContact",
+                    "label": "Emergency contact",
+                    "description": "Name and phone number",
+                    "type": "string",
+                    "validation": null,
+                    "scale": null,
+                    "required": false
+                  }
+                ],
+                "removeFieldKeys": [],
+                "updateFields": []
+              },
+              "scope": {
+                "added": [
+                  "dateOfBirth",
+                  "emergencyContact"
+                ],
+                "updated": [],
+                "removed": []
+              }
+            }
+          },
+          {
+            "value": "dobOnly",
+            "label": "Date of birth only",
+            "preview": {
+              "summary": "Add \"Date of birth\"",
+              "schemaPatch": {
+                "addFields": [
+                  {
+                    "key": "dateOfBirth",
+                    "label": "Date of birth",
+                    "type": "date",
+                    "validation": null,
+                    "scale": null,
+                    "required": true
+                  }
+                ],
+                "removeFieldKeys": [],
+                "updateFields": []
+              },
+              "scope": {
+                "added": [
+                  "dateOfBirth"
+                ],
+                "updated": [],
+                "removed": []
+              }
+            }
+          },
+          {
+            "value": "emergencyOnly",
+            "label": "Emergency contact only",
+            "preview": {
+              "summary": "Add \"Emergency contact\"",
+              "schemaPatch": {
+                "addFields": [
+                  {
+                    "key": "emergencyContact",
+                    "label": "Emergency contact",
+                    "description": "Name and phone number",
+                    "type": "string",
+                    "validation": null,
+                    "scale": null,
+                    "required": false
+                  }
+                ],
+                "removeFieldKeys": [],
+                "updateFields": []
+              },
+              "scope": {
+                "added": [
+                  "emergencyContact"
+                ],
+                "updated": [],
+                "removed": []
+              }
+            }
+          },
+          {
+            "value": "neither",
+            "label": "Neither",
+            "preview": {
+              "summary": "No form change",
+              "schemaPatch": {},
+              "scope": {
+                "added": [],
+                "updated": [],
+                "removed": []
+              }
+            },
+            "unchanged": true
+          }
+        ],
+        "selectedOption": null,
+        "status": "pending",
+        "priority": 1,
+        "previewStatus": "ready",
+        "dimensionId": null,
+        "dimensionName": null
+      },
+      {
+        "id": "probe-9f7859f1-dafa-4534-9975-d3928c14e944",
+        "text": "Add current activity and strength experience?",
+        "explanation": "3 of 4 design drafts would change this.",
+        "layer": "dimensions",
+        "source": "committee",
+        "options": [
+          {
+            "value": "both",
+            "label": "Add both",
+            "preview": {
+              "summary": "Add \"Current activity level\", \"Strength training experience\"",
+              "schemaPatch": {
+                "addFields": [
+                  {
+                    "key": "currentActivityLevel",
+                    "label": "Current activity level",
+                    "type": "select",
+                    "validation": {
+                      "options": [
+                        {
+                          "label": "Mostly inactive",
+                          "value": "inactive"
+                        },
+                        {
+                          "label": "Light (1-2 days/week)",
+                          "value": "light"
+                        },
+                        {
+                          "label": "Moderate (3-4 days/week)",
+                          "value": "moderate"
+                        },
+                        {
+                          "label": "Very active (5+ days/week)",
+                          "value": "very_active"
+                        }
+                      ]
+                    },
+                    "scale": null,
+                    "required": true
+                  },
+                  {
+                    "key": "trainingExperience",
+                    "label": "Strength training experience",
+                    "type": "select",
+                    "validation": {
+                      "options": [
+                        {
+                          "label": "None",
+                          "value": "none"
+                        },
+                        {
+                          "label": "Under 1 year",
+                          "value": "under_1_year"
+                        },
+                        {
+                          "label": "1-3 years",
+                          "value": "1_to_3_years"
+                        },
+                        {
+                          "label": "3+ years",
+                          "value": "over_3_years"
+                        }
+                      ]
+                    },
+                    "scale": null,
+                    "required": true
+                  }
+                ],
+                "removeFieldKeys": [],
+                "updateFields": []
+              },
+              "scope": {
+                "added": [
+                  "currentActivityLevel",
+                  "trainingExperience"
+                ],
+                "updated": [],
+                "removed": []
+              }
+            }
+          },
+          {
+            "value": "activityOnly",
+            "label": "Activity level only",
+            "preview": {
+              "summary": "Add \"Current activity level\"",
+              "schemaPatch": {
+                "addFields": [
+                  {
+                    "key": "currentActivityLevel",
+                    "label": "Current activity level",
+                    "type": "select",
+                    "validation": {
+                      "options": [
+                        {
+                          "label": "Mostly inactive",
+                          "value": "inactive"
+                        },
+                        {
+                          "label": "Light (1-2 days/week)",
+                          "value": "light"
+                        },
+                        {
+                          "label": "Moderate (3-4 days/week)",
+                          "value": "moderate"
+                        },
+                        {
+                          "label": "Very active (5+ days/week)",
+                          "value": "very_active"
+                        }
+                      ]
+                    },
+                    "scale": null,
+                    "required": true
+                  }
+                ],
+                "removeFieldKeys": [],
+                "updateFields": []
+              },
+              "scope": {
+                "added": [
+                  "currentActivityLevel"
+                ],
+                "updated": [],
+                "removed": []
+              }
+            }
+          },
+          {
+            "value": "strengthOnly",
+            "label": "Strength experience only",
+            "preview": {
+              "summary": "Add \"Strength training experience\"",
+              "schemaPatch": {
+                "addFields": [
+                  {
+                    "key": "trainingExperience",
+                    "label": "Strength training experience",
+                    "type": "select",
+                    "validation": {
+                      "options": [
+                        {
+                          "label": "None",
+                          "value": "none"
+                        },
+                        {
+                          "label": "Under 1 year",
+                          "value": "under_1_year"
+                        },
+                        {
+                          "label": "1-3 years",
+                          "value": "1_to_3_years"
+                        },
+                        {
+                          "label": "3+ years",
+                          "value": "over_3_years"
+                        }
+                      ]
+                    },
+                    "scale": null,
+                    "required": true
+                  }
+                ],
+                "removeFieldKeys": [],
+                "updateFields": []
+              },
+              "scope": {
+                "added": [
+                  "trainingExperience"
+                ],
+                "updated": [],
+                "removed": []
+              }
+            }
+          },
+          {
+            "value": "neither",
+            "label": "Neither",
+            "preview": {
+              "summary": "No form change",
+              "schemaPatch": {},
+              "scope": {
+                "added": [],
+                "updated": [],
+                "removed": []
+              }
+            },
+            "unchanged": true
+          }
+        ],
+        "selectedOption": null,
+        "status": "pending",
+        "priority": 1,
+        "previewStatus": "ready",
+        "dimensionId": null,
+        "dimensionName": null
+      },
+      {
+        "id": "probe-43123f5d-bc8c-4665-b264-36d13162244c",
+        "text": "Ask about commitment level?",
+        "explanation": "Drafts differ on whether to ask and whether it's required.",
+        "layer": "dimensions",
+        "source": "committee",
+        "options": [
+          {
+            "value": "requiredCommitment",
+            "label": "Required commitment rating",
+            "preview": {
+              "summary": "Add \"Commitment to your goal\"",
+              "schemaPatch": {
+                "addFields": [
+                  {
+                    "key": "goalCommitment",
+                    "label": "Commitment to your goal",
+                    "description": "How ready are you to make changes?",
+                    "type": "scale",
+                    "validation": null,
+                    "scale": {
+                      "points": [],
+                      "min": 1,
+                      "max": 10,
+                      "lowLabel": "Not ready yet",
+                      "highLabel": "Fully committed"
+                    },
+                    "required": true
+                  }
+                ],
+                "removeFieldKeys": [],
+                "updateFields": []
+              },
+              "scope": {
+                "added": [
+                  "goalCommitment"
+                ],
+                "updated": [],
+                "removed": []
+              }
+            }
+          },
+          {
+            "value": "optionalReadiness",
+            "label": "Optional readiness rating",
+            "preview": {
+              "summary": "Add \"How ready are you to commit to a training plan?\"",
+              "schemaPatch": {
+                "addFields": [
+                  {
+                    "key": "readinessToStart",
+                    "label": "How ready are you to commit to a training plan?",
+                    "type": "scale",
+                    "validation": null,
+                    "scale": {
+                      "points": [],
+                      "min": 1,
+                      "max": 10,
+                      "lowLabel": "Not at all ready",
+                      "highLabel": "Completely ready"
+                    },
+                    "required": false
+                  }
+                ],
+                "removeFieldKeys": [],
+                "updateFields": []
+              },
+              "scope": {
+                "added": [
+                  "readinessToStart"
+                ],
+                "updated": [],
+                "removed": []
+              }
+            }
+          },
+          {
+            "value": "none",
+            "label": "Don't ask",
+            "preview": {
+              "summary": "No form change",
+              "schemaPatch": {},
+              "scope": {
+                "added": [],
+                "updated": [],
+                "removed": []
+              }
+            },
+            "unchanged": true
+          }
+        ],
+        "selectedOption": null,
+        "status": "pending",
+        "priority": 1,
+        "previewStatus": "ready",
+        "dimensionId": null,
+        "dimensionName": null
+      },
+      {
+        "id": "probe-26169eb2-805f-4c9f-8aee-819d1d565a0f",
+        "text": "Ask about preferred training format?",
+        "explanation": "3 of 4 design drafts would change this.",
+        "layer": "dimensions",
+        "source": "committee",
+        "options": [
+          {
+            "value": "add",
+            "label": "Yes, add it",
+            "preview": {
+              "summary": "Add \"Preferred training format\"",
+              "schemaPatch": {
+                "addFields": [
+                  {
+                    "key": "trainingFormat",
+                    "label": "Preferred training format",
+                    "type": "select",
+                    "validation": {
+                      "options": [
+                        {
+                          "label": "In person",
+                          "value": "in_person"
+                        },
+                        {
+                          "label": "Online",
+                          "value": "online"
+                        },
+                        {
+                          "label": "Hybrid",
+                          "value": "hybrid"
+                        },
+                        {
+                          "label": "No preference",
+                          "value": "no_preference"
+                        }
+                      ]
+                    },
+                    "scale": null,
+                    "required": true
+                  }
+                ],
+                "removeFieldKeys": [],
+                "updateFields": []
+              },
+              "scope": {
+                "added": [
+                  "trainingFormat"
+                ],
+                "updated": [],
+                "removed": []
+              }
+            }
+          },
+          {
+            "value": "skip",
+            "label": "No, skip it",
+            "preview": {
+              "summary": "No form change",
+              "schemaPatch": {},
+              "scope": {
+                "added": [],
+                "updated": [],
+                "removed": []
+              }
+            },
+            "unchanged": true
+          }
+        ],
+        "selectedOption": null,
+        "status": "pending",
+        "priority": 2,
+        "previewStatus": "ready",
+        "dimensionId": null,
+        "dimensionName": null
+      }
+    ]
+  },
+  "timestamp": "2026-11-10T16:58:01.205Z",
+  "matchHints": {
+    "prompt": "## Purpose\nI want to collect intake information from new fitness coaching clients including their health history, fitness goals, and availability."
+  }
+}

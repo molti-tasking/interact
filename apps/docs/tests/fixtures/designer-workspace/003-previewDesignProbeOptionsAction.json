@@ -1,0 +1,166 @@
+{
+  "actionName": "previewDesignProbeOptionsAction",
+  "callIndex": 0,
+  "input": {
+    "intent": {
+      "purpose": {
+        "content": "I want to collect intake information from new fitness coaching clients including their health history, fitness goals, and availability.",
+        "updatedAt": "2026-11-10T16:57:39.834Z"
+      },
+      "audience": {
+        "content": "",
+        "updatedAt": "2026-11-10T16:57:39.228Z"
+      },
+      "exclusions": {
+        "content": "",
+        "updatedAt": "2026-11-10T16:57:39.228Z"
+      },
+      "constraints": {
+        "content": "",
+        "updatedAt": "2026-11-10T16:57:39.228Z"
+      }
+    },
+    "currentSchema": {
+      "fields": [
+        {
+          "id": "field-4dc2596f-a024-43da-af53-87b8061c095f",
+          "name": "fullName",
+          "tags": [],
+          "type": {
+            "kind": "text"
+          },
+          "label": "Full name",
+          "origin": "system",
+          "required": true,
+          "constraints": []
+        },
+        {
+          "id": "field-c1b09372-1e83-4165-ba42-4f103422e49b",
+          "name": "email",
+          "tags": [],
+          "type": {
+            "kind": "text"
+          },
+          "label": "Email address",
+          "origin": "system",
+          "required": true,
+          "constraints": []
+        },
+        {
+          "id": "field-5de20458-0c32-4d6b-a964-7f03c55be5ac",
+          "name": "healthHistory",
+          "tags": [],
+          "type": {
+            "kind": "text"
+          },
+          "label": "Health history",
+          "origin": "system",
+          "tooltip": "Include any past or current injuries, medical conditions, surgeries, or medications that may affect your training. Write 'None' if not applicable.",
+          "required": true,
+          "constraints": [],
+          "description": "Conditions, injuries, medications"
+        },
+        {
+          "id": "field-a8ce6d0e-49fc-4717-8be0-2ea532e8516b",
+          "name": "fitnessGoals",
+          "tags": [],
+          "type": {
+            "kind": "text"
+          },
+          "label": "Fitness goals",
+          "origin": "system",
+          "required": true,
+          "constraints": [],
+          "description": "What do you want to achieve?"
+        },
+        {
+          "id": "field-fdc9ba4a-433d-408e-8765-fdd0b0846b2b",
+          "name": "availability",
+          "tags": [],
+          "type": {
+            "kind": "text"
+          },
+          "label": "Availability",
+          "origin": "system",
+          "tooltip": "For example: weekdays 6-8am, Saturday mornings.",
+          "required": true,
+          "constraints": [],
+          "description": "Days and times you can train"
+        },
+        {
+          "id": "field-2d16b098-fa3c-4d27-9029-269287230621",
+          "name": "doctorAdvisedLimits",
+          "tags": [],
+          "type": {
+            "kind": "boolean"
+          },
+          "label": "Has a doctor ever advised you to limit physical activity?",
+          "origin": "system",
+          "required": true,
+          "constraints": []
+        }
+      ],
+      "groups": [],
+      "version": 3
+    },
+    "probe": {
+      "text": "Collect date of birth and emergency contact?",
+      "explanation": "2 of 4 design drafts would change this.",
+      "options": [
+        {
+          "value": "ownAnswer",
+          "label": "Only ask whether they have an injury we should know about"
+        }
+      ]
+    },
+    "spacePortfolios": []
+  },
+  "output": {
+    "success": true,
+    "options": [
+      {
+        "value": "ownAnswer",
+        "label": "Only ask whether they have an injury we should know about",
+        "preview": {
+          "summary": "Adds an injury yes/no and detail field; no DOB or emergency contact",
+          "schemaPatch": {
+            "addFields": [
+              {
+                "key": "hasInjury",
+                "label": "Do you have an injury we should know about?",
+                "type": "boolean",
+                "validation": null,
+                "scale": null,
+                "required": true,
+                "referenceTarget": null
+              },
+              {
+                "key": "injuryDetails",
+                "label": "Injury details",
+                "description": "Leave blank if none",
+                "tooltip": "Describe the injury, when it happened, and any movements that aggravate it.",
+                "type": "string",
+                "validation": null,
+                "scale": null,
+                "required": false,
+                "referenceTarget": null
+              }
+            ]
+          },
+          "scope": {
+            "added": [
+              "hasInjury",
+              "injuryDetails"
+            ],
+            "updated": [],
+            "removed": []
+          }
+        }
+      }
+    ]
+  },
+  "timestamp": "2026-11-10T16:58:05.956Z",
+  "matchHints": {
+    "prompt": "Collect date of birth and emergency contact? | Only ask whether they have an injury we should know about"
+  }
+}

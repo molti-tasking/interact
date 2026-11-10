@@ -1,26 +1,14 @@
 import { expect, test, type Browser, type Page } from "@playwright/test";
 import fs from "fs";
 import { E2E_ADMIN, signIn } from "../auth";
+import { sql } from "../db";
 
 /**
  * Study mode: a whole workshop with a facilitator and three participants in
  * separate browser contexts. Forms are seeded in the database so the run
- * doesn't depend on the LLM; the refine loop (answers → design probe →
+ * doesn't depend on the LLM; the refine loop (answers → elicitation question →
  * apply) is deterministic.
  */
-
-const DB_URL = "postgresql://postgres:postgres@127.0.0.1:54322/postgres";
-
-async function sql<T = Record<string, unknown>>(text: string, params: unknown[] = []) {
-  const { Client } = await import("pg");
-  const client = new Client({ connectionString: DB_URL });
-  await client.connect();
-  try {
-    return (await client.query(text, params)).rows as T[];
-  } finally {
-    await client.end();
-  }
-}
 
 const NAMES = ["Ana", "Ben", "Cleo"];
 
@@ -80,7 +68,7 @@ async function closeTour(page: Page) {
 }
 
 test.describe("Study mode workshop", () => {
-  test.setTimeout(180_000);
+  test.setTimeout(360_000);
   let sessionId: string | undefined;
 
   test.afterEach(async () => {
@@ -177,10 +165,21 @@ test.describe("Study mode workshop", () => {
     await expect(answers.getByText("Answer 2 of 2")).toBeVisible();
     // On the form: each question shows its number of answers
     await expect(ana.getByTestId("field-insight-badge").first()).toContainText("2 answers");
-    // Patterns in the answers arrive as design probes ("nobody picks Daily")
+    // Patterns in the answers arrive as elicitation questions ("nobody picks Daily")
     await expect(
       ana.locator('[data-testid^="deck-card-"]', { hasText: 'Remove "Daily"' }).first(),
     ).toBeVisible();
+    // Answer it: every answer shows what it would change, one keeps the
+    // form as it is — Ana keeps the options for now
+    const finding = ana.locator('[data-testid^="deck-card-"]', { hasText: 'Remove "Daily"' }).first();
+    if ((await finding.getAttribute("data-expanded")) !== "true") await finding.click();
+    const deck = ana.getByTestId("card-deck-section");
+    await expect(deck.locator('[data-testid^="deck-option-"][data-preview="ready"]').first()).toBeVisible();
+    await expect(deck.getByText("No form change")).toHaveCount(1);
+    await deck.locator('[data-testid^="deck-option-"]', { hasText: "No form change" }).click();
+    await expect(
+      ana.locator('[data-testid^="deck-card-"]', { hasText: 'Remove "Daily"' }),
+    ).toHaveCount(0);
     await ana.getByTestId("mark-ready").click();
     await expect(ana.getByText("Marked as ready.")).toBeVisible();
 
@@ -253,7 +252,7 @@ test.describe("Study mode workshop", () => {
     ]);
     expect(data.questionnaires).toHaveLength(1);
     const types = new Set(data.events.map((e: { type: string }) => e.type));
-    for (const type of ["joined", "phase_changed", "peer_form_submitted", "finding_sent_to_design", "probe_answered", "questionnaire_submitted"]) {
+    for (const type of ["joined", "phase_changed", "peer_form_submitted", "findings_to_deck", "probe_answered", "questionnaire_submitted"]) {
       expect(types, type).toContain(type);
     }
   });
