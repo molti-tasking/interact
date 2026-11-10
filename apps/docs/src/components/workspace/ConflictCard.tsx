@@ -202,8 +202,9 @@ export function ConflictCard({
             preview={fixPreviews.get(fix.value) ?? null}
             schema={schema}
             pending={pending}
+            unavailable={!pending && !fixPreviews.get(fix.value)}
             disabled={busy}
-            armed={armed === fix.value}
+            armed={armed === fix.value ? "touch" : null}
             onArm={() => setArmed(fix.value)}
             onApply={() => {
               setArmed(null);

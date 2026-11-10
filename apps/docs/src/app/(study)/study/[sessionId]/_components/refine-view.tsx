@@ -32,7 +32,7 @@ const NO_RESPONSES: FormResponse[] = [];
  * Refine: the participant's own form in the same design workspace as in
  * Create, now with the answers it received. The answers feed the authoring
  * interaction itself — as a table or one respondent at a time, on the form
- * (hover a field to see its answers), and as design probes when they show a
+ * (hover a field to see its answers), and as elicitation questions when they show a
  * pattern (an option nobody picks, a question everyone answers the same way).
  * There is no separate dashboard.
  */
@@ -97,14 +97,14 @@ function RefineGuide({ count }: { count: number }) {
     {
       title: "Spot what to change",
       text: designProbes
-        ? "Hover a question on your form to see its answers. Design questions marked “From responses” point at patterns in them."
-        : "Hover a question on your form to see its answers.",
+        ? "Hover a field on your form to see its answers. Elicitation questions marked “From responses” point at patterns in them."
+        : "Hover a field on your form to see its answers.",
     },
     {
       title: "Improve the form",
       text: designProbes
-        ? "Answer design questions, click a question to edit it, or update the intent. You don't have to answer every design question."
-        : "Click a question to edit it, drag it to move it, or update the intent.",
+        ? "Answer elicitation questions, click a field to edit it, or update the intent. You don't have to answer every elicitation question."
+        : "Click a field to edit it, drag it to move it, or update the intent.",
     },
   ];
   return (
@@ -138,12 +138,12 @@ function RefineGuide({ count }: { count: number }) {
 }
 
 // ---------------------------------------------------------------------------
-// Answers → design probes
+// Answers → elicitation questions
 // ---------------------------------------------------------------------------
 
 /**
  * Patterns in the answers (options nobody picks, one answer everyone gives,
- * an optional question everyone skips) become design probes in the deck, so
+ * an optional question everyone skips) become elicitation questions in the deck, so
  * the creator meets them where they author the form. Each finding is sent
  * once; a probe the creator skipped is not sent again.
  */

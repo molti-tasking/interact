@@ -206,7 +206,7 @@ export interface PretestIssue {
   total: number;
   /** Up to three of them, in their words */
   examples: { persona: string; note: string }[];
-  /** The design question it becomes */
+  /** The elicitation question it becomes */
   probe: {
     text: string;
     options: DesignProbeOption[];
@@ -265,7 +265,7 @@ function optionalOption(schema: PortfolioSchema, field: Field): DesignProbeOptio
   });
 }
 
-/** The design question for one kind of trouble with one field. */
+/** The elicitation question for one kind of trouble with one field. */
 function troubleProbe(
   schema: PortfolioSchema,
   field: Field,
@@ -331,7 +331,7 @@ function troubleProbe(
       };
     case "unclear":
       // How to reword depends on what was unclear: the answers' changes are
-      // worked out in the background like any other design question
+      // worked out in the background like any other elicitation question
       return {
         text: `"${field.label}" is unclear to some — fix it?`,
         ready: false,

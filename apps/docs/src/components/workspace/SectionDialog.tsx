@@ -83,7 +83,7 @@ function SectionForm({
       <DialogHeader>
         <DialogTitle>Edit section</DialogTitle>
         <DialogDescription>
-          Respondents see the title and intro above the section&apos;s questions.
+          Respondents see the title and intro above the section&apos;s fields.
         </DialogDescription>
       </DialogHeader>
       <div className="space-y-1.5">
@@ -127,7 +127,7 @@ function SectionForm({
           size="sm"
           className="ml-auto text-destructive hover:text-destructive"
           onClick={() => onEdit({ kind: "remove" })}
-          title="The questions stay in the form, outside any section"
+          title="The fields stay in the form, outside any section"
         >
           <Trash2 className="h-3.5 w-3.5" aria-hidden />
           Remove section

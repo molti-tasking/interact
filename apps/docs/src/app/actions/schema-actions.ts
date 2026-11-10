@@ -113,7 +113,7 @@ export interface RefineSchemaRequest {
   /** The edited intent */
   intent: StructuredIntent;
   currentSchema: PortfolioSchema;
-  /** Answered design probes, most recent first — why fields exist */
+  /** Answered elicitation questions, most recent first — why fields exist */
   decisions?: { question: string; answer: string }[];
   /** Names of accepted standards, whose fields must stay */
   standardNames?: string[];
@@ -145,7 +145,7 @@ const refineResponseSchema = z.object({
 /**
  * Update an existing form for an intent edit by returning a patch instead of
  * regenerating the schema: the output is a few changed fields (fast), and
- * everything the edit doesn't touch — fields added by design probes, direct
+ * everything the edit doesn't touch — fields added by elicitation questions, direct
  * edits — is left alone.
  */
 export async function refineSchemaFromIntentAction(

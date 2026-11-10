@@ -120,7 +120,7 @@ const probeResponseSchema = z.object({
   interactions: z.array(probeItemSchema),
 });
 
-/** Shared by every prompt that writes design probes. */
+/** Shared by every prompt that writes elicitation questions. */
 const PROBE_QUESTION_RULES = `- Question "text" must be VERY SHORT — max ~8 words, like a headline. No preamble.
 - Omit "explanation" unless the headline is genuinely ambiguous without it; then keep it to one short sentence.
 - Option labels must be SHORT: 2-5 words max, mutually exclusive
@@ -273,7 +273,7 @@ async function generateDesignProbesReal(
       ),
     };
   } catch (error) {
-    console.error("Design probe generation error:", error);
+    console.error("Elicitation question generation error:", error);
     return {
       success: false,
       error: llmErrorMessage(error),
@@ -482,7 +482,7 @@ async function promptedProbes(
     );
     if (optionalFields.length > 0) {
       sections.push(
-        `DOMAIN STANDARD CONTEXT:\nThe form is being built to comply with: ${acceptedStandards.map((s) => s.standard.name).join(", ")}.\nThe following optional/recommended fields from the standard(s) could be included. Generate design probes that ask the user whether to include these:\n${optionalFields.join("\n")}\n\nFor standard-related probes, frame them as "The [Standard Name] standard recommends including [field]. Should this form include it?" with options like "Yes, include it" / "No, not needed for this form".`,
+        `DOMAIN STANDARD CONTEXT:\nThe form is being built to comply with: ${acceptedStandards.map((s) => s.standard.name).join(", ")}.\nThe following optional/recommended fields from the standard(s) could be included. Generate elicitation questions that ask the user whether to include these:\n${optionalFields.join("\n")}\n\nFor standard-related questions, frame them as "The [Standard Name] standard recommends including [field]. Should this form include it?" with options like "Yes, include it" / "No, not needed for this form".`,
       );
     }
   }
@@ -633,7 +633,7 @@ Based on this answer, you must:
    - "removeFieldKeys": camelCase keys of fields to remove
    - "updateFields": existing fields to modify — the same key, and only the properties that change (keep values for the rest)
    - Omit any section that has no changes.
-4. Optionally generate 0-${maxFollowUps} follow-up design probes if the choice opens up new design decisions${maxFollowUps === 0 ? ". Do NOT generate any follow-up questions, return an empty followUpInteractions array." : ""}
+4. Optionally generate 0-${maxFollowUps} follow-up elicitation questions if the choice opens up new design decisions${maxFollowUps === 0 ? ". Do NOT generate any follow-up questions, return an empty followUpInteractions array." : ""}
 
 RULES:
 ${PURPOSE_EDIT_RULES}
@@ -722,7 +722,7 @@ ${schemaPatchRules(spacePortfolios.length > 0)}
       },
     };
   } catch (error) {
-    console.error("Design probe resolution error:", error);
+    console.error("Elicitation question resolution error:", error);
     return {
       success: false,
       error: llmErrorMessage(error),
@@ -762,7 +762,11 @@ export async function previewDesignProbeOptionsAction(
       "previewDesignProbeOptionsAction",
       request,
       () => previewDesignProbeOptionsReal(request),
-      { prompt: request.probe.text },
+      // The question and the answers asked about: a typed answer to the
+      // same question is a different call
+      {
+        prompt: [request.probe.text, ...request.probe.options.map((o) => o.label)].join(" | "),
+      },
     );
   }
   return previewDesignProbeOptionsReal(request);
@@ -858,7 +862,7 @@ ${schemaPatchRules(spacePortfolios.length > 0)}
 
     return { success: true, options };
   } catch (error) {
-    console.error("Design probe preview error:", error);
+    console.error("Elicitation question preview error:", error);
     return {
       success: false,
       error: llmErrorMessage(error),
@@ -976,7 +980,7 @@ async function curateDesignProbesReal(
 
     const system = formSystemPrompt({ intent, schema: currentSchema });
 
-    const prompt = `You keep the list of open design questions ("design probes") about this form short, current and free of repeats.
+    const prompt = `You keep the list of open design questions ("elicitation questions") about this form short, current and free of repeats.
 
 Decisions already made:
 ${fenced("decisions", decisionList)}
@@ -1065,7 +1069,7 @@ ${PROBE_QUESTION_RULES}`;
       result: planProbeCuration(openProbes, reviews, added, maxOpen),
     };
   } catch (error) {
-    console.error("Design probe curation error:", error);
+    console.error("Elicitation question curation error:", error);
     return {
       success: false,
       error: llmErrorMessage(error),
@@ -1089,16 +1093,35 @@ export interface SyncIntentResponse {
   error?: string;
 }
 
-export async function syncIntentFromFieldEditAction(request: {
+interface SyncIntentRequest {
   intent: StructuredIntent;
   currentSchema: PortfolioSchema;
   editDescription: string;
   /**
-   * "design-decision": the edits are answered design probes, which almost
+   * "design-decision": the edits are answered elicitation questions, which almost
    * always change what the form is about — the purpose should follow.
    */
   kind?: "field-edit" | "design-decision";
-}): Promise<SyncIntentResponse> {
+}
+
+export async function syncIntentFromFieldEditAction(
+  request: SyncIntentRequest,
+): Promise<SyncIntentResponse> {
+  if (process.env.USE_FIXTURES || process.env.RECORD_FIXTURES) {
+    const { fixtureGuard } = await import("@/lib/testing/fixture-guard");
+    return fixtureGuard(
+      "syncIntentFromFieldEdit",
+      { editDescription: request.editDescription, kind: request.kind },
+      () => syncIntentFromFieldEditReal(request),
+      { prompt: request.editDescription },
+    );
+  }
+  return syncIntentFromFieldEditReal(request);
+}
+
+async function syncIntentFromFieldEditReal(
+  request: SyncIntentRequest,
+): Promise<SyncIntentResponse> {
   // Logs here carry no form content: descriptions, purposes and edits are
   // what participants wrote.
   const LOG = "[syncIntentFromFieldEdit]";

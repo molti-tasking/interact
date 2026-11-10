@@ -1,7 +1,7 @@
 /**
  * The change format for schema conflict fixes, and how to apply it.
  *
- * Unlike design probe patches (`schema-patch.ts`), fixes refer to existing
+ * Unlike elicitation question patches (`schema-patch.ts`), fixes refer to existing
  * fields by id — they can rename fields, change constraints and drop
  * groups. Pure and isomorphic: the server validates a fix with it, and the
  * client replays a pre-computed fix on the latest schema to preview or

@@ -1,5 +1,5 @@
 /**
- * Choosing design probes by disagreement.
+ * Choosing elicitation questions by disagreement.
  *
  * Instead of asking a model "which questions should we ask?", several
  * complete designs of the form are drafted independently from the same
@@ -29,6 +29,7 @@ import type {
   ProbeOptionPreview,
   ProbePriority,
 } from "./types";
+import { ensureUnchangedOption, leavesFormUnchanged } from "./probe-options";
 import {
   applySchemaPatch,
   patchFieldFromField,
@@ -108,6 +109,18 @@ function signature(key: string, label: string): Signature {
 
 /** Two fields that ask for the same thing under different names. */
 const SAME_FIELD = 0.6;
+
+/**
+ * Do two fields ask for the same thing? The alignment used for committee
+ * drafts (same key, or token overlap of key or label ≥ `SAME_FIELD`), for
+ * comparing fields of different forms.
+ */
+export function sameQuestion(
+  a: { key: string; label: string },
+  b: { key: string; label: string },
+): boolean {
+  return similarity(signature(a.key, a.label), signature(b.key, b.label)) >= SAME_FIELD;
+}
 
 function similarity(a: Signature, b: Signature): number {
   if (a.key.toLowerCase() === b.key.toLowerCase()) return 1;
@@ -437,6 +450,9 @@ export interface DisagreementProbe {
  * - probes left with fewer than two options, or deciding nothing, are dropped.
  * Probes come back most contested first, at most `max`.
  */
+/** Answers that change the form, per question (plus the unchanged one) */
+const MAX_CHANGING_OPTIONS = 3;
+
 export function composeProbes(
   schema: PortfolioSchema,
   ops: readonly DisagreementOp[],
@@ -474,10 +490,17 @@ export function composeProbes(
     }
 
     if (used.size === 0) continue;
-    if (!seenSets.has("")) {
-      options.push({ value: "keepAsIs", label: "Keep as is", preview: previewFor(schema, []) });
-    }
-    if (options.length < 2) continue;
+    // Room for the answer that keeps the form as it is: it is never the one
+    // cut off (`ensureUnchangedOption` adds it when the model left it out)
+    const changing = options.filter((o) => !leavesFormUnchanged(o, schema));
+    const unchanged = options.find((o) => leavesFormUnchanged(o, schema));
+    // Every answer here has a preview: the composed ones were built with
+    // one, and the unchanged answer gets one when it is added
+    const answers = ensureUnchangedOption(
+      [...changing.slice(0, MAX_CHANGING_OPTIONS), ...(unchanged ? [unchanged] : [])],
+      schema,
+    ) as DisagreementProbe["options"];
+    if (answers.length < 2) continue;
 
     for (const ref of used.keys()) claimed.add(ref);
     const decided = [...used.values()];
@@ -489,7 +512,7 @@ export function composeProbes(
       // An even split over what the form collects is the most consequential
       // open decision; wording-level differences are polish
       priority: !structural ? 3 : entropy >= 0.9 || decided.length > 1 ? 1 : 2,
-      options: options.slice(0, 4),
+      options: answers,
       entropy,
       ops: decided.map(({ ref, kind, key, votes, voters }) => ({ ref, kind, key, votes, voters })),
     });

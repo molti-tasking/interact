@@ -23,7 +23,7 @@ import {
   useSetConflictMarks,
   type ConflictMark,
 } from "@/components/workspace/deck-canvas-context";
-import { ProbeCard } from "@/components/workspace/ProbeCard";
+import { ProbeCard, type AnswerOutcome } from "@/components/workspace/ProbeCard";
 import { ResolvedSection } from "@/components/workspace/ResolvedSection";
 import { useCapabilities } from "@/context/capabilities-context";
 import { useStudyLog } from "@/context/study-context";
@@ -32,7 +32,6 @@ import {
   useApplyConflictFix,
   useConflictFixPreviews,
   useDetectConflicts,
-  useResolveConflict,
 } from "@/hooks/query/conflicts";
 import {
   prioritizeProbePreview,
@@ -44,8 +43,8 @@ import {
   useGenerateDesignProbes,
   useInsertStandardProbes,
   usePrecomputeProbePreviews,
+  usePreviewOwnAnswer,
   useReopenDesignProbe,
-  useResolveDesignProbe,
   useResolveStandardProbe,
   useRetryProbePreview,
   useUndoAppliedPreview,
@@ -63,6 +62,7 @@ import {
 } from "@/hooks/voice/useVoiceAnswers";
 import type { ConflictFixPreview } from "interact/forms/conflict-changes";
 import { findingApplies, findingOptionPreview } from "interact/forms/findings";
+import { answerGate } from "interact/forms/probe-options";
 import { rankProbes } from "interact/forms/probe-preview";
 import { formatActor } from "@/lib/mock-users";
 import type {
@@ -132,7 +132,7 @@ export function DesignProbeDeck({
   const { data: designProbes } = useDesignProbes(portfolio.id);
 
   const generateDesignProbes = useGenerateDesignProbes(portfolio.id);
-  const resolveDesignProbe = useResolveDesignProbe(portfolio.id);
+  const previewOwnAnswer = usePreviewOwnAnswer(portfolio.id);
   const dismissDesignProbe = useDismissDesignProbe(portfolio.id);
   const insertStandardProbes = useInsertStandardProbes(portfolio.id);
   const resolveStandardProbe = useResolveStandardProbe(portfolio.id);
@@ -215,7 +215,6 @@ export function DesignProbeDeck({
     portfolio.intent,
     busyIds.size > 0 || activity.length > 0,
   );
-  const resolveConflict = useResolveConflict(portfolio.id);
   const [dismissedConflicts, setDismissedConflicts] = useState<Set<string>>(
     new Set(),
   );
@@ -226,20 +225,28 @@ export function DesignProbeDeck({
   // Work out what each fix would change before it's chosen
   const fixPreviews = useConflictFixPreviews(portfolio, visibleConflicts);
 
-  // Surface newly detected standards as design probes (the insert skips
+  // Surface newly detected standards as elicitation questions (the insert skips
   // standards that already have a probe).
   const insertStandards = insertStandardProbes.mutate;
   useEffect(() => {
     if (detectedStandards?.length) insertStandards(detectedStandards);
   }, [detectedStandards, insertStandards]);
 
-  const snapshot = () => ({
-    intent: portfolio.intent,
-    schema: portfolio.schema,
-  });
+  // Typed answers with their preview, per question — shown on the card,
+  // applied from there. Local: a typed answer that isn't applied is a draft.
+  type OwnAnswer = DesignProbeOption & { preview: ProbeOptionPreview };
+  const [ownAnswers, setOwnAnswers] = useState<ReadonlyMap<string, OwnAnswer>>(new Map());
+  const [ownPending, setOwnPending] = useState<ReadonlySet<string>>(new Set());
+  const setOwnAnswer = (probeId: string, answer: OwnAnswer | null) =>
+    setOwnAnswers((prev) => {
+      const next = new Map(prev);
+      if (answer) next.set(probeId, answer);
+      else next.delete(probeId);
+      return next;
+    });
 
   // -------------------------------------------------------------------
-  // Design probe interaction: select an option. Handlers resolve to whether
+  // Elicitation question interaction: select an option. Handlers resolve to whether
   // the answer was applied (failures are reported here), for voice answers.
   // -------------------------------------------------------------------
   const handleStandardProbe = async (
@@ -325,71 +332,112 @@ export function DesignProbeDeck({
     }
   };
 
+  /**
+   * A typed answer: work out what it changes and put it on the card with
+   * that preview. Nothing is applied here.
+   */
+  const handleOwnAnswer = async (probeId: string, text: string): Promise<boolean> => {
+    const probe = probes.find((o) => o.id === probeId);
+    if (!probe || probe.status !== "pending") return false;
+    log("own_answer_previewed", { id: probeId, text });
+    setOwnPending((prev) => new Set(prev).add(probeId));
+    try {
+      const answer = await previewOwnAnswer.mutateAsync({
+        probe,
+        text,
+        portfolio: { intent: portfolio.intent, schema: portfolio.schema },
+        spacePortfolios,
+      });
+      setOwnAnswer(probeId, answer);
+      return true;
+    } catch (err) {
+      toast.error(errorMessage(err, "Couldn't work out what your answer changes"));
+      return false;
+    } finally {
+      setOwnPending((prev) => {
+        const next = new Set(prev);
+        next.delete(probeId);
+        return next;
+      });
+    }
+  };
+
+  /**
+   * An answer was chosen. It is applied only if what it changes was on the
+   * card at that moment (`answerGate`); otherwise its preview is brought up
+   * first — waited for when it is still being worked out — and the answer
+   * has to be chosen again.
+   */
   const handleProbeSelect = async (
     probeId: string,
     selectedValue: string,
-  ): Promise<boolean> => {
+    { previewShown }: { previewShown: boolean },
+  ): Promise<AnswerOutcome> => {
     const probe = probes.find((o) => o.id === probeId);
     if (!probe || probe.status !== "pending" || busyIds.has(probeId)) {
-      return false;
+      return "none";
     }
 
     if (probe.source === "standard") {
-      return handleStandardProbe(probeId, probe.dimensionId, selectedValue);
+      return (await handleStandardProbe(probeId, probe.dimensionId, selectedValue))
+        ? "applied"
+        : "none";
     }
 
-    const option = probe.options.find((o) => o.value === selectedValue);
-    if (option?.preview) {
-      return handlePreviewedAnswer(probe, {
+    const own = ownAnswers.get(probeId);
+    const option =
+      own?.value === selectedValue
+        ? own
+        : probe.options.find((o) => o.value === selectedValue);
+    if (!option) return "none";
+
+    const gate = answerGate({
+      hasPreview: !!option.preview,
+      previewShown,
+      previewStatus: probe.previewStatus,
+    });
+
+    if (gate === "apply" && option.preview) {
+      log(
+        "probe_answered",
+        probeAnsweredPayload(
+          own ? { ...probe, options: [...probe.options, own] } : probe,
+          selectedValue,
+          portfolioSchema,
+          validTargetIds,
+        ),
+      );
+      const applied = await handlePreviewedAnswer(probe, {
         ...option,
         preview: option.preview,
       });
+      if (applied) setOwnAnswer(probeId, null);
+      return applied ? "applied" : "none";
     }
 
-    // A predefined answer whose preview is still being computed: wait for
-    // it rather than start a second LLM call for the same answer
-    if (option) {
-      setBusy(probeId, true);
+    if (gate === "show-preview") return "preview";
+
+    if (gate === "await-preview") {
+      // Wait for the preview already under way rather than start another
       const waitedFrom = Date.now();
-      let ready: DesignProbeOption | undefined;
-      let fresh: DesignProbe | null = null;
-      try {
-        fresh = await awaitPreview(probeId);
-        ready = fresh?.options.find((o) => o.value === selectedValue);
-      } finally {
-        setBusy(probeId, false);
-      }
-      // Answered or retired while we waited (another tab, the curator):
-      // nothing to do
-      if (fresh && fresh.status !== "pending") return false;
-      if (ready?.preview) {
-        log("probe_preview_awaited", { id: probeId, ms: Date.now() - waitedFrom });
-        return handlePreviewedAnswer(probe, { ...ready, preview: ready.preview });
+      const fresh = await awaitPreview(probeId);
+      // Answered or retired while we waited (another tab, the curator)
+      if (fresh && fresh.status !== "pending") return "none";
+      if (fresh?.options.find((o) => o.value === selectedValue)?.preview) {
+        log("probe_preview_awaited", {
+          id: probeId,
+          option: selectedValue,
+          ms: Date.now() - waitedFrom,
+        });
+        return "preview";
       }
     }
 
-    // Custom answer, or no preview yet: resolve with the LLM
-    setBusy(probeId, true);
-    try {
-      const result = await resolveDesignProbe.mutateAsync({
-        probe,
-        selectedValue,
-        snapshot: snapshot(),
-        resolvedBy: actor,
-        spacePortfolios,
-      });
-      notifyUndo(result.commit, `Applied: "${result.optionLabel}"`, {
-        // Undoing the answer reopens the question
-        onUndone: () => reopenProbe.mutateAsync(probeId),
-      });
-      return true;
-    } catch (err) {
-      console.error("[DesignProbeDeck] Design probe error:", err);
-      toast.error(errorMessage(err, "Failed to apply your answer"));
-      return false;
-    } finally {
-      setBusy(probeId, false);
-    }
+    // No preview, and none came: the answer can't be applied unseen
+    toast("This answer can't be previewed yet", {
+      description: "Retry the previews, or write your own answer.",
+    });
+    return "none";
   };
 
   // -------------------------------------------------------------------
@@ -460,27 +508,11 @@ export function DesignProbeDeck({
     const preview = fixPreviews.get(conflict.id)?.previews[fix.value];
     if (preview) return handlePreviewedFix(conflict, fix, preview);
 
-    // No preview yet: resolve with the LLM
-    setBusy(conflict.id, true);
-    try {
-      const result = await resolveConflict.mutateAsync({
-        conflict,
-        fix,
-        snapshot: snapshot(),
-        actor,
-      });
-      dismissConflict(conflict.id, true);
-      notifyUndo(result, `Fixed: ${fix.label}`, {
-        onUndone: () => dismissConflict(conflict.id, false),
-      });
-      return true;
-    } catch (err) {
-      console.error("[DesignProbeDeck] Conflict fix error:", err);
-      toast.error(errorMessage(err, "Failed to apply the fix"));
-      return false;
-    } finally {
-      setBusy(conflict.id, false);
-    }
+    // Like an answer: a fix isn't applied before what it changes was shown
+    toast("This fix can't be previewed yet", {
+      description: "Wait for the preview, or retry it on the card.",
+    });
+    return false;
   };
 
   // -------------------------------------------------------------------
@@ -588,14 +620,22 @@ export function DesignProbeDeck({
         : null;
     }
     if (answer.action === "custom") {
-      return (await handleProbeSelect(id, `custom:${answer.text}`))
-        ? `“${answer.text}”`
+      // A spoken answer of one's own is previewed on the card, like a typed one
+      return (await handleOwnAnswer(id, answer.text))
+        ? `Previewing “${answer.text}” — choose it to apply`
         : null;
     }
     const option = entry.probe.options.find((o) => o.value === answer.value);
-    return option && (await handleProbeSelect(id, option.value))
+    if (!option) return null;
+    // The open card shows what each answer changes once its preview is ready
+    const outcome = await handleProbeSelect(id, option.value, {
+      previewShown: !!option.preview,
+    });
+    return outcome === "applied"
       ? option.label
-      : null;
+      : outcome === "preview"
+        ? `Previewing “${option.label}” — choose it to apply`
+        : null;
   };
 
   const voice = useVoiceAnswers({
@@ -636,7 +676,7 @@ export function DesignProbeDeck({
     >
       <div className="flex items-center justify-between h-8 mb-2">
         <h3 className="workspace-section-label">
-          Design probes
+          Elicitation questions
           {entries.length > 0 && (
             <span className="tabular-nums"> · {entries.length}</span>
           )}
@@ -678,7 +718,7 @@ export function DesignProbeDeck({
           className="flex items-center gap-2 rounded-xl border border-dashed p-4 text-sm text-muted-foreground/70 animate-pulse motion-reduce:animate-none"
         >
           <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-          Generating design probes…
+          Generating questions…
         </div>
       )}
 
@@ -686,7 +726,7 @@ export function DesignProbeDeck({
         <div className="rounded-xl border border-dashed p-4 text-sm text-muted-foreground">
           {hasIntent
             ? "No open questions. Generate new ones to keep refining, or edit the form directly."
-            : "Describe the form's purpose first — design probes will help you refine it."}
+            : "Describe the form's purpose first — elicitation questions will help you refine it."}
         </div>
       )}
 
@@ -720,8 +760,11 @@ export function DesignProbeDeck({
                     const fix = entry.conflict.fixes.find(
                       (f) => f.value === value,
                     );
-                    log("conflict_fixed", { id: entry.id, fix: value });
-                    if (fix) handleConflictFix(entry.conflict, fix);
+                    if (!fix) return;
+                    void handleConflictFix(entry.conflict, fix).then(
+                      (applied) =>
+                        applied && log("conflict_fixed", { id: entry.id, fix: value }),
+                    );
                   }}
                   onDismiss={() => {
                     log("conflict_dismissed", { id: entry.id });
@@ -740,18 +783,12 @@ export function DesignProbeDeck({
                   busy={busyIds.has(entry.id)}
                   schema={portfolioSchema}
                   validTargetIds={validTargetIds}
-                  onSelect={(value) => {
-                    log(
-                      "probe_answered",
-                      probeAnsweredPayload(
-                        entry.probe,
-                        value,
-                        portfolioSchema,
-                        validTargetIds,
-                      ),
-                    );
-                    return handleProbeSelect(entry.id, value);
-                  }}
+                  onSelect={(value, context) =>
+                    handleProbeSelect(entry.id, value, context)
+                  }
+                  ownAnswer={ownAnswers.get(entry.id) ?? null}
+                  ownAnswerPending={ownPending.has(entry.id)}
+                  onOwnAnswer={(text) => void handleOwnAnswer(entry.id, text)}
                   onDismiss={() => {
                     log("probe_dismissed", { id: entry.id, text: entry.probe.text });
                     dismissDesignProbe.mutate(entry.id);
@@ -947,7 +984,7 @@ function GenerateProbesDialog({
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Generate design probes</DialogTitle>
+          <DialogTitle>Generate questions</DialogTitle>
           <DialogDescription>
             Optionally add a prompt to guide the questions — paste requirements,
             feedback, or context from a collaborator.

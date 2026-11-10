@@ -1,5 +1,5 @@
 /**
- * Pure helpers for previewing a change (a design probe answer, a conflict
+ * Pure helpers for previewing a change (an elicitation question answer, a conflict
  * fix) before it is applied.
  *
  * Previews store the change itself — a probe patch (`schema-patch.ts`) or

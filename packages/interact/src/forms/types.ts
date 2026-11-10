@@ -417,11 +417,16 @@ export interface FormResponse {
   portfolioId: string;
   data: Record<string, unknown>;
   submittedAt: string;
+  /**
+   * Revision of the form this response answered (stamped by the database
+   * when it is stored). Null/absent: stored before versions were stamped.
+   */
+  schemaVersion?: number | null;
 }
 
 // ---------------------------------------------------------------------------
 // Design Probe (maps to `design_probes` table row)
-// Design probes are system-generated decision prompts that surface design
+// Elicitation questions are system-generated decision prompts that surface design
 // tradeoffs and ask the creator to resolve them — a form of directed backtalk.
 // ---------------------------------------------------------------------------
 
@@ -459,6 +464,18 @@ export interface DesignProbeOption {
   value: string;
   label: string;
   preview?: ProbeOptionPreview;
+  /**
+   * The one answer of its question that leaves the form as it is (see
+   * `probe-options.ts`). Absent on questions stored before it was marked.
+   */
+  unchanged?: boolean;
+  /**
+   * Where the model had this answer (0-based) before the display order was
+   * randomised; null for an answer the model didn't give (the unchanged
+   * answer when it was added). The array order is the display order.
+   * Absent on questions stored before the order was randomised.
+   */
+  modelPosition?: number | null;
 }
 
 export interface DesignProbe {

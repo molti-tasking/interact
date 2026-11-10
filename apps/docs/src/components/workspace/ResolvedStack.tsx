@@ -61,7 +61,7 @@ export function ResolvedStack({
                   <DimensionBadge name={last.dimensionName} />
                 )}
                 <Badge variant="secondary" className="text-[10px] ml-auto">
-                  {count} resolved
+                  {count} answered
                 </Badge>
               </>
             }

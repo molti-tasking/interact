@@ -43,7 +43,7 @@ interface PortfolioWorkspaceProps {
 }
 
 /**
- * The design workspace: intent + design probes next to the form on a
+ * The design workspace: intent + elicitation questions next to the form on a
  * canvas, plus the field edit drawer. Used by the admin workspace page and
  * by workshop participants (study mode, narrowed via capabilities).
  */
@@ -106,6 +106,7 @@ export function PortfolioWorkspace({
                 ? `moved to section "${section}"`
                 : "taken out of its section";
           return {
+            trigger: "field-edit",
             schema,
             provenance: {
               layer: "configuration",
@@ -138,6 +139,7 @@ export function PortfolioWorkspace({
         const result = await commitPortfolio.mutateAsync((current) =>
           current.schema.fields.some((f) => f.id === fieldId)
             ? {
+                trigger: "field-edit",
                 schema: removeField(current.schema, fieldId),
                 provenance: {
                   layer: "configuration",
@@ -172,6 +174,7 @@ export function PortfolioWorkspace({
             schema = addField(schema, { ...field, name, origin: "creator" });
           }
           return {
+            trigger: "field-edit",
             schema,
             provenance: {
               layer: "configuration",
@@ -198,7 +201,7 @@ export function PortfolioWorkspace({
       {capabilities.derive && <DerivationBanner portfolio={portfolio} />}
 
       {/*
-        Workspace: a narrow sidebar (intent + design probes) next to the form
+        Workspace: a narrow sidebar (intent + elicitation questions) next to the form
         on a sticky canvas; stacked on small screens. Uses container queries
         so the open app sidebar is taken into account.
       */}

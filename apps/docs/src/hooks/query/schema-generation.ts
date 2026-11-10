@@ -85,9 +85,12 @@ export function useGenerateSchema(portfolioId: string) {
     mutationFn: async ({
       intent,
       acceptedStandards,
+      actor,
     }: {
       intent: StructuredIntent;
       acceptedStandards?: DetectedStandard[];
+      /** The creator whose intent this is generated from */
+      actor: string;
     }) => {
       // Fields show on the canvas as drafts while the model writes them
       // (`useSchemaDraft`); the form changes once, with the final schema.
@@ -109,11 +112,13 @@ export function useGenerateSchema(portfolioId: string) {
       }
 
       const commit = await commitPortfolioChange(portfolioId, (current) => ({
+        // The creator wrote or edited the intent; this is its consequence
+        trigger: "intent-edit",
         schema: mergeRegeneratedSchema(current.schema, generated),
         provenance: {
           layer: "configuration",
           action: "schema_generated",
-          actor: "system",
+          actor,
           rationale: `Generated ${generated.fields.length} fields from intent`,
         },
         automated: true,
@@ -131,7 +136,7 @@ export function useGenerateSchema(portfolioId: string) {
 /**
  * Refine an existing form after an intent edit: the LLM returns only the
  * fields the edit changes, and that change is merged onto the latest state.
- * Fields from design probes and direct edits are left alone, and anything
+ * Fields from elicitation questions and direct edits are left alone, and anything
  * changed while the LLM was working (e.g. a probe answered meanwhile) wins
  * over the refinement where both touched the same property.
  *
@@ -178,6 +183,7 @@ export function useRefineSchema(portfolioId: string) {
         );
         if (!schema) return null;
         return {
+          trigger: "intent-edit",
           schema,
           provenance: {
             layer: "configuration",

@@ -56,6 +56,19 @@ const chatEditResponseSchema = z.object({
 export async function chatEditFormAction(
   request: ChatEditRequest,
 ): Promise<ChatEditResponse> {
+  if (process.env.USE_FIXTURES || process.env.RECORD_FIXTURES) {
+    const { fixtureGuard } = await import("@/lib/testing/fixture-guard");
+    return fixtureGuard(
+      "chatEditForm",
+      { message: request.message, history: request.history },
+      () => chatEditFormReal(request),
+      { prompt: request.message },
+    );
+  }
+  return chatEditFormReal(request);
+}
+
+async function chatEditFormReal(request: ChatEditRequest): Promise<ChatEditResponse> {
   try {
     const { intent, currentSchema, message, history = [] } = request;
     capText(message, LIMITS.document, "Message");

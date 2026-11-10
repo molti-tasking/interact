@@ -25,7 +25,7 @@ const DEBOUNCE_MS = 2000;
  *   const { scheduleSync } = useIntentBackpropagation(portfolio);
  *   // after saving a field edit:
  *   scheduleSync('Renamed field "Name" to "Full Name"');
- *   // after applying a pre-computed design probe answer:
+ *   // after applying a pre-computed elicitation question answer:
  *   scheduleSync('"Track sessions?" → "Yes, per week"', "design-decision");
  */
 export function useIntentBackpropagation(
@@ -83,6 +83,8 @@ export function useIntentBackpropagation(
             return null;
           }
           return {
+            // Keeps the intent text in step; never touches the form
+            trigger: "background",
             intent: {
               ...current.intent,
               purpose: {

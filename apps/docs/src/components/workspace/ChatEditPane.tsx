@@ -70,7 +70,7 @@ function changeSummary(added: number, changed: number, removed: number): string 
 /**
  * The baseline study condition's side pane: the first description, the
  * generated form, and then free-text change requests applied by the model.
- * No intent portfolio, no design probes — the tool does what it is told.
+ * No intent portfolio, no elicitation questions — the tool does what it is told.
  */
 export function ChatEditPane({
   portfolio,
@@ -152,6 +152,7 @@ export function ChatEditPane({
           const schema = mergePatchOntoLatest(baseSchema, schemaPatch, current.schema);
           if (!schema) return null;
           return {
+            trigger: "request",
             schema,
             provenance: {
               layer: "configuration",

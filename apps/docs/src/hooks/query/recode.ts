@@ -50,6 +50,7 @@ export function useRecode(
     actor: string,
   ) => {
     const result = await commitPortfolioChange(portfolio.id, (current) => ({
+      trigger: "field-edit",
       ...(change ? { schema: change(current.schema) } : {}),
       provenance: { layer: "configuration", action, actor, rationale },
     }));

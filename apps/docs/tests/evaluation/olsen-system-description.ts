@@ -23,7 +23,7 @@ The schema engine supports eight field types: text, number, select, date, boolea
 An LLM generates a form schema from the natural language intent, inferring field types, labels, descriptions, and validation rules. Output is validated against a structured JSON schema. Generation is non-deterministic: different models or prompts may yield different schemas for the same intent.
 
 ### 4. Refinement
-After generation, the system produces 3–5 refinement questions ("design probes") with 2–4 clickable options each. Selecting an option updates both the intent and the schema via an incremental patch. Follow-up probes may be generated (0–3 per resolution). Probes can be dismissed. A separate dialog lets collaborators type free-text requirements that are translated into probes.
+After generation, the system produces 3–5 refinement questions ("elicitation questions") with 2–4 clickable options each. Selecting an option updates both the intent and the schema via an incremental patch. Follow-up probes may be generated (0–3 per resolution). Probes can be dismissed. A separate dialog lets collaborators type free-text requirements that are translated into probes.
 
 ### 5. Pipeline Strategy
 When the creator edits the intent, a delta computation selects a regeneration strategy: full generation if core sections changed, deterministic field filtering if only exclusions changed, constraint recheck if only constraints changed, or no action.

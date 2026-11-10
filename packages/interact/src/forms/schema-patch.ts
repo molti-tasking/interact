@@ -1,7 +1,7 @@
 /**
  * Pure, isomorphic schema patching.
  *
- * LLM-driven changes (design probe resolution, voice schema edits) are
+ * LLM-driven changes (elicitation question resolution, voice schema edits) are
  * expressed as a *patch* against the schema rather than a whole new schema.
  * Keeping the patch separate lets the client re-apply it to the freshest
  * database state at commit time (see `commitPortfolioChange`), so a change

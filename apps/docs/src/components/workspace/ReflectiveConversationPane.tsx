@@ -368,7 +368,7 @@ export function ReflectiveConversationPane({
         </div>
         {hasFields && !isDirty && !isGenerating && (
           <p className="-mt-4 pb-4 text-xs text-muted-foreground/80">
-            Edit the intent to refine the form, or answer the design probes.
+            Edit the intent to refine the form, or answer the elicitation questions.
           </p>
         )}
       </div>

@@ -296,6 +296,7 @@ export function useUtteranceProcessor(
           return null;
         }
         return {
+          trigger: "request",
           schema: mergeSchemaChange(base.schema, ourSchema, current.schema),
           intent: mergeIntentChange(base.intent, ourIntent, current.intent),
           provenance: {

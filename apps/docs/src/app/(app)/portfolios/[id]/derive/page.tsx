@@ -6,7 +6,9 @@ import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
+import { useCurrentUser } from "@/context/user-context";
 import { useCreatePortfolio, usePortfolio } from "@/hooks/query/portfolios";
+import { formatActor } from "@/lib/mock-users";
 import {
   type DerivationSpec,
   emptyStructuredIntent,
@@ -28,6 +30,7 @@ export default function DerivePage() {
   const { data: portfolio, isLoading, isError, error: loadError, refetch } =
     usePortfolio(id);
   const createPortfolio = useCreatePortfolio();
+  const { currentUser } = useCurrentUser();
   const router = useRouter();
   const [scenario, setScenario] = useState("");
   // Stays true after success until navigation completes (no double submit).
@@ -125,6 +128,10 @@ export default function DerivePage() {
         space_id: portfolio.space_id,
         projection: projection as unknown as PortfolioInsert["projection"],
         status: "draft",
+        derivation: {
+          actor: formatActor(currentUser),
+          rationale: `Derived from "${portfolio.title}" for: ${scenario.trim()}`,
+        },
       });
 
       router.push(`/portfolios/${derived.id}`);

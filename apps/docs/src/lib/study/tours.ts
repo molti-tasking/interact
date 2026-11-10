@@ -31,7 +31,7 @@ export const TOURS: Record<TourId, TourStep[]> = {
     },
     {
       element: '[data-testid="card-deck-section"]',
-      title: "Design questions",
+      title: "Elicitation questions",
       description:
         "The tool asks about decisions your form needs. Hover an answer to preview the change on the form, click to apply it — or skip what doesn't matter.",
       side: "right",
@@ -56,14 +56,14 @@ export const TOURS: Record<TourId, TourStep[]> = {
       element: '[data-testid="preview-pane"]',
       title: "Answers on your form",
       description:
-        "Each question shows how many answered it. Hover a question to see its answers, click it to change it.",
+        "Each field shows how many answered it. Hover a field to see its answers, click it to change it.",
       side: "left",
     },
     {
       element: '[data-testid="card-deck-section"]',
-      title: "Design questions",
+      title: "Elicitation questions",
       description:
-        "Some design questions now come from the answers, like an option nobody picked. Answer or skip them, or ask for new ones.",
+        "Some elicitation questions now come from the answers, like an option nobody picked. Answer or skip them, or ask for new ones.",
       side: "right",
     },
   ],

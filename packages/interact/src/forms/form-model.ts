@@ -1,6 +1,6 @@
 /**
  * Shared prompt building blocks for every LLM call that designs or changes
- * form fields or asks design questions about them.
+ * form fields or asks elicitation questions about them.
  *
  * `FORM_MODEL_RULES` states what a form in this system can be, so the model
  * doesn't propose fields or features the form can't support — e.g. a

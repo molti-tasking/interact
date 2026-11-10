@@ -3,21 +3,24 @@
 import { callLlm } from "@/lib/llm-client";
 import {
   generateDesignProbesAction,
-  resolveDesignProbeAction,
   type DesignProbeRaw,
 } from "@/app/actions/design-probe-actions";
 import type { DetectedStandard } from "@/lib/domain-standards";
 import { commitPortfolioChange, type CommitResult } from "@/lib/engine/commit";
 import { findingProbe, type Finding } from "interact/forms/findings";
 import { pretestExplanation, type PretestIssue } from "interact/forms/pretest";
-import { mergeIntentChange, mergeSchemaChange } from "interact/forms/merge";
+import { mergeSchemaChange } from "interact/forms/merge";
 import {
   MAX_OPEN_PROBES,
   schemaFingerprint,
 } from "interact/forms/probe-curation";
+import {
+  mergeOptionPreviews,
+  prepareProbeOptions,
+  seededRandom,
+} from "interact/forms/probe-options";
 import { rankProbes } from "interact/forms/probe-preview";
 import { applyProbeOption } from "interact/forms/guards";
-import { sanitizePurposeText } from "interact/forms/structured-intent";
 import { createClient } from "@/lib/supabase/client";
 import type { Database } from "@/lib/supabase/database.types";
 import { rowToDesignProbe } from "@/lib/supabase/types";
@@ -52,7 +55,7 @@ async function fetchDesignProbes(portfolioId: string): Promise<DesignProbe[]> {
 }
 
 /**
- * Fetch persisted design probes for a portfolio.
+ * Fetch persisted elicitation questions for a portfolio.
  */
 export function useDesignProbes(portfolioId: string | undefined) {
   return useQuery({
@@ -63,6 +66,22 @@ export function useDesignProbes(portfolioId: string | undefined) {
   });
 }
 
+/**
+ * The answers of a new question as they are stored and shown: exactly one
+ * that leaves the form unchanged, in a display order drawn once, here
+ * (`prepareProbeOptions`). Every insert of a question goes through this.
+ *
+ * `NEXT_PUBLIC_OPTION_ORDER_SEED` makes the order reproducible per question
+ * text — for recorded runs and screenshots, never for a study.
+ */
+function storedOptions(text: string, options: readonly DesignProbeOption[]) {
+  const seed = process.env.NEXT_PUBLIC_OPTION_ORDER_SEED;
+  const prepared = prepareProbeOptions(options, {
+    random: seed ? seededRandom(`${seed}:${text}`) : undefined,
+  });
+  return JSON.parse(JSON.stringify(prepared));
+}
+
 /** A new pending probe as a `design_probes` row. */
 function newProbeRow(portfolioId: string, probe: DesignProbeRaw) {
   return {
@@ -71,7 +90,7 @@ function newProbeRow(portfolioId: string, probe: DesignProbeRaw) {
     explanation: probe.explanation ?? null,
     layer: probe.layer,
     source: probe.source,
-    options: JSON.parse(JSON.stringify(probe.options)),
+    options: storedOptions(probe.text, probe.options),
     selected_option: null,
     status: "pending",
     priority: probe.priority,
@@ -127,7 +146,7 @@ const PROTECTED_SOURCES: ReadonlySet<string> = new Set(["standard", "data", "pre
 const curatedFingerprints = new Map<string, string>();
 
 /**
- * Generate new design probes and persist them to the DB.
+ * Generate new elicitation questions and persist them to the DB.
  * Optionally accepts an external prompt + current schema to generate
  * probes from a collaborator's perspective.
  */
@@ -172,7 +191,7 @@ export function useGenerateDesignProbes(portfolioId: string) {
       );
 
       if (!result.success || !result.interactions) {
-        throw new Error(result.error ?? "Failed to generate design probes");
+        throw new Error(result.error ?? "Failed to generate elicitation questions");
       }
 
       // Persist to DB
@@ -350,10 +369,6 @@ export function useAutoCurateProbes(
   }, [portfolio.id, fingerprint, openCount, loaded, paused, isPending, mutate]);
 }
 
-type ResolveResult = NonNullable<
-  Awaited<ReturnType<typeof resolveDesignProbeAction>>["result"]
->;
-
 /** Throwing wrapper for design_probes status updates. */
 async function updateProbeRow(
   probeId: string,
@@ -364,160 +379,7 @@ async function updateProbeRow(
     .from("design_probes")
     .update(update)
     .eq("id", probeId);
-  if (error) throw new Error(`Failed to update design probe: ${error.message}`);
-}
-
-/**
- * Commit a probe resolution. The LLM result was computed from `snapshot`;
- * the commit replays only what it changed on top of the current DB state, so
- * edits made while the LLM was thinking survive.
- */
-async function commitResolution(
-  portfolioId: string,
-  snapshot: ProbeSnapshot,
-  result: ResolveResult,
-  provenance: { action: string; actor: string; rationale: string },
-): Promise<{ commit: CommitResult | null; newIntent: StructuredIntent }> {
-  // Replace purpose with the LLM's coherent rewrite (falls back to append if missing)
-  const newPurpose = result.updatedPurpose
-    ? sanitizePurposeText(result.updatedPurpose)
-    : snapshot.intent.purpose.content.trimEnd() + "\n" + result.refinementDelta;
-
-  const ourIntent: StructuredIntent = {
-    ...snapshot.intent,
-    purpose: { content: newPurpose, updatedAt: new Date().toISOString() },
-  };
-
-  const commit = await commitPortfolioChange(portfolioId, (current) => ({
-    schema: mergeSchemaChange(
-      snapshot.schema,
-      result.artifactFormSchema,
-      current.schema,
-    ),
-    // The purpose rewrite is automated: if the purpose changed meanwhile
-    // (e.g. the user refined the intent), theirs stays.
-    intent: mergeIntentChange(
-      snapshot.intent,
-      ourIntent,
-      current.intent,
-      "theirs",
-    ),
-    provenance: { layer: "dimensions", ...provenance },
-    automated: true,
-  }));
-
-  return { commit, newIntent: commit?.portfolio.intent ?? ourIntent };
-}
-
-function optionLabelFor(probe: DesignProbe, selectedValue: string): string {
-  if (selectedValue.startsWith("custom:")) {
-    return selectedValue.slice("custom:".length);
-  }
-  const option = probe.options.find((o) => o.value === selectedValue);
-  if (!option) throw new Error("Invalid option selected");
-  return option.label;
-}
-
-/** The portfolio state the user was looking at when they chose an option. */
-export interface ProbeSnapshot {
-  intent: StructuredIntent;
-  schema: PortfolioSchema;
-}
-
-/**
- * Resolve a design probe: call LLM, commit schema/intent changes (merged onto
- * the latest state), persist status change and any follow-ups.
- */
-export function useResolveDesignProbe(portfolioId: string) {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async ({
-      probe,
-      selectedValue,
-      snapshot,
-      resolvedBy,
-      spacePortfolios,
-    }: {
-      probe: DesignProbe;
-      selectedValue: string;
-      snapshot: ProbeSnapshot;
-      resolvedBy: string;
-      spacePortfolios?: { id: string; title: string }[];
-    }) => {
-      const optionLabel = optionLabelFor(probe, selectedValue);
-
-      return trackActivity(portfolioId, "Applying your answer", async () => {
-        await updateProbeRow(probe.id, {
-          status: "loading",
-          selected_option: selectedValue,
-        });
-
-        let committed: Awaited<ReturnType<typeof commitResolution>>;
-        try {
-          const response = await callLlm("resolve-probe", {
-            intent: snapshot.intent,
-            currentSchema: snapshot.schema,
-            interactionText: probe.text,
-            selectedOptionLabel: optionLabel,
-            // One, like a pre-computed answer — curation adds more if needed
-            maxFollowUps: 1,
-            spacePortfolios,
-          });
-
-          if (!response.success || !response.result) {
-            throw new Error(response.error ?? "Failed to resolve design probe");
-          }
-
-          committed = await commitResolution(
-            portfolioId,
-            snapshot,
-            response.result,
-            {
-              action: "design_probe_resolved",
-              actor: resolvedBy,
-              rationale: `"${probe.text}" → "${optionLabel}"`,
-            },
-          );
-
-          await updateProbeRow(probe.id, {
-            status: "resolved",
-            selected_option: selectedValue,
-            resolved_at: new Date().toISOString(),
-            resolved_by: resolvedBy,
-          });
-
-          // Insert follow-ups
-          if (response.result.followUpInteractions?.length) {
-            const { error } = await createClient()
-              .from("design_probes")
-              .insert(
-                response.result.followUpInteractions.map((f) =>
-                  newProbeRow(portfolioId, f),
-                ),
-              );
-            if (error) {
-              console.error("[design-probes] follow-up insert failed:", error);
-            }
-          }
-        } catch (err) {
-          // Never leave the probe stuck in "loading" (it would vanish from
-          // both the pending deck and the resolved stack).
-          await updateProbeRow(probe.id, {
-            status: "pending",
-            selected_option: null,
-          }).catch(() => {});
-          throw err;
-        }
-
-        return { ...committed, optionLabel };
-      });
-    },
-    onSuccess: ({ commit }) => applyCommitToCache(queryClient, commit),
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: designProbesKey(portfolioId) });
-    },
-  });
+  if (error) throw new Error(`Failed to update elicitation question: ${error.message}`);
 }
 
 // ---------------------------------------------------------------------------
@@ -687,27 +549,32 @@ export function usePrecomputeProbePreviews(
             probe: {
               text: probe.text,
               explanation: probe.explanation,
-              options: probe.options.map(({ value, label }) => ({
-                value,
-                label,
-              })),
+              // The unchanged answer needs no model: it changes nothing
+              options: probe.options
+                .filter((o) => !o.unchanged)
+                .map(({ value, label }) => ({ value, label })),
             },
             spacePortfolios: space,
           });
           if (!response.success || !response.options) {
             throw new Error(response.error ?? "No previews returned");
           }
-          setOptions(probe.id, {
-            options: response.options,
-            previewStatus: "ready",
-          });
+          // Onto the stored answers: their order and the unchanged answer
+          // stay; a second answer that changes nothing is dropped
+          const options = mergeOptionPreviews(
+            probe.options,
+            response.options,
+            current.schema,
+            { validTargetIds: (space ?? []).map((p) => p.id) },
+          );
+          setOptions(probe.id, { options, previewStatus: "ready" });
           await updateProbeRow(probe.id, {
-            options: JSON.parse(JSON.stringify(response.options)),
+            options: JSON.parse(JSON.stringify(options)),
             preview_status: "ready",
           });
         } catch (err) {
-          // Answering still works: options without a preview fall back to
-          // resolving the answer with the LLM.
+          // The answers can't be chosen without a preview: the card offers
+          // "Retry previews", and a typed answer still works
           console.error("[design-probes] preview failed:", err);
           setOptions(probe.id, { previewStatus: "failed" });
           await updateProbeRow(probe.id, { preview_status: "failed" }).catch(
@@ -769,6 +636,7 @@ export function useApplyProbePreview(portfolioId: string) {
           });
           if (!changed) return null;
           return {
+            trigger: "answer",
             schema,
             automated: true,
             provenance: {
@@ -797,7 +665,7 @@ export function useApplyProbePreview(portfolioId: string) {
               explanation: null,
               layer: "both",
               source: "llm",
-              options: JSON.parse(JSON.stringify(preview.followUp.options)),
+              options: storedOptions(preview.followUp.text, preview.followUp.options),
               selected_option: null,
               status: "pending",
               priority: 2,
@@ -895,6 +763,7 @@ export function useUndoAppliedPreview(portfolioId: string) {
     }) => {
       const reverted = commit
         ? await commitPortfolioChange(portfolioId, (current) => ({
+            trigger: "undo",
             schema: mergeSchemaChange(
               commit.portfolio.schema,
               commit.previous.schema,
@@ -936,87 +805,68 @@ export function useUndoAppliedPreview(portfolioId: string) {
 }
 
 /**
- * Re-resolve an already-resolved design probe with a different answer.
- * Updates edit history metadata, then runs resolution from the current state.
+ * A typed answer, previewed: what it would change on the form as it is now.
+ * Nothing is written — the answer is shown with its preview on the card and
+ * applied from there like any other (`useApplyProbePreview`).
  */
-export function useReResolveDesignProbe(portfolioId: string) {
-  const queryClient = useQueryClient();
-
+export function usePreviewOwnAnswer(portfolioId: string) {
   return useMutation({
     mutationFn: async ({
       probe,
-      newSelectedValue,
-      snapshot,
-      editedBy,
+      text,
+      portfolio,
       spacePortfolios,
     }: {
       probe: DesignProbe;
-      newSelectedValue: string;
-      snapshot: ProbeSnapshot;
-      editedBy: string;
+      text: string;
+      portfolio: Pick<Portfolio, "intent" | "schema">;
       spacePortfolios?: { id: string; title: string }[];
-    }) => {
-      const optionLabel = optionLabelFor(probe, newSelectedValue);
-
-      return trackActivity(portfolioId, "Revising a decision", async () => {
-        // Store previous answer and update edit metadata
-        await updateProbeRow(probe.id, {
-          status: "loading",
-          previous_selected_option: probe.selectedOption,
-          edited_by: editedBy,
-          edited_at: new Date().toISOString(),
-          edit_count: (probe.editCount ?? 0) + 1,
+    }): Promise<DesignProbeOption & { preview: ProbeOptionPreview }> =>
+      trackActivity(portfolioId, "Working out what your answer changes", async () => {
+        const response = await callLlm("preview-probe-options", {
+          intent: portfolio.intent,
+          currentSchema: portfolio.schema,
+          probe: {
+            text: probe.text,
+            explanation: probe.explanation,
+            options: [{ value: "ownAnswer", label: text }],
+          },
+          spacePortfolios,
         });
-
-        try {
-          const response = await callLlm("resolve-probe", {
-            intent: snapshot.intent,
-            currentSchema: snapshot.schema,
-            interactionText: probe.text,
-            selectedOptionLabel: optionLabel,
-            maxFollowUps: 0, // No follow-ups on re-edits
-            spacePortfolios,
-          });
-
-          if (!response.success || !response.result) {
-            throw new Error(
-              response.error ?? "Failed to re-resolve design probe",
-            );
-          }
-
-          const committed = await commitResolution(
-            portfolioId,
-            snapshot,
-            response.result,
-            {
-              action: "design_probe_re_resolved",
-              actor: editedBy,
-              rationale: `Re-edited: "${probe.text}" → "${optionLabel}" (was: "${probe.selectedOption}")`,
-            },
-          );
-
-          await updateProbeRow(probe.id, {
-            status: "resolved",
-            selected_option: newSelectedValue,
-            resolved_at: new Date().toISOString(),
-            resolved_by: editedBy,
-          });
-
-          return { ...committed, optionLabel };
-        } catch (err) {
-          // Revert to resolved with previous answer
-          await updateProbeRow(probe.id, {
-            status: "resolved",
-            edited_at: probe.editedAt ?? null,
-            edited_by: probe.editedBy ?? null,
-            edit_count: probe.editCount ?? 0,
-            previous_selected_option: probe.previousSelectedOption ?? null,
-          }).catch(() => {});
-          throw err;
+        const preview = response.options?.[0]?.preview;
+        if (!response.success || !preview) {
+          throw new Error(response.error ?? "Couldn't work out what your answer changes");
         }
-      });
-    },
-    onSuccess: ({ commit }) => applyCommitToCache(queryClient, commit),
+        // No follow-up from a typed answer: curation adds one if needed
+        const { followUp, ...rest } = preview;
+        void followUp;
+        return { value: `custom:${text}`, label: text, preview: rest };
+      }),
+  });
+}
+
+/**
+ * Ask an answered question again: it returns to the open questions with its
+ * answers and previews, and the earlier answer is kept as history. The form
+ * doesn't change here — it changes when the creator chooses an answer, after
+ * seeing what that answer does to the form as it is now.
+ */
+export function useAskProbeAgain(portfolioId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ probe, askedBy }: { probe: DesignProbe; askedBy: string }) =>
+      updateProbeRow(probe.id, {
+        status: "pending",
+        selected_option: null,
+        resolved_at: null,
+        resolved_by: null,
+        closed_reason: null,
+        previous_selected_option: probe.selectedOption,
+        edited_by: askedBy,
+        edited_at: new Date().toISOString(),
+        edit_count: (probe.editCount ?? 0) + 1,
+      }),
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: designProbesKey(portfolioId) });
     },
@@ -1024,7 +874,7 @@ export function useReResolveDesignProbe(portfolioId: string) {
 }
 
 /**
- * Insert detected standards as design probes (source="standard").
+ * Insert detected standards as elicitation questions (source="standard").
  * Skips standards that already have a corresponding probe in the DB.
  */
 export function useInsertStandardProbes(portfolioId: string) {
@@ -1057,12 +907,10 @@ export function useInsertStandardProbes(portfolioId: string) {
           explanation: `${s.standard.description} (${Math.round(s.confidence * 100)}% confidence match)`,
           layer: "dimensions",
           source: "standard",
-          options: JSON.parse(
-            JSON.stringify([
-              { value: "accept", label: "Apply Standard" },
-              { value: "skip", label: "Skip" },
-            ]),
-          ),
+          options: storedOptions(`Apply standard: ${s.standard.name}?`, [
+            { value: "accept", label: "Apply Standard" },
+            { value: "skip", label: "Skip", unchanged: true },
+          ]),
           selected_option: null,
           status: "pending",
           // Standards stay at the top of the deck, as before priorities
@@ -1125,7 +973,7 @@ export function useSendFindingToDeck(portfolioId: string) {
         explanation: probe.explanation,
         layer: "dimensions",
         source: "data",
-        options: JSON.parse(JSON.stringify(probe.options)),
+        options: storedOptions(probe.text, probe.options),
         selected_option: null,
         status: "pending",
         priority: 2,
@@ -1173,7 +1021,7 @@ export function useSendPretestIssueToDeck(portfolioId: string) {
         explanation: pretestExplanation(issue),
         layer: "dimensions",
         source: "pretest",
-        options: JSON.parse(JSON.stringify(issue.probe.options)),
+        options: storedOptions(issue.probe.text, issue.probe.options),
         selected_option: null,
         status: "pending",
         priority: 2,
@@ -1240,29 +1088,7 @@ export function useReopenDesignProbe(portfolioId: string) {
 }
 
 /**
- * Put a probe's previous answer back (after a re-resolution was undone).
- */
-export function useRestoreProbeAnswer(portfolioId: string) {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: (probe: DesignProbe) =>
-      updateProbeRow(probe.id, {
-        status: "resolved",
-        selected_option: probe.selectedOption,
-        previous_selected_option: probe.previousSelectedOption ?? null,
-        edited_at: probe.editedAt ?? null,
-        edited_by: probe.editedBy ?? null,
-        edit_count: probe.editCount ?? 0,
-      }),
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: designProbesKey(portfolioId) });
-    },
-  });
-}
-
-/**
- * Dismiss a design probe.
+ * Dismiss an elicitation question.
  */
 /** Why a probe left the deck unanswered (`closed_reason`, migration 012). */
 type ProbeClosedReason =

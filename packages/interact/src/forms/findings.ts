@@ -2,7 +2,7 @@
  * Findings: what the responses say about the form — the second half of
  * backpropagation. A finding (an option nobody picks, a question everyone
  * answers the same way, ...) can be sent to the Design workspace as a
- * design probe whose answers apply instantly.
+ * elicitation question whose answers apply instantly.
  *
  * Deterministic: computed from `response-stats`, no LLM. A finding's key is
  * stable (`data:<kind>:<fieldId>[:<detail>]`), so the same finding isn't
@@ -340,7 +340,7 @@ export function themeFinding(
 }
 
 // ---------------------------------------------------------------------------
-// Findings as design probes
+// Findings as elicitation questions
 // ---------------------------------------------------------------------------
 
 const KEEP: ProbeOptionPreview = { summary: "Keeps the form as it is", schemaPatch: {} };
@@ -513,7 +513,7 @@ function findingOptions(
   }
 }
 
-/** The design probe for a finding; null when it can't (or no longer) become one. */
+/** The elicitation question for a finding; null when it can't (or no longer) become one. */
 export function findingProbe(
   finding: Finding,
   schema: PortfolioSchema,

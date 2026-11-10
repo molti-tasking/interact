@@ -132,7 +132,7 @@ export function mergeSchemaChange(
 /**
  * Replay a patch the LLM computed against `base` onto the latest schema:
  * what it adds, changes and removes is applied, while properties changed
- * meanwhile (e.g. by a design probe answered during the call) keep their
+ * meanwhile (e.g. by an elicitation question answered during the call) keep their
  * newer value. Returns null when the patch changes nothing.
  */
 export function mergePatchOntoLatest(

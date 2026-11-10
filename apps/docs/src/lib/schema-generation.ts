@@ -130,7 +130,7 @@ ${standardsSection}
 Analyze the description to identify:
 - What data needs to be collected
 - Who will fill out the form and in what context
-- What is the MINIMUM STARTING set of fields that the user explicitly mentioned or directly implied? Only include fields that are clearly stated or unavoidably necessary. Do NOT anticipate domain-specific fields that the user hasn't mentioned — those will be discovered through follow-up design probes. For example, if the user says "registration form for a soccer club", generate name/contact fields but do NOT pre-add age groups, medical info, or payment fields unless the user explicitly mentioned them.
+- What is the MINIMUM STARTING set of fields that the user explicitly mentioned or directly implied? Only include fields that are clearly stated or unavoidably necessary. Do NOT anticipate domain-specific fields that the user hasn't mentioned — those will be discovered through follow-up elicitation questions. For example, if the user says "registration form for a soccer club", generate name/contact fields but do NOT pre-add age groups, medical info, or payment fields unless the user explicitly mentioned them.
 - What field types and options are most appropriate
 - What validation or constraints apply
 
@@ -146,7 +146,7 @@ Design the form fields using these types:
 RULES:
 ${SCALE_FIELD_RULES}
 ${SECTION_RULES} A questionnaire's rating statements usually get their own section, with the rating instructions as its description.
-- Generate ONLY the fields the user explicitly mentioned or that are absolutely unavoidable (e.g. a name field for a registration). Typically 3-6 fields for an initial generation. Do NOT anticipate domain-specific requirements — those will be elicited through design probes. Err on the side of fewer fields; it is better to add fields through probes than to pre-generate fields the user didn't ask for.
+- Generate ONLY the fields the user explicitly mentioned or that are absolutely unavoidable (e.g. a name field for a registration). Typically 3-6 fields for an initial generation. Do NOT anticipate domain-specific requirements — those will be elicited through elicitation questions. Err on the side of fewer fields; it is better to add fields through follow-up questions than to pre-generate fields the user didn't ask for.
 - Field keys MUST be camelCase and descriptive
 - "description" should be SHORT (a few words) — omit entirely if the label already makes the field obvious
 - "tooltip" is for extra guidance that helps the user fill in the field correctly — omit if not needed${acceptedStandards.length > 0 ? '\n- For standard-sourced fields, include "standardReference"' : ""}`;

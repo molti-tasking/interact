@@ -42,7 +42,7 @@ export interface SchemaConflict {
   severity: "error" | "warning" | "info";
   description: string;
   fieldIds: string[];
-  /** Auto-fix options presented as design probe choices */
+  /** Auto-fix options presented as elicitation question choices */
   fixes: ConflictFix[];
 }
 

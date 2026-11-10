@@ -44,6 +44,8 @@ export function useSuggestDashboard(portfolioId: string) {
           current.schema.dashboard
             ? null
             : {
+                // Nobody asked: a layout for the response view, not the form
+                trigger: "background",
                 schema: {
                   ...current.schema,
                   dashboard: { widgets, suggestedAt: new Date().toISOString() },
@@ -82,6 +84,7 @@ export function useSaveDashboard(portfolioId: string) {
         const saved = current.schema.dashboard;
         const merged = mergeDashboard(base, next, saved);
         return {
+          trigger: "field-edit",
           schema: {
             ...current.schema,
             dashboard: { ...merged, updatedAt: new Date().toISOString() },

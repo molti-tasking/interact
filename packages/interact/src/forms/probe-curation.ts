@@ -1,5 +1,5 @@
 /**
- * Pure helpers for keeping the design probe deck small and current.
+ * Pure helpers for keeping the elicitation question deck small and current.
  *
  * Answers, field edits and intent refinements change the form, so open
  * probes go stale: they ask about something already decided, duplicate a
@@ -11,7 +11,7 @@
 import type { Field, PortfolioSchema, ProbePriority } from "./types";
 import { hashSection } from "./structured-intent";
 
-/** Open design probes the deck aims for; curation retires the rest. */
+/** Open elicitation questions the deck aims for; curation retires the rest. */
 export const MAX_OPEN_PROBES = 6;
 
 export interface ProbeReview {

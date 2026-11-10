@@ -25,7 +25,7 @@ export interface Capabilities {
   /** Finding thresholds (fewer responses in a workshop than in the field) */
   findingsThresholds: typeof FINDING_THRESHOLDS;
   /**
-   * The design probe deck (probes, conflict checks). Off for study
+   * The elicitation question deck (probes, conflict checks). Off for study
    * participants in the "no-probes" ablation condition.
    */
   designProbes: boolean;

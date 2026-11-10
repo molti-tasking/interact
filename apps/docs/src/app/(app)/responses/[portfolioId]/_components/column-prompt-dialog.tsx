@@ -165,6 +165,7 @@ function ColumnPromptBody({
         createdAt: new Date().toISOString(),
       };
       return {
+        trigger: "field-edit",
         schema: {
           ...schema,
           columnActions: [...(schema.columnActions ?? []), action],

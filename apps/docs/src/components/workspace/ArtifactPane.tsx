@@ -131,6 +131,7 @@ export function ArtifactPane({
   ) => {
     try {
       const result = await commitPortfolio.mutateAsync((current) => ({
+        trigger: "field-edit",
         schema: change(current.schema),
         provenance: { layer: "configuration", action: "sections_edited", actor, rationale },
       }));
@@ -155,7 +156,7 @@ export function ArtifactPane({
     if (edit.kind === "remove") {
       void commitSections(
         (s) => removeSection(s, section.id),
-        `Removed section "${section.label}" (its questions stay)`,
+        `Removed section "${section.label}" (its fields stay)`,
       );
     } else {
       void commitSections(
@@ -184,6 +185,7 @@ export function ArtifactPane({
     void (async () => {
       try {
         await commitPortfolio.mutateAsync((current) => ({
+          trigger: "field-edit",
           schema:
             "targetId" in move
               ? moveFieldNextTo(current.schema, move.fieldId, move.targetId, move.place)
@@ -412,7 +414,7 @@ export function ArtifactPane({
           </button>
         )}
       </div>
-      {/* Pretest issues become design questions, so no deck, no pretest */}
+      {/* Pretest issues become elicitation questions, so no deck, no pretest */}
       {capabilities.designProbes && capabilities.pretest && fieldCount > 0 && (
         <div className="flex h-8 items-center gap-0.5 rounded-lg border bg-background/90 px-0.5 shadow-sm backdrop-blur">
           <PretestDialog portfolio={portfolio} />

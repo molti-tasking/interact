@@ -2,7 +2,7 @@
  * Persona definitions for CDN evaluation.
  *
  * Each persona represents a different skill level and domain expertise.
- * They make different choices when presented with design probe cards,
+ * They make different choices when presented with elicitation question cards,
  * simulating the range of users Malleable Forms targets.
  */
 
@@ -12,7 +12,7 @@ export interface Persona {
   role: string;
   skillLevel: "novice" | "intermediate" | "expert";
   description: string;
-  /** How this persona approaches design probe questions — fed to LLM for decision-making */
+  /** How this persona approaches elicitation question questions — fed to LLM for decision-making */
   decisionStyle: string;
 }
 

@@ -5,7 +5,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { DesignProbeDetailDialog } from "@/components/workspace/DesignProbeDetailDialog";
+import { OwnAnswerDialog } from "@/components/workspace/OwnAnswerDialog";
 import { useStudyLog } from "@/context/study-context";
 import {
   patchSize,
@@ -14,7 +14,13 @@ import {
   type PatchSummary,
 } from "interact/forms/probe-preview";
 import { applyProbeOption, describeSchemaChange } from "interact/forms/guards";
-import type { DesignProbe, PortfolioSchema, ProbePriority } from "@/lib/types";
+import type {
+  DesignProbe,
+  DesignProbeOption,
+  PortfolioSchema,
+  ProbeOptionPreview,
+  ProbePriority,
+} from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { BarChart3, ChevronRight, Info, Loader2, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -61,7 +67,18 @@ function previewsPending(probe: DesignProbe): boolean {
 }
 
 const isTouchOnly = () =>
-  typeof window !== "undefined" && window.matchMedia("(hover: none)").matches;
+  typeof window !== "undefined" &&
+  typeof window.matchMedia === "function" &&
+  window.matchMedia("(hover: none)").matches;
+
+/**
+ * What choosing an answer did: "applied" (it was committed), "preview" (its
+ * preview is now on the card — choosing it again applies it), or "none".
+ */
+export type AnswerOutcome = "applied" | "preview" | "none";
+
+/** Why a tile asks to be chosen a second time. */
+type Armed = { value: string; why: "touch" | "preview" };
 
 interface ProbeCardProps {
   probe: DesignProbe;
@@ -72,17 +89,35 @@ interface ProbeCardProps {
   /** Current schema — previews are diffed against it */
   schema: PortfolioSchema;
   validTargetIds: string[];
-  /** Option value, or "custom:<text>" */
-  onSelect: (value: string) => void;
+  /**
+   * An answer was chosen (its value; a typed one is "custom:<text>").
+   * `previewShown`: what it changes was on the card at that moment — only
+   * then may it be applied.
+   */
+  onSelect: (
+    value: string,
+    context: { previewShown: boolean },
+  ) => Promise<AnswerOutcome> | AnswerOutcome;
+  /** The creator's typed answer, once its preview is worked out */
+  ownAnswer?: (DesignProbeOption & { preview: ProbeOptionPreview }) | null;
+  /** The typed answer's preview is being worked out */
+  ownAnswerPending?: boolean;
+  /** A typed answer to preview (nothing is applied yet) */
+  onOwnAnswer: (text: string) => void;
   onDismiss: () => void;
   onRetryPreview: () => void;
 }
 
 /**
- * A design probe in the deck. Collapsed, it is a one-line row; expanded, its
- * options show what each answer would change. Hovering (or focusing) an
- * option previews it on the canvas; clicking applies it. On touch screens
+ * An elicitation question in the deck. Collapsed, it is a one-line row;
+ * expanded, its answers show what each would change. Hovering (or focusing)
+ * an answer previews it on the canvas; clicking applies it. On touch screens
  * the first tap previews and the second applies.
+ *
+ * No answer is applied before its preview was on the card: one chosen while
+ * its preview is still being worked out waits for it, shows it, and is
+ * applied by choosing it again. A typed answer is previewed the same way.
+ * The answers are listed in their stored order, none marked or selected.
  */
 export function ProbeCard({
   probe,
@@ -92,18 +127,45 @@ export function ProbeCard({
   schema,
   validTargetIds,
   onSelect,
+  ownAnswer = null,
+  ownAnswerPending = false,
+  onOwnAnswer,
   onDismiss,
   onRetryPreview,
 }: ProbeCardProps) {
   const [customOpen, setCustomOpen] = useState(false);
-  const [armed, setArmed] = useState<string | null>(null);
+  const [armed, setArmed] = useState<Armed | null>(null);
+  /** The answer whose preview is being waited for */
+  const [waiting, setWaiting] = useState<string | null>(null);
   const pending = previewsPending(probe);
   const disabled = probe.status !== "pending" || busy;
+  // The typed answer is the last tile, after the suggested ones
+  const answers = useMemo(
+    () => (ownAnswer ? [...probe.options, ownAnswer] : probe.options),
+    [probe.options, ownAnswer],
+  );
+
+  const choose = async (value: string, previewShown: boolean) => {
+    setArmed(null);
+    setWaiting(value);
+    try {
+      const outcome = await onSelect(value, { previewShown });
+      if (outcome === "preview") setArmed({ value, why: "preview" });
+    } finally {
+      setWaiting(null);
+    }
+  };
+
+  // A typed answer arrives with its preview: it is shown, not applied
+  const ownValue = ownAnswer?.value ?? null;
+  useEffect(() => {
+    if (ownValue) setArmed({ value: ownValue, why: "preview" });
+  }, [ownValue]);
 
   const previews = useMemo(
     () =>
       new Map(
-        probe.options.map((option) => {
+        answers.map((option) => {
           const preview = option.preview;
           if (!preview) return [option.value, null];
           return [
@@ -121,7 +183,7 @@ export function ProbeCard({
           ];
         }),
       ),
-    [probe.id, probe.options, validTargetIds],
+    [probe.id, answers, validTargetIds],
   );
 
   if (!expanded) {
@@ -181,33 +243,48 @@ export function ProbeCard({
       </div>
 
       <div className="grid gap-1.5 p-2.5">
-        {probe.options.map((option) => (
-          <OptionTile
-            key={option.value}
-            value={option.value}
-            label={option.label}
-            preview={previews.get(option.value) ?? null}
-            schema={schema}
-            pending={pending}
-            disabled={disabled}
-            armed={armed === option.value}
-            onArm={() => setArmed(option.value)}
-            onApply={() => {
-              setArmed(null);
-              onSelect(option.value);
-            }}
-          />
-        ))}
+        {answers.map((option) => {
+          const own = option === ownAnswer;
+          return (
+            <OptionTile
+              key={option.value}
+              testId={own ? "deck-option-own" : undefined}
+              value={option.value}
+              label={option.label}
+              caption={own ? "Your answer" : undefined}
+              preview={previews.get(option.value) ?? null}
+              schema={schema}
+              pending={pending && !own}
+              unavailable={!pending && !option.preview && probe.source !== "standard"}
+              waiting={waiting === option.value}
+              disabled={disabled || (waiting !== null && waiting !== option.value)}
+              armed={armed?.value === option.value ? armed.why : null}
+              onArm={() => setArmed({ value: option.value, why: "touch" })}
+              onApply={(previewShown) => void choose(option.value, previewShown)}
+            />
+          );
+        })}
+        {ownAnswerPending && (
+          <p
+            role="status"
+            data-testid="own-answer-pending"
+            className="flex items-center gap-2 rounded-lg border border-dashed px-3 py-2 text-xs text-muted-foreground"
+          >
+            <Loader2 className="h-3 w-3 animate-spin" aria-hidden />
+            Working out what your answer changes…
+          </p>
+        )}
       </div>
 
       <div className="flex items-center justify-between gap-2 px-3.5 pb-2.5 text-xs text-muted-foreground">
         <button
           type="button"
           onClick={() => setCustomOpen(true)}
-          disabled={disabled}
+          disabled={disabled || ownAnswerPending}
+          data-testid="own-answer-open"
           className="cursor-pointer rounded underline-offset-2 hover:text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
         >
-          Other answer…
+          {ownAnswer ? "Change your answer…" : "Write your own answer…"}
         </button>
         <CardStatus
           busy={busy}
@@ -216,16 +293,13 @@ export function ProbeCard({
         />
       </div>
 
-      <DesignProbeDetailDialog
-        item={{
-          ...probe,
-          onSelect,
-          onDismiss,
-        }}
+      <OwnAnswerDialog
+        question={probe.text}
+        explanation={probe.explanation}
         open={customOpen}
         onOpenChange={setCustomOpen}
-        busy={busy}
-        startWithCustom
+        disabled={disabled}
+        onSubmit={onOwnAnswer}
       />
     </div>
   );
@@ -336,27 +410,41 @@ export function CardStatus({
  * One answer or fix. Shows what it would change (once its preview is ready),
  * previews it on the canvas while hovered or focused, and applies it on
  * click — on touch screens the first tap previews, the second applies.
+ * Every tile looks the same: none is marked as suggested or selected.
  */
 export function OptionTile({
+  testId,
   value,
   label,
+  caption,
   preview,
   schema,
   pending,
+  unavailable = false,
+  waiting = false,
   disabled,
   armed,
   onArm,
   onApply,
 }: {
+  testId?: string;
   value: string;
   label: string;
+  /** A line above the label, e.g. "Your answer" */
+  caption?: string;
   preview: ProbePreview | null;
   schema: PortfolioSchema;
   pending: boolean;
+  /** No preview and none coming (it failed) */
+  unavailable?: boolean;
+  /** Chosen before its preview was ready: waiting for it */
+  waiting?: boolean;
   disabled: boolean;
-  armed: boolean;
+  /** Asks to be chosen again: after a first tap, or once its preview is shown */
+  armed: "touch" | "preview" | null;
   onArm: () => void;
-  onApply: () => void;
+  /** `previewShown`: what the answer changes was on the tile when chosen */
+  onApply: (previewShown: boolean) => void;
 }) {
   const { show, hide, clear } = useProbePreviewActions();
   const log = useStudyLog();
@@ -375,9 +463,10 @@ export function OptionTile({
       previewStartedAt.current ??= Date.now();
     }
   };
-  const stopPreview = () => {
-    if (preview) hide(preview.ownerId, preview.optionValue);
-    // Study log: previews looked at (not just brushed past), with dwell time
+  // Study log: previews looked at (not just brushed past), with dwell time.
+  // Also when the look ends in a click — the tile is gone before the
+  // pointer leaves it.
+  const logLook = () => {
     const started = previewStartedAt.current;
     previewStartedAt.current = null;
     if (preview && started !== null && Date.now() - started >= 300) {
@@ -387,6 +476,10 @@ export function OptionTile({
         ms: Date.now() - started,
       });
     }
+  };
+  const stopPreview = () => {
+    if (preview) hide(preview.ownerId, preview.optionValue);
+    logLook();
   };
 
   // Applied or unmounted while hovered: don't leave the canvas previewing
@@ -399,21 +492,35 @@ export function OptionTile({
     [hide, ownerId, optionValue],
   );
 
+  // Its preview was shown because the creator chose it: show it on the
+  // canvas too, as hovering would
+  const revealed = armed === "preview";
+  useEffect(() => {
+    if (revealed && preview && !disabled) {
+      show(preview);
+      previewStartedAt.current ??= Date.now();
+    }
+  }, [revealed, preview, disabled, show]);
+
   const handleClick = () => {
     if (preview && !armed && isTouchOnly()) {
       onArm();
       startPreview();
       return;
     }
+    logLook();
     clear();
-    onApply();
+    onApply(summary !== null);
   };
 
   return (
     <button
       type="button"
-      data-testid={`deck-option-${value}`}
-      disabled={disabled}
+      data-testid={testId ?? `deck-option-${value}`}
+      data-preview={summary ? "ready" : waiting ? "waiting" : pending ? "pending" : "none"}
+      data-armed={armed ?? undefined}
+      aria-busy={waiting || undefined}
+      disabled={disabled || waiting}
       onPointerEnter={(e) => e.pointerType !== "touch" && startPreview()}
       onPointerLeave={(e) => e.pointerType !== "touch" && stopPreview()}
       onFocus={startPreview}
@@ -427,6 +534,11 @@ export function OptionTile({
         armed && "border-primary/50 bg-primary/5",
       )}
     >
+      {caption && (
+        <span className="block text-[10px] uppercase tracking-wide text-muted-foreground">
+          {caption}
+        </span>
+      )}
       <span
         data-testid="option-label"
         className="block text-[13px] font-medium leading-snug"
@@ -435,14 +547,25 @@ export function OptionTile({
       </span>
       {summary ? (
         <PatchDiffLine summary={summary} />
+      ) : waiting ? (
+        <span role="status" className="mt-0.5 flex items-center gap-1 text-[11px] text-muted-foreground">
+          <Loader2 className="h-3 w-3 animate-spin" aria-hidden />
+          Preparing the preview…
+        </span>
       ) : pending ? (
         <span className="mt-1 block h-3 w-2/3 animate-pulse rounded bg-muted motion-reduce:animate-none">
           <span className="sr-only">Preparing preview…</span>
         </span>
+      ) : unavailable ? (
+        <span className="mt-0.5 block text-[11px] text-muted-foreground">
+          No preview yet — retry the previews below
+        </span>
       ) : null}
-      {armed && (
+      {armed && summary && (
         <span className="mt-0.5 block text-[11px] text-primary">
-          Tap again to apply
+          {armed === "touch"
+            ? "Tap again to apply"
+            : "This is what it changes. Choose it again to apply."}
         </span>
       )}
     </button>

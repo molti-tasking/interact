@@ -20,8 +20,8 @@ const ACTION_LABELS = new Map<string, string>([
   ["schema_refined", "Refined the form for an intent edit"],
   ["intent_updated", "Updated the intent"],
   ["intent_synced_from_edit", "Synced the intent with a form edit"],
-  ["design_probe_resolved", "Answered a design probe"],
-  ["design_probe_re_resolved", "Changed a design probe answer"],
+  ["design_probe_resolved", "Answered an elicitation question"],
+  ["design_probe_re_resolved", "Changed an elicitation question answer"],
   ["field_modified", "Edited a field"],
   ["field_removed", "Removed a field"],
   ["field_added_from_prompt", "Added fields from a prompt"],
@@ -39,9 +39,12 @@ const ACTION_LABELS = new Map<string, string>([
   ["responses_recoded", "Recoded responses"],
   ["responses_recode_undone", "Undid a recode"],
   ["sections_edited", "Edited the form's sections"],
+  ["field_moved", "Moved a field"],
+  ["chat_edit", "Changed the form on request"],
+  ["portfolio_derived", "Derived from another form"],
 ]);
 
-/** "design_probe_resolved" → "design probe resolved" → "Design probe resolved". */
+/** "design_probe_resolved" → "elicitation question resolved" → "Elicitation question resolved". */
 export function sentenceCase(raw: string): string {
   const words = raw
     .replace(/([a-z0-9])([A-Z])/g, "$1 $2")

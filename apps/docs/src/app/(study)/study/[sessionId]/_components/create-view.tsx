@@ -69,7 +69,7 @@ export function DesignView({
 }
 
 /**
- * When am I done? Participants don't have to answer every design probe; they
+ * When am I done? Participants don't have to answer every elicitation question; they
  * can mark the form as ready (logged, so time to "ready" can be analysed)
  * and keep improving it until the facilitator moves on.
  */
@@ -114,7 +114,7 @@ function ReadyBar() {
           <span className="font-medium text-foreground">When are you done?</span>{" "}
           When the form asks what you want to know.
           {designProbes &&
-            " You don’t have to answer every design question; skip what doesn’t matter."}
+            " You don’t have to answer every elicitation question; skip what doesn’t matter."}
         </p>
       )}
       {ready ? (
@@ -170,6 +170,7 @@ export function StartCard({
     const now = new Date().toISOString();
     try {
       await commit.mutateAsync((current) => ({
+        trigger: "intent-edit",
         intent: {
           ...current.intent,
           purpose: { content: intentText, updatedAt: now },
