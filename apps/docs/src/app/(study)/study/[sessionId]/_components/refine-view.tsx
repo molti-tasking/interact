@@ -7,11 +7,11 @@ import { useCapabilities } from "@/context/capabilities-context";
 import { useStudy } from "@/context/study-context";
 import { useDesignProbes, useSendFindingToDeck } from "@/hooks/query/design-probes";
 import { useResponses } from "@/hooks/query/responses-new";
-import { detectFindings } from "@/lib/engine/findings";
-import { buildFieldStats, type FieldStats } from "@/lib/engine/response-stats";
+import { detectFindings } from "interact/forms/findings";
+import { buildFieldStats, type FieldStats } from "interact/forms/response-stats";
 import { FieldInsightsProvider, type FieldInsight } from "@/lib/form-renderer/field-insights";
 import { ResponseValue } from "@/lib/form-renderer/ResponseValue";
-import { formatValue, isEmptyValue, orphanKeys } from "@/lib/form-renderer/values";
+import { formatValue, isEmptyValue, orphanKeys } from "interact/forms/values";
 import type { Field, FormResponse, Portfolio } from "@/lib/types";
 import {
   ChevronDown,

@@ -1,4 +1,4 @@
-import { scaleFromSpec } from "@/lib/engine/scale";
+import { scaleFromSpec } from "interact/forms/scale";
 import { FormRenderer } from "@/lib/form-renderer/FormRenderer";
 import type { Field, PortfolioSchema } from "@/lib/types";
 import { fireEvent, render, screen, within } from "@testing-library/react";

@@ -12,9 +12,9 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useCapabilities } from "@/context/capabilities-context";
-import type { ResponseRowLike } from "@/lib/form-renderer/response-rows";
+import type { ResponseRowLike } from "interact/forms/response-rows";
 import { ResponseValue } from "@/lib/form-renderer/ResponseValue";
-import { orphanKeys } from "@/lib/form-renderer/values";
+import { orphanKeys } from "interact/forms/values";
 import type {
   Field,
   FormResponse,

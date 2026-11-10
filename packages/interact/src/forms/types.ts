@@ -1,0 +1,592 @@
+/**
+ * Core types of Malleable Forms: fields, schema, structured intent, design
+ * probes, patches' companions. No database or framework types — the app adds
+ * its row types on top (`apps/docs/src/lib/types.ts`).
+ */
+import { z } from "zod";
+import type { SchemaPatch } from "./schema-patch";
+
+// ---------------------------------------------------------------------------
+// Field Types (discriminated union by `kind`)
+// ---------------------------------------------------------------------------
+
+export const textFieldTypeZ = z.object({
+  kind: z.literal("text"),
+  maxLength: z.number().optional(),
+});
+
+export const numberFieldTypeZ = z.object({
+  kind: z.literal("number"),
+  min: z.number().optional(),
+  max: z.number().optional(),
+  unit: z.string().optional(),
+});
+
+export const selectOptionZ = z.object({
+  label: z.string(),
+  value: z.string(),
+});
+
+export type SelectOption = z.infer<typeof selectOptionZ>;
+
+export const selectFieldTypeZ = z.object({
+  kind: z.literal("select"),
+  options: z.array(selectOptionZ),
+  multiple: z.boolean(),
+});
+
+export const dateFieldTypeZ = z.object({
+  kind: z.literal("date"),
+  range: z.object({ min: z.string(), max: z.string() }).optional(),
+});
+
+export const booleanFieldTypeZ = z.object({
+  kind: z.literal("boolean"),
+});
+
+export const fileFieldTypeZ = z.object({
+  kind: z.literal("file"),
+  accept: z.array(z.string()),
+  maxSize: z.number().optional(),
+});
+
+export const scaleFieldTypeZ = z.object({
+  kind: z.literal("scale"),
+  min: z.number(),
+  max: z.number(),
+  labels: z.object({ low: z.string(), high: z.string() }).optional(),
+  points: z.array(z.string()).optional(),
+});
+
+export const referenceFieldTypeZ = z.object({
+  kind: z.literal("reference"),
+  /** Portfolio (table) in the same space whose responses this field links to */
+  targetPortfolioId: z.string(),
+  /** Field name in the target schema used as the display label; falls back to the first text field */
+  displayFieldName: z.string().optional(),
+});
+
+// Group is handled separately since it's recursive (see fieldZ below)
+
+export const fieldTypeZ: z.ZodType<FieldType> = z.discriminatedUnion("kind", [
+  textFieldTypeZ,
+  numberFieldTypeZ,
+  selectFieldTypeZ,
+  dateFieldTypeZ,
+  booleanFieldTypeZ,
+  fileFieldTypeZ,
+  scaleFieldTypeZ,
+  referenceFieldTypeZ,
+  // Group type added via lazy below
+  z.object({
+    kind: z.literal("group"),
+    fields: z.lazy(() => z.array(fieldZ)),
+  }),
+]);
+
+export type FieldType =
+  | { kind: "text"; maxLength?: number }
+  | { kind: "number"; min?: number; max?: number; unit?: string }
+  | { kind: "select"; options: SelectOption[]; multiple: boolean }
+  | { kind: "date"; range?: { min: string; max: string } }
+  | { kind: "boolean" }
+  | { kind: "file"; accept: string[]; maxSize?: number }
+  | {
+      kind: "scale";
+      min: number;
+      max: number;
+      /** End labels of a numeric scale ("0 = Not at all … 10 = Extremely") */
+      labels?: { low: string; high: string };
+      /**
+       * Likert anchors: a label for every point from `min` to `max`
+       * ("Strongly disagree" … "Strongly agree"). Answers stay numbers.
+       */
+      points?: string[];
+    }
+  | {
+      kind: "reference";
+      targetPortfolioId: string;
+      displayFieldName?: string;
+    }
+  | { kind: "group"; fields: Field[] };
+
+// ---------------------------------------------------------------------------
+// Reference value (stored in responses.data for reference fields)
+// ---------------------------------------------------------------------------
+
+export const referenceValueZ = z.object({
+  /** Row id in the `responses` table of the target portfolio */
+  responseId: z.string(),
+  /** Denormalized display label so rendering never needs a join */
+  label: z.string(),
+});
+
+export type ReferenceValue = z.infer<typeof referenceValueZ>;
+
+export function isReferenceValue(value: unknown): value is ReferenceValue {
+  return referenceValueZ.safeParse(value).success;
+}
+
+// ---------------------------------------------------------------------------
+// Constraint
+// ---------------------------------------------------------------------------
+
+export const constraintZ = z.object({
+  type: z.enum(["regex", "dependency", "computed", "custom"]),
+  rule: z.string(),
+  message: z.string(),
+});
+
+export type Constraint = z.infer<typeof constraintZ>;
+
+// ---------------------------------------------------------------------------
+// Field
+// ---------------------------------------------------------------------------
+
+export const fieldZ: z.ZodType<Field> = z.lazy(() =>
+  z.object({
+    id: z.string(),
+    name: z.string(),
+    label: z.string(),
+    type: fieldTypeZ,
+    required: z.boolean(),
+    constraints: z.array(constraintZ),
+    description: z.string().optional(),
+    tooltip: z.string().optional(),
+    origin: z.enum(["creator", "system"]),
+    tags: z.array(z.string()),
+    derivedFrom: z.string().optional(),
+    locked: z.boolean().optional(),
+  }),
+);
+
+export interface Field {
+  id: string;
+  name: string;
+  label: string;
+  type: FieldType;
+  required: boolean;
+  constraints: Constraint[];
+  description?: string;
+  tooltip?: string;
+  origin: "creator" | "system";
+  tags: string[];
+  derivedFrom?: string;
+  /**
+   * Set by the creator: automated changes (probe answers, intent refinement,
+   * conflict fixes, regeneration) must leave this field exactly as it is.
+   * Direct edits by the creator still work. See `engine/guards.ts`.
+   */
+  locked?: boolean;
+}
+
+// ---------------------------------------------------------------------------
+// Field Group
+// ---------------------------------------------------------------------------
+
+export const fieldGroupZ = z.object({
+  id: z.string(),
+  label: z.string(),
+  description: z.string().optional(),
+  fieldIds: z.array(z.string()),
+  conditional: z
+    .object({
+      fieldId: z.string(),
+      value: z.unknown(),
+    })
+    .optional(),
+});
+
+/**
+ * A section of the form: a titled part (e.g. "About you", "Usability") that
+ * respondents see as a heading — or as its own page in a paged form.
+ * A field belongs to at most one section (see `engine/sections.ts`).
+ */
+export interface FieldGroup {
+  id: string;
+  label: string;
+  /** Intro text shown under the title (e.g. instructions for a questionnaire) */
+  description?: string;
+  fieldIds: string[];
+  conditional?: { fieldId: string; value: unknown };
+}
+
+// ---------------------------------------------------------------------------
+// Structured Intent (stored in portfolios.intent JSONB)
+// ---------------------------------------------------------------------------
+
+export interface IntentSection {
+  content: string;
+  updatedAt: string; // ISO timestamp
+}
+
+export interface StructuredIntent {
+  purpose: IntentSection; // What the form is for
+  audience: IntentSection; // Who fills it out
+  exclusions: IntentSection; // Excluded fields/topics
+  constraints: IntentSection; // Rules, compliance, limits
+}
+
+export type SectionKey = keyof StructuredIntent;
+
+export type PipelineStrategy =
+  | { kind: "full" }
+  | { kind: "filter-only" }
+  | { kind: "recheck-constraints" }
+  | { kind: "noop" };
+
+export function emptyIntentSection(): IntentSection {
+  return { content: "", updatedAt: new Date().toISOString() };
+}
+
+export function emptyStructuredIntent(): StructuredIntent {
+  return {
+    purpose: emptyIntentSection(),
+    audience: emptyIntentSection(),
+    exclusions: emptyIntentSection(),
+    constraints: emptyIntentSection(),
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Portfolio Schema (stored in portfolios.schema JSONB)
+// ---------------------------------------------------------------------------
+
+export const savedColumnActionZ = z.object({
+  id: z.string(),
+  fieldId: z.string(),
+  prompt: z.string(),
+  label: z.string(),
+  addedFields: z.array(fieldZ),
+  createdAt: z.string(),
+});
+
+export interface SavedColumnAction {
+  id: string;
+  fieldId: string;
+  prompt: string;
+  label: string;
+  addedFields: Field[];
+  createdAt: string;
+}
+
+export const acceptedStandardRefZ = z.object({
+  standardId: z.string(),
+  standardName: z.string(),
+  domain: z.string(),
+});
+
+export interface AcceptedStandardRef {
+  standardId: string;
+  standardName: string;
+  domain: string;
+}
+
+// Response dashboard — suggested from the intent, edited by the creator,
+// stored with the schema (like column actions) so changes show in History.
+
+export const DASHBOARD_WIDGET_KINDS = [
+  "kpi",
+  "distribution",
+  "likert",
+  "numeric",
+  "timeline",
+  "crosstab",
+  "text",
+] as const;
+export type DashboardWidgetKind = (typeof DASHBOARD_WIDGET_KINDS)[number];
+
+export const dashboardWidgetZ = z.object({
+  id: z.string(),
+  kind: z.enum(DASHBOARD_WIDGET_KINDS),
+  title: z.string(),
+  fieldIds: z.array(z.string()),
+  rationale: z.string().optional(),
+  size: z.enum(["half", "full"]).optional(),
+  prompt: z.string().optional(),
+});
+
+export interface DashboardWidget {
+  id: string;
+  kind: DashboardWidgetKind;
+  title: string;
+  /**
+   * The fields charted: one for most kinds, every item of a Likert battery,
+   * [rows, columns] for a crosstab, a date field or none for a timeline,
+   * none for KPIs.
+   */
+  fieldIds: string[];
+  /** The question from the intent this answers */
+  rationale?: string;
+  size?: "half" | "full";
+  /** What the creator asked for when adding or changing it by description */
+  prompt?: string;
+}
+
+export const dashboardSpecZ = z.object({
+  widgets: z.array(dashboardWidgetZ),
+  suggestedAt: z.string().optional(),
+  updatedAt: z.string().optional(),
+});
+
+export interface DashboardSpec {
+  widgets: DashboardWidget[];
+  suggestedAt?: string;
+  updatedAt?: string;
+}
+
+// AI help for respondents — off unless the creator turns it on for a form.
+// Stored with the schema (like `layout`), and checked on the server before
+// any respondent text reaches the model (`respondent-assist-actions.ts`).
+
+export const respondentAssistZ = z.object({
+  explain: z.boolean().optional(),
+  prefill: z.boolean().optional(),
+});
+
+export interface RespondentAssist {
+  /** "What does this mean?" on each question */
+  explain?: boolean;
+  /** "Fill from text": the respondent's own description fills in the form */
+  prefill?: boolean;
+}
+
+export const portfolioSchemaZ = z.object({
+  fields: z.array(fieldZ),
+  groups: z.array(fieldGroupZ),
+  version: z.number(),
+  columnActions: z.array(savedColumnActionZ).optional(),
+  acceptedStandards: z.array(acceptedStandardRefZ).optional(),
+  dashboard: dashboardSpecZ.optional(),
+  layout: z.enum(["single", "paged"]).optional(),
+  assist: respondentAssistZ.optional(),
+});
+
+export interface PortfolioSchema {
+  fields: Field[];
+  groups: FieldGroup[];
+  version: number;
+  columnActions?: SavedColumnAction[];
+  acceptedStandards?: AcceptedStandardRef[];
+  dashboard?: DashboardSpec;
+  /** How respondents see the sections: one page (default), or one per page */
+  layout?: "single" | "paged";
+  /** AI help offered to respondents; absent = none */
+  assist?: RespondentAssist;
+}
+
+// ---------------------------------------------------------------------------
+// Space (maps to `spaces` table row)
+// A grouping context above portfolios: selected by the user at the start of
+// a session, or created automatically by the system.
+// ---------------------------------------------------------------------------
+
+export interface Space {
+  id: string;
+  name: string;
+  description: string | null;
+  origin: "user" | "system";
+  created_at: string;
+  updated_at: string;
+}
+
+// ---------------------------------------------------------------------------
+// Portfolio (the stored row type lives with the app's database types)
+// ---------------------------------------------------------------------------
+
+export const portfolioStatusZ = z.enum(["draft", "published"]);
+export type PortfolioStatus = z.infer<typeof portfolioStatusZ>;
+
+// ---------------------------------------------------------------------------
+// Provenance Log Entry (maps to `provenance_log` table row)
+// ---------------------------------------------------------------------------
+
+export const provenanceLayerZ = z.enum([
+  "intent",
+  "dimensions",
+  "configuration",
+]);
+export type ProvenanceLayer = z.infer<typeof provenanceLayerZ>;
+
+// ---------------------------------------------------------------------------
+// Response (maps to `responses` table row)
+// ---------------------------------------------------------------------------
+
+export interface FormResponse {
+  id: string;
+  portfolioId: string;
+  data: Record<string, unknown>;
+  submittedAt: string;
+}
+
+// ---------------------------------------------------------------------------
+// Design Probe (maps to `design_probes` table row)
+// Design probes are system-generated decision prompts that surface design
+// tradeoffs and ask the creator to resolve them — a form of directed backtalk.
+// ---------------------------------------------------------------------------
+
+/** 1 = high (structural), 2 = medium (a field decision), 3 = low (polish) */
+export type ProbePriority = 1 | 2 | 3;
+
+/**
+ * What choosing an option would change, computed ahead of time so the deck
+ * can preview it and apply it without waiting for the LLM. The patch is
+ * re-applied to the current schema, so it stays valid after other answers.
+ */
+export interface ProbeOptionPreview {
+  /** Short changelog line, e.g. "Adds session length and goal" */
+  summary: string;
+  schemaPatch: SchemaPatch;
+  /** A question this answer opens up, asked after it is applied */
+  followUp?: { text: string; options: { value: string; label: string }[] };
+  /**
+   * Field keys the patch touched when the preview was computed. When set,
+   * applying the preview later may only touch these fields (see
+   * `scopePatch`): a patch replayed on a newer schema can't spill onto
+   * fields the creator wasn't shown. Absent on previews from before scoping.
+   */
+  scope?: PatchScope;
+}
+
+/** Field keys a patch adds, changes and removes. */
+export interface PatchScope {
+  added: string[];
+  updated: string[];
+  removed: string[];
+}
+
+export interface DesignProbeOption {
+  value: string;
+  label: string;
+  preview?: ProbeOptionPreview;
+}
+
+export interface DesignProbe {
+  id: string;
+  portfolioId: string;
+  text: string;
+  explanation?: string;
+  layer: "intent" | "dimensions" | "both";
+  source: string;
+  options: DesignProbeOption[];
+  selectedOption: string | null;
+  status: "pending" | "loading" | "resolved" | "dismissed";
+  priority: ProbePriority;
+  /** null for probes created before previews existed */
+  previewStatus: "pending" | "ready" | "failed" | null;
+  dimensionId?: string | null;
+  dimensionName?: string | null;
+  createdAt: string;
+  resolvedAt?: string | null;
+  resolvedBy?: string | null;
+  editedAt?: string | null;
+  editedBy?: string | null;
+  editCount: number;
+  previousSelectedOption?: string | null;
+}
+
+// ---------------------------------------------------------------------------
+// Schema Diff
+// ---------------------------------------------------------------------------
+
+export interface FieldPatch {
+  fieldId: string;
+  before: Partial<Field>;
+  after: Partial<Field>;
+}
+
+export interface SchemaDiff {
+  added: Field[];
+  removed: string[]; // field IDs
+  modified: FieldPatch[];
+}
+
+// ---------------------------------------------------------------------------
+// Schema Backtalk (from LLM during elicitation)
+// Backtalk (Rost/Schön): system response that reveals consequences,
+// both intended and unintended, prompting reflection.
+// ---------------------------------------------------------------------------
+
+export const schemaBacktalkStatusZ = z.enum([
+  "pending",
+  "accepted",
+  "rejected",
+  "modified",
+]);
+
+const fieldPatchZ = z.object({
+  fieldId: z.string(),
+  before: z.record(z.string(), z.unknown()),
+  after: z.record(z.string(), z.unknown()),
+});
+
+export const schemaDiffZ = z.object({
+  added: z.array(fieldZ),
+  removed: z.array(z.string()),
+  modified: z.array(fieldPatchZ),
+});
+
+export const schemaBacktalkZ = z.object({
+  id: z.string(),
+  description: z.string(),
+  diff: schemaDiffZ,
+  rationale: z.string(),
+  status: schemaBacktalkStatusZ,
+});
+
+export interface SchemaBacktalk {
+  id: string;
+  description: string;
+  diff: SchemaDiff;
+  rationale: string;
+  status: "pending" | "accepted" | "rejected" | "modified";
+}
+
+// ---------------------------------------------------------------------------
+// Derivation
+// ---------------------------------------------------------------------------
+
+export const derivationTypeZ = z.enum(["sub", "super", "mixed"]);
+
+export const derivationSpecZ = z.object({
+  type: derivationTypeZ,
+  scenarioIntent: z.string(),
+  includedFieldIds: z.array(z.string()),
+  additionalFields: z.array(fieldZ),
+  fieldMappings: z.record(z.string(), z.string()),
+});
+
+export interface DerivationSpec {
+  type: "sub" | "super" | "mixed";
+  scenarioIntent: string;
+  includedFieldIds: string[];
+  additionalFields: Field[];
+  fieldMappings: Record<string, string>;
+}
+
+// ---------------------------------------------------------------------------
+// Elicitation State (workspace UI state, not persisted)
+// Move (Rost/Schön): a user or system action within reflective conversation.
+// ---------------------------------------------------------------------------
+
+export interface Move {
+  id: string;
+  role: "user" | "assistant" | "system";
+  content: string;
+  backtalk?: SchemaBacktalk[];
+  timestamp: string;
+}
+
+// ---------------------------------------------------------------------------
+// Helper: empty schema
+// ---------------------------------------------------------------------------
+
+export function emptyPortfolioSchema(): PortfolioSchema {
+  return { fields: [], groups: [], version: 1 };
+}
+
+/** Where a derived form comes from — the part of a portfolio lineage needs. */
+export interface PortfolioLineage {
+  base_id: string | null;
+  projection: DerivationSpec | null;
+}

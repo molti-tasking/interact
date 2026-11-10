@@ -61,9 +61,9 @@ import {
   useVoiceAnswers,
   type VoiceAnswerResult,
 } from "@/hooks/voice/useVoiceAnswers";
-import type { ConflictFixPreview } from "@/lib/engine/conflict-changes";
-import { findingApplies, findingOptionPreview } from "@/lib/engine/findings";
-import { rankProbes } from "@/lib/engine/probe-preview";
+import type { ConflictFixPreview } from "interact/forms/conflict-changes";
+import { findingApplies, findingOptionPreview } from "interact/forms/findings";
+import { rankProbes } from "interact/forms/probe-preview";
 import { formatActor } from "@/lib/mock-users";
 import type {
   DesignProbe,

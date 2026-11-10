@@ -1,6 +1,6 @@
 "use client";
 
-import { FINDING_THRESHOLDS } from "@/lib/engine/findings";
+import { FINDING_THRESHOLDS } from "interact/forms/findings";
 import { createContext, useContext, type ReactNode } from "react";
 
 /**
@@ -29,6 +29,23 @@ export interface Capabilities {
    * participants in the "no-probes" ablation condition.
    */
   designProbes: boolean;
+  /**
+   * Let the creator turn on AI help for respondents ("What does this
+   * mean?", "Fill from text"). Off for study participants: the peers
+   * answering their forms must all get the same, plain form.
+   */
+  respondentAssist: boolean;
+  /**
+   * Pretest the form with simulated respondents. Off for study
+   * participants: the workshop compares conditions on the tool as piloted,
+   * and here the peers are the pretest.
+   */
+  pretest: boolean;
+  /**
+   * Look for themes in text answers (sends the answers to the model). Off
+   * for study participants for the same reason.
+   */
+  answerThemes: boolean;
 }
 
 const FULL_CAPABILITIES: Capabilities = {
@@ -40,6 +57,9 @@ const FULL_CAPABILITIES: Capabilities = {
   workspaceHref: (portfolioId) => `/portfolios/${portfolioId}`,
   findingsThresholds: FINDING_THRESHOLDS,
   designProbes: true,
+  respondentAssist: true,
+  pretest: true,
+  answerThemes: true,
 };
 
 const CapabilitiesContext = createContext<Capabilities>(FULL_CAPABILITIES);

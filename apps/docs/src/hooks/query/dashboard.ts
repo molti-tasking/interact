@@ -8,7 +8,7 @@ import { commitPortfolioChange } from "@/lib/engine/commit";
 import {
   describeDashboardChanges,
   mergeDashboard,
-} from "@/lib/engine/dashboard";
+} from "interact/forms/dashboard";
 import type { DashboardSpec, DashboardWidget, Portfolio } from "@/lib/types";
 import { trackActivity } from "@/lib/workspace-activity";
 import { useMutation, useQueryClient } from "@tanstack/react-query";

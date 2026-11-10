@@ -1,4 +1,4 @@
-import { scaleValueForLabel } from "@/lib/engine/scale";
+import { scaleValueForLabel } from "interact/forms/scale";
 import type {
   Field,
   PortfolioSchema,

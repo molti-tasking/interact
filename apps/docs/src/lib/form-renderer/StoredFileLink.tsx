@@ -3,7 +3,7 @@
 import { createResponseFileUrl } from "@/hooks/query/response-files";
 import { cn } from "@/lib/utils";
 import { useQuery } from "@tanstack/react-query";
-import type { StoredFile } from "./values";
+import type { StoredFile } from "interact/forms/values";
 
 /** Re-sign a bit before the link's 1-hour lifetime runs out. */
 const REFRESH_MS = 50 * 60 * 1000;

@@ -8,15 +8,16 @@ import {
 } from "@/app/actions/design-probe-actions";
 import type { DetectedStandard } from "@/lib/domain-standards";
 import { commitPortfolioChange, type CommitResult } from "@/lib/engine/commit";
-import { findingProbe, type Finding } from "@/lib/engine/findings";
-import { mergeIntentChange, mergeSchemaChange } from "@/lib/engine/merge";
+import { findingProbe, type Finding } from "interact/forms/findings";
+import { pretestExplanation, type PretestIssue } from "interact/forms/pretest";
+import { mergeIntentChange, mergeSchemaChange } from "interact/forms/merge";
 import {
   MAX_OPEN_PROBES,
   schemaFingerprint,
-} from "@/lib/engine/probe-curation";
-import { rankProbes } from "@/lib/engine/probe-preview";
-import { applyProbeOption } from "@/lib/engine/guards";
-import { sanitizePurposeText } from "@/lib/engine/structured-intent";
+} from "interact/forms/probe-curation";
+import { rankProbes } from "interact/forms/probe-preview";
+import { applyProbeOption } from "interact/forms/guards";
+import { sanitizePurposeText } from "interact/forms/structured-intent";
 import { createClient } from "@/lib/supabase/client";
 import type { Database } from "@/lib/supabase/database.types";
 import { rowToDesignProbe } from "@/lib/supabase/types";
@@ -75,8 +76,8 @@ function newProbeRow(portfolioId: string, probe: DesignProbeRaw) {
     status: "pending",
     priority: probe.priority,
     // What each option changes is computed in the background
-    // (usePrecomputeProbePreviews)
-    preview_status: "pending",
+    // (usePrecomputeProbePreviews) — unless it came with the probe
+    preview_status: probe.previewStatus ?? "pending",
     dimension_id: probe.dimensionId ?? null,
     dimension_name: probe.dimensionName ?? null,
   };
@@ -113,9 +114,10 @@ export async function fetchDesignDecisions(portfolioId: string) {
 
 /**
  * Probes curation never retires: standards have their own accept/skip flow,
- * and findings from the responses rest on data the curating LLM doesn't see.
+ * and findings from the responses or a pretest rest on data the curating
+ * LLM doesn't see.
  */
-const PROTECTED_SOURCES: ReadonlySet<string> = new Set(["standard", "data"]);
+const PROTECTED_SOURCES: ReadonlySet<string> = new Set(["standard", "data", "pretest"]);
 
 /**
  * Per portfolio: the form (`schemaFingerprint`) the open probes were last
@@ -162,7 +164,6 @@ export function useGenerateDesignProbes(portfolioId: string) {
           generateDesignProbesAction(
             intent,
             5,
-            undefined,
             acceptedStandards?.length ? acceptedStandards : undefined,
             externalPrompt,
             currentSchema,
@@ -1132,6 +1133,53 @@ export function useSendFindingToDeck(portfolioId: string) {
         preview_status: "ready",
         dimension_id: finding.key,
         dimension_name: field.label,
+      });
+      if (error) throw error;
+      return { alreadyOpen: false };
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: designProbesKey(portfolioId) });
+    },
+  });
+}
+
+/**
+ * Send an issue from a pretest (simulated respondents) to the Design deck as
+ * a probe (source "pretest", keyed by the issue). When its answers are
+ * already worked out they apply instantly; otherwise they are previewed in
+ * the background like any other question. An issue that is already open
+ * isn't sent twice.
+ */
+export function useSendPretestIssueToDeck(portfolioId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (issue: PretestIssue): Promise<{ alreadyOpen: boolean }> => {
+      const supabase = createClient();
+      const { data: open, error: readError } = await supabase
+        .from("design_probes")
+        .select("id")
+        .eq("portfolio_id", portfolioId)
+        .eq("source", "pretest")
+        .eq("dimension_id", issue.key)
+        .in("status", ["pending", "loading"])
+        .limit(1);
+      if (readError) throw readError;
+      if (open?.length) return { alreadyOpen: true };
+
+      const { error } = await supabase.from("design_probes").insert({
+        portfolio_id: portfolioId,
+        text: issue.probe.text,
+        explanation: pretestExplanation(issue),
+        layer: "dimensions",
+        source: "pretest",
+        options: JSON.parse(JSON.stringify(issue.probe.options)),
+        selected_option: null,
+        status: "pending",
+        priority: 2,
+        preview_status: issue.probe.ready ? "ready" : "pending",
+        dimension_id: issue.key,
+        dimension_name: issue.fieldLabel,
       });
       if (error) throw error;
       return { alreadyOpen: false };

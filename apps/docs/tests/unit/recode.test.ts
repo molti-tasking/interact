@@ -1,5 +1,5 @@
-import { planRecode, planRecodeUndo } from "@/lib/engine/recode";
-import type { ResponseWithOrigin } from "@/lib/form-renderer/response-rows";
+import { planRecode, planRecodeUndo } from "interact/forms/recode";
+import type { ResponseWithOrigin } from "interact/forms/response-rows";
 import type { Field, FormResponse, PortfolioSchema } from "@/lib/types";
 import { describe, expect, it } from "vitest";
 

@@ -8,6 +8,8 @@ import {
   resolveDesignProbeAction,
   syncIntentFromFieldEditAction,
 } from "@/app/actions/design-probe-actions";
+import { findAnswerThemesAction } from "@/app/actions/findings-actions";
+import { simulateRespondentsAction } from "@/app/actions/pretest-actions";
 import { llmErrorMessage } from "@/lib/model";
 import { NextResponse, type NextRequest } from "next/server";
 
@@ -33,6 +35,8 @@ const OPERATIONS = {
   "sync-intent": syncIntentFromFieldEditAction,
   "detect-conflicts": detectSchemaConflictsAction,
   "preview-conflict-fixes": previewConflictFixesAction,
+  "simulate-respondents": simulateRespondentsAction,
+  "find-answer-themes": findAnswerThemesAction,
 } as const;
 
 export type LlmOperation = keyof typeof OPERATIONS;

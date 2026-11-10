@@ -7,7 +7,7 @@ import {
   parentFieldNameFor,
   projectParentData,
   type ResponseWithOrigin,
-} from "@/lib/form-renderer/response-rows";
+} from "interact/forms/response-rows";
 import type {
   DerivationSpec,
   Field,

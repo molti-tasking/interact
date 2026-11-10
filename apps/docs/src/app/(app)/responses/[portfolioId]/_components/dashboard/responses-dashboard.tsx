@@ -12,15 +12,15 @@ import { useIntentBackpropagation } from "@/hooks/query/intent-backpropagation";
 import { useRecode } from "@/hooks/query/recode";
 import { useUndoToast } from "@/hooks/query/undo";
 import { useNow } from "@/hooks/use-now";
-import { defaultDashboard } from "@/lib/engine/dashboard";
-import type { RecodeOp } from "@/lib/engine/recode";
-import type { ResponseRowLike } from "@/lib/form-renderer/response-rows";
+import { defaultDashboard } from "interact/forms/dashboard";
+import type { RecodeOp } from "interact/forms/recode";
+import type { ResponseRowLike } from "interact/forms/response-rows";
 import { formatActor } from "@/lib/mock-users";
 import { formatRelativeTime } from "@/lib/provenance-format";
 import type {
   CategoryBucket,
   NumericOutlier,
-} from "@/lib/engine/response-stats";
+} from "interact/forms/response-stats";
 import type {
   DashboardSpec,
   DashboardWidget,

@@ -11,7 +11,7 @@ import {
   useStudyEventLogger,
   type StudyLog,
 } from "@/hooks/query/study-events";
-import { FINDING_THRESHOLDS } from "@/lib/engine/findings";
+import { FINDING_THRESHOLDS } from "interact/forms/findings";
 import type { MockUser } from "@/lib/mock-users";
 import { createContext, useContext, useMemo, type ReactNode } from "react";
 
@@ -57,6 +57,9 @@ export function StudyProvider({
         minResponses: findingsMinResponses,
       },
       designProbes,
+      respondentAssist: false,
+      pretest: false,
+      answerThemes: false,
     }),
     [allowVoice, findingsMinResponses, session.id, designProbes],
   );

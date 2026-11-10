@@ -2,7 +2,7 @@ import {
   planProbeCuration,
   schemaFingerprint,
   type ProbeReview,
-} from "@/lib/engine/probe-curation";
+} from "interact/forms/probe-curation";
 import type { Field, PortfolioSchema, ProbePriority } from "@/lib/types";
 import { describe, expect, it } from "vitest";
 

@@ -12,10 +12,19 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useCapabilities } from "@/context/capabilities-context";
 import { useStudyLog } from "@/context/study-context";
 import { useCurrentUser } from "@/context/user-context";
 import { useCommitPortfolio, useUpdatePortfolio } from "@/hooks/query/portfolios";
+import { useSchemaDraft } from "@/hooks/query/schema-generation";
 import { useUndoToast } from "@/hooks/query/undo";
 import { formatActor } from "@/lib/mock-users";
 import {
@@ -24,14 +33,15 @@ import {
   moveSection,
   removeSection,
   updateSection,
-} from "@/lib/engine/sections";
-import { previewSchemaChange } from "@/lib/engine/probe-preview";
-import { describeSchemaChange } from "@/lib/engine/guards";
+} from "interact/forms/sections";
+import { previewSchemaChange } from "interact/forms/probe-preview";
+import { describeSchemaChange } from "interact/forms/guards";
 import {
   FormRenderer,
   type FieldMark,
   type FieldMove,
 } from "@/lib/form-renderer/FormRenderer";
+import { draftSchema } from "@/lib/schema-stream";
 import type { Field, FieldGroup, Portfolio, PortfolioSchema } from "@/lib/types";
 import {
   Check,
@@ -39,14 +49,17 @@ import {
   ExternalLink,
   Eye,
   Files,
+  Loader2,
   Network,
   ShareIcon,
+  Sparkles,
   TriangleAlert,
 } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { AddFieldInline } from "./AddFieldInline";
+import { PretestDialog } from "./PretestDialog";
 import { SectionDialog, type SectionEdit } from "./SectionDialog";
 import { ArtifactCanvas, scrollIntoCanvasView } from "./ArtifactCanvas";
 import {
@@ -91,6 +104,14 @@ export function ArtifactPane({
 }: ArtifactPaneProps) {
   const schema = portfolio.schema;
   const fieldCount = schema.fields.length;
+
+  // Fields of a form being generated right now (see `useGenerateSchema`).
+  // Shown only while the form is still empty: drafts never cover real fields.
+  const draft = useSchemaDraft(portfolio.id);
+  const arriving = useMemo(
+    () => (draft && fieldCount === 0 ? draftSchema(draft) : null),
+    [draft, fieldCount],
+  );
 
   // Sections: edit from their heading on the canvas; one page or one per page
   const commitPortfolio = useCommitPortfolio(portfolio.id);
@@ -183,6 +204,19 @@ export function ArtifactPane({
       }
     })();
   };
+
+  // AI help for respondents — opt-in per form, saved with the schema
+  const canSetAssist = capabilities.respondentAssist;
+  const assist = schema.assist ?? {};
+  const assistOn = !!(assist.explain || assist.prefill);
+  const toggleAssist = (key: "explain" | "prefill", label: string) =>
+    commitSections(
+      (s) => {
+        const next = { ...s.assist, [key]: !s.assist?.[key] };
+        return { ...s, assist: next.explain || next.prefill ? next : undefined };
+      },
+      `${assist[key] ? "Turned off" : "Turned on"} "${label}" for respondents`,
+    );
 
   const paged = schema.layout === "paged";
   const togglePaged = () =>
@@ -326,6 +360,45 @@ export function ArtifactPane({
             {paged ? "Page per section" : "One page"}
           </button>
         )}
+        {canSetAssist && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                data-testid="respondent-assist"
+                data-on={assistOn}
+                title="AI help for the people filling in this form (off unless you turn it on)"
+                className="flex cursor-pointer items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring data-[on=true]:bg-primary/10 data-[on=true]:text-foreground"
+              >
+                <Sparkles className="h-3 w-3" aria-hidden />
+                {assistOn ? "AI help on" : "AI help"}
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-72">
+              <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">
+                Help for respondents. Their text is sent to the AI service
+                only when they use it.
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuCheckboxItem
+                data-testid="assist-explain"
+                checked={!!assist.explain}
+                disabled={commitPortfolio.isPending}
+                onCheckedChange={() => toggleAssist("explain", "What does this mean?")}
+              >
+                &ldquo;What does this mean?&rdquo; on each question
+              </DropdownMenuCheckboxItem>
+              <DropdownMenuCheckboxItem
+                data-testid="assist-prefill"
+                checked={!!assist.prefill}
+                disabled={commitPortfolio.isPending}
+                onCheckedChange={() => toggleAssist("prefill", "Fill in from a text")}
+              >
+                Fill in the form from a text they write
+              </DropdownMenuCheckboxItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
         {conflicts.length > 0 && (
           <button
             type="button"
@@ -339,6 +412,12 @@ export function ArtifactPane({
           </button>
         )}
       </div>
+      {/* Pretest issues become design questions, so no deck, no pretest */}
+      {capabilities.designProbes && capabilities.pretest && fieldCount > 0 && (
+        <div className="flex h-8 items-center gap-0.5 rounded-lg border bg-background/90 px-0.5 shadow-sm backdrop-blur">
+          <PretestDialog portfolio={portfolio} />
+        </div>
+      )}
       {(capabilities.publish || capabilities.derive) && (
         <div className="flex h-8 items-center gap-0.5 rounded-lg border bg-background/90 px-0.5 shadow-sm backdrop-blur">
           {capabilities.publish && <PublishDialog portfolio={portfolio} />}
@@ -401,6 +480,41 @@ export function ArtifactPane({
     </div>
   ) : null;
 
+  // First generation under way: the fields written so far, as drafts.
+  // They can't be edited or moved — the form exists once it is committed.
+  if (arriving) {
+    return (
+      <ArtifactCanvas
+        toolbar={toolbar}
+        overlay={
+          <div
+            role="status"
+            className="flex items-center gap-2 rounded-full border border-primary/20 bg-background/95 px-3 py-1.5 text-xs shadow-sm backdrop-blur"
+          >
+            <Loader2 className="h-3.5 w-3.5 animate-spin text-primary motion-reduce:animate-none" aria-hidden />
+            <span>
+              {arriving.fields.length === 0
+                ? "Writing your form…"
+                : `Writing your form… ${arriving.fields.length} field${arriving.fields.length !== 1 ? "s" : ""} so far`}
+            </span>
+          </div>
+        }
+      >
+        <div className="p-6" aria-busy="true" data-testid="form-arriving">
+          {arriving.fields.length > 0 && (
+            <div inert className="select-none opacity-70">
+              <FormRenderer schema={arriving} mode="preview" className="space-y-4" />
+            </div>
+          )}
+          <div
+            className="mt-4 h-9 rounded-lg border border-dashed border-primary/30 bg-primary/5 animate-pulse motion-reduce:animate-none"
+            aria-hidden
+          />
+        </div>
+      </ArtifactCanvas>
+    );
+  }
+
   return (
     <ArtifactCanvas toolbar={toolbar} overlay={overlay}>
       <div className="p-6">
@@ -417,7 +531,7 @@ export function ArtifactPane({
         />
         {onFieldsAdded && !preview && (
           <div className="mt-4">
-            <AddFieldInline schema={schema} onFieldsAdded={onFieldsAdded} />
+            <AddFieldInline schema={schema} intent={portfolio.intent} onFieldsAdded={onFieldsAdded} />
           </div>
         )}
       </div>

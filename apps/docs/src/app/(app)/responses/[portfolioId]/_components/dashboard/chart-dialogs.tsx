@@ -21,7 +21,7 @@ import {
   kindsForField,
   newWidgetId,
   WIDGET_KIND_INFO,
-} from "@/lib/engine/dashboard";
+} from "interact/forms/dashboard";
 import type {
   DashboardWidget,
   DashboardWidgetKind,

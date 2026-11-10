@@ -65,7 +65,7 @@ describe.runIf(available)("commitPortfolioChange (local Supabase)", () => {
 
   it("lands concurrent changes from the same snapshot without losing either", async () => {
     const { commitPortfolioChange } = await import("@/lib/engine/commit");
-    const { addField } = await import("@/lib/engine/schema-ops");
+    const { addField } = await import("interact/forms/schema-ops");
 
     const mk = (id: string) => ({
       id,

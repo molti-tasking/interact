@@ -1,0 +1,482 @@
+/**
+ * Pure, isomorphic schema patching.
+ *
+ * LLM-driven changes (design probe resolution, voice schema edits) are
+ * expressed as a *patch* against the schema rather than a whole new schema.
+ * Keeping the patch separate lets the client re-apply it to the freshest
+ * database state at commit time (see `commitPortfolioChange`), so a change
+ * computed from a snapshot taken before a multi-second LLM call never
+ * overwrites edits that landed in the meantime.
+ */
+
+import type { Field, FieldGroup, FieldType, PortfolioSchema } from "./types";
+import { scaleFromSpec, type ScaleSpec } from "./scale";
+import { assignSection } from "./sections";
+
+// ---------------------------------------------------------------------------
+// Patch shape (mirrors the LLM structured-output schema)
+// ---------------------------------------------------------------------------
+
+export type PatchFieldKind =
+  | "string"
+  | "number"
+  | "boolean"
+  | "date"
+  | "email"
+  | "select"
+  | "scale"
+  | "reference";
+
+export interface PatchField {
+  key: string;
+  label: string;
+  description?: string;
+  tooltip?: string;
+  type: PatchFieldKind;
+  required: boolean;
+  /** null/omitted: none (the LLM writes null for fields that aren't selects) */
+  validation?: { options?: unknown[] } | null;
+  /** For type "scale": its points or range */
+  scale?: ScaleSpec | null;
+  referenceTarget?: string | null;
+}
+
+/**
+ * A change to an existing field: its key plus only the properties that
+ * change. Anything omitted or null stays as it is, so an update can't erase
+ * options, a scale or help text by leaving them out. A full definition (as
+ * stored previews from before partial updates have) is still valid.
+ */
+export type PatchFieldUpdate = { key: string } & {
+  [K in Exclude<keyof PatchField, "key">]?: PatchField[K] | null;
+};
+
+export interface SchemaPatch {
+  addFields?: PatchField[];
+  removeFieldKeys?: string[];
+  updateFields?: PatchFieldUpdate[];
+  /** Fields (by key) that go into the section with this title; "" = none */
+  sections?: { title: string; fieldKeys: string[] }[];
+}
+
+export interface ApplyPatchResult {
+  schema: PortfolioSchema;
+  /** Field names that were actually changed */
+  applied: { added: string[]; updated: string[]; removed: string[] };
+  /** Ops that referenced fields that don't exist (no-ops) */
+  skipped: {
+    updated: string[];
+    removed: string[];
+    /** Ops on fields the creator locked — automated changes never touch them */
+    locked: string[];
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Field type conversion
+// ---------------------------------------------------------------------------
+
+/** The coarse LLM-facing kind for an existing field type. */
+function coarseKind(type: FieldType): PatchFieldKind {
+  switch (type.kind) {
+    case "text":
+    case "file":
+    case "group":
+      return "string";
+    default:
+      return type.kind;
+  }
+}
+
+function isCompatible(patchKind: PatchFieldKind, existing: FieldType): boolean {
+  const normalized = patchKind === "email" ? "string" : patchKind;
+  // "number" for a scale keeps the scale (patches from before "scale"
+  // existed in the vocabulary still say "number")
+  if (normalized === "number" && existing.kind === "scale") return true;
+  return coarseKind(existing) === normalized;
+}
+
+/** Coerce options to {label, value}[] — handles both string and object inputs. */
+export function normalizeOptions(
+  raw: unknown,
+): Array<{ label: string; value: string }> {
+  if (!Array.isArray(raw)) return [];
+  return raw.map((o) => {
+    if (typeof o === "string") return { label: o, value: o };
+    if (o && typeof o === "object" && "value" in o && "label" in o)
+      return { label: String(o.label), value: String(o.value) };
+    if (o && typeof o === "object" && "value" in o)
+      return { label: String(o.value), value: String(o.value) };
+    if (o && typeof o === "object" && "label" in o)
+      return { label: String(o.label), value: String(o.label) };
+    const s = String(o);
+    return { label: s, value: s };
+  });
+}
+
+/** Build a fresh FieldType from the coarse LLM kind. */
+export function convertPatchFieldType(
+  type: PatchFieldKind | string,
+  validation?: { options?: unknown[] } | null,
+  scale?: ScaleSpec | null,
+): FieldType {
+  switch (type) {
+    case "select":
+      return {
+        kind: "select",
+        options: normalizeOptions(validation?.options),
+        multiple: false,
+      };
+    case "scale":
+      return scaleFromSpec(scale ?? undefined);
+    case "number":
+      return { kind: "number" };
+    case "boolean":
+      return { kind: "boolean" };
+    case "date":
+      return { kind: "date" };
+    default:
+      return { kind: "text" };
+  }
+}
+
+/**
+ * Resolve the FieldType for a patched field. When the LLM keeps the field's
+ * kind, the existing type is preserved (number min/max/unit, select
+ * `multiple`, scale range + labels, file accept, group children, …) because
+ * the coarse patch vocabulary cannot express those details.
+ */
+export function resolvePatchFieldType(
+  f: Pick<PatchField, "type" | "validation" | "referenceTarget" | "scale">,
+  validTargetIds: ReadonlySet<string>,
+  existing?: FieldType,
+): FieldType {
+  if (f.type === "reference") {
+    if (f.referenceTarget && validTargetIds.has(f.referenceTarget)) {
+      return existing?.kind === "reference"
+        ? { ...existing, targetPortfolioId: f.referenceTarget }
+        : { kind: "reference", targetPortfolioId: f.referenceTarget };
+    }
+    // Keep an existing link when the LLM omits or invents the target;
+    // otherwise degrade to text rather than dangling.
+    if (existing?.kind === "reference") return existing;
+    return { kind: "text" };
+  }
+
+  if (existing && isCompatible(f.type, existing)) {
+    if (existing.kind === "select") {
+      const proposed = normalizeOptions(f.validation?.options);
+      // LLM omitted options (e.g. label-only update) → keep the existing ones
+      if (proposed.length === 0) return existing;
+      // Keep stored values for options whose label survived, so existing
+      // responses still match after a rewrite.
+      const valueByLabel = new Map(
+        existing.options.map((o) => [o.label.trim().toLowerCase(), o.value]),
+      );
+      return {
+        ...existing,
+        options: proposed.map((o) => ({
+          label: o.label,
+          value: valueByLabel.get(o.label.trim().toLowerCase()) ?? o.value,
+        })),
+      };
+    }
+    // A scale changes only when the patch spells out its new points/range
+    if (existing.kind === "scale" && f.type === "scale" && f.scale) {
+      return scaleFromSpec(f.scale, existing);
+    }
+    return existing;
+  }
+
+  return convertPatchFieldType(f.type, f.validation, f.scale);
+}
+
+/**
+ * An existing field as a full patch definition, for building an update
+ * that changes one thing (options minus one, required off) and keeps the
+ * rest. A scale's points/range aren't spelled out, so they stay as stored.
+ */
+export function patchFieldFromField(field: Field): PatchField {
+  const { type } = field;
+  return {
+    key: field.name,
+    label: field.label,
+    description: field.description,
+    tooltip: field.tooltip,
+    type: coarseKind(type),
+    required: field.required,
+    ...(type.kind === "select"
+      ? { validation: { options: type.options.map((o) => ({ ...o })) } }
+      : {}),
+    ...(type.kind === "reference" ? { referenceTarget: type.targetPortfolioId } : {}),
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+export function newFieldId(): string {
+  const uuid = globalThis.crypto?.randomUUID?.();
+  return uuid
+    ? `field-${uuid}`
+    : `field-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+/** Drop removed field ids from groups and clear conditionals that point at them. */
+export function pruneGroups(
+  groups: FieldGroup[],
+  survivingIds: ReadonlySet<string>,
+): FieldGroup[] {
+  return groups
+    .map((g) => ({
+      ...g,
+      fieldIds: g.fieldIds.filter((id) => survivingIds.has(id)),
+      conditional:
+        g.conditional && survivingIds.has(g.conditional.fieldId)
+          ? g.conditional
+          : undefined,
+    }))
+    .filter((g) => g.fieldIds.length > 0);
+}
+
+function mergeUpdate(
+  existing: Field,
+  update: PatchFieldUpdate,
+  validTargetIds: ReadonlySet<string>,
+): Field {
+  return {
+    ...existing,
+    label: update.label || existing.label,
+    // No type in the update: the field keeps its kind, and only the details
+    // the update spells out (options, scale, link target) change.
+    type: resolvePatchFieldType(
+      { ...update, type: update.type ?? coarseKind(existing.type) },
+      validTargetIds,
+      existing.type,
+    ),
+    required: update.required ?? existing.required,
+    // Omitted or null means unchanged — never erased
+    description: update.description ?? existing.description,
+    tooltip: update.tooltip ?? existing.tooltip,
+  };
+}
+
+/**
+ * A new field from its LLM-facing definition. Every action that lets the
+ * model design fields builds them here, so they all share one vocabulary
+ * (`llmFieldSchema` in `form-model.ts`).
+ */
+export function fieldFromPatchField(
+  f: PatchField,
+  extra: Partial<Pick<Field, "tags" | "derivedFrom">> & {
+    validTargetIds?: ReadonlySet<string>;
+  } = {},
+): Field {
+  const { validTargetIds = new Set<string>(), ...rest } = extra;
+  return {
+    id: newFieldId(),
+    name: f.key,
+    label: f.label,
+    type: resolvePatchFieldType(f, validTargetIds),
+    required: f.required,
+    constraints: [],
+    description: f.description || undefined,
+    tooltip: f.tooltip || undefined,
+    origin: "system",
+    tags: [],
+    ...rest,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// applySchemaPatch
+// ---------------------------------------------------------------------------
+
+/**
+ * Apply an LLM schema patch. Order: remove → update → add.
+ * - `addFields` whose key already exists are treated as updates (upsert),
+ *   so the schema never ends up with duplicate field names.
+ * - Updates/removals for unknown keys are reported in `skipped`.
+ */
+export function applySchemaPatch(
+  schema: PortfolioSchema,
+  patch: SchemaPatch,
+  opts: { validTargetIds?: Iterable<string> } = {},
+): ApplyPatchResult {
+  const validTargetIds = new Set(opts.validTargetIds ?? []);
+  const applied: ApplyPatchResult["applied"] = {
+    added: [],
+    updated: [],
+    removed: [],
+  };
+  const skipped: ApplyPatchResult["skipped"] = {
+    updated: [],
+    removed: [],
+    locked: [],
+  };
+
+  let fields = [...schema.fields];
+  // Locked fields are off limits to every patch (they're all automated):
+  // no update, no removal, no section move.
+  const lockedNames = new Set(
+    fields.filter((f) => f.locked).map((f) => f.name),
+  );
+  const skipLocked = (key: string) => {
+    if (!lockedNames.has(key)) return false;
+    if (!skipped.locked.includes(key)) skipped.locked.push(key);
+    return true;
+  };
+
+  // Remove
+  if (patch.removeFieldKeys?.length) {
+    const existingNames = new Set(fields.map((f) => f.name));
+    const removeSet = new Set<string>();
+    for (const key of patch.removeFieldKeys) {
+      if (skipLocked(key)) continue;
+      if (existingNames.has(key)) removeSet.add(key);
+      else skipped.removed.push(key);
+    }
+    fields = fields.filter((f) => !removeSet.has(f.name));
+    applied.removed.push(...removeSet);
+  }
+
+  // Update (+ adds that collide with an existing key)
+  const updates = new Map<string, PatchFieldUpdate>();
+  for (const u of patch.updateFields ?? []) {
+    if (!skipLocked(u.key)) updates.set(u.key, u);
+  }
+  const namesAfterRemove = new Set(fields.map((f) => f.name));
+  const genuineAdds: PatchField[] = [];
+  const seenAddKeys = new Set<string>();
+  for (const a of patch.addFields ?? []) {
+    if (seenAddKeys.has(a.key)) continue; // duplicate add in the same patch
+    seenAddKeys.add(a.key);
+    if (namesAfterRemove.has(a.key)) {
+      if (skipLocked(a.key)) continue;
+      if (!updates.has(a.key)) updates.set(a.key, a);
+    } else {
+      genuineAdds.push(a);
+    }
+  }
+
+  if (updates.size) {
+    fields = fields.map((existing) => {
+      const update = updates.get(existing.name);
+      if (!update) return existing;
+      applied.updated.push(existing.name);
+      return mergeUpdate(existing, update, validTargetIds);
+    });
+    for (const key of updates.keys()) {
+      if (!namesAfterRemove.has(key)) skipped.updated.push(key);
+    }
+  }
+
+  // Add
+  for (const f of genuineAdds) {
+    fields.push(fieldFromPatchField(f, { validTargetIds }));
+    applied.added.push(f.key);
+  }
+
+  const survivingIds = new Set(fields.map((f) => f.id));
+  const changed =
+    applied.added.length + applied.updated.length + applied.removed.length > 0;
+
+  let result: PortfolioSchema = {
+    ...schema,
+    fields,
+    groups: pruneGroups(schema.groups ?? [], survivingIds),
+    version: changed ? schema.version + 1 : schema.version,
+  };
+
+  // Sections: fields named in a placement join that section ("" = none).
+  // A field that changes section counts as updated.
+  const sectionTitle = (s: PortfolioSchema, id: string) =>
+    s.groups.find((g) => g.fieldIds.includes(id))?.label.trim().toLowerCase() ?? "";
+  for (const placement of patch.sections ?? []) {
+    for (const key of placement.fieldKeys) {
+      const field = result.fields.find((x) => x.name === key);
+      if (!field || skipLocked(key)) continue;
+      const before = sectionTitle(result, field.id);
+      result = assignSection(result, field.id, placement.title || null);
+      if (sectionTitle(result, field.id) !== before && !applied.updated.includes(key)) {
+        applied.updated.push(key);
+      }
+    }
+  }
+  if (!changed && applied.updated.length > 0) {
+    result = { ...result, version: schema.version + 1 };
+  }
+
+  return { schema: result, applied, skipped };
+}
+
+// ---------------------------------------------------------------------------
+// mergeRegeneratedSchema
+// ---------------------------------------------------------------------------
+
+/**
+ * Fold a freshly generated schema (full pipeline run) into the current one
+ * instead of replacing it wholesale:
+ * - generated fields that match an existing field by name keep that field's
+ *   id (stable provenance) and, when the kind is unchanged, its type details;
+ * - creator-authored fields the generator didn't reproduce are kept;
+ * - schema metadata (accepted standards, saved column actions, groups) is
+ *   carried over;
+ * - the version keeps increasing monotonically.
+ */
+export function mergeRegeneratedSchema(
+  current: PortfolioSchema,
+  generated: PortfolioSchema,
+): PortfolioSchema {
+  const currentByName = new Map(current.fields.map((f) => [f.name, f]));
+  const generatedNames = new Set(generated.fields.map((f) => f.name));
+
+  const merged: Field[] = generated.fields.map((g) => {
+    const existing = currentByName.get(g.name);
+    if (!existing) return g;
+    const sameKind = existing.type.kind === g.type.kind;
+    return {
+      ...g,
+      id: existing.id,
+      origin: existing.origin,
+      constraints: g.constraints.length ? g.constraints : existing.constraints,
+      tags: existing.tags,
+      derivedFrom: existing.derivedFrom,
+      type: sameKind
+        ? g.type.kind === "select" && existing.type.kind === "select"
+          ? resolvePatchFieldType(
+              { type: "select", validation: { options: g.type.options } },
+              new Set(),
+              existing.type,
+            )
+          : existing.type
+        : g.type,
+    };
+  });
+
+  for (const f of current.fields) {
+    if (f.origin === "creator" && !generatedNames.has(f.name)) {
+      merged.push(f);
+    }
+  }
+
+  const survivingIds = new Set(merged.map((f) => f.id));
+
+  return {
+    ...current,
+    ...generated,
+    fields: merged,
+    groups: pruneGroups(
+      [...(current.groups ?? []), ...(generated.groups ?? [])],
+      survivingIds,
+    ),
+    acceptedStandards:
+      generated.acceptedStandards ?? current.acceptedStandards,
+    columnActions: current.columnActions ?? generated.columnActions,
+    dashboard: current.dashboard ?? generated.dashboard,
+    layout: current.layout ?? generated.layout,
+    assist: current.assist ?? generated.assist,
+    version: Math.max(current.version, generated.version) + 1,
+  };
+}

@@ -9,7 +9,7 @@ import {
 import { Input } from "@/components/ui/input";
 import type { Field } from "@/lib/types";
 import type { ControllerRenderProps } from "react-hook-form";
-import { labelIncludesUnit } from "../values";
+import { labelIncludesUnit } from "interact/forms/values";
 import { FieldLabel } from "./FieldLabel";
 
 interface NumberFieldProps {

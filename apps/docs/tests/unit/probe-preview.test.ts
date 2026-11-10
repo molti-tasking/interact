@@ -5,7 +5,7 @@ import {
   previewSchemaChange,
   rankProbes,
   summarizePatch,
-} from "@/lib/engine/probe-preview";
+} from "interact/forms/probe-preview";
 import type { Field, PortfolioSchema } from "@/lib/types";
 
 function field(partial: Partial<Field> & Pick<Field, "id" | "name">): Field {

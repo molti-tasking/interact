@@ -1,8 +1,8 @@
 "use client";
 
 import type { SchemaConflict } from "@/app/actions/conflict-actions";
-import type { ConflictFixPreview } from "@/lib/engine/conflict-changes";
-import { applyConflictFix } from "@/lib/engine/guards";
+import type { ConflictFixPreview } from "interact/forms/conflict-changes";
+import { applyConflictFix } from "interact/forms/guards";
 import type { PortfolioSchema } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { TriangleAlert } from "lucide-react";

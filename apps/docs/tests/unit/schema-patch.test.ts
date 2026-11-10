@@ -2,7 +2,7 @@ import {
   applySchemaPatch,
   mergeRegeneratedSchema,
   type PatchField,
-} from "@/lib/engine/schema-patch";
+} from "interact/forms/schema-patch";
 import type { Field, PortfolioSchema } from "@/lib/types";
 import { describe, expect, it } from "vitest";
 

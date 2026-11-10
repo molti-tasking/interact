@@ -2,7 +2,7 @@
 
 import { callLlm } from "@/lib/llm-client";
 import { commitPortfolioChange } from "@/lib/engine/commit";
-import { sanitizePurposeText } from "@/lib/engine/structured-intent";
+import { sanitizePurposeText } from "interact/forms/structured-intent";
 import type { Field, Portfolio } from "@/lib/types";
 import { trackActivity } from "@/lib/workspace-activity";
 import { useQueryClient } from "@tanstack/react-query";

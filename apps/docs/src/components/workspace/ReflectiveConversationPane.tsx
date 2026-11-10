@@ -9,7 +9,7 @@ import { useCurrentUser } from "@/context/user-context";
 import { usePipelineGenerate } from "@/hooks/query/pipeline";
 import { usePreviousPurpose } from "@/hooks/query/provenance";
 import { useUndoToast } from "@/hooks/query/undo";
-import { diffSchemas } from "@/lib/engine/schema-ops";
+import { diffSchemas } from "interact/forms/schema-ops";
 import { formatActor } from "@/lib/mock-users";
 import type { Portfolio, StructuredIntent } from "@/lib/types";
 import { ChevronDown, Loader2, Sparkles } from "lucide-react";

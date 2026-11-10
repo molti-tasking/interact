@@ -4,14 +4,19 @@ import {
   applyConflictChanges,
   conflictChangesSchema,
   type ConflictFixPreview,
-} from "@/lib/engine/conflict-changes";
-import { FORM_MODEL_RULES } from "@/lib/engine/form-model";
+} from "interact/forms/conflict-changes";
+import { FORM_MODEL_RULES } from "interact/forms/form-model";
+import { fenced } from "interact/forms/prompt";
+import {
+  applyPurposeEdit,
+  PURPOSE_EDIT_RULES,
+  purposeEditSchema,
+} from "interact/forms/purpose-edit";
 import {
   hashSection,
-  mergeIntentText,
   serializeForLLM,
   serializeSchemaForLLM,
-} from "@/lib/engine/structured-intent";
+} from "interact/forms/structured-intent";
 import { capJson, capText, guardLlmRequest, LIMITS } from "@/lib/llm-guard";
 import { fastModel, model, llmErrorMessage } from "@/lib/model";
 import { telemetry, withTracing } from "@/lib/telemetry";
@@ -102,9 +107,7 @@ const detectConflictsSchema = z.object({
 });
 
 const resolveConflictSchema = z.object({
-  updatedIntent: z
-    .string()
-    .describe("Updated intent text if changed, otherwise same as current"),
+  purposeEdit: purposeEditSchema,
   changes: conflictChangesSchema,
   rationale: z
     .string()
@@ -255,14 +258,15 @@ async function detectSchemaConflictsReal(
     const fieldLines = refs.map(({ ref, field: f }) => {
       const req = f.required ? "*" : "";
       const desc = f.description ? ` — ${f.description}` : "";
-      return `  ${ref} | ${f.name}${req} (${f.type.kind}): "${f.label}"${desc}`;
+      return `  ${ref} | ${f.name}${req} (${f.type.kind}): ${JSON.stringify(f.label)}${desc}`;
     });
 
     const system = `You are a form schema quality analyzer. Detect conflicts, inconsistencies, and issues in this form schema.
 
 ${FORM_MODEL_RULES}`;
 
-    const prompt = `Form intent: ${intent}
+    const prompt = `Form description:
+${fenced("form_description", intent)}
 
 Schema fields (* = required):
 ${fieldLines.join("\n")}
@@ -280,6 +284,7 @@ If no conflicts found, return an empty conflicts array.
 Rules:
 - Only real issues, not nitpicks
 - Don't report fields that share the same name — those are already detected
+- Forms have no separate email, phone or URL type: those are text fields, and that is correct — never report it as a type mismatch or propose format validation
 - "description": one short sentence (max ~12 words) that names fields by their label in quotes, never by id or key — e.g. 'Email' and 'Contact email' collect the same thing.
 - "fieldIds": the refs of the fields involved, exactly as listed (e.g. "f3")
 - Max 4 conflicts, the most important first
@@ -372,17 +377,18 @@ async function previewConflictFixesReal(
 
     const system = `You are a form schema repair assistant. Work out how each proposed fix would resolve a schema conflict.`;
 
-    const prompt = `Current intent: ${intentText}
+    const prompt = `Form description:
+${fenced("form_description", intentText)}
 
 Current schema ([id] key: "Label" (type…)):
 ${serializeSchemaForLLM(schema, { ids: true, constraints: true, groups: true })}
 
-Conflict: ${conflict.description}
+Conflict (${conflict.kind}):
+${fenced("conflict", conflict.description)}
 Affected fields: ${conflict.fieldIds.join(", ")}
-Conflict type: ${conflict.kind}
 
 Proposed fixes:
-${conflict.fixes.map((f) => `- value "${f.value}": "${f.label}" — ${f.description}`).join("\n")}
+${fenced("fixes", conflict.fixes.map((f) => `- value ${JSON.stringify(f.value)}: ${JSON.stringify(f.label)} — ${f.description}`).join("\n"))}
 
 For EACH fix, return the exact schema changes it needs, so it can be previewed and applied instantly:
 - "value": the fix's value, exactly as listed
@@ -475,23 +481,26 @@ async function resolveSchemaConflictReal(
 
     const system = `You are a form schema repair assistant. Apply a specific fix to resolve a schema conflict.`;
 
-    const prompt = `Current intent: ${intentText}
+    const prompt = `Form description:
+${fenced("form_description", intentText)}
 
 Current schema ([id] key: "Label" (type…)):
 ${serializeSchemaForLLM(schema, { ids: true, constraints: true, groups: true })}
 
-Conflict: ${conflict.description}
+Conflict (${conflict.kind}):
+${fenced("conflict", conflict.description)}
 Affected fields: ${conflict.fieldIds.join(", ")}
-Conflict type: ${conflict.kind}
 
-Selected fix: "${selectedFix.label}" — ${selectedFix.description}
+Selected fix:
+${fenced("fix", `${selectedFix.label} — ${selectedFix.description}`)}
 
-Apply this fix and return ONLY the schema changes it needs, plus the updated intent.
+Apply this fix and return ONLY the schema changes it needs, plus a "purposeEdit".
 - Only change what's necessary to fix the conflict
 - Keep all other fields and settings intact — fields and groups you don't mention stay unchanged
 - Refer to existing fields and groups by their [id] exactly as listed
-- Update the intent description if the fix changes the form's meaning
-- "rationale": brief explanation of what was changed and why`;
+- "rationale": brief explanation of what was changed and why
+${PURPOSE_EDIT_RULES}
+- Use op "none" unless the fix changes what the form collects.`;
 
     const result = await withTracing(
       { tags: ["conflicts", "resolve"] },
@@ -510,7 +519,7 @@ Apply this fix and return ONLY the schema changes it needs, plus the updated int
       return { success: false, error: "Failed to parse conflict resolution" };
     }
 
-    const { updatedIntent: intentUpdate, changes, rationale } = result.output;
+    const { purposeEdit, changes, rationale } = result.output;
     const { schema: updatedSchema, skipped } = applyConflictChanges(
       schema,
       changes,
@@ -519,11 +528,15 @@ Apply this fix and return ONLY the schema changes it needs, plus the updated int
       console.warn("[resolveSchemaConflict] Skipped changes:", skipped);
     }
 
-    // The model echoes all intent sections; map them back section by
-    // section instead of storing the whole text in `purpose`.
-    const updatedIntent = intentUpdate.trim()
-      ? mergeIntentText(intentUpdate, intent)
-      : intent;
+    // One bounded edit to the purpose; every other section stays as written
+    const edited = applyPurposeEdit(intent.purpose.content, purposeEdit);
+    const updatedIntent: StructuredIntent =
+      edited.applied === "none"
+        ? intent
+        : {
+            ...intent,
+            purpose: { content: edited.purpose, updatedAt: new Date().toISOString() },
+          };
 
     return {
       success: true,

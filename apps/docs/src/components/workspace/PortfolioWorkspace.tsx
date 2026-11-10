@@ -15,8 +15,8 @@ import {
 } from "@/hooks/query/intent-backpropagation";
 import { useCommitPortfolio } from "@/hooks/query/portfolios";
 import { useUndoToast } from "@/hooks/query/undo";
-import { addField, removeField, updateField } from "@/lib/engine/schema-ops";
-import { assignSection } from "@/lib/engine/sections";
+import { addField, removeField, updateField } from "interact/forms/schema-ops";
+import { assignSection } from "interact/forms/sections";
 import { formatActor } from "@/lib/mock-users";
 import type { Field, Portfolio } from "@/lib/types";
 import { useCallback, useState } from "react";

@@ -12,8 +12,8 @@ import {
   previewSchemaChange,
   summarizeChange,
   type PatchSummary,
-} from "@/lib/engine/probe-preview";
-import { applyProbeOption, describeSchemaChange } from "@/lib/engine/guards";
+} from "interact/forms/probe-preview";
+import { applyProbeOption, describeSchemaChange } from "interact/forms/guards";
 import type { DesignProbe, PortfolioSchema, ProbePriority } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { BarChart3, ChevronRight, Info, Loader2, X } from "lucide-react";

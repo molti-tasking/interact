@@ -8,13 +8,19 @@ import {
   useDesignProbes,
   useSendFindingToDeck,
 } from "@/hooks/query/design-probes";
-import { detectFindings, type Finding } from "@/lib/engine/findings";
-import { buildFieldStats, type FieldStats } from "@/lib/engine/response-stats";
-import type { ResponseRowLike } from "@/lib/form-renderer/response-rows";
+import { useFindAnswerThemes } from "@/hooks/query/answer-themes";
+import {
+  detectFindings,
+  findingApplies,
+  themeCandidates,
+  type Finding,
+} from "interact/forms/findings";
+import { buildFieldStats, type FieldStats } from "interact/forms/response-stats";
+import type { ResponseRowLike } from "interact/forms/response-rows";
 import type { Portfolio } from "@/lib/types";
-import { Lightbulb, Loader2 } from "lucide-react";
+import { Lightbulb, Loader2, Sparkles } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import type { RecodeTarget } from "./recode-dialog";
 
@@ -61,16 +67,57 @@ export function FindingsPanel({
   onFixData?: (target: RecodeTarget) => void;
 }) {
   const router = useRouter();
-  const { findingsThresholds: thresholds, workspaceHref } = useCapabilities();
+  const {
+    findingsThresholds: thresholds,
+    workspaceHref,
+    designProbes: canAskInDesign,
+    answerThemes,
+  } = useCapabilities();
   const log = useStudyLog();
   const schema = portfolio.schema;
   const stats = useMemo(() => buildFieldStats(schema, rows), [schema, rows]);
-  const findings = useMemo(
+  const counted = useMemo(
     () => detectFindings(schema, stats, thresholds),
     [schema, stats, thresholds],
   );
   const { data: probes } = useDesignProbes(portfolio.id);
   const send = useSendFindingToDeck(portfolio.id);
+
+  // Themes in text answers: looked for on request only — it costs a model
+  // call and sends respondents' answers to the model
+  const themeSearch = useFindAnswerThemes();
+  const candidates = useMemo(
+    () => (canAskInDesign && answerThemes ? themeCandidates(schema, stats, rows) : []),
+    [canAskInDesign, answerThemes, schema, stats, rows],
+  );
+  const [themes, setThemes] = useState<Finding[]>([]);
+  const [searched, setSearched] = useState(false);
+  const findings = useMemo(() => {
+    const keys = new Set(counted.map((f) => f.key));
+    return [
+      ...counted,
+      // Dropped once the form changed so that they no longer apply
+      ...themes.filter((f) => !keys.has(f.key) && findingApplies(f.key, schema)),
+    ];
+  }, [counted, themes, schema]);
+
+  const lookForThemes = () => {
+    log("themes_requested", { fields: candidates.map((c) => c.field.name) });
+    themeSearch.mutate(candidates, {
+      onSuccess: ({ findings: found, failed }) => {
+        setThemes(found);
+        setSearched(true);
+        log("themes_found", { keys: found.map((f) => f.key) });
+        if (failed > 0) {
+          toast.warning(
+            `Couldn't look at ${failed} question${failed === 1 ? "" : "s"} — try again.`,
+          );
+        }
+      },
+      onError: (err) =>
+        toast.error(err instanceof Error ? err.message : "Couldn't look for themes"),
+    });
+  };
 
   // Study log: which suggestions the responses produced (once per set)
   const shownKeys =
@@ -89,7 +136,7 @@ export function FindingsPanel({
       </p>
     );
   }
-  if (findings.length === 0) return null;
+  if (findings.length === 0 && candidates.length === 0) return null;
 
   const sendToDesign = (finding: Finding) => {
     log("finding_sent_to_design", { key: finding.key, text: finding.text });
@@ -120,7 +167,7 @@ export function FindingsPanel({
         <Lightbulb className="h-4 w-4 text-muted-foreground" aria-hidden />
         What the responses suggest
       </h3>
-      <ul className="mt-2 divide-y">
+      <ul className="mt-2 divide-y" hidden={findings.length === 0}>
         {findings.map((finding) => {
           const status = deckStatus(probes, finding.key);
           const fix = fixFor(finding, stats);
@@ -162,6 +209,41 @@ export function FindingsPanel({
           );
         })}
       </ul>
+      {findings.length === 0 && (
+        <p className="mt-2 text-xs text-muted-foreground">
+          The answer counts show nothing to change.
+        </p>
+      )}
+      {candidates.length > 0 && (
+        <div
+          data-testid="theme-search"
+          className="mt-2 flex flex-wrap items-center justify-between gap-2 border-t pt-3"
+        >
+          <p className="min-w-0 max-w-prose text-xs text-muted-foreground">
+            {searched && themes.length === 0
+              ? "No common themes found. "
+              : ""}
+            Looking for themes sends the answers to{" "}
+            {candidates.map((c) => `“${c.field.label}”`).join(", ")} (up to 150
+            each, no other fields) to the AI model, which groups them. The
+            counts are computed from its grouping.
+          </p>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-7 text-xs"
+            disabled={themeSearch.isPending}
+            onClick={lookForThemes}
+          >
+            {themeSearch.isPending ? (
+              <Loader2 className="h-3 w-3 animate-spin" aria-hidden />
+            ) : (
+              <Sparkles className="h-3 w-3" aria-hidden />
+            )}
+            {searched ? "Look again" : "Look for themes in text answers"}
+          </Button>
+        </div>
+      )}
     </section>
   );
 }

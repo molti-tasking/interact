@@ -7,7 +7,7 @@ import { usePortfolio } from "@/hooks/query/portfolios";
 import { useResponse, useUpdateResponse } from "@/hooks/query/responses-new";
 import { FormRenderer } from "@/lib/form-renderer/FormRenderer";
 import { ResponseValue } from "@/lib/form-renderer/ResponseValue";
-import { mergeEditedResponse, orphanKeys } from "@/lib/form-renderer/values";
+import { mergeEditedResponse, orphanKeys } from "interact/forms/values";
 import { ArrowLeft, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";

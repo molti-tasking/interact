@@ -8,7 +8,7 @@ import {
   mapWithConcurrency,
   type ColumnPreview,
   type ResponseRowLike,
-} from "@/lib/form-renderer/response-rows";
+} from "interact/forms/response-rows";
 import type { Field, Portfolio } from "@/lib/types";
 import { useState } from "react";
 

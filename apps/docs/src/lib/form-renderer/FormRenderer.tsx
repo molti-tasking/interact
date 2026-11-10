@@ -1,10 +1,10 @@
 "use client";
 
 import { Form, FormField } from "@/components/ui/form";
-import type { FieldAnnotation } from "@/lib/engine/probe-preview";
-import { groupLikertRuns, scaleChoices } from "@/lib/engine/scale";
-import { sectionBlocks } from "@/lib/engine/sections";
-import { schemaToZod } from "@/lib/engine/schema-ops";
+import type { FieldAnnotation } from "interact/forms/probe-preview";
+import { groupLikertRuns, scaleChoices } from "interact/forms/scale";
+import { sectionBlocks } from "interact/forms/sections";
+import { schemaToZod } from "interact/forms/schema-ops";
 import type { Field, FieldGroup, PortfolioSchema } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -26,7 +26,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { useForm, useFormState } from "react-hook-form";
+import { useForm, useFormState, type UseFormReturn } from "react-hook-form";
 import { renderFieldComponent } from "./field-components";
 import { useFieldInsight } from "./field-insights";
 import {
@@ -34,6 +34,12 @@ import {
   LikertRow,
 } from "./field-components/ScaleField";
 import { FormSaveButton } from "./FormSaveButton";
+import type { PrefillResult } from "./prefill";
+import {
+  ExplainQuestion,
+  PrefillPanel,
+  type FormAssist,
+} from "./RespondentAssist";
 
 function randomValueForField(field: Field): unknown {
   const { type } = field;
@@ -129,6 +135,11 @@ interface FormRendererProps {
   paginate?: boolean;
   /** Live forms: offer the "Random" fill button (off for study respondents) */
   randomFill?: boolean;
+  /**
+   * Live forms: AI help for the respondent, when the form's creator turned
+   * it on (`schema.assist`) — see `RespondentAssist.tsx`.
+   */
+  assist?: FormAssist;
   className?: string;
 }
 
@@ -205,10 +216,16 @@ function FieldShell({
   changeNotes,
   onMove,
   mark: markProp,
+  explain,
+  review,
   className,
   children,
 }: {
   field: Field;
+  /** Live forms: explain this question to the respondent */
+  explain?: () => Promise<string>;
+  /** Live forms: the value was filled in from the respondent's text */
+  review?: { onChecked: () => void };
   onEdit?: () => void;
   annotation?: FieldAnnotation;
   changeNotes?: string[];
@@ -280,6 +297,7 @@ function FieldShell({
         insight && "hover:z-30 focus-within:z-30",
         annotation && "relative",
         annotation && annotationStyles[annotation].wrapper,
+        review && "relative rounded-md outline-2 outline-offset-4 outline-sky-500/50",
         mark && "relative",
         mark &&
           (mark.emphasized
@@ -395,7 +413,19 @@ function FieldShell({
           <Pencil className="h-3.5 w-3.5 text-primary/60" aria-hidden />
         </button>
       )}
+      {review && (
+        <button
+          type="button"
+          data-testid="field-prefilled"
+          onClick={review.onChecked}
+          title="Filled in from your text — click when you've checked it"
+          className="absolute -top-3 right-0 z-10 rounded-full bg-sky-600 px-1.5 py-px text-[10px] font-medium leading-4 text-white shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          Filled in — please check
+        </button>
+      )}
       {children}
+      {explain && <ExplainQuestion label={field.label} explain={explain} />}
     </div>
   );
 }
@@ -499,6 +529,29 @@ function SubmitError() {
   );
 }
 
+/**
+ * Clears a "please check" mark once the respondent edits that answer. Its
+ * own component, so subscribing to the form doesn't opt the whole renderer
+ * out of compilation.
+ */
+function ReviewWatcher({
+  form,
+  onEdited,
+}: {
+  form: UseFormReturn<Record<string, unknown>>;
+  onEdited: (fieldName: string) => void;
+}) {
+  useEffect(() => {
+    // Only the respondent's own edits count ("change" events; values set by
+    // code have no type)
+    const subscription = form.watch((_values, { name, type }) => {
+      if (type === "change" && name) onEdited(name.split(".")[0]);
+    });
+    return () => subscription.unsubscribe();
+  }, [form, onEdited]);
+  return null;
+}
+
 export function FormRenderer({
   schema,
   mode,
@@ -512,8 +565,11 @@ export function FormRenderer({
   onSectionClick,
   paginate = true,
   randomFill = true,
+  assist: assistProp,
   className,
 }: FormRendererProps) {
+  // Respondent help exists on the live form only — never in the workspace
+  const assist = mode === "live" ? assistProp : undefined;
   const zodSchema = useMemo(() => schemaToZod(schema), [schema]);
   const blocks = useMemo(() => sectionBlocks(schema), [schema]);
   const paged =
@@ -547,6 +603,51 @@ export function FormRenderer({
     fill(schema.fields, "");
   }, [schema.fields, form]);
 
+  // "What does this mean?": asked once per question and session
+  const explanations = useRef(new Map<string, Promise<string>>());
+  const explainField = useCallback(
+    (fieldId: string) => {
+      const explain = assist?.explain;
+      if (!explain) return undefined;
+      return () => {
+        let pending = explanations.current.get(fieldId);
+        if (!pending) {
+          pending = explain(fieldId);
+          explanations.current.set(fieldId, pending);
+          // A failed request can be tried again
+          pending.catch(() => explanations.current.delete(fieldId));
+        }
+        return pending;
+      };
+    },
+    [assist?.explain],
+  );
+
+  // "Fill from text": values land in the form marked for review; the mark
+  // goes when the respondent changes the answer or confirms it.
+  const [toReview, setToReview] = useState<ReadonlySet<string>>(new Set());
+  const markChecked = useCallback(
+    (name: string) =>
+      setToReview((prev) => {
+        if (!prev.has(name)) return prev;
+        const next = new Set(prev);
+        next.delete(name);
+        return next;
+      }),
+    [],
+  );
+  const applyPrefill = useCallback(
+    (result: PrefillResult) => {
+      for (const { path, value } of result.filled) {
+        form.setValue(path.join("."), value, {
+          shouldValidate: true,
+          shouldDirty: true,
+        });
+      }
+      setToReview((prev) => new Set([...prev, ...result.filled.map((f) => f.path[0])]));
+    },
+    [form],
+  );
   const handleSubmit = async (data: Record<string, unknown>) => {
     let saved: Record<string, unknown> | void;
     try {
@@ -564,6 +665,7 @@ export function FormRenderer({
     } else if (mode === "live") {
       form.reset(undefined, { keepTouched: false });
       setPage(0);
+      setToReview(new Set());
     }
   };
 
@@ -607,6 +709,10 @@ export function FormRenderer({
             ? onFieldMove
             : undefined,
         mark: fieldMarks?.[field.id],
+        explain: explainField(field.id),
+        review: toReview.has(field.name)
+          ? { onChecked: () => markChecked(field.name) }
+          : undefined,
         className,
       });
 
@@ -667,6 +773,12 @@ export function FormRenderer({
         // A container, so fields lay out by the form's width, not the screen's
         className="@container space-y-8"
       >
+        {toReview.size > 0 && <ReviewWatcher form={form} onEdited={markChecked} />}
+
+        {assist?.prefill && (!paged || pageIndex === 0) && (
+          <PrefillPanel prefill={assist.prefill} onFilled={applyPrefill} />
+        )}
+
         {paged && (
           <PageProgress
             index={pageIndex}

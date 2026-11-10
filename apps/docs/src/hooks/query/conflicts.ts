@@ -7,9 +7,9 @@ import {
   type SchemaConflict,
 } from "@/app/actions/conflict-actions";
 import { commitPortfolioChange } from "@/lib/engine/commit";
-import { type ConflictFixPreview } from "@/lib/engine/conflict-changes";
-import { applyConflictFix, limitChangeToFields } from "@/lib/engine/guards";
-import { mergeIntentChange, mergeSchemaChange } from "@/lib/engine/merge";
+import { type ConflictFixPreview } from "interact/forms/conflict-changes";
+import { applyConflictFix, limitChangeToFields } from "interact/forms/guards";
+import { mergeIntentChange, mergeSchemaChange } from "interact/forms/merge";
 import type { Portfolio, PortfolioSchema, StructuredIntent } from "@/lib/types";
 import { trackActivity } from "@/lib/workspace-activity";
 import {

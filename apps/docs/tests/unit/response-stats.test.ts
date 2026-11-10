@@ -1,4 +1,4 @@
-import { scaleFromSpec } from "@/lib/engine/scale";
+import { scaleFromSpec } from "interact/forms/scale";
 import {
   buildFieldStats,
   categoryStats,
@@ -8,7 +8,7 @@ import {
   numericStats,
   timelineStats,
   type StatsRow,
-} from "@/lib/engine/response-stats";
+} from "interact/forms/response-stats";
 import type { Field, FieldType, PortfolioSchema } from "@/lib/types";
 import { describe, expect, it } from "vitest";
 

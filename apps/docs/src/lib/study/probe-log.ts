@@ -10,7 +10,7 @@
  * previews were ready when the creator answered.
  */
 
-import { applyProbeOption } from "../engine/guards";
+import { applyProbeOption } from "interact/forms/guards";
 import type { DesignProbe, PortfolioSchema } from "../types";
 
 interface ShownOption {

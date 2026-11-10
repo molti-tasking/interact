@@ -25,14 +25,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { planRecode, type RecodeOp } from "@/lib/engine/recode";
+import { planRecode, type RecodeOp } from "interact/forms/recode";
 import {
   knownCategories,
   type CategoryBucket,
   type NumericOutlier,
-} from "@/lib/engine/response-stats";
-import type { ResponseRowLike } from "@/lib/form-renderer/response-rows";
-import { formatValue } from "@/lib/form-renderer/values";
+} from "interact/forms/response-stats";
+import type { ResponseRowLike } from "interact/forms/response-rows";
+import { formatValue } from "interact/forms/values";
 import type { Field, Portfolio } from "@/lib/types";
 import { Loader2, MoreHorizontal } from "lucide-react";
 import { useState } from "react";

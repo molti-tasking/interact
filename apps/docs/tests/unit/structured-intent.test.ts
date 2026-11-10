@@ -11,7 +11,7 @@ import {
   serializeForLLM,
   serializeSchemaForLLM,
   serializeToMarkdown,
-} from "@/lib/engine/structured-intent";
+} from "interact/forms/structured-intent";
 import {
   emptyPortfolioSchema,
   emptyStructuredIntent,

@@ -3,14 +3,14 @@
 import {
   projectParentData,
   type ResponseWithOrigin,
-} from "@/lib/form-renderer/response-rows";
+} from "interact/forms/response-rows";
 import { rowToResponse } from "@/lib/supabase/types";
 import type { FormResponse, Portfolio } from "@/lib/types";
 import { useQuery } from "@tanstack/react-query";
 import { useCallback } from "react";
 import { fetchAllResponseRows } from "./responses-new";
 
-export type { ResponseWithOrigin } from "@/lib/form-renderer/response-rows";
+export type { ResponseWithOrigin } from "interact/forms/response-rows";
 
 /**
  * For derived portfolios: fetch own + parent responses together

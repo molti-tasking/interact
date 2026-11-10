@@ -8,8 +8,8 @@ import type {
   ProvenanceLayer,
   StructuredIntent,
 } from "../types";
-import { protectLockedFields } from "./guards";
-import { diffSchemas, isDiffEmpty } from "./schema-ops";
+import { protectLockedFields } from "interact/forms/guards";
+import { diffSchemas, isDiffEmpty } from "interact/forms/schema-ops";
 
 // ---------------------------------------------------------------------------
 // Types

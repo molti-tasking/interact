@@ -1,9 +1,9 @@
-import { conflictChangesSchema } from "@/lib/engine/conflict-changes";
+import { conflictChangesSchema } from "interact/forms/conflict-changes";
 import {
   dashboardSuggestionSchema,
   widgetRevisionSchema,
-} from "@/lib/engine/dashboard";
-import { schemaPatchSchema } from "@/lib/engine/form-model";
+} from "interact/forms/dashboard";
+import { schemaPatchSchema } from "interact/forms/form-model";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 

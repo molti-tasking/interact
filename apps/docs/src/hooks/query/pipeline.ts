@@ -3,13 +3,13 @@
 import { useCapabilities } from "@/context/capabilities-context";
 import type { DetectedStandard } from "@/lib/domain-standards";
 import { commitPortfolioChange, type CommitResult } from "@/lib/engine/commit";
-import { mergeIntentChange } from "@/lib/engine/merge";
+import { mergeIntentChange } from "interact/forms/merge";
 import {
   computeDelta,
   determinePipelineStrategy,
   filterExcludedFields,
   serializeForLLM,
-} from "@/lib/engine/structured-intent";
+} from "interact/forms/structured-intent";
 import type {
   PipelineStrategy,
   PortfolioSchema,

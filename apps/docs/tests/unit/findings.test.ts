@@ -4,9 +4,9 @@ import {
   findingOptionPreview,
   findingProbe,
   parseFindingKey,
-} from "@/lib/engine/findings";
-import { buildFieldStats, type StatsRow } from "@/lib/engine/response-stats";
-import { applySchemaPatch } from "@/lib/engine/schema-patch";
+} from "interact/forms/findings";
+import { buildFieldStats, type StatsRow } from "interact/forms/response-stats";
+import { applySchemaPatch } from "interact/forms/schema-patch";
 import type { Field, PortfolioSchema } from "@/lib/types";
 import { describe, expect, it } from "vitest";
 
