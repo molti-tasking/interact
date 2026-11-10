@@ -238,8 +238,9 @@ export function BriefView({ task, total }: { task: StudyTask; total: number }) {
           Situation {task.position} of {total}
         </h1>
         <p className="text-muted-foreground">
-          Read it carefully. Next, you build the form these people need. You can
-          open the situation again while you work.
+          {task.start_kind
+            ? "Read it carefully. Next, you get the form somebody else built for these people last year, and bring it up to date. You can open the situation again while you work."
+            : "Read it carefully. Next, you build the form these people need. You can open the situation again while you work."}
         </p>
       </div>
       <BriefImage briefKey={task.brief} />
@@ -253,7 +254,7 @@ export function BriefView({ task, total }: { task: StudyTask; total: number }) {
           }}
         >
           {pending && <Loader2 className="h-4 w-4 animate-spin" aria-hidden />}
-          Start building the form
+          {task.start_kind ? "Open the form" : "Start building the form"}
           <ArrowRight className="h-4 w-4" aria-hidden />
         </Button>
         {wait > 0 && (

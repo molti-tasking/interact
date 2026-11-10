@@ -86,6 +86,51 @@ export interface StudySettings {
   taskSeconds: number;
   /** Shown on the consent page of a briefs session */
   contact: StudyContact;
+  /**
+   * What the session runs with: recorded by the server when a briefs
+   * session is opened (migration 015 refuses to open one without it), and
+   * part of every export. Never set from the browser.
+   */
+  run: StudyRunSettings | null;
+  /**
+   * Wave 2: every task starts from somebody else's finished form (015).
+   * Null: participants start from nothing (wave 1).
+   */
+  handoff: StudyHandoff | null;
+}
+
+/** How questions are chosen (`PROBE_STRATEGY`). */
+export const QUESTION_STRATEGIES = ["committee", "prompted"] as const;
+export type QuestionStrategy = (typeof QUESTION_STRATEGIES)[number];
+
+export interface StudyRunSettings {
+  /** `LLM_MODEL_NAME` */
+  model: string;
+  /**
+   * `LLM_FAST_MODEL_NAME`: the model for classification-style calls (intent
+   * sync, conflict checks). The same as `model` unless set.
+   */
+  fastModel: string;
+  /** `PROBE_STRATEGY` */
+  questionStrategy: QuestionStrategy;
+  /** `PROBE_COMMITTEE_SIZE` */
+  committeeSize: number;
+  recordedAt: string;
+}
+
+/**
+ * - "portfolio": the form with its intent and decision trail
+ * - "form": the same form, fields only
+ */
+export const START_KINDS = ["portfolio", "form"] as const;
+export type StartKind = (typeof START_KINDS)[number];
+
+export interface StudyHandoff {
+  /** The wave-1 session the forms come from (for the researcher's picker) */
+  sourceSessionId: string | null;
+  /** Per brief of this session: the wave-1 forms tasks start from */
+  sources: Record<string, string[]>;
+  starts: StartKind[];
 }
 
 export const STUDY_MODES = ["workshop", "briefs"] as const;
@@ -102,7 +147,7 @@ export const EMPTY_CONTACT: StudyContact = { name: "", email: "", institution: "
 
 /**
  * - "full": the tool as is
- * - "no-probes": ablation without the design probe deck (no probes, no
+ * - "no-probes": ablation without the elicitation question deck (no probes, no
  *   conflict checks); creating and editing the form works the same
  * - "baseline": no probes and no intent portfolio — one description, one
  *   generated form, then free-text change requests to the same model
@@ -123,6 +168,8 @@ export const DEFAULT_STUDY_SETTINGS: StudySettings = {
   briefs: [],
   taskSeconds: 720,
   contact: EMPTY_CONTACT,
+  run: null,
+  handoff: null,
 };
 
 /** Planned seconds per phase (soft deadline) */
@@ -173,6 +220,8 @@ export interface StudyTask {
   portfolio_id: string | null;
   started_at: string | null;
   finished_at: string | null;
+  /** Wave 2: what the task's form started as; null/absent: from nothing */
+  start_kind?: StartKind | null;
 }
 
 /** `get_my_study_state()`: everything the participant shell needs */
@@ -221,6 +270,90 @@ export function parseSettings(value: unknown): StudySettings {
       institution:
         typeof raw.contact?.institution === "string" ? raw.contact.institution : "",
     },
+    run: parseRunSettings(raw.run),
+    handoff: parseHandoff(raw.handoff),
+  };
+}
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export function parseRunSettings(value: unknown): StudyRunSettings | null {
+  const raw = (value ?? null) as Partial<StudyRunSettings> | null;
+  if (!raw || typeof raw !== "object") return null;
+  const size = Number(raw.committeeSize);
+  if (
+    typeof raw.model !== "string" ||
+    !raw.model.trim() ||
+    !QUESTION_STRATEGIES.includes(raw.questionStrategy as QuestionStrategy) ||
+    !Number.isInteger(size) ||
+    size < 1
+  ) {
+    return null;
+  }
+  return {
+    model: raw.model.trim(),
+    fastModel:
+      typeof raw.fastModel === "string" && raw.fastModel.trim()
+        ? raw.fastModel.trim()
+        : raw.model.trim(),
+    questionStrategy: raw.questionStrategy as QuestionStrategy,
+    committeeSize: size,
+    recordedAt: typeof raw.recordedAt === "string" ? raw.recordedAt : "",
+  };
+}
+
+export function parseHandoff(value: unknown): StudyHandoff | null {
+  const raw = (value ?? null) as Partial<StudyHandoff> | null;
+  if (!raw || typeof raw !== "object" || !raw.sources || typeof raw.sources !== "object") {
+    return null;
+  }
+  const sources: Record<string, string[]> = {};
+  for (const [brief, ids] of Object.entries(raw.sources)) {
+    if (!Array.isArray(ids)) continue;
+    const valid = [...new Set(ids.filter((id): id is string => typeof id === "string" && UUID.test(id)))];
+    if (valid.length) sources[brief] = valid;
+  }
+  const starts = Array.isArray(raw.starts)
+    ? START_KINDS.filter((kind) => raw.starts!.includes(kind))
+    : [];
+  return {
+    sourceSessionId:
+      typeof raw.sourceSessionId === "string" && UUID.test(raw.sourceSessionId)
+        ? raw.sourceSessionId
+        : null,
+    sources,
+    starts: starts.length ? starts : [...START_KINDS],
+  };
+}
+
+/**
+ * The run settings a server would record, from its environment — or what
+ * is missing. All three must be set explicitly: a default that changes with
+ * a deployment is not something a study can report.
+ */
+export function runSettingsFromEnv(
+  env: Record<string, string | undefined>,
+  now: Date = new Date(),
+): { run: StudyRunSettings; missing: [] } | { run: null; missing: string[] } {
+  const model = env.LLM_MODEL_NAME?.trim() ?? "";
+  const strategy = env.PROBE_STRATEGY?.trim() ?? "";
+  const size = env.PROBE_COMMITTEE_SIZE?.trim() ?? "";
+  const missing = [
+    (!model || model === "default") && "LLM_MODEL_NAME",
+    !QUESTION_STRATEGIES.includes(strategy as QuestionStrategy) &&
+      "PROBE_STRATEGY (committee or prompted)",
+    !/^[2-6]$/.test(size) && "PROBE_COMMITTEE_SIZE (2 to 6)",
+  ].filter((name): name is string => !!name);
+  if (missing.length) return { run: null, missing };
+  return {
+    run: {
+      model,
+      fastModel: env.LLM_FAST_MODEL_NAME?.trim() || model,
+      questionStrategy: strategy as QuestionStrategy,
+      committeeSize: Number(size),
+      recordedAt: now.toISOString(),
+    },
+    missing: [],
   };
 }
 

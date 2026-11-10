@@ -116,7 +116,7 @@ const CDN_ITEMS: { name: string; dimension: string; label: string; reverse?: boo
   {
     name: "cdn_role_expressiveness",
     dimension: "Role-expressiveness",
-    label: "I understood why the tool asked each of its design questions.",
+    label: "I understood why the tool asked each of its questions.",
   },
   {
     name: "cdn_error_proneness",
@@ -243,7 +243,7 @@ export const CDN_DIMENSIONS = CDN_ITEMS.map(({ name, dimension, reverse }) => ({
 export const BRIEFS_INSTRUMENT = "briefs-final";
 
 /**
- * Items that read the same in every condition (no "design questions", no
+ * Items that read the same in every condition (no "elicitation questions", no
  * "intent"), so the two arms answer the same questionnaire.
  */
 const EXPERIENCE_ITEMS: { name: string; label: string; reverse?: boolean }[] = [
@@ -315,10 +315,98 @@ const briefsAboutFields = [
   longText("comments", "Anything else you'd like to tell us?"),
 ];
 
+/**
+ * Need for Cognition, six-item version (NCS-6): Lins de Holanda Coelho,
+ * Hanel & Wolf (2020), "The Very Efficient Assessment of Need for
+ * Cognition: Developing a Six-Item Version", Assessment 27(8), 1870–1885.
+ *
+ * Wording, reverse-scored items (R) and item numbers are the paper's
+ * appendix (numbers refer to the 18-item scale); the response format is the
+ * one the paper administered: 1 = extremely uncharacteristic of me,
+ * 5 = extremely characteristic of me. Do not reword: the items are the
+ * instrument. A trait measure, so it is the same in every condition.
+ */
+export const NCS6_ITEMS: { name: string; item: number; label: string; reverse: boolean }[] = [
+  { name: "ncs_1", item: 1, label: "I would prefer complex to simple problems.", reverse: false },
+  {
+    name: "ncs_2",
+    item: 2,
+    label:
+      "I like to have the responsibility of handling a situation that requires a lot of thinking.",
+    reverse: false,
+  },
+  { name: "ncs_3", item: 3, label: "Thinking is not my idea of fun.", reverse: true },
+  {
+    name: "ncs_4",
+    item: 4,
+    label:
+      "I would rather do something that requires little thought than something that is sure to challenge my thinking abilities.",
+    reverse: true,
+  },
+  {
+    name: "ncs_5",
+    item: 11,
+    label: "I really enjoy a task that involves coming up with new solutions to problems.",
+    reverse: false,
+  },
+  {
+    name: "ncs_6",
+    item: 15,
+    label:
+      "I would prefer a task that is intellectual, difficult, and important to one that is somewhat important but does not require much thought.",
+    reverse: false,
+  },
+];
+
+const NCS6_SCALE = {
+  kind: "scale" as const,
+  min: 1,
+  max: 5,
+  labels: {
+    low: "Extremely uncharacteristic of me",
+    high: "Extremely characteristic of me",
+  },
+};
+
+const briefsNcsFields = NCS6_ITEMS.map(
+  ({ name, label }): Field => ({
+    id: name,
+    name,
+    label,
+    type: NCS6_SCALE,
+    required: true,
+    constraints: [],
+    origin: "system",
+    tags: [],
+  }),
+);
+
+/**
+ * NCS-6 score: the mean of the six answers (1–5) with items 3 and 4
+ * reversed, so 1 = low and 5 = high need for cognition. Null if an item is
+ * missing or out of range.
+ */
+export function ncs6Score(answers: Record<string, unknown>): number | null {
+  let sum = 0;
+  for (const { name, reverse } of NCS6_ITEMS) {
+    const raw = answers[name];
+    const value = typeof raw === "number" ? raw : typeof raw === "string" && raw.trim() ? Number(raw) : NaN;
+    if (!Number.isInteger(value) || value < NCS6_SCALE.min || value > NCS6_SCALE.max) return null;
+    sum += reverse ? NCS6_SCALE.min + NCS6_SCALE.max - value : value;
+  }
+  return sum / NCS6_ITEMS.length;
+}
+
 export const BRIEFS_QUESTIONNAIRE: PortfolioSchema = {
   version: 1,
   layout: "paged",
-  fields: [...susFields, ...briefsExperienceFields, ...briefsOpenFields, ...briefsAboutFields],
+  fields: [
+    ...susFields,
+    ...briefsExperienceFields,
+    ...briefsOpenFields,
+    ...briefsNcsFields,
+    ...briefsAboutFields,
+  ],
   groups: [
     section(
       "sus",
@@ -333,6 +421,12 @@ export const BRIEFS_QUESTIONNAIRE: PortfolioSchema = {
       briefsExperienceFields,
     ),
     section("open", "In your own words", "A sentence or two is enough.", briefsOpenFields),
+    section(
+      "ncs",
+      "About how you like to think",
+      "These statements are about you in general, not about the tool. For each one, choose how characteristic it is of you, from 1 (extremely uncharacteristic of me) to 5 (extremely characteristic of me).",
+      briefsNcsFields,
+    ),
     section("about", "About you", "Optional.", briefsAboutFields),
   ],
 };

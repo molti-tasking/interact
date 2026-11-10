@@ -209,6 +209,7 @@ export type Database = {
           prev_intent: Json | null
           prev_schema: Json | null
           rationale: string | null
+          revision: number | null
         }
         Insert: {
           action: string
@@ -223,6 +224,7 @@ export type Database = {
           prev_intent?: Json | null
           prev_schema?: Json | null
           rationale?: string | null
+          revision?: number | null
         }
         Update: {
           action?: string
@@ -237,6 +239,7 @@ export type Database = {
           prev_intent?: Json | null
           prev_schema?: Json | null
           rationale?: string | null
+          revision?: number | null
         }
         Relationships: [
           {
@@ -255,6 +258,7 @@ export type Database = {
           portfolio_id: string
           respondent_id: string | null
           submitted_at: string | null
+          schema_version: number | null
         }
         Insert: {
           data: Json
@@ -262,6 +266,7 @@ export type Database = {
           portfolio_id: string
           respondent_id?: string | null
           submitted_at?: string | null
+          schema_version?: number | null
         }
         Update: {
           data?: Json
@@ -269,6 +274,7 @@ export type Database = {
           portfolio_id?: string
           respondent_id?: string | null
           submitted_at?: string | null
+          schema_version?: number | null
         }
         Relationships: [
           {
@@ -318,6 +324,7 @@ export type Database = {
           participant_id: string
           session_id: string
           task_order: number | null
+          start_kind: string | null
         }
         Insert: {
           condition?: string | null
@@ -329,6 +336,7 @@ export type Database = {
           participant_id: string
           session_id: string
           task_order?: number | null
+          start_kind?: string | null
         }
         Update: {
           condition?: string | null
@@ -340,6 +348,7 @@ export type Database = {
           participant_id?: string
           session_id?: string
           task_order?: number | null
+          start_kind?: string | null
         }
         Relationships: [
           {
@@ -670,6 +679,8 @@ export type Database = {
           position: number
           session_id: string
           started_at: string | null
+          source_portfolio_id: string | null
+          start_kind: string | null
         }
         Insert: {
           brief: string
@@ -681,6 +692,8 @@ export type Database = {
           position: number
           session_id: string
           started_at?: string | null
+          source_portfolio_id?: string | null
+          start_kind?: string | null
         }
         Update: {
           brief?: string
@@ -692,6 +705,8 @@ export type Database = {
           position?: number
           session_id?: string
           started_at?: string | null
+          source_portfolio_id?: string | null
+          start_kind?: string | null
         }
         Relationships: [
           {
@@ -800,6 +815,18 @@ export type Database = {
           participant_id: string
           portfolio_id: string
           title: string
+        }[]
+      }
+      get_study_handoff_candidates: {
+        Args: { p_session_id: string }
+        Returns: {
+          brief: string
+          condition: string
+          decisions: number
+          field_count: number
+          finished_at: string
+          participant: string
+          portfolio_id: string
         }[]
       }
       get_study_progress: {

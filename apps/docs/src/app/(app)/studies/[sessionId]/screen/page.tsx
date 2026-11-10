@@ -94,7 +94,7 @@ function Progress({ session, roster }: { session: StudySession; roster: RosterEn
     case "create":
       done = roster.filter((r) => r.fieldCount > 0).length;
       total = n;
-      text = `${done} of ${n} forms have questions`;
+      text = `${done} of ${n} forms have fields`;
       break;
     case "answer":
       done = roster.reduce((sum, r) => sum + r.responsesGiven, 0);

@@ -15,11 +15,18 @@ import {
 import {
   useAdvanceStudyPhase,
   useCompletionUrl,
+  useOpenBriefsSession,
+  useServerRunSettings,
   useStudyProgress,
   type ProgressEntry,
 } from "@/hooks/query/study";
 import { useNow } from "@/hooks/use-now";
-import { briefOrder, type StudyPhase, type StudySession } from "@/lib/study/types";
+import {
+  briefOrder,
+  type StartKind,
+  type StudyPhase,
+  type StudySession,
+} from "@/lib/study/types";
 import { formatRelativeTime } from "@/lib/provenance-format";
 import { Copy, TriangleAlert } from "lucide-react";
 import { useState } from "react";
@@ -42,6 +49,11 @@ const STATUS: Record<string, { label: string; hint: string }> = {
   },
 };
 
+const START_LABEL: Record<StartKind, string> = {
+  portfolio: "Form with intent and decisions",
+  form: "Form only",
+};
+
 function status(entry: ProgressEntry, now: number): "completed" | "declined" | "active" | "abandoned" {
   if (entry.outcome === "completed") return "completed";
   if (entry.outcome === "declined") return "declined";
@@ -59,6 +71,8 @@ export function BriefsConsole({ session }: { session: StudySession }) {
   const progress = useStudyProgress(session.id);
   const completionUrl = useCompletionUrl(session.id);
   const advance = useAdvanceStudyPhase();
+  const open = useOpenBriefsSession();
+  const server = useServerRunSettings(session.id);
   const now = useNow(10_000);
   const [target, setTarget] = useState<StudyPhase | null>(null);
   // What the dialog asks about: kept while it closes, so its text doesn't change
@@ -75,20 +89,38 @@ export function BriefsConsole({ session }: { session: StudySession }) {
     `${origin}/join?code=${session.join_code}` +
     "&PROLIFIC_PID={{%PROLIFIC_PID%}}&STUDY_ID={{%STUDY_ID%}}&SESSION_ID={{%SESSION_ID%}}";
 
+  // What it ran with once opened; else what the server would record now
+  const run = settings.run ?? server.data?.run ?? null;
+  const missing = settings.run ? [] : (server.data?.missing ?? []);
+  const handoff = settings.handoff;
+  const withoutSources = handoff
+    ? settings.briefs.filter((brief) => !(handoff.sources[brief]?.length))
+    : [];
+
   const problems = [
     settings.briefs.length === 0 && "No situations selected.",
-    settings.conditions.length < 2 && "Fewer than two conditions: everyone gets the same tool.",
+    missing.length > 0 &&
+      `Not set on the server: ${missing.join(", ")}. The study can't be opened until the model, the question strategy and the committee size are set explicitly.`,
+    withoutSources.length > 0 &&
+      `No forms to start from for: ${withoutSources.join(", ")}. Choose them in the settings.`,
+    !handoff &&
+      settings.conditions.length < 2 &&
+      "Fewer than two conditions: everyone gets the same tool.",
     !completionUrl.isLoading && !completionUrl.data && "No completion URL: participants can't confirm their submission on Prolific.",
     !settings.contact.email && "No contact email on the consent page.",
   ].filter((p): p is string => !!p);
 
   const conditions = settings.conditions.length > 0 ? settings.conditions : [null];
   const orders = settings.briefs.map((_, i) => i);
-  const count = (condition: string | null, order: number, what: string) =>
+  // Wave 2: the starting point is a factor too
+  const starts: (StartKind | null)[] = handoff ? handoff.starts : [null];
+  const startOf = (e: ProgressEntry) => e.tasks[0]?.startKind ?? null;
+  const count = (condition: string | null, order: number, start: StartKind | null, what: string) =>
     entries.filter(
       (e) =>
         (e.condition ?? null) === condition &&
         e.taskOrder === order &&
+        startOf(e) === start &&
         status(e, now) === what,
     ).length;
 
@@ -102,8 +134,24 @@ export function BriefsConsole({ session }: { session: StudySession }) {
           </Badge>
         </div>
         <p className="text-sm text-muted-foreground">
-          Self-paced study: {settings.briefs.length} situations, up to{" "}
-          {Math.round(settings.taskSeconds / 60)} minutes each.
+          Self-paced study{handoff ? " (wave 2: participants adapt a finished form)" : ""}:{" "}
+          {settings.briefs.length} situations, up to {Math.round(settings.taskSeconds / 60)}{" "}
+          minutes each.
+        </p>
+        <p className="text-sm text-muted-foreground" data-testid="run-settings">
+          {run ? (
+            <>
+              {settings.run ? "Runs with" : "Will run with"}{" "}
+              <span className="font-medium text-foreground">{run.model}</span>
+              {run.fastModel !== run.model ? ` (and ${run.fastModel} for background checks)` : ""},{" "}
+              {run.questionStrategy === "committee"
+                ? `questions chosen by a committee of ${run.committeeSize} drafts`
+                : "questions asked for directly (prompted)"}
+              {settings.run ? ` — recorded ${formatRelativeTime(settings.run.recordedAt, now)}` : ""}.
+            </>
+          ) : (
+            "Model and question settings: not set on the server."
+          )}
         </p>
       </div>
 
@@ -178,6 +226,7 @@ export function BriefsConsole({ session }: { session: StudySession }) {
             <TableHeader>
               <TableRow>
                 <TableHead>Condition</TableHead>
+                {handoff && <TableHead>Starts from</TableHead>}
                 <TableHead>Order</TableHead>
                 <TableHead className="text-right">Completed</TableHead>
                 <TableHead className="text-right">Working</TableHead>
@@ -187,17 +236,20 @@ export function BriefsConsole({ session }: { session: StudySession }) {
             </TableHeader>
             <TableBody>
               {conditions.flatMap((condition) =>
-                orders.map((order) => (
-                  <TableRow key={`${condition}:${order}`}>
-                    <TableCell className="font-medium">{condition ?? "full"}</TableCell>
-                    <TableCell>{briefOrder(settings.briefs, order).join(" → ")}</TableCell>
-                    {(["completed", "active", "abandoned", "declined"] as const).map((what) => (
-                      <TableCell key={what} className="text-right tabular-nums">
-                        {count(condition, order, what)}
-                      </TableCell>
-                    ))}
-                  </TableRow>
-                )),
+                starts.flatMap((start) =>
+                  orders.map((order) => (
+                    <TableRow key={`${condition}:${start}:${order}`}>
+                      <TableCell className="font-medium">{condition ?? "full"}</TableCell>
+                      {handoff && <TableCell>{START_LABEL[start ?? "form"]}</TableCell>}
+                      <TableCell>{briefOrder(settings.briefs, order).join(" → ")}</TableCell>
+                      {(["completed", "active", "abandoned", "declined"] as const).map((what) => (
+                        <TableCell key={what} className="text-right tabular-nums">
+                          {count(condition, order, start, what)}
+                        </TableCell>
+                      ))}
+                    </TableRow>
+                  )),
+                ),
               )}
             </TableBody>
           </Table>
@@ -224,7 +276,7 @@ export function BriefsConsole({ session }: { session: StudySession }) {
                   <TableHead>Status</TableHead>
                   <TableHead>Step</TableHead>
                   {orders.map((i) => (
-                    <TableHead key={i}>Form {i + 1} (time · questions)</TableHead>
+                    <TableHead key={i}>Form {i + 1} (time · fields)</TableHead>
                   ))}
                   <TableHead>Last seen</TableHead>
                 </TableRow>
@@ -278,7 +330,10 @@ export function BriefsConsole({ session }: { session: StudySession }) {
         onConfirm={async () => {
           if (!target) return;
           try {
-            await advance.mutateAsync({ sessionId: session.id, phase: target });
+            // Opening goes through the server: it records what the study
+            // runs with, and refuses when that isn't set
+            if (target === "create") await open.mutateAsync(session.id);
+            else await advance.mutateAsync({ sessionId: session.id, phase: target });
             setTarget(null);
           } catch (err) {
             toast.error(err instanceof Error ? err.message : "Couldn't change the status");

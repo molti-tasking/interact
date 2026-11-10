@@ -13,13 +13,20 @@
 
 import { createClient } from "@/lib/supabase/client";
 import type { Json, TablesInsert } from "@/lib/supabase/database.types";
-import { useCallback, useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 
-export type StudyLog = (
+export type StudyLog = ((
   type: string,
   payload?: Record<string, unknown>,
   portfolioId?: string | null,
-) => void;
+) => void) & {
+  /**
+   * Send what is buffered now and wait for it (at most `timeoutMs`). For the
+   * moments after which nothing may be sent anymore: before the page leaves
+   * for the panel's completion link.
+   */
+  flush?: (timeoutMs?: number) => Promise<void>;
+};
 
 export const noopStudyLog: StudyLog = () => {};
 
@@ -64,6 +71,8 @@ export function useStudyEventLogger(target: LoggerTarget | null): StudyLog {
   const token = useRef<string | null>(null);
   /** Set while the logger runs: send the buffer shortly */
   const flushSoon = useRef<() => void>(() => {});
+  /** Send the buffer now (also after the logger stopped) */
+  const flushNow = useRef<() => Promise<void>>(async () => {});
 
   useEffect(() => {
     targetRef.current = target;
@@ -120,9 +129,14 @@ export function useStudyEventLogger(target: LoggerTarget | null): StudyLog {
       if (flushTimer || stopped) return;
       flushTimer = setTimeout(() => {
         flushTimer = null;
-        void refreshToken().then(flush);
+        // The insert carries its own session; the token is only kept
+        // fresh for the keepalive request when the page closes. Waiting
+        // for it here held events back, sometimes until it was too late.
+        void flush();
+        void refreshToken();
       }, FLUSH_DELAY_MS);
     };
+    flushNow.current = flush;
 
     const push = (type: string, payload: Record<string, unknown>) => {
       const t = targetRef.current;
@@ -146,7 +160,9 @@ export function useStudyEventLogger(target: LoggerTarget | null): StudyLog {
     return () => {
       stopped = true;
       if (flushTimer) clearTimeout(flushTimer);
-      flushSoon.current = () => {};
+      // An event logged after this (an async handler finishing late) is
+      // still sent: straight away, as there is no timer anymore
+      flushSoon.current = () => void flush();
       clearInterval(heartbeat);
       document.removeEventListener("visibilitychange", onVisibility);
       window.removeEventListener("pagehide", flushOnExit);
@@ -154,10 +170,18 @@ export function useStudyEventLogger(target: LoggerTarget | null): StudyLog {
     };
   }, [enabled]);
 
-  return useCallback<StudyLog>((type, payload = {}, portfolioId) => {
-    const t = targetRef.current;
-    if (!t) return;
-    buffer.current.push(toRow(t, type, payload, portfolioId));
-    flushSoon.current();
+  return useMemo<StudyLog>(() => {
+    const log: StudyLog = (type, payload = {}, portfolioId) => {
+      const t = targetRef.current;
+      if (!t) return;
+      buffer.current.push(toRow(t, type, payload, portfolioId));
+      flushSoon.current();
+    };
+    log.flush = (timeoutMs = 2_000) =>
+      Promise.race([
+        flushNow.current(),
+        new Promise<void>((resolve) => setTimeout(resolve, timeoutMs)),
+      ]);
+    return log;
   }, []);
 }

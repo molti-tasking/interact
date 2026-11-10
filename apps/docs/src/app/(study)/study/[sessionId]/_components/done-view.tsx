@@ -21,7 +21,10 @@ export function DoneView() {
     if (!returnUrl) return;
     const t = setTimeout(() => {
       log("completion_redirect", { automatic: true });
-      window.location.assign(returnUrl);
+      // The log is the study's data: send it before the page is gone
+      void (log.flush?.() ?? Promise.resolve()).finally(() =>
+        window.location.assign(returnUrl),
+      );
     }, RETURN_DELAY_MS);
     return () => clearTimeout(t);
   }, [returnUrl, log]);
@@ -41,7 +44,13 @@ export function DoneView() {
           <Button asChild>
             <a
               href={returnUrl}
-              onClick={() => log("completion_redirect", { automatic: false })}
+              onClick={(e) => {
+                e.preventDefault();
+                log("completion_redirect", { automatic: false });
+                void (log.flush?.() ?? Promise.resolve()).finally(() =>
+                  window.location.assign(returnUrl),
+                );
+              }}
             >
               Return to Prolific now
               <ExternalLink className="h-3.5 w-3.5" aria-hidden />

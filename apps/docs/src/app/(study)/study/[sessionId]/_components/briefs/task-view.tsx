@@ -123,14 +123,16 @@ export function TaskView({ task }: { task: StudyTask }) {
       >
         <p className="text-sm text-muted-foreground">
           <span className="font-medium text-foreground">
-            Build the form the people in the situation need.
+            {task.start_kind
+              ? "Bring this form up to date for the situation. Somebody else built it."
+              : "Build the form the people in the situation need."}
           </span>{" "}
           {started &&
             (chatEdits
-              ? "Write to the tool to change the form, or click a question to edit it."
+              ? "Write to the tool to change the form, or click a field to edit it."
               : designProbes
-                ? "Answer the tool's questions that matter, or click a question to edit it."
-                : "Edit the description, or click a question to edit it.")}
+                ? "Answer the tool's questions that matter, or click a field to edit it."
+                : "Edit the description, or click a field to edit it.")}
         </p>
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" onClick={() => toggleBrief(true)} data-testid="show-brief">

@@ -144,7 +144,7 @@ function warningsFor(target: StudyPhase, roster: RosterEntry[]): string[] {
     const empty = roster.filter((r) => r.fieldCount === 0);
     if (empty.length > 0) {
       warnings.push(
-        `${empty.map((r) => r.displayName).join(", ")} ${empty.length === 1 ? "has" : "have"} no questions in their form yet.`,
+        `${empty.map((r) => r.displayName).join(", ")} ${empty.length === 1 ? "has" : "have"} no fields in their form yet.`,
       );
     }
   }

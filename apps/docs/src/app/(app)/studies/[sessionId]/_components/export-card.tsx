@@ -14,7 +14,13 @@ import {
   codingFormsMarkdown,
   codingKeyCsv,
   codingRequirementsCsv,
+  formDiversityCsv,
+  formDiversityPairsCsv,
   participantsCsv,
+  questionAnswersCsv,
+  sessionRun,
+  withRunColumns,
+  withRunLine,
 } from "@/lib/study/coding";
 import type { BriefDefinition } from "@/lib/study/briefs.server";
 import type { StudySession } from "@/lib/study/types";
@@ -65,7 +71,7 @@ const RATER_FILES: ExportFile[] = [
   },
   {
     key: "coding-fields",
-    label: "Question sheet (CSV)",
+    label: "Field sheet (CSV)",
     file: (code, day) => `study-${code}-${day}-coding-fields.csv`,
     build: (data) => codingFieldsCsv(data),
     type: "text/csv",
@@ -88,6 +94,27 @@ const ANALYST_FILES: ExportFile[] = [
     build: (data) => participantsCsv(data),
     type: "text/csv",
   },
+  {
+    key: "question-answers",
+    label: "Answered elicitation questions (CSV)",
+    file: (code, day) => `study-${code}-${day}-question-answers.csv`,
+    build: (data) => questionAnswersCsv(data),
+    type: "text/csv",
+  },
+  {
+    key: "form-diversity",
+    label: "Form diversity per situation and condition (CSV)",
+    file: (code, day) => `study-${code}-${day}-form-diversity.csv`,
+    build: (data) => formDiversityCsv(data),
+    type: "text/csv",
+  },
+  {
+    key: "form-diversity-pairs",
+    label: "Form diversity, every pair (CSV)",
+    file: (code, day) => `study-${code}-${day}-form-diversity-pairs.csv`,
+    build: (data) => formDiversityPairsCsv(data),
+    type: "text/csv",
+  },
 ];
 
 const FILES: ExportFile[] = [
@@ -95,7 +122,8 @@ const FILES: ExportFile[] = [
     key: "json",
     label: "Everything (JSON)",
     file: (code, day) => `study-${code}-${day}.json`,
-    build: (data) => JSON.stringify(data, null, 2),
+    // `run` first: what the session ran with (also in session.settings.run)
+    build: (data) => JSON.stringify({ run: sessionRun(data), ...data }, null, 2),
     type: "application/json",
   },
   {
@@ -141,7 +169,14 @@ export function ExportCard({ session }: { session: StudySession }) {
         briefsMode ? fetchBriefs() : Promise.resolve({}),
       ]);
       const day = data.exportedAt.slice(0, 10);
-      download(entry.file(session.join_code, day), entry.build(data, briefs), entry.type);
+      let content = entry.build(data, briefs);
+      // Every file of a briefs session says what the session ran with
+      if (briefsMode) {
+        const run = sessionRun(data);
+        if (entry.type === "text/csv") content = withRunColumns(content, run);
+        if (entry.type === "text/markdown") content = withRunLine(content, run);
+      }
+      download(entry.file(session.join_code, day), content, entry.type);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Export failed");
     }
@@ -152,8 +187,8 @@ export function ExportCard({ session }: { session: StudySession }) {
       <h2 className="text-lg font-medium">Export</h2>
       <p className="text-sm text-muted-foreground">
         {briefsMode
-          ? "Everything recorded: forms (final and when each task ended), design history, probes, the interaction log, questionnaires and Prolific ids. The JSON file contains the ids — treat it as personal data."
-          : "Forms (final and at each phase boundary), answers with who gave them, design history, probes, the interaction log and questionnaires. Facilitator test answers carry your account id — filter them out."}
+          ? "Everything recorded: forms (final and when each task ended), design history, elicitation questions, the interaction log, questionnaires and Prolific ids. The JSON file contains the ids — treat it as personal data."
+          : "Forms (final and at each phase boundary), answers with who gave them, design history, elicitation questions, the interaction log and questionnaires. Facilitator test answers carry your account id — filter them out."}
       </p>
       <FileButtons
         files={briefsMode ? FILES.filter((f) => f.key === "json" || f.key === "events") : FILES}
@@ -172,6 +207,8 @@ export function ExportCard({ session }: { session: StudySession }) {
           <h3 className="pt-2 text-sm font-medium">For the analysis</h3>
           <p className="text-sm text-muted-foreground">
             The key unblinds the form codes — keep it away from the raters.
+            Every file carries the model, the question strategy and the
+            committee size the session ran with.
           </p>
           <FileButtons files={ANALYST_FILES} pending={exportSession.isPending} onPick={handle} />
         </>

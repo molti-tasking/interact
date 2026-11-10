@@ -97,6 +97,7 @@ export function rowToResponse(row: ResponseRow): FormResponse {
     portfolioId: row.portfolio_id,
     data: row.data as unknown as Record<string, unknown>,
     submittedAt: row.submitted_at ?? new Date().toISOString(),
+    schemaVersion: row.schema_version ?? null,
   };
 }
 

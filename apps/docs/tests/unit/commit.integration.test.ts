@@ -1,11 +1,13 @@
 /**
  * Integration test for optimistic-concurrency commits against the local
  * Supabase stack (`npx supabase start` + migrations ≥ 007). Skipped when the
- * local API isn't reachable.
+ * local API isn't reachable or isn't this project's (tests/README.md, "An
+ * isolated stack").
  */
 import fs from "node:fs";
 import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { sql } from "../db";
 
 function loadEnvLocal() {
   const file = path.resolve(__dirname, "../../.env.local");
@@ -20,13 +22,17 @@ loadEnvLocal();
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
 const isLocal = /127\.0\.0\.1|localhost/.test(url);
 
+/**
+ * Reachable, and this project's schema: Supabase's default ports may be
+ * held by another project's stack, which these tests must leave alone.
+ */
 async function reachable(): Promise<boolean> {
   if (!isLocal) return false;
   try {
-    const res = await fetch(`${url}/rest/v1/`, {
+    const res = await fetch(`${url}/rest/v1/design_probes?limit=0`, {
       headers: { apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "" },
     });
-    return res.ok;
+    return res.status !== 404;
   } catch {
     return false;
   }
@@ -36,9 +42,23 @@ const available = await reachable();
 
 describe.runIf(available)("commitPortfolioChange (local Supabase)", () => {
   let portfolioId: string;
+  let adminId: string;
 
   beforeAll(async () => {
     const { createClient } = await import("@/lib/supabase/client");
+    // The workspace is for signed-in admins since migration 010: sign in as
+    // one (the browser client keeps the session for the calls below)
+    const email = `commit-admin-${Date.now().toString(36)}@test.local`;
+    const password = "commit-admin-password";
+    const signUp = await createClient().auth.signUp({ email, password });
+    if (signUp.error) throw signUp.error;
+    adminId = signUp.data.user!.id;
+    await sql("INSERT INTO app_admins (user_id) VALUES ($1)", [adminId]);
+    if (!signUp.data.session) {
+      const signIn = await createClient().auth.signInWithPassword({ email, password });
+      if (signIn.error) throw signIn.error;
+    }
+
     const { data, error } = await createClient()
       .from("portfolios")
       .insert({
@@ -61,6 +81,7 @@ describe.runIf(available)("commitPortfolioChange (local Supabase)", () => {
     if (!portfolioId) return;
     const { createClient } = await import("@/lib/supabase/client");
     await createClient().from("portfolios").delete().eq("id", portfolioId);
+    await sql("DELETE FROM auth.users WHERE id = $1", [adminId]);
   });
 
   it("lands concurrent changes from the same snapshot without losing either", async () => {
@@ -81,11 +102,13 @@ describe.runIf(available)("commitPortfolioChange (local Supabase)", () => {
     const results = await Promise.all(
       ["first", "second", "third"].map((name) =>
         commitPortfolioChange(portfolioId, (current) => ({
+          trigger: "field-edit",
           schema: addField(current.schema, mk(name)),
           provenance: {
             layer: "configuration",
             action: "test_add",
             actor: "test",
+            rationale: `Added ${name}`,
           },
         })),
       ),
@@ -121,10 +144,12 @@ describe.runIf(available)("commitPortfolioChange (local Supabase)", () => {
       "@/lib/engine/commit"
     );
     const first = await commitPortfolioChange(portfolioId, (c) => ({
+      trigger: "field-edit",
       title: "renamed once",
       schema: { ...c.schema, version: c.schema.version + 1 },
     }));
     await commitPortfolioChange(portfolioId, (c) => ({
+      trigger: "field-edit",
       schema: { ...c.schema, version: c.schema.version + 1 },
     }));
     expect(await revertCommit(first!, "test", "rename")).toBeNull();

@@ -18,6 +18,8 @@ import {
   type PhaseDurations,
   type StudyPhase,
   type StudySession,
+  type StartKind,
+  type StudyRunSettings,
   type StudySettings,
 } from "@/lib/study/types";
 import { emptyPortfolioSchema, emptyStructuredIntent } from "@/lib/types";
@@ -481,7 +483,19 @@ export function useUpdateStudySession() {
     }): Promise<StudySession> => {
       const update: { name?: string; settings?: Json; phase_durations?: Json } = {};
       if (input.name !== undefined) update.name = input.name;
-      if (input.settings) update.settings = input.settings as unknown as Json;
+      if (input.settings) {
+        // What the session runs with is the server's record (written when
+        // the study is opened): a settings form that was loaded earlier
+        // must not overwrite it
+        const { data: current, error: readError } = await createClient()
+          .from("study_sessions")
+          .select("settings")
+          .eq("id", input.id)
+          .single();
+        if (readError) throw asError(readError);
+        const run = (current.settings as { run?: Json } | null)?.run ?? null;
+        update.settings = { ...input.settings, run } as unknown as Json;
+      }
       if (input.phaseDurations) {
         update.phase_durations = input.phaseDurations as unknown as Json;
       }
@@ -521,6 +535,85 @@ export function useAdvanceStudyPhase() {
       queryClient.invalidateQueries({ queryKey: sessionsKey });
       queryClient.invalidateQueries({ queryKey: rosterKey(session.id) });
     },
+  });
+}
+
+type ServerRunSettings =
+  | { run: StudyRunSettings; missing: [] }
+  | { run: null; missing: string[] };
+
+/**
+ * What a briefs session would run with (model, question strategy, committee
+ * size), from the server's environment — or which of them are not set.
+ */
+export function useServerRunSettings(sessionId: string, enabled = true) {
+  return useQuery({
+    queryKey: [...sessionKey(sessionId), "run-settings"],
+    queryFn: async (): Promise<ServerRunSettings> => {
+      const res = await fetch(`/api/study/sessions/${sessionId}/open`);
+      if (!res.ok) throw new Error("Couldn't read the server's settings");
+      return (await res.json()) as ServerRunSettings;
+    },
+    enabled,
+    staleTime: 30_000,
+  });
+}
+
+/**
+ * Open a briefs session. The server records what it runs with first and
+ * refuses when that isn't set explicitly (see /api/study/sessions/[id]/open).
+ */
+export function useOpenBriefsSession() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (sessionId: string): Promise<StudySession> => {
+      const res = await fetch(`/api/study/sessions/${sessionId}/open`, { method: "POST" });
+      const body = (await res.json().catch(() => ({}))) as {
+        session?: Parameters<typeof rowToSession>[0];
+        error?: string;
+      };
+      if (!res.ok || !body.session) {
+        throw new Error(body.error ?? "Couldn't open the study");
+      }
+      return rowToSession(body.session);
+    },
+    onSuccess: (session) => {
+      queryClient.setQueryData(sessionKey(session.id), session);
+      queryClient.invalidateQueries({ queryKey: sessionsKey });
+    },
+  });
+}
+
+export interface HandoffCandidate {
+  portfolioId: string;
+  participant: string;
+  condition: string | null;
+  brief: string;
+  fieldCount: number;
+  decisions: number;
+  finishedAt: string;
+}
+
+/** Finished forms of a briefs session: what a wave-2 session can start from. */
+export function useHandoffCandidates(sessionId: string | null | undefined) {
+  return useQuery({
+    queryKey: [...sessionKey(sessionId ?? ""), "handoff-candidates"],
+    queryFn: async (): Promise<HandoffCandidate[]> => {
+      const { data, error } = await createClient().rpc("get_study_handoff_candidates", {
+        p_session_id: sessionId!,
+      });
+      if (error) throw asError(error);
+      return (data ?? []).map((row) => ({
+        portfolioId: row.portfolio_id,
+        participant: row.participant,
+        condition: row.condition,
+        brief: row.brief,
+        fieldCount: row.field_count,
+        decisions: row.decisions,
+        finishedAt: row.finished_at,
+      }));
+    },
+    enabled: !!sessionId,
   });
 }
 
@@ -596,6 +689,9 @@ export interface ProgressTask {
   finishedAt: string | null;
   finishedBy: string | null;
   fieldCount: number;
+  /** Wave 2: what the task's form started as, and from which form */
+  startKind: StartKind | null;
+  sourcePortfolioId: string | null;
 }
 
 export interface ProgressEntry {
@@ -639,6 +735,8 @@ export function useStudyProgress(sessionId: string | undefined, enabled = true) 
             finished_at: string | null;
             finished_by: string | null;
             field_count: number | null;
+            start_kind?: StartKind | null;
+            source_portfolio_id?: string | null;
           }[]
         ).map((t) => ({
           position: t.position,
@@ -648,6 +746,8 @@ export function useStudyProgress(sessionId: string | undefined, enabled = true) 
           finishedAt: t.finished_at,
           finishedBy: t.finished_by,
           fieldCount: t.field_count ?? 0,
+          startKind: t.start_kind ?? null,
+          sourcePortfolioId: t.source_portfolio_id ?? null,
         })),
       }));
     },

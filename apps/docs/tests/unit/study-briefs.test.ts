@@ -2,7 +2,7 @@ import fs from "fs";
 import path from "path";
 import { describe, expect, it } from "vitest";
 import type { StudyExport } from "@/hooks/query/study";
-import { BRIEFS, BRIEF_KEYS } from "@/lib/study/briefs";
+import { BRIEFS, BRIEF_KEYS, VARIANT_BRIEF_KEYS } from "@/lib/study/briefs";
 import { BRIEF_DEFINITIONS } from "@/lib/study/briefs.server";
 import {
   codedForms,
@@ -76,8 +76,10 @@ describe("briefs session settings and steps", () => {
 
 describe("briefs", () => {
   it("has a story and requirements for every brief a session can use", () => {
-    expect(Object.keys(BRIEF_DEFINITIONS).sort()).toEqual([...BRIEF_KEYS].sort());
-    for (const key of BRIEF_KEYS) {
+    // Wave 1 and the wave-2 variants
+    const keys = [...BRIEF_KEYS, ...VARIANT_BRIEF_KEYS];
+    expect(Object.keys(BRIEF_DEFINITIONS).sort()).toEqual([...keys].sort());
+    for (const key of keys) {
       const brief = BRIEF_DEFINITIONS[key];
       expect(brief.story.length).toBeGreaterThan(0);
       expect(brief.requirements.length).toBeGreaterThanOrEqual(8);

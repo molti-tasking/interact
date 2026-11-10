@@ -18,6 +18,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { Database, Json } from "@/lib/supabase/database.types";
 import { briefSteps, type MyStudyState } from "@/lib/study/types";
 import { emptyPortfolioSchema, emptyStructuredIntent } from "@/lib/types";
+import { TEST_DB_URL } from "../db";
 
 function loadEnvLocal() {
   const file = path.resolve(__dirname, "../../.env.local");
@@ -32,9 +33,7 @@ loadEnvLocal();
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
 const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "";
 const isLocal = /127\.0\.0\.1|localhost/.test(url);
-const DB_URL =
-  process.env.SUPABASE_TEST_DB_URL ??
-  "postgresql://postgres:postgres@127.0.0.1:54322/postgres";
+const DB_URL = TEST_DB_URL;
 
 /** Reachable, and the schema has this migration's tables. */
 async function reachable(): Promise<boolean> {
@@ -195,7 +194,44 @@ describe.runIf(available)("briefs sessions (local Supabase)", () => {
 
   it("lets nobody in before the study is open", async () => {
     await expect(join()).rejects.toMatchObject({ message: expect.stringMatching(/not open/) });
+  });
+
+  // Migration 015: what the study runs with has to be on record first
+  it("can't be opened before the model, strategy and committee size are recorded", async () => {
+    await expect(setPhase("create")).rejects.toMatchObject({
+      message: expect.stringMatching(/cannot be opened/),
+    });
+    const settings = {
+      mode: "briefs",
+      briefs: ["camp", "foster"],
+      conditions: ["full", "baseline"],
+      taskSeconds: 720,
+    };
+    for (const run of [
+      { model: "test-model", questionStrategy: "committee" },
+      { model: "", questionStrategy: "committee", committeeSize: 4 },
+      { model: "test-model", questionStrategy: "clever", committeeSize: 4 },
+    ]) {
+      await admin.from("study_sessions").update({ settings: { ...settings, run } }).eq("id", sessionId);
+      await expect(setPhase("create")).rejects.toMatchObject({
+        message: expect.stringMatching(/cannot be opened/),
+      });
+    }
+    const { error } = await admin
+      .from("study_sessions")
+      .update({
+        settings: {
+          ...settings,
+          run: { model: "test-model", questionStrategy: "committee", committeeSize: 4 },
+        },
+      })
+      .eq("id", sessionId);
+    expect(error).toBeNull();
     await setPhase("create");
+    // A participant never sees what the study runs with
+    const seat = await join();
+    expect((await state(seat)).session.settings).not.toHaveProperty("run");
+    await sql("DELETE FROM study_participants WHERE id = $1", [seat.participantId]);
   });
 
   it("fills condition × order evenly", async () => {
@@ -307,9 +343,22 @@ describe.runIf(available)("briefs sessions (local Supabase)", () => {
   });
 
   it("refills the cell of an abandoned seat", async () => {
-    // Level the cells first, so the next join would start a new round
+    // Level the cells first, so the next join would start a new round —
+    // counting seats the way the assignment does (finished or still active;
+    // a declined seat doesn't count)
+    const counting = () =>
+      sql<{ n: string }>(
+        `SELECT count(*) AS n FROM study_assignments a
+         JOIN study_participants sp ON sp.id = a.participant_id
+         LEFT JOIN study_progress pr ON pr.participant_id = a.participant_id
+         WHERE a.session_id = $1
+           AND (pr.outcome = 'completed'
+                OR (pr.completed_at IS NULL AND sp.last_seen_at > now() - interval '15 minutes'))
+         GROUP BY a.condition, a.task_order`,
+        [sessionId],
+      );
     for (let guard = 0; guard < 8; guard++) {
-      const counts = (await cells()).map((c) => Number(c.n));
+      const counts = (await counting()).map((c) => Number(c.n));
       if (counts.length === 4 && new Set(counts).size === 1) break;
       await join();
     }

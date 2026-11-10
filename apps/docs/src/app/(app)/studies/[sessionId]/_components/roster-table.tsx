@@ -61,8 +61,8 @@ export function RosterTable({
               <TableHead>Name</TableHead>
               <TableHead>Last seen</TableHead>
               <TableHead>Form</TableHead>
-              <TableHead className="text-right">Questions</TableHead>
-              <TableHead className="text-right">Probes answered</TableHead>
+              <TableHead className="text-right">Fields</TableHead>
+              <TableHead className="text-right">Questions answered</TableHead>
               <TableHead className="text-right">Answered</TableHead>
               <TableHead className="text-right">Received</TableHead>
               <TableHead>Questionnaire</TableHead>
@@ -186,7 +186,7 @@ function FormMonitorDialog({
         ) : data && data.schema.fields.length > 0 ? (
           <FormRenderer schema={data.schema} mode="preview" />
         ) : (
-          <p className="text-sm text-muted-foreground">No questions yet.</p>
+          <p className="text-sm text-muted-foreground">No fields yet.</p>
         )}
       </DialogContent>
     </Dialog>

@@ -3,7 +3,8 @@
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { BRIEF_KEYS } from "@/lib/study/briefs";
+import { BRIEF_KEYS, VARIANT_BRIEF_KEYS } from "@/lib/study/briefs";
+import { HandoffSettings } from "./handoff-settings";
 import {
   PHASE_COPY,
   STUDY_CONDITIONS,
@@ -14,13 +15,13 @@ import {
 
 const CONDITION_COPY: Record<StudyCondition, string> = {
   full: "Full tool",
-  "no-probes": "Without design probes (ablation)",
+  "no-probes": "Without elicitation questions (ablation)",
   baseline: "Baseline: one generated form, then free-text change requests",
 };
 
 const TIMED_PHASES = ["create", "answer", "review", "questionnaire"] as const;
 
-/** Planned minutes per phase + voice + threshold for probes from answers. */
+/** Planned minutes per phase + voice + threshold for questions from answers. */
 export function SessionSettingsFields({
   durations,
   onDurationsChange,
@@ -65,12 +66,20 @@ export function SessionSettingsFields({
   if (settings.mode === "briefs") {
     const setContact = (key: keyof StudySettings["contact"], value: string) =>
       onSettingsChange({ ...settings, contact: { ...settings.contact, [key]: value } });
+    // Wave 2 adapts finished forms to the variant situations
+    const briefKeys = settings.handoff ? VARIANT_BRIEF_KEYS : BRIEF_KEYS;
     return (
       <div className="space-y-5">
+        <HandoffSettings
+          settings={settings}
+          onSettingsChange={onSettingsChange}
+          disabled={disabled}
+        />
+
         <fieldset className="space-y-2">
           <legend className="text-sm font-medium">Situations</legend>
           <div className="space-y-1.5">
-            {BRIEF_KEYS.map((key) => (
+            {briefKeys.map((key) => (
               <div key={key} className="flex items-center gap-2">
                 <Checkbox
                   id={`brief-${key}`}
@@ -80,7 +89,7 @@ export function SessionSettingsFields({
                       ...settings,
                       briefs:
                         checked === true
-                          ? BRIEF_KEYS.filter((k) => k === key || settings.briefs.includes(k))
+                          ? briefKeys.filter((k) => k === key || settings.briefs.includes(k))
                           : settings.briefs.filter((k) => k !== key),
                     })
                   }
@@ -93,7 +102,7 @@ export function SessionSettingsFields({
             ))}
           </div>
           <p className="text-xs text-muted-foreground">
-            Every participant builds one form per situation; the order is
+            Every participant works on one form per situation; the order is
             counterbalanced. Don&apos;t change this once people have started.
           </p>
         </fieldset>
@@ -210,7 +219,7 @@ export function SessionSettingsFields({
       </div>
 
       <div className="space-y-1">
-        <Label htmlFor="findings-min">Design questions from answers after</Label>
+        <Label htmlFor="findings-min">Elicitation questions from answers after</Label>
         <div className="flex items-center gap-2">
           <Input
             id="findings-min"
@@ -230,8 +239,8 @@ export function SessionSettingsFields({
           <span className="text-sm text-muted-foreground">answers per form</span>
         </div>
         <p className="text-xs text-muted-foreground">
-          In Refine, patterns in the answers (an option nobody picks, a question
-          everyone answers the same way) become design questions. The app default is 20.
+          In Refine, patterns in the answers (an option nobody picks, a field
+          everyone answers the same way) become elicitation questions. The app default is 20.
         </p>
       </div>
 

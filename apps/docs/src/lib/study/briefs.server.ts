@@ -21,6 +21,12 @@ export interface BriefRequirement {
    * "uncued": the story doesn't hint at it; it takes knowledge of such forms.
    */
   kind: "cued" | "uncued";
+  /**
+   * Variant briefs only — what the taken-over form needs: "add" something
+   * new, "remove" something that no longer applies, or "keep" something
+   * that must survive the changes. Absent: a wave-1 requirement.
+   */
+  change?: "add" | "remove" | "keep";
 }
 
 export interface BriefDefinition {
@@ -30,6 +36,8 @@ export interface BriefDefinition {
   /** Paragraphs of the story */
   story: string[];
   requirements: BriefRequirement[];
+  /** Wave 2: the wave-1 brief whose form the participant takes over */
+  variantOf?: string;
 }
 
 export const BRIEF_DEFINITIONS: Record<string, BriefDefinition> = {
@@ -81,6 +89,58 @@ export const BRIEF_DEFINITIONS: Record<string, BriefDefinition> = {
       { id: "foster-10", text: "Whether they can get the cat to the vet (transport)", kind: "cued" },
       { id: "foster-11", text: "Their experience with cats", kind: "uncued" },
       { id: "foster-12", text: "When a volunteer can visit the home", kind: "cued" },
+    ],
+  },
+
+  // -------------------------------------------------------------------------
+  // Wave 2 (handoff). DRAFT (2026-11-10), like the two above: written with
+  // the tool's developers. The participant takes over a form somebody else
+  // built for the wave-1 brief and adapts it to what changed. A requirement
+  // is met when the final form does what its text says — for "remove", when
+  // the form no longer asks for it (also if the taken-over form never did).
+  // -------------------------------------------------------------------------
+  "camp-2": {
+    key: "camp-2",
+    variantOf: "camp",
+    version: "draft-1",
+    title: "Holiday football week, a year on",
+    story: [
+      "Last summer a volunteer at Riverside Football Club set up the online sign-up form for the club's holiday football week. She has since moved away, and this year the form is yours. You did not build it.",
+      "A few things are different this year. The week now runs at two grounds, Riverside and Mill Road, and parents choose one of them. A bus leaves the town centre every morning for children who need it. On Wednesday afternoon everyone goes to the swimming pool, and the coaches want to know beforehand which children cannot swim.",
+      "There are no camp T-shirts this year; every child gets a water bottle instead. And because several families complained about the price, a second child from the same family now pays half.",
+      "The club chair has asked you to bring last year's form up to date, without losing what the coaches relied on last year.",
+    ],
+    requirements: [
+      { id: "camp2-01", text: "Which ground the child attends (Riverside or Mill Road)", kind: "cued", change: "add" },
+      { id: "camp2-02", text: "Whether the child needs the bus from the town centre", kind: "cued", change: "add" },
+      { id: "camp2-03", text: "Whether the child can swim", kind: "cued", change: "add" },
+      { id: "camp2-04", text: "Whether a brother or sister is also signed up (for the half price)", kind: "cued", change: "add" },
+      { id: "camp2-05", text: "The form no longer asks for a T-shirt size", kind: "cued", change: "remove" },
+      { id: "camp2-06", text: "Permission for the child to take part in the swimming afternoon", kind: "uncued", change: "add" },
+      { id: "camp2-07", text: "The form still asks for allergies or dietary requirements", kind: "uncued", change: "keep" },
+      { id: "camp2-08", text: "The form still asks for a phone number or person to reach in an emergency", kind: "uncued", change: "keep" },
+    ],
+  },
+  "foster-2": {
+    key: "foster-2",
+    variantOf: "foster",
+    version: "draft-1",
+    title: "Foster homes, a year on",
+    story: [
+      "Last year a volunteer at Willow Lane set up the online application form for people who want to foster a cat. He no longer has the time, and the form is now yours. You did not build it.",
+      "The shelter has changed since then. It has started taking in rabbits, and it needs foster homes for them too; a rabbit needs room for a hutch, indoors or in a garden. One rabbit came back after a week because a child in the family turned out to be allergic to hay.",
+      "The shelter now owns a van and collects animals for the vet itself. Volunteers no longer visit every home: they hold a short video call with the applicant instead.",
+      "The shelter manager has asked you to bring the application form up to date, without losing what the volunteers relied on to match animals and homes.",
+    ],
+    requirements: [
+      { id: "foster2-01", text: "Which animals the applicant would foster (cats, rabbits or both)", kind: "cued", change: "add" },
+      { id: "foster2-02", text: "Whether there is room for a rabbit hutch (indoors or a garden)", kind: "cued", change: "add" },
+      { id: "foster2-03", text: "Allergies in the household (animals, hay)", kind: "cued", change: "add" },
+      { id: "foster2-04", text: "When a video call with the applicant can take place", kind: "cued", change: "add" },
+      { id: "foster2-05", text: "The form no longer asks when a volunteer can visit the home", kind: "cued", change: "remove" },
+      { id: "foster2-06", text: "The form no longer asks whether the applicant can get the animal to the vet", kind: "cued", change: "remove" },
+      { id: "foster2-07", text: "The form still asks about other animals in the household", kind: "uncued", change: "keep" },
+      { id: "foster2-08", text: "The form still asks whether a landlord allows pets", kind: "uncued", change: "keep" },
     ],
   },
 };

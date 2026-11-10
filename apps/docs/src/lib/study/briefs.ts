@@ -15,6 +15,11 @@ export interface BriefMeta {
    * questions in "Does your form ask for this?".
    */
   foils: string[];
+  /**
+   * Wave 2: this brief continues another one — the participant takes over
+   * a form built for that one and adapts it.
+   */
+  variantOf?: string;
 }
 
 export const BRIEFS: Record<string, BriefMeta> = {
@@ -42,7 +47,24 @@ export const BRIEFS: Record<string, BriefMeta> = {
   },
 };
 
-export const BRIEF_KEYS = Object.keys(BRIEFS);
+// Wave 2 (handoff): the same organisations a year on
+BRIEFS["camp-2"] = {
+  key: "camp-2",
+  label: "the football club",
+  foils: BRIEFS.camp.foils,
+  variantOf: "camp",
+};
+BRIEFS["foster-2"] = {
+  key: "foster-2",
+  label: "the animal rescue",
+  foils: BRIEFS.foster.foils,
+  variantOf: "foster",
+};
+
+/** Briefs a participant starts from nothing (wave 1) */
+export const BRIEF_KEYS = Object.keys(BRIEFS).filter((key) => !BRIEFS[key].variantOf);
+/** Briefs that continue a wave-1 brief (wave 2) */
+export const VARIANT_BRIEF_KEYS = Object.keys(BRIEFS).filter((key) => !!BRIEFS[key].variantOf);
 
 export function briefImageUrl(key: string): string {
   return `/api/study/brief/${encodeURIComponent(key)}`;

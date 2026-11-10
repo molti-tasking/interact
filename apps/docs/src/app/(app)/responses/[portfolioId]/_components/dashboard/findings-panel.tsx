@@ -16,9 +16,14 @@ import {
   type Finding,
 } from "interact/forms/findings";
 import { buildFieldStats, type FieldStats } from "interact/forms/response-stats";
+import {
+  fieldChangesAfterResponses,
+  type FieldChange,
+} from "interact/forms/response-versions";
+import { useProvenance } from "@/hooks/query/provenance";
 import type { ResponseRowLike } from "interact/forms/response-rows";
 import type { Portfolio } from "@/lib/types";
-import { Lightbulb, Loader2, Sparkles } from "lucide-react";
+import { History, Lightbulb, Loader2, Sparkles } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -52,11 +57,101 @@ function fixFor(finding: Finding, stats: ReadonlyMap<string, FieldStats>): Recod
   return null;
 }
 
+const CHANGE_LABEL: Record<FieldChange["kind"], string> = {
+  wording: "Wording changed",
+  type: "Answer type changed",
+  options: "Options changed",
+};
+
+/**
+ * Fields whose wording, type or options changed after answers to them had
+ * been collected: those answers were given to a different question, so the
+ * counts below mix two things. Every response carries the form version it
+ * answered; the history says which version a change produced.
+ */
+function ChangedAfterResponses({
+  portfolio,
+  rows,
+}: {
+  portfolio: Portfolio;
+  rows: readonly ResponseRowLike[];
+}) {
+  const { data: history } = useProvenance(portfolio.id);
+  const notices = useMemo(
+    () =>
+      fieldChangesAfterResponses(
+        portfolio.schema,
+        (history ?? []).map((entry) => ({
+          revision: entry.revision,
+          createdAt: entry.created_at,
+          diff: entry.diff,
+        })),
+        // This form's own responses (a derived form also lists its base's)
+        rows
+          .filter((row) => row.portfolioId === portfolio.id)
+          .map((row) => ({
+            schemaVersion: row.schemaVersion ?? null,
+            submittedAt: row.submittedAt,
+            data: "rawData" in row ? row.rawData : row.data,
+          })),
+      ),
+    [portfolio.schema, portfolio.id, history, rows],
+  );
+  if (notices.length === 0) return null;
+
+  return (
+    <section
+      data-testid="changed-after-responses"
+      aria-labelledby="changed-heading"
+      className="rounded-xl border border-amber-500/40 bg-amber-500/5 p-4"
+    >
+      <h3 id="changed-heading" className="flex items-center gap-1.5 text-sm font-medium">
+        <History className="h-4 w-4 text-amber-600" aria-hidden />
+        Changed after answers were collected
+      </h3>
+      <p className="mt-1 text-xs text-muted-foreground">
+        These fields were changed while answers already existed. The earlier
+        answers were given to the earlier version; counts for these fields
+        mix both.
+      </p>
+      <ul className="mt-2 divide-y">
+        {notices.map((notice) => (
+          <li key={notice.fieldId} className="py-2 text-sm" data-testid="changed-field">
+            <p className="font-medium">{notice.label}</p>
+            {notice.changes.map((change, i) => (
+              <p key={i} className="text-xs text-muted-foreground">
+                {CHANGE_LABEL[change.kind]} from “{change.before}” to “{change.after}” —{" "}
+                {change.answersBefore} of {notice.answers}{" "}
+                {notice.answers === 1 ? "answer was" : "answers were"} given before.
+              </p>
+            ))}
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
 /**
  * What the responses suggest about the form — each finding can fix the data
- * or become a design probe in the Design workspace.
+ * or become an elicitation question in the Design workspace. Above it: the
+ * fields that changed after answers were collected.
  */
-export function FindingsPanel({
+export function FindingsPanel(props: {
+  portfolio: Portfolio;
+  rows: readonly ResponseRowLike[];
+  /** Omitted: no "Fix data" (recoding isn't offered) */
+  onFixData?: (target: RecodeTarget) => void;
+}) {
+  return (
+    <div className="space-y-3">
+      <ChangedAfterResponses portfolio={props.portfolio} rows={props.rows} />
+      <FindingsList {...props} />
+    </div>
+  );
+}
+
+function FindingsList({
   portfolio,
   rows,
   onFixData,
