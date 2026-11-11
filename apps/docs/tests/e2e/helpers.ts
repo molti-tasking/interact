@@ -30,6 +30,7 @@ export async function createPortfolio(
   title: string,
 ): Promise<string> {
   await page.goto("/portfolios/new");
+  await page.getByTestId("new-portfolio-more").click();
   await page.locator("#title").fill(title);
   await page.locator('[data-testid="create-portfolio-btn"]').click();
   // Wait for redirect to /portfolios/[id]

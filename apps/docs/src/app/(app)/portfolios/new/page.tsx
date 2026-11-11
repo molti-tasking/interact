@@ -14,13 +14,9 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { useCreatePortfolio } from "@/hooks/query/portfolios";
 import { useEnsureSpace, useSpaces } from "@/hooks/query/spaces";
-import {
-  deriveTitleFromIntent,
-  EXAMPLE_INTENTS,
-  MAX_TITLE_LENGTH,
-} from "@/lib/new-portfolio";
+import { deriveTitleFromIntent, EXAMPLE_INTENTS } from "@/lib/new-portfolio";
 import { emptyPortfolioSchema, emptyStructuredIntent } from "@/lib/types";
-import { Loader2, Sparkles } from "lucide-react";
+import { ChevronRight, Loader2, Sparkles } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
@@ -31,8 +27,10 @@ const AUTO_SPACE = "__auto__";
 /**
  * Intent-first creation (lazy data space elicitation): the creator starts
  * with a sentence; the workspace drafts a first form from it
- * (`?generate=1`). A title alone still creates an empty portfolio — the
- * e2e/evaluation harness relies on that path.
+ * (`?generate=1`). The page is that one question. A title (otherwise
+ * derived from the sentence, and editable in the workspace) and, when there
+ * are several, the space are under "More options"; a title alone creates
+ * an empty portfolio — the e2e/evaluation harness relies on that path.
  */
 export default function NewPortfolioPage() {
   const [intent, setIntent] = useState("");
@@ -42,6 +40,7 @@ export default function NewPortfolioPage() {
   // trigger a duplicate create while navigation is in flight.
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showOptions, setShowOptions] = useState(false);
   const intentRef = useRef<HTMLTextAreaElement>(null);
 
   const router = useRouter();
@@ -53,6 +52,8 @@ export default function NewPortfolioPage() {
   const titleText = title.trim();
   const canSubmit = (!!intentText || !!titleText) && !submitting;
   const derivedTitle = intentText ? deriveTitleFromIntent(intentText) : "";
+  // One space (or none yet): nothing to choose
+  const chooseSpace = (spaces?.length ?? 0) > 1;
 
   const handleCreate = async () => {
     if (!canSubmit) return;
@@ -102,17 +103,13 @@ export default function NewPortfolioPage() {
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
-      <div className="space-y-1">
-        <h1 className="text-3xl tracking-tight text-primary">New portfolio</h1>
-        <p className="text-muted-foreground">
-          Start with a sentence. The system drafts a first form and asks design
-          questions to refine it with you.
-        </p>
-      </div>
+      <h1 className="text-3xl tracking-tight text-primary">
+        What form do you need?
+      </h1>
 
       <Card className="p-4 sm:p-6">
         <form
-          className="space-y-5"
+          className="space-y-4"
           onSubmit={(e) => {
             e.preventDefault();
             void handleCreate();
@@ -120,7 +117,7 @@ export default function NewPortfolioPage() {
           aria-busy={submitting || undefined}
         >
           <div className="space-y-2">
-            <Label htmlFor="intent" className="text-base">
+            <Label htmlFor="intent" className="sr-only">
               What do you need to collect, and why?
             </Label>
             <Textarea
@@ -136,25 +133,12 @@ export default function NewPortfolioPage() {
                   void handleCreate();
                 }
               }}
-              placeholder="e.g. I need a registration form for our youth soccer club's new season…"
+              placeholder="Describe it in a sentence. Rough is fine."
               className="min-h-32 bg-background text-base"
-              aria-describedby="intent-hint"
               disabled={submitting}
             />
-            <p id="intent-hint" className="text-xs text-muted-foreground">
-              Who fills it in, what it&apos;s for, anything that must or must
-              not be asked. Rough is fine.{" "}
-              <kbd className="rounded border bg-muted px-1 font-mono text-[10px]">
-                ⌘/Ctrl
-              </kbd>{" "}
-              +{" "}
-              <kbd className="rounded border bg-muted px-1 font-mono text-[10px]">
-                Enter
-              </kbd>{" "}
-              to create.
-            </p>
             <div
-              className="flex flex-wrap items-center gap-1.5 pt-1"
+              className="flex flex-wrap items-center gap-1.5"
               role="group"
               aria-label="Example intents"
             >
@@ -173,69 +157,56 @@ export default function NewPortfolioPage() {
             </div>
           </div>
 
-          <div className="grid gap-5 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="title">
-                Title{" "}
-                <span className="font-normal text-muted-foreground">
-                  (optional)
-                </span>
-              </Label>
-              <Input
-                id="title"
-                value={title}
-                maxLength={120}
-                onChange={(e) => setTitle(e.target.value)}
-                placeholder={derivedTitle || "e.g., Patient intake form"}
-                aria-describedby="title-hint"
-                disabled={submitting}
-              />
-              <p
-                id="title-hint"
-                className="text-xs text-muted-foreground"
-                aria-live="polite"
-              >
-                {titleText
-                  ? " "
-                  : derivedTitle
-                    ? `Will be titled “${derivedTitle}”.`
-                    : `Leave blank to derive one (≤ ${MAX_TITLE_LENGTH} characters).`}
-              </p>
-            </div>
+          {showOptions && (
+            <div
+              id="new-portfolio-options"
+              className={chooseSpace ? "grid gap-4 sm:grid-cols-2" : "grid gap-4"}
+            >
+              <div className="space-y-2">
+                <Label htmlFor="title">Title</Label>
+                <Input
+                  id="title"
+                  value={title}
+                  maxLength={120}
+                  onChange={(e) => setTitle(e.target.value)}
+                  placeholder="Taken from your description if left empty"
+                  disabled={submitting}
+                />
+              </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="space">Space</Label>
-              <Select
-                value={spaceChoice}
-                onValueChange={setSpaceChoice}
-                disabled={submitting}
-              >
-                <SelectTrigger
-                  id="space"
-                  className="w-full"
-                  aria-describedby="space-hint"
-                >
-                  <SelectValue placeholder="Choose a space" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={AUTO_SPACE}>
-                    <span className="flex items-center gap-2">
-                      <Sparkles className="h-3.5 w-3.5 text-brand-accent" />
-                      Automatic
-                    </span>
-                  </SelectItem>
-                  {(spaces ?? []).map((space) => (
-                    <SelectItem key={space.id} value={space.id}>
-                      {space.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <p id="space-hint" className="text-xs text-muted-foreground">
-                Spaces group related forms so they can reference each other.
-              </p>
+              {chooseSpace && (
+                <div className="space-y-2">
+                  <Label htmlFor="space">Space</Label>
+                  <Select
+                    value={spaceChoice}
+                    onValueChange={setSpaceChoice}
+                    disabled={submitting}
+                  >
+                    <SelectTrigger
+                      id="space"
+                      className="w-full"
+                      title="Spaces group related forms so they can reference each other"
+                    >
+                      <SelectValue placeholder="Choose a space" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={AUTO_SPACE}>
+                        <span className="flex items-center gap-2">
+                          <Sparkles className="h-3.5 w-3.5 text-brand-accent" />
+                          Automatic
+                        </span>
+                      </SelectItem>
+                      {(spaces ?? []).map((space) => (
+                        <SelectItem key={space.id} value={space.id}>
+                          {space.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
             </div>
-          </div>
+          )}
 
           {error && (
             <p role="alert" className="text-sm text-destructive">
@@ -243,21 +214,23 @@ export default function NewPortfolioPage() {
             </p>
           )}
 
-          <div className="flex flex-col-reverse gap-2 pt-1 sm:flex-row sm:items-center">
-            <Button
+          <div className="flex items-center gap-2">
+            <button
               type="button"
-              variant="ghost"
-              onClick={() => router.back()}
+              data-testid="new-portfolio-more"
+              aria-expanded={showOptions}
+              aria-controls="new-portfolio-options"
+              onClick={() => setShowOptions((open) => !open)}
               disabled={submitting}
+              className="flex items-center gap-1 rounded text-xs text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
             >
-              Cancel
-            </Button>
-            <div className="hidden flex-1 sm:block" />
-            {!intentText && !titleText && (
-              <p className="text-xs text-muted-foreground sm:text-right">
-                Describe what you need — or give it a title to start empty.
-              </p>
-            )}
+              <ChevronRight
+                className={`h-3.5 w-3.5 transition-transform ${showOptions ? "rotate-90" : ""}`}
+                aria-hidden
+              />
+              More options
+            </button>
+            <div className="flex-1" />
             <Button
               type="submit"
               data-testid="create-portfolio-btn"
@@ -267,15 +240,15 @@ export default function NewPortfolioPage() {
               {submitting ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-                  {intentText ? "Creating & drafting…" : "Creating…"}
+                  {intentText ? "Drafting…" : "Creating…"}
                 </>
-              ) : intentText ? (
+              ) : intentText || !titleText ? (
                 <>
                   <Sparkles className="h-4 w-4" aria-hidden />
-                  Create &amp; draft form
+                  Draft my form
                 </>
               ) : (
-                "Create empty portfolio"
+                "Create empty form"
               )}
             </Button>
           </div>

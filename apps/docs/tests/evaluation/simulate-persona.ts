@@ -180,6 +180,7 @@ export async function simulatePersona(
     // Step 1: Create portfolio
     log(`[simulate] Navigating to ${BASE_URL}/portfolios/new`);
     await page.goto(`${BASE_URL}/portfolios/new`);
+    await page.getByTestId("new-portfolio-more").click();
     await page.locator("#title").fill(scenario.title);
     await page.locator('[data-testid="create-portfolio-btn"]').click();
     await page.waitForURL(/\/portfolios\/[a-f0-9-]+/, { timeout: 15000 });
