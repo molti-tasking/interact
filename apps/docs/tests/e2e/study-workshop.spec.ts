@@ -2,6 +2,7 @@ import { expect, test, type Browser, type Page } from "@playwright/test";
 import fs from "fs";
 import { E2E_ADMIN, signIn } from "../auth";
 import { sql } from "../db";
+import { setScenario } from "./helpers";
 
 /**
  * Study mode: a whole workshop with a facilitator and three participants in
@@ -62,9 +63,16 @@ async function advance(admin: Page, to: string) {
   await expect(admin.getByText(`${to} —`, { exact: false }).first()).toBeVisible();
 }
 
+/**
+ * Close the coach-mark tour of a phase. It opens a moment after the phase
+ * does, so wait for it briefly; an open tour dims the page and keeps
+ * moving, which makes clicks elsewhere hang.
+ */
 async function closeTour(page: Page) {
   const close = page.locator(".driver-popover-close-btn");
+  await close.waitFor({ state: "visible", timeout: 4_000 }).catch(() => {});
   if (await close.isVisible().catch(() => false)) await close.click();
+  await expect(page.locator(".driver-popover")).toHaveCount(0);
 }
 
 test.describe("Study mode workshop", () => {
@@ -93,6 +101,11 @@ test.describe("Study mode workshop", () => {
     browser,
     page: admin,
   }) => {
+    // Forms are seeded, so no recording is needed; naming a scenario lets
+    // the background checks (conflicts, intent sync) replay "nothing to do"
+    // instead of failing for lack of one
+    setScenario("study-briefs");
+
     // --- Facilitator creates a session ---------------------------------
     await signIn(admin, "", E2E_ADMIN);
     await admin.goto("/studies");
