@@ -6,7 +6,7 @@
  * figures need no model and come out the same every run.
  */
 
-import type { Page } from "@playwright/test";
+import type { BrowserContext, Page } from "@playwright/test";
 import path from "path";
 import { connectOwnDatabase } from "../db";
 
@@ -300,4 +300,112 @@ export function visibleText(page: Page): Promise<string> {
     }
     return parts.join(" ");
   });
+}
+
+// ---------------------------------------------------------------------------
+// Focus and frame (figures and the demo recording)
+// ---------------------------------------------------------------------------
+
+/**
+ * Only what a figure or the recording is about: no sidebar, no header bar,
+ * no title and section tabs above a form (navigation and account controls
+ * say nothing there), no example chips or extra options on the start
+ * screen. What is left of the workspace is the intent and the elicitation
+ * questions on the left and the form on the right. The app keeps all of it.
+ */
+export const FOCUS = `
+(() => {
+  const css = \`
+    [data-slot="sidebar"], [data-slot="sidebar-inset"] > header { display: none !important; }
+    [data-testid="portfolio-header"] { display: none !important; }
+    [aria-label="Example intents"], [data-testid="new-portfolio-more"] { display: none !important; }
+  \`;
+  const boot = () => {
+    if (!document.head || document.getElementById("__focus")) return;
+    const style = document.createElement("style");
+    style.id = "__focus";
+    style.textContent = css;
+    document.head.appendChild(style);
+  };
+  if (document.readyState === "loading") addEventListener("DOMContentLoaded", boot); else boot();
+  setInterval(boot, 300);
+})();
+`;
+
+/** The window mockup's measures (CSS pixels). */
+export const WINDOW_BAR = 38;
+const WINDOW_RADIUS = 12;
+
+/**
+ * A window around a screenshot or a recording, as in the paper's figures:
+ * a light title bar with three dots, rounded corners, a soft shadow.
+ *
+ * `content`: the size of what goes inside. `image`: put this picture
+ * inside (figures); without it the content area is transparent (the
+ * recording is placed there afterwards). `backdrop`: paint everything
+ * outside the window in this colour (the video); without it the outside is
+ * transparent, shadow included.
+ */
+export function windowFrame(opts: {
+  content: { width: number; height: number };
+  /** Where the window sits on the canvas */
+  at: { x: number; y: number };
+  canvas: { width: number; height: number };
+  title?: string;
+  image?: string;
+  backdrop?: string;
+}): string {
+  const { content, at, canvas } = opts;
+  const shadow = opts.backdrop
+    ? `0 0 0 1px rgba(255,255,255,.14), 0 22px 60px rgba(0,0,0,.5), 0 0 0 4000px ${opts.backdrop}`
+    : "0 0 0 1px rgba(0,0,0,.14), 0 14px 36px rgba(0,0,0,.22)";
+  return `<!doctype html><html><body style="margin:0;width:${canvas.width}px;height:${canvas.height}px;background:transparent;overflow:hidden">
+<div id="window" style="position:absolute;left:${at.x}px;top:${at.y}px;width:${content.width}px;height:${WINDOW_BAR + content.height}px;border-radius:${WINDOW_RADIUS}px;overflow:${opts.image ? "hidden" : "visible"};box-shadow:${shadow}">
+  <div style="height:${WINDOW_BAR}px;box-sizing:border-box;border-radius:${WINDOW_RADIUS}px ${WINDOW_RADIUS}px 0 0;background:#e6e4df;border-bottom:1px solid #cfccc5;display:flex;align-items:center;gap:8px;padding:0 14px;font:500 13px -apple-system,'Helvetica Neue',Arial,sans-serif;color:#6b6b66">
+    <span style="width:12px;height:12px;border-radius:50%;background:#ff5f57"></span>
+    <span style="width:12px;height:12px;border-radius:50%;background:#febc2e"></span>
+    <span style="width:12px;height:12px;border-radius:50%;background:#28c840"></span>
+    <span style="flex:1;text-align:center;margin-right:60px">${opts.title ?? ""}</span>
+  </div>
+  ${opts.image ? `<img src="${opts.image}" style="display:block;width:${content.width}px;height:${content.height}px">` : ""}
+</div></body></html>`;
+}
+
+/** Space around a framed figure, for its shadow */
+export const FIGURE_MARGIN = 40;
+
+/**
+ * A screenshot of `page`, inside the window mockup, on a transparent
+ * background. The result is larger than the page by the title bar and the
+ * margin on every side.
+ */
+export async function framedScreenshot(
+  page: Page,
+  context: BrowserContext,
+  file: string,
+  title = "Malleable Forms",
+): Promise<void> {
+  const size = page.viewportSize()!;
+  const shot = await page.screenshot();
+  const canvas = {
+    width: size.width + 2 * FIGURE_MARGIN,
+    height: size.height + WINDOW_BAR + 2 * FIGURE_MARGIN,
+  };
+  const frame = await context.newPage();
+  try {
+    await frame.setViewportSize(canvas);
+    await frame.setContent(
+      windowFrame({
+        content: size,
+        at: { x: FIGURE_MARGIN, y: FIGURE_MARGIN },
+        canvas,
+        title,
+        image: `data:image/png;base64,${shot.toString("base64")}`,
+      }),
+    );
+    await frame.locator("img").evaluate((img: HTMLImageElement) => img.decode());
+    await frame.screenshot({ path: file, omitBackground: true });
+  } finally {
+    await frame.close();
+  }
 }

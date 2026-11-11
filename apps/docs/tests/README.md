@@ -83,8 +83,10 @@ pnpm screenshots:paper      # the same, then copied into the paper repository
 ```
 
 `screenshots/paper-figures.spec.ts` seeds the three scenarios
-(`screenshots/paper-scenarios.ts`) and writes twenty screenshots at 2x
-(2880 × 1800 for full views):
+(`screenshots/paper-scenarios.ts`) and writes twenty screenshots at 2x.
+Whole views are shown without the app's sidebar, header bar and section
+tabs, inside a window mockup on a transparent background (3040 × 2036);
+parts of a view (the intent, a dialog, a banner) are written as they are:
 
 | Files | What |
 |---|---|
@@ -106,7 +108,9 @@ pnpm demo:record            # → paper-figures/video/malleable-forms-demo.mp4
 `demo/demo-recording.spec.ts` records the three scenarios in one take from
 the same seeds (answers are given on camera and applied from their
 previews; the one generation call is answered from the seed), and
-`demo/post.py` burns the captions in with ffmpeg. It follows the approach of
+`demo/post.py` places it in the same window mockup, burns the captions in
+below it and shows the title cards full-screen (ffmpeg). Like the figures,
+it leaves out the sidebar, the header bar and the section tabs. It follows the approach of
 the paper repository's `video/recorder/`, without the live model.
 
 ## Evaluation

@@ -2,9 +2,9 @@
  * The scripted demo recording: the paper's three scenarios in one take.
  *
  *   pnpm demo:record
- *   → paper-figures/video/raw.webm, marks.json   (this spec)
+ *   → paper-figures/video/raw.webm, frame.png, marks.json   (this spec)
  *   → paper-figures/video/malleable-forms-demo.mp4 (tests/demo/post.py:
- *     captions burnt in under the picture, 1080p)
+ *     the recording inside the window mockup, captions below it, 1080p)
  *
  * The approach is the one of the paper repository's recorder
  * (video/recorder/record.js, post.py): Playwright records the page, a drawn
@@ -24,7 +24,16 @@ import fs from "fs";
 import path from "path";
 import { E2E_ADMIN, signIn } from "../auth";
 import { resetDatabase, setScenario } from "../e2e/helpers";
-import { ANONYMIZE, FIGURE_DIR, IDENTIFYING, seed, visibleText } from "../screenshots/helpers";
+import {
+  ANONYMIZE,
+  FIGURE_DIR,
+  FOCUS,
+  IDENTIFYING,
+  WINDOW_BAR,
+  seed,
+  visibleText,
+  windowFrame,
+} from "../screenshots/helpers";
 import {
   HIRING_FEEDBACK,
   HIRING_ID,
@@ -46,7 +55,16 @@ import {
   soccerStartQuestions,
 } from "../screenshots/paper-scenarios";
 
-const SIZE = { width: 1600, height: 900 };
+/**
+ * The finished video is 1920 × 1080: the app inside a window mockup (as in
+ * the paper's figures), captions in a band below it. The page is recorded
+ * at exactly the size of the window's content area, so nothing is scaled.
+ * The title cards fill the whole picture (post.py).
+ */
+const VIDEO = { width: 1920, height: 1080 };
+const WINDOW = { x: 80, y: 36 };
+const SIZE = { width: VIDEO.width - 2 * WINDOW.x, height: 860 };
+const BACKDROP = "#0f2a2a";
 const OUT = path.join(FIGURE_DIR, "video");
 const FIXTURES = path.resolve(process.cwd(), "tests/fixtures/demo-recording");
 
@@ -138,6 +156,18 @@ test.describe("Demo recording", () => {
       await setupPage.waitForLoadState("networkidle").catch(() => {});
     }
     const storageState = await setup.storageState();
+    // The window mockup the recording is placed in (post.py)
+    await setupPage.setViewportSize(VIDEO);
+    await setupPage.setContent(
+      windowFrame({
+        content: SIZE,
+        at: WINDOW,
+        canvas: VIDEO,
+        title: "Malleable Forms",
+        backdrop: BACKDROP,
+      }),
+    );
+    await setupPage.screenshot({ path: path.join(OUT, "frame.png"), omitBackground: true });
     await setup.close();
 
     const context = await browser.newContext({
@@ -146,12 +176,14 @@ test.describe("Demo recording", () => {
       recordVideo: { dir: OUT, size: SIZE },
     });
     await context.addInitScript(ANONYMIZE_MOVING);
+    await context.addInitScript(FOCUS);
     await context.addInitScript(CURSOR);
     const page = await context.newPage();
 
     const t0 = Date.now();
     const now = () => (Date.now() - t0) / 1000;
     const caps: { t: number; text: string }[] = [];
+    const cards: { s: number; e: number }[] = [];
     const cap = (text: string) => caps.push({ t: now(), text });
     const sleep = (ms: number) => page.waitForTimeout(ms);
     const moveTo = async (target: Locator, dx = 0.5, dy = 0.5) => {
@@ -195,6 +227,8 @@ test.describe("Demo recording", () => {
 
     // ── Scenario 1: youth soccer registration ───────────────────────────
     await page.goto("/portfolios/new");
+    await page.locator("#intent").waitFor();
+    cards.push({ s: 0, e: now() });
     cap("Scenario 1. A coach starts with one rough sentence. No field list.");
     const intentBox = page.locator("#intent");
     await click(intentBox, 0.3, 0.4);
@@ -252,7 +286,7 @@ test.describe("Demo recording", () => {
 
     // G4: no change without a decision
     cap("The form only changes through such a decision. Every one is recorded: who, what, why.");
-    await click(page.getByRole("link", { name: "History" }).first());
+    await page.goto(`/portfolios/${SOCCER_ID}/provenance`);
     await expect(page.getByTestId("provenance-entry").first()).toBeVisible({ timeout: 30_000 });
     await anonymous(page);
     await page.mouse.move(SIZE.width * 0.5, SIZE.height * 0.55, { steps: 20 });
@@ -333,6 +367,7 @@ test.describe("Demo recording", () => {
     await sleep(2600);
 
     // ── End card ─────────────────────────────────────────────────────────
+    const endCard = now();
     await page.setContent(
       card(
         "Malleable Forms",
@@ -349,13 +384,30 @@ test.describe("Demo recording", () => {
     await sleep(7000);
 
     const end = now();
+    cards.push({ s: endCard + 0.15, e: end });
     await context.close();
     const raw = fs.readdirSync(OUT).find((f) => f.endsWith(".webm"));
     expect(raw).toBeTruthy();
     fs.renameSync(path.join(OUT, raw!), path.join(OUT, "raw.webm"));
     fs.writeFileSync(
       path.join(OUT, "marks.json"),
-      JSON.stringify({ caps, waits: [], end, W: SIZE.width, H: SIZE.height }, null, 1),
+      JSON.stringify(
+        {
+          caps,
+          waits: [],
+          end,
+          W: SIZE.width,
+          H: SIZE.height,
+          video: VIDEO,
+          // Where the recording goes inside frame.png
+          content: { x: WINDOW.x, y: WINDOW.y + WINDOW_BAR },
+          // Title cards: shown full-screen, without the window
+          cards,
+          backdrop: BACKDROP,
+        },
+        null,
+        1,
+      ),
     );
     // The old term appears in no caption
     expect(caps.map((c) => c.text).join(" ")).not.toMatch(/\bprobes?\b/i);

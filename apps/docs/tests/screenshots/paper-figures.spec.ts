@@ -8,6 +8,11 @@
  *   s2-*       scenario 2, hiring a sales representative
  *   s3-*       scenario 3, orthopedic patient records
  *
+ * Whole views are shown without the app's sidebar, header bar and section
+ * tabs (`FOCUS`) and inside a window mockup on a transparent background
+ * (`framedScreenshot`); parts of a view (the intent, a dialog, a banner) are
+ * written as they are.
+ *
  * Every screenshot is checked to be anonymous before it is written: no
  * repository link, no account or persona name in the shell, no project or
  * lab name (`ANONYMIZE`, `IDENTIFYING` in helpers.ts).
@@ -18,7 +23,17 @@ import fs from "fs";
 import path from "path";
 import { E2E_ADMIN, signIn } from "../auth";
 import { resetDatabase, setScenario } from "../e2e/helpers";
-import { ANONYMIZE, FIGURE_DIR, IDENTIFYING, seed, visibleText } from "./helpers";
+import {
+  ANONYMIZE,
+  FIGURE_DIR,
+  FIGURE_MARGIN,
+  FOCUS,
+  IDENTIFYING,
+  WINDOW_BAR,
+  framedScreenshot,
+  seed,
+  visibleText,
+} from "./helpers";
 import {
   HIRING_FEEDBACK,
   HIRING_ID,
@@ -80,8 +95,9 @@ async function figure(page: Page, name: Figure, target?: Locator) {
   // The old term is gone from everything a reader of the figure can see
   expect(await visibleText(page), name).not.toMatch(/\bprobes?\b/i);
   const file = path.join(FIGURE_DIR, `${name}.png`);
+  // A part of the page as it is; a whole view inside the window mockup
   if (target) await target.screenshot({ path: file });
-  else await page.screenshot({ path: file });
+  else await framedScreenshot(page, page.context(), file);
 }
 
 async function openWorkspace(page: Page, id: string) {
@@ -131,6 +147,8 @@ test.describe("Paper figures", () => {
     // No model is called; background checks replay "nothing to do"
     setScenario("study-briefs");
     await context.addInitScript(ANONYMIZE);
+    // No sidebar, header bar or section tabs: the figures show the work
+    await context.addInitScript(FOCUS);
     await signIn(page, "", E2E_ADMIN);
   });
 
@@ -162,6 +180,7 @@ test.describe("Paper figures", () => {
     await expect(deck(page).locator("[data-armed]")).toHaveCount(0);
     // Taller for this one, so the field the answer would add is in view
     await page.setViewportSize({ width: VIEWPORT.width, height: TALL });
+    await answer.scrollIntoViewIfNeeded();
     await answer.hover();
     await expect(page.getByTestId("field-annotation").first()).toBeVisible();
     await expect(page.getByTestId("field-annotation").first()).toBeInViewport();
@@ -296,8 +315,12 @@ test.describe("Paper figures", () => {
       // Full-page figures are the viewport at twice its size
       const element = /^(teaser-3|s1-3|s2-2|s3-4|s3-5)-/.test(file);
       if (!element) {
+        // The view at twice its size, plus the window's title bar and margin
         const tall = file.startsWith("teaser-2-");
-        expect([width, height], file).toEqual([VIEWPORT.width * 2, (tall ? TALL : VIEWPORT.height) * 2]);
+        expect([width, height], file).toEqual([
+          (VIEWPORT.width + 2 * FIGURE_MARGIN) * 2,
+          ((tall ? TALL : VIEWPORT.height) + WINDOW_BAR + 2 * FIGURE_MARGIN) * 2,
+        ]);
       }
     }
   });
