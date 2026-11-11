@@ -4,8 +4,14 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { usePublishedForm, useSubmitResponse } from "@/hooks/query/public-form";
+import {
+  explainFieldAction,
+  prefillFromTextAction,
+} from "@/app/actions/respondent-assist-actions";
 import { FormRenderer } from "@/lib/form-renderer/FormRenderer";
+import type { FormAssist } from "@/lib/form-renderer/RespondentAssist";
 import { AlertTriangle, FileText, Loader2 } from "lucide-react";
+import { useMemo } from "react";
 import { toast } from "sonner";
 
 interface PublishedFormViewProps {
@@ -32,6 +38,34 @@ export function PublishedFormView({
   const { data: portfolio, isLoading, isError, error, refetch } =
     usePublishedForm(formId);
   const submitResponse = useSubmitResponse();
+
+  // AI help, only where the creator turned it on. The server checks the
+  // stored form again — these flags just decide what is shown.
+  const explainOn = portfolio?.schema.assist?.explain === true;
+  const prefillOn = portfolio?.schema.assist?.prefill === true;
+  const assist = useMemo<FormAssist | undefined>(() => {
+    if (!explainOn && !prefillOn) return undefined;
+    return {
+      explain: explainOn
+        ? async (fieldId) => {
+            const res = await explainFieldAction(formId, fieldId);
+            if (!res.success || !res.explanation) {
+              throw new Error(res.error ?? "Couldn't explain this question.");
+            }
+            return res.explanation;
+          }
+        : undefined,
+      prefill: prefillOn
+        ? async (text) => {
+            const res = await prefillFromTextAction(formId, text);
+            if (!res.success || !res.result) {
+              throw new Error(res.error ?? "Couldn't read the text.");
+            }
+            return res.result;
+          }
+        : undefined,
+    };
+  }, [formId, explainOn, prefillOn]);
 
   const handleSubmit = async (data: Record<string, unknown>) => {
     if (!portfolio) throw new Error("Form not loaded");
@@ -132,6 +166,7 @@ export function PublishedFormView({
           mode="live"
           onSubmit={handleSubmit}
           randomFill={randomFill}
+          assist={assist}
         />
       </Card>
     </div>

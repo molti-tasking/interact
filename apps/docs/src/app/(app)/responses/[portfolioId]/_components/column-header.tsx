@@ -8,7 +8,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { supportsColumnAction } from "@/lib/form-renderer/response-rows";
+import { supportsColumnAction } from "interact/forms/response-rows";
 import type { Field, Portfolio, SavedColumnAction } from "@/lib/types";
 import { MoreVertical, Sparkles, Zap } from "lucide-react";
 

@@ -24,7 +24,7 @@ import {
   LIKERT_PRESETS,
   MAX_SCALE_POINTS,
   scaleFromSpec,
-} from "@/lib/engine/scale";
+} from "interact/forms/scale";
 import type { Field, FieldType } from "@/lib/types";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Trash2 } from "lucide-react";

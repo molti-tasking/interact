@@ -1,5 +1,5 @@
 /**
- * Spoken answers to the questions in the design probe deck (design probes
+ * Spoken answers to the questions in the elicitation question deck (elicitation questions
  * and conflict fixes).
  *
  * `matchSpokenAnswer` handles the unambiguous cases locally — an option's
@@ -12,7 +12,7 @@ export interface VoiceQuestion {
   id: string;
   text: string;
   options: { value: string; label: string }[];
-  /** Free-text answers are possible (design probes, not conflict fixes) */
+  /** Free-text answers are possible (elicitation questions, not conflict fixes) */
   allowCustom: boolean;
 }
 

@@ -3,7 +3,7 @@
 import {
   replaceFilesDeep,
   type StoredFile,
-} from "@/lib/form-renderer/values";
+} from "interact/forms/values";
 import { createClient } from "@/lib/supabase/client";
 
 /**

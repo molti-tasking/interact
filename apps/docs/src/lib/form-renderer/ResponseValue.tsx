@@ -4,7 +4,7 @@ import type { Field } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { Paperclip } from "lucide-react";
 import { StoredFileLink } from "./StoredFileLink";
-import { formatValue, isStoredFile, type StoredFile } from "./values";
+import { formatValue, isStoredFile, type StoredFile } from "interact/forms/values";
 
 function FileLink({ file }: { file: StoredFile }) {
   return (

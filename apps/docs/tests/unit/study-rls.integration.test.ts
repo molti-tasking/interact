@@ -16,6 +16,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { Database, Json } from "@/lib/supabase/database.types";
 import { emptyPortfolioSchema, emptyStructuredIntent } from "@/lib/types";
 import { E2E_ADMIN } from "../auth";
+import { TEST_DB_URL } from "../db";
 
 function loadEnvLocal() {
   const file = path.resolve(__dirname, "../../.env.local");
@@ -30,13 +31,19 @@ loadEnvLocal();
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
 const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "";
 const isLocal = /127\.0\.0\.1|localhost/.test(url);
-const DB_URL = "postgresql://postgres:postgres@127.0.0.1:54322/postgres";
+const DB_URL = TEST_DB_URL;
 
+/**
+ * Reachable, and this project's schema: Supabase's default ports may be
+ * held by another project's stack, which these tests must leave alone.
+ */
 async function reachable(): Promise<boolean> {
   if (!isLocal) return false;
   try {
-    const res = await fetch(`${url}/rest/v1/`, { headers: { apikey: anonKey } });
-    return res.ok;
+    const res = await fetch(`${url}/rest/v1/study_sessions?limit=0`, {
+      headers: { apikey: anonKey },
+    });
+    return res.status !== 404;
   } catch {
     return false;
   }
@@ -287,7 +294,7 @@ describe.runIf(available)("study mode RLS (local Supabase)", () => {
     expect(foreign.error).not.toBeNull();
   });
 
-  it("design probes: own form only, and updates really apply", async () => {
+  it("elicitation questions: own form only, and updates really apply", async () => {
     const own = await a.client
       .from("design_probes")
       .insert({ portfolio_id: a.portfolioId, text: "Indoor or outdoor?" })

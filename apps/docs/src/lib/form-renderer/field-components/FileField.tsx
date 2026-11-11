@@ -17,7 +17,7 @@ import {
   isFile,
   isStoredFile,
   maxSizeBytes,
-} from "../values";
+} from "interact/forms/values";
 import { StoredFileLink } from "../StoredFileLink";
 import { FieldLabel } from "./FieldLabel";
 

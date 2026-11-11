@@ -67,7 +67,7 @@ describe("Landing page", () => {
     expect(container.querySelector("main")).toBeNull();
     const firstStep = screen.getByRole("button", { name: /Express your intent/ });
     expect(firstStep).toHaveAttribute("aria-pressed", "true");
-    fireEvent.click(screen.getByRole("button", { name: /Resolve design probes/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Answer elicitation questions/ }));
     expect(firstStep).toHaveAttribute("aria-pressed", "false");
   });
 });

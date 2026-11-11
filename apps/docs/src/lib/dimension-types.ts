@@ -3,7 +3,7 @@
  *
  * - context:     Who / where / when — situational factors
  * - measurement: What to capture and how to quantify it
- * - preference:  Subjective choices, priorities, design probes
+ * - preference:  Subjective choices, priorities, elicitation questions
  * - constraint:  Rules, limits, boundaries, compliance requirements
  */
 export type DimensionScope =

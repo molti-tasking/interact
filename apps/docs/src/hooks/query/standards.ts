@@ -40,7 +40,7 @@ export function useDetectStandards(portfolioId: string) {
 }
 
 /**
- * Resolve a standard by id for a "standard" design probe. Falls back to the
+ * Resolve a standard by id for a "standard" elicitation question. Falls back to the
  * static catalog when the detection cache is empty (e.g. after a reload).
  */
 export function findStandard(
@@ -91,6 +91,7 @@ export function useAcceptStandard(portfolioId: string) {
         // also append to constraints.content (which would inject markdown
         // headings into the user-facing editor).
         return {
+          trigger: "answer",
           schema: {
             ...current.schema,
             acceptedStandards: [...existing, newRef],

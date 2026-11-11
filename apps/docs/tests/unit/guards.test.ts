@@ -7,8 +7,8 @@ import {
   patchScope,
   protectLockedFields,
   scopePatch,
-} from "@/lib/engine/guards";
-import { applySchemaPatch } from "@/lib/engine/schema-patch";
+} from "interact/forms/guards";
+import { applySchemaPatch } from "interact/forms/schema-patch";
 import type { Field, PortfolioSchema } from "@/lib/types";
 
 function field(partial: Partial<Field> & Pick<Field, "id" | "name">): Field {

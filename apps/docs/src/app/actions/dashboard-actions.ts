@@ -6,11 +6,11 @@ import {
   WIDGET_KIND_GUIDE,
   widgetRevisionSchema,
   widgetsFromProposals,
-} from "@/lib/engine/dashboard";
+} from "interact/forms/dashboard";
 import {
   serializeForLLM,
   serializeSchemaForLLM,
-} from "@/lib/engine/structured-intent";
+} from "interact/forms/structured-intent";
 import { capJson, capText, guardLlmRequest, LIMITS } from "@/lib/llm-guard";
 import { fastModel, model, withLlmRetry, llmErrorMessage } from "@/lib/model";
 import { telemetry, withTracing } from "@/lib/telemetry";

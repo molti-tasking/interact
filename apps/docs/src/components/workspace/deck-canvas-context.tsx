@@ -11,13 +11,13 @@ import {
 } from "react";
 
 /**
- * State shared between the design probe deck and the form canvas:
+ * State shared between the elicitation question deck and the form canvas:
  * - the answer or fix being previewed (hovered in the deck, shown on the form),
  * - the conflicts to mark on the form, and which one is open,
  * - which deck card is open (the canvas can open a conflict's card).
  */
 
-/** A design probe answer or conflict fix being previewed (not yet applied). */
+/** An elicitation question answer or conflict fix being previewed (not yet applied). */
 export interface ProbePreview {
   /** The probe or conflict the option belongs to */
   ownerId: string;

@@ -9,7 +9,7 @@ import { z } from "zod";
 
 /**
  * Talk to the deck: map a spoken phrase to answers for the open questions
- * (design probes, conflict fixes). The question on screen is the default
+ * (elicitation questions, conflict fixes). The question on screen is the default
  * target; others are answered only when the user clearly refers to them.
  */
 

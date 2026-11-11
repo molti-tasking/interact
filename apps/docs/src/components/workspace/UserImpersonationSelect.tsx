@@ -19,7 +19,11 @@ export function UserImpersonationSelect() {
   const { currentUser, setCurrentUser } = useCurrentUser();
 
   return (
-    <div className="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
+    // data-anonymize: left out of the paper's figures and recordings
+    <div
+      data-anonymize
+      className="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground"
+    >
       <UserRound className="h-3.5 w-3.5 shrink-0" aria-hidden />
       <span className="hidden md:inline" aria-hidden>
         Acting as

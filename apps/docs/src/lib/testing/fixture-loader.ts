@@ -13,8 +13,10 @@ import type { FixtureEntry } from "./fixture-types";
  * Matching strategy:
  * 1. Read all fixture files for this action in the scenario dir
  * 2. Sort by filename (preserves recording order)
- * 3. For resolveDesignProbe (fixture key: resolveDesignProbeAction): try matchHint-based lookup first
- * 4. Fallback: return the Nth fixture (N = call count for this action)
+ * 3. By hint: the chosen answer's label, or the text the call is about
+ *    (`matchHints.prompt`: a description, a question, a change request)
+ * 4. Else the Nth recording (N = call count for this action)
+ * 5. Background work with no recording left answers "nothing to do"
  */
 
 const FIXTURES_DIR = path.resolve(process.cwd(), "tests/fixtures");
@@ -71,7 +73,24 @@ function loadScenarioFixtures(scenario: string): Map<string, FixtureEntry[]> {
   return byAction;
 }
 
-export function loadFixture<T>(actionName: string, currentInput?: unknown): T {
+/**
+ * Background work whose timing depends on idle timers (curation, conflict
+ * checks, intent sync): whether it ran while a scenario was recorded is
+ * chance. Where a scenario has no recording left for it, it answers
+ * "nothing to do" instead of failing the run.
+ */
+const NOTHING_TO_DO: Record<string, unknown> = {
+  curateDesignProbesAction: { success: true, result: { drop: [], priorities: {}, add: [] } },
+  syncIntentFromFieldEdit: { success: true, shouldUpdate: false },
+  detectSchemaConflicts: { success: true, conflicts: [] },
+  previewConflictFixes: { success: true, previews: {} },
+};
+
+export function loadFixture<T>(
+  actionName: string,
+  currentInput?: unknown,
+  matchHints?: FixtureEntry["matchHints"],
+): T {
   const { scenario, token } = getActiveScenario();
 
   // Reset counters when scenario token changes (new test started)
@@ -81,42 +100,44 @@ export function loadFixture<T>(actionName: string, currentInput?: unknown): T {
   }
 
   const scenarioFixtures = loadScenarioFixtures(scenario);
-  const actionFixtures = scenarioFixtures.get(actionName);
+  const actionFixtures = scenarioFixtures.get(actionName) ?? [];
 
-  if (!actionFixtures || actionFixtures.length === 0) {
+  // 1. By hint: the answer that was chosen, or the text the call is about
+  // (a description, a question, a request). Independent of call order, so
+  // counterbalanced tasks and parallel calls replay the right recording.
+  if (currentInput && typeof currentInput === "object" && "selectedOptionLabel" in currentInput) {
+    const selectedLabel = (currentInput as Record<string, unknown>).selectedOptionLabel;
+    const hintMatch = actionFixtures.find(
+      (f) => f.matchHints?.selectedOptionLabel === selectedLabel,
+    );
+    if (hintMatch) return hintMatch.output as T;
+  }
+  if (matchHints?.prompt) {
+    const byPrompt = actionFixtures.find((f) => f.matchHints?.prompt === matchHints.prompt);
+    if (byPrompt) return byPrompt.output as T;
+  }
+
+  // 2. In recording order (no hint, or no recording for this hint)
+  const sequential = actionFixtures;
+  const callIndex = callCounters.get(actionName) ?? 0;
+  if (callIndex < sequential.length) {
+    callCounters.set(actionName, callIndex + 1);
+    return sequential[callIndex].output as T;
+  }
+
+  // 3. Background work without a recording: nothing to do
+  if (actionName in NOTHING_TO_DO) return NOTHING_TO_DO[actionName] as T;
+
+  if (actionFixtures.length === 0) {
     throw new Error(
       `No fixtures found for action "${actionName}" in scenario "${scenario}"`,
     );
   }
-
-  const callIndex = callCounters.get(actionName) ?? 0;
-  callCounters.set(actionName, callIndex + 1);
-
-  // Try hint-based matching first (for resolveDesignProbe / fixture key: resolveDesignProbeAction)
-  if (
-    currentInput &&
-    typeof currentInput === "object" &&
-    "selectedOptionLabel" in currentInput
-  ) {
-    const selectedLabel = (currentInput as Record<string, unknown>)
-      .selectedOptionLabel;
-    const hintMatch = actionFixtures.find(
-      (f) => f.matchHints?.selectedOptionLabel === selectedLabel,
-    );
-    if (hintMatch) {
-      return hintMatch.output as T;
-    }
-  }
-
-  // Fallback: sequential index
-  if (callIndex >= actionFixtures.length) {
-    throw new Error(
-      `Fixture exhausted: action "${actionName}" called ${callIndex + 1} times ` +
-        `but only ${actionFixtures.length} fixtures exist in "${scenario}"`,
-    );
-  }
-
-  return actionFixtures[callIndex].output as T;
+  throw new Error(
+    `Fixture exhausted: action "${actionName}" called ${callIndex + 1} times ` +
+      `but only ${sequential.length} fixtures exist in "${scenario}"` +
+      (matchHints?.prompt ? ` (none recorded for "${matchHints.prompt.slice(0, 80)}")` : ""),
+  );
 }
 
 /** Explicitly reset counters (for testing the loader itself) */

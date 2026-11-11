@@ -209,6 +209,7 @@ export type Database = {
           prev_intent: Json | null
           prev_schema: Json | null
           rationale: string | null
+          revision: number | null
         }
         Insert: {
           action: string
@@ -223,6 +224,7 @@ export type Database = {
           prev_intent?: Json | null
           prev_schema?: Json | null
           rationale?: string | null
+          revision?: number | null
         }
         Update: {
           action?: string
@@ -237,6 +239,7 @@ export type Database = {
           prev_intent?: Json | null
           prev_schema?: Json | null
           rationale?: string | null
+          revision?: number | null
         }
         Relationships: [
           {
@@ -255,6 +258,7 @@ export type Database = {
           portfolio_id: string
           respondent_id: string | null
           submitted_at: string | null
+          schema_version: number | null
         }
         Insert: {
           data: Json
@@ -262,6 +266,7 @@ export type Database = {
           portfolio_id: string
           respondent_id?: string | null
           submitted_at?: string | null
+          schema_version?: number | null
         }
         Update: {
           data?: Json
@@ -269,6 +274,7 @@ export type Database = {
           portfolio_id?: string
           respondent_id?: string | null
           submitted_at?: string | null
+          schema_version?: number | null
         }
         Relationships: [
           {
@@ -317,6 +323,8 @@ export type Database = {
           external_study_id: string | null
           participant_id: string
           session_id: string
+          task_order: number | null
+          start_kind: string | null
         }
         Insert: {
           condition?: string | null
@@ -327,6 +335,8 @@ export type Database = {
           external_study_id?: string | null
           participant_id: string
           session_id: string
+          task_order?: number | null
+          start_kind?: string | null
         }
         Update: {
           condition?: string | null
@@ -337,6 +347,8 @@ export type Database = {
           external_study_id?: string | null
           participant_id?: string
           session_id?: string
+          task_order?: number | null
+          start_kind?: string | null
         }
         Relationships: [
           {
@@ -447,6 +459,51 @@ export type Database = {
           },
           {
             foreignKeyName: "study_participants_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "study_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      study_progress: {
+        Row: {
+          completed_at: string | null
+          consented_at: string | null
+          outcome: string | null
+          participant_id: string
+          session_id: string
+          step: string
+          step_started_at: string
+        }
+        Insert: {
+          completed_at?: string | null
+          consented_at?: string | null
+          outcome?: string | null
+          participant_id: string
+          session_id: string
+          step?: string
+          step_started_at?: string
+        }
+        Update: {
+          completed_at?: string | null
+          consented_at?: string | null
+          outcome?: string | null
+          participant_id?: string
+          session_id?: string
+          step?: string
+          step_started_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "study_progress_participant_id_fkey"
+            columns: ["participant_id"]
+            isOneToOne: true
+            referencedRelation: "study_participants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "study_progress_session_id_fkey"
             columns: ["session_id"]
             isOneToOne: false
             referencedRelation: "study_sessions"
@@ -611,11 +668,79 @@ export type Database = {
         }
         Relationships: []
       }
+      study_tasks: {
+        Row: {
+          brief: string
+          finished_at: string | null
+          finished_by: string | null
+          id: string
+          participant_id: string
+          portfolio_id: string | null
+          position: number
+          session_id: string
+          started_at: string | null
+          source_portfolio_id: string | null
+          start_kind: string | null
+        }
+        Insert: {
+          brief: string
+          finished_at?: string | null
+          finished_by?: string | null
+          id?: string
+          participant_id: string
+          portfolio_id?: string | null
+          position: number
+          session_id: string
+          started_at?: string | null
+          source_portfolio_id?: string | null
+          start_kind?: string | null
+        }
+        Update: {
+          brief?: string
+          finished_at?: string | null
+          finished_by?: string | null
+          id?: string
+          participant_id?: string
+          portfolio_id?: string | null
+          position?: number
+          session_id?: string
+          started_at?: string | null
+          source_portfolio_id?: string | null
+          start_kind?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "study_tasks_participant_id_fkey"
+            columns: ["participant_id"]
+            isOneToOne: false
+            referencedRelation: "study_participants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "study_tasks_portfolio_id_fkey"
+            columns: ["portfolio_id"]
+            isOneToOne: false
+            referencedRelation: "portfolios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "study_tasks_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "study_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
+      advance_my_study_step: {
+        Args: { p_from: string; p_reason?: string; p_session_id: string }
+        Returns: string
+      }
       advance_study_phase: {
         Args: { p_phase: string; p_session_id: string }
         Returns: {
@@ -658,6 +783,7 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      decline_my_study: { Args: { p_session_id: string }; Returns: undefined }
       extend_study_phase: {
         Args: { p_seconds: number; p_session_id: string }
         Returns: {
@@ -689,6 +815,33 @@ export type Database = {
           participant_id: string
           portfolio_id: string
           title: string
+        }[]
+      }
+      get_study_handoff_candidates: {
+        Args: { p_session_id: string }
+        Returns: {
+          brief: string
+          condition: string
+          decisions: number
+          field_count: number
+          finished_at: string
+          participant: string
+          portfolio_id: string
+        }[]
+      }
+      get_study_progress: {
+        Args: { p_session_id: string }
+        Returns: {
+          completed_at: string
+          condition: string
+          display_name: string
+          joined_at: string
+          last_seen_at: string
+          outcome: string
+          participant_id: string
+          step: string
+          task_order: number
+          tasks: Json
         }[]
       }
       get_study_roster: {
@@ -768,6 +921,7 @@ export type Database = {
         Args: { p_portfolio_id: string }
         Returns: boolean
       }
+      study_brief_steps: { Args: { p_tasks: number }; Returns: string[] }
       submit_response: {
         Args: { p_data: Json; p_portfolio_id: string }
         Returns: string

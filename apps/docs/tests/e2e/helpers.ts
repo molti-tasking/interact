@@ -1,10 +1,10 @@
-import type { Page } from "@playwright/test";
+import { expect, type Locator, type Page } from "@playwright/test";
 import fs from "fs";
 import path from "path";
+import { truncateAll } from "../db";
 
 const FIXTURES_DIR = path.resolve(process.cwd(), "tests/fixtures");
 const SCENARIO_FILE = path.join(FIXTURES_DIR, ".active-scenario");
-const DB_URL = "postgresql://postgres:postgres@127.0.0.1:54322/postgres";
 
 /**
  * Set the active fixture scenario.
@@ -18,13 +18,7 @@ export function setScenario(scenario: string): void {
  * Truncate all tables between tests for isolation.
  */
 export async function resetDatabase(): Promise<void> {
-  const { Client } = await import("pg");
-  const client = new Client({ connectionString: DB_URL });
-  await client.connect();
-  await client.query(
-    "TRUNCATE design_probes, responses, provenance_log, portfolios CASCADE",
-  );
-  await client.end();
+  await truncateAll();
 }
 
 /**
@@ -36,6 +30,7 @@ export async function createPortfolio(
   title: string,
 ): Promise<string> {
   await page.goto("/portfolios/new");
+  await page.getByTestId("new-portfolio-more").click();
   await page.locator("#title").fill(title);
   await page.locator('[data-testid="create-portfolio-btn"]').click();
   // Wait for redirect to /portfolios/[id]
@@ -54,34 +49,32 @@ export async function waitForFormFields(page: Page): Promise<void> {
 }
 
 /**
- * Wait for design probe cards to appear.
+ * Wait for elicitation question cards to appear.
  */
 export async function waitForDesignProbes(page: Page): Promise<void> {
   await page.locator('[data-testid="card-deck-section"]').waitFor({ state: "visible", timeout: 30000 });
 }
 
 /**
- * Click a design probe option by its value. Only one probe shows its
- * options at a time, so expand the others in turn until the option appears.
+ * An answer that would change the form, with its preview ready — opening
+ * other questions until one shows such an answer (the question on top may
+ * be a standard to accept or skip, which has none).
  */
-export async function resolveDesignProbe(
-  page: Page,
-  optionValue: string,
-): Promise<void> {
-  const option = page.locator(`[data-testid="deck-option-${optionValue}"]`);
-  if (!(await option.isVisible())) {
-    // Ids first: expanding one probe collapses another, reordering the rows
-    const ids = await page
-      .locator(
-        '[data-testid="card-deck-section"] button[data-testid^="deck-card-"][aria-expanded="false"]',
-      )
-      .evaluateAll((rows) => rows.map((r) => r.getAttribute("data-testid")));
-    for (const id of ids) {
-      if (await option.isVisible()) break;
-      await page.locator(`button[data-testid="${id}"]`).click();
+export async function changingAnswer(page: Page, timeout = 60_000): Promise<Locator> {
+  const deck = page.getByTestId("card-deck-section");
+  const tile = deck
+    .locator('[data-testid^="deck-option-"][data-preview="ready"]')
+    .filter({ has: page.getByTestId("option-diff") })
+    .first();
+  await expect(async () => {
+    const collapsed = deck.locator('button[data-testid^="deck-card-"][aria-expanded="false"]');
+    for (let i = 0; i < (await collapsed.count()) && !(await tile.isVisible()); i++) {
+      await collapsed.nth(i).click();
+      await page.waitForTimeout(200);
     }
-  }
-  await option.click();
+    expect(await tile.isVisible()).toBe(true);
+  }).toPass({ timeout });
+  return tile;
 }
 
 /**

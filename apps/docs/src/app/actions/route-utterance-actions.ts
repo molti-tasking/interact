@@ -1,6 +1,6 @@
 "use server";
 
-import { serializeForLLM } from "@/lib/engine/structured-intent";
+import { serializeForLLM } from "interact/forms/structured-intent";
 import {
   capJson,
   capText,

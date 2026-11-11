@@ -9,7 +9,7 @@ import { useCurrentUser } from "@/context/user-context";
 import { usePipelineGenerate } from "@/hooks/query/pipeline";
 import { usePreviousPurpose } from "@/hooks/query/provenance";
 import { useUndoToast } from "@/hooks/query/undo";
-import { diffSchemas } from "@/lib/engine/schema-ops";
+import { diffSchemas } from "interact/forms/schema-ops";
 import { formatActor } from "@/lib/mock-users";
 import type { Portfolio, StructuredIntent } from "@/lib/types";
 import { ChevronDown, Loader2, Sparkles } from "lucide-react";
@@ -125,7 +125,11 @@ export function ReflectiveConversationPane({
     [portfolio.intent],
   );
 
-  const isGenerating = pipeline.isPending;
+  // Tracked here, not read from the mutation: the first generation starts
+  // from an effect, and a mutation started that way loses its state when
+  // React remounts the component in development ("Refining…" never ended)
+  const [isGenerating, setIsGenerating] = useState(false);
+  const { mutateAsync: runPipeline } = pipeline;
   const hasFields = portfolioSchema.fields.length > 0;
 
   // -------------------------------------------------------------------
@@ -136,8 +140,9 @@ export function ReflectiveConversationPane({
     setError(null);
     setShowDiff(false);
 
+    setIsGenerating(true);
     try {
-      const result = await pipeline.mutateAsync({
+      const result = await runPipeline({
         previousIntent: session?.base ?? portfolio.intent,
         currentIntent: intent,
         currentSchema: portfolioSchema,
@@ -171,6 +176,8 @@ export function ReflectiveConversationPane({
       const message = err instanceof Error ? err.message : "Generation failed";
       setError(message);
       toast.error(message);
+    } finally {
+      setIsGenerating(false);
     }
   };
 
@@ -181,27 +188,24 @@ export function ReflectiveConversationPane({
     if (!portfolio.intent.purpose.content.trim() || hasFields) return;
     autoStarted.current = true;
     onAutoGenerateStarted?.();
-    pipeline.mutate(
-      {
-        previousIntent: portfolio.intent,
-        currentIntent: portfolio.intent,
-        currentSchema: portfolio.schema,
-        actor,
-      },
-      {
-        onError: (err) =>
-          toast.error(
-            err instanceof Error ? err.message : "Form generation failed",
-          ),
-      },
-    );
+    setIsGenerating(true);
+    runPipeline({
+      previousIntent: portfolio.intent,
+      currentIntent: portfolio.intent,
+      currentSchema: portfolio.schema,
+      actor,
+    })
+      .catch((err) =>
+        toast.error(err instanceof Error ? err.message : "Form generation failed"),
+      )
+      .finally(() => setIsGenerating(false));
   }, [
     autoGenerate,
     onAutoGenerateStarted,
     portfolio.intent,
     portfolio.schema,
     hasFields,
-    pipeline,
+    runPipeline,
     actor,
   ]);
 
@@ -364,7 +368,7 @@ export function ReflectiveConversationPane({
         </div>
         {hasFields && !isDirty && !isGenerating && (
           <p className="-mt-4 pb-4 text-xs text-muted-foreground/80">
-            Edit the intent to refine the form, or answer the design probes.
+            Edit the intent to refine the form, or answer the elicitation questions.
           </p>
         )}
       </div>

@@ -1,6 +1,7 @@
 "use client";
 
 import { ArtifactPane } from "@/components/workspace/ArtifactPane";
+import { ChatEditPane } from "@/components/workspace/ChatEditPane";
 import { DerivationBanner } from "@/components/workspace/DerivationBanner";
 import { DesignProbeDeck } from "@/components/workspace/DesignProbeDeck";
 import { FieldEditDrawer } from "@/components/workspace/FieldEditDrawer";
@@ -15,8 +16,8 @@ import {
 } from "@/hooks/query/intent-backpropagation";
 import { useCommitPortfolio } from "@/hooks/query/portfolios";
 import { useUndoToast } from "@/hooks/query/undo";
-import { addField, removeField, updateField } from "@/lib/engine/schema-ops";
-import { assignSection } from "@/lib/engine/sections";
+import { addField, removeField, updateField } from "interact/forms/schema-ops";
+import { assignSection } from "interact/forms/sections";
 import { formatActor } from "@/lib/mock-users";
 import type { Field, Portfolio } from "@/lib/types";
 import { useCallback, useState } from "react";
@@ -42,7 +43,7 @@ interface PortfolioWorkspaceProps {
 }
 
 /**
- * The design workspace: intent + design probes next to the form on a
+ * The design workspace: intent + elicitation questions next to the form on a
  * canvas, plus the field edit drawer. Used by the admin workspace page and
  * by workshop participants (study mode, narrowed via capabilities).
  */
@@ -64,7 +65,10 @@ export function PortfolioWorkspace({
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   // Debounced intent backpropagation from field edits
-  const { scheduleSync } = useIntentBackpropagation(portfolio);
+  const { scheduleSync } = useIntentBackpropagation(
+    portfolio,
+    capabilities.intentPortfolio,
+  );
 
   const handleFieldClick = useCallback(
     (field: Field) => {
@@ -102,6 +106,7 @@ export function PortfolioWorkspace({
                 ? `moved to section "${section}"`
                 : "taken out of its section";
           return {
+            trigger: "field-edit",
             schema,
             provenance: {
               layer: "configuration",
@@ -134,6 +139,7 @@ export function PortfolioWorkspace({
         const result = await commitPortfolio.mutateAsync((current) =>
           current.schema.fields.some((f) => f.id === fieldId)
             ? {
+                trigger: "field-edit",
                 schema: removeField(current.schema, fieldId),
                 provenance: {
                   layer: "configuration",
@@ -168,6 +174,7 @@ export function PortfolioWorkspace({
             schema = addField(schema, { ...field, name, origin: "creator" });
           }
           return {
+            trigger: "field-edit",
             schema,
             provenance: {
               layer: "configuration",
@@ -194,7 +201,7 @@ export function PortfolioWorkspace({
       {capabilities.derive && <DerivationBanner portfolio={portfolio} />}
 
       {/*
-        Workspace: a narrow sidebar (intent + design probes) next to the form
+        Workspace: a narrow sidebar (intent + elicitation questions) next to the form
         on a sticky canvas; stacked on small screens. Uses container queries
         so the open app sidebar is taken into account.
       */}
@@ -202,16 +209,24 @@ export function PortfolioWorkspace({
         <div className="@container">
           <div className="grid grid-cols-1 gap-6 @5xl:grid-cols-[minmax(320px,400px)_minmax(0,1fr)]">
             <div className="flex min-w-0 flex-col gap-5">
-              <div
-                data-testid="reflective-conversation-pane"
-                className="flex flex-col"
-              >
-                <ReflectiveConversationPane
+              {capabilities.chatEdits ? (
+                <ChatEditPane
                   portfolio={portfolio}
                   autoGenerate={autoGenerate}
                   onAutoGenerateStarted={onAutoGenerateStarted}
                 />
-              </div>
+              ) : (
+                <div
+                  data-testid="reflective-conversation-pane"
+                  className="flex flex-col"
+                >
+                  <ReflectiveConversationPane
+                    portfolio={portfolio}
+                    autoGenerate={autoGenerate}
+                    onAutoGenerateStarted={onAutoGenerateStarted}
+                  />
+                </div>
+              )}
 
               {capabilities.designProbes && (
                 <DesignProbeDeck

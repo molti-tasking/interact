@@ -32,12 +32,12 @@ import {
   widgetData,
   widgetFits,
   widgetSize,
-} from "@/lib/engine/dashboard";
+} from "interact/forms/dashboard";
 import type {
   CategoryBucket,
   NumericOutlier,
   StatsRow,
-} from "@/lib/engine/response-stats";
+} from "interact/forms/response-stats";
 import { cn } from "@/lib/utils";
 import {
   ArrowDown,

@@ -38,7 +38,7 @@ const steps = [
   },
   {
     number: 2,
-    title: "Resolve design probes",
+    title: "Answer elicitation questions",
     short: "Answer targeted questions",
     detail:
       "What age groups? Collect medical info? How is payment handled? Each answer shapes the schema.",
@@ -107,7 +107,7 @@ function HowItWorksSection() {
       </h2>
       <p className="text-muted-foreground">
         You describe your intent in natural language. The system responds with{" "}
-        <em>design probes</em>&mdash;targeted questions that surface tradeoffs
+        <em>elicitation questions</em>&mdash;targeted questions that surface tradeoffs
         and requirements you may not have considered. Each answer refines both
         the schema and the intent, converging on a form you could not have
         specified from scratch.
@@ -227,8 +227,9 @@ export default function Home() {
                 <h3 className="font-semibold text-sm">Iterative Convergence</h3>
               </div>
               <p className="text-sm text-muted-foreground leading-relaxed">
-                The data space emerges through successive refinement. Design
-                probes act as cognitive forcing functions: each requires an
+                The data space emerges through successive refinement.
+                Elicitation questions name a consideration and offer
+                alternatives, none of them recommended: each requires an
                 active evaluative choice that channels domain knowledge into the
                 specification. A novice triggers more follow-up questions; an
                 expert skips intermediate rounds.

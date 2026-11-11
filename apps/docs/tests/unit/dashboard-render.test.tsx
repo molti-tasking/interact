@@ -1,5 +1,5 @@
 import { WidgetCard } from "@/app/(app)/responses/[portfolioId]/_components/dashboard/widget-card";
-import { scaleFromSpec } from "@/lib/engine/scale";
+import { scaleFromSpec } from "interact/forms/scale";
 import type { Field, FieldType, PortfolioSchema } from "@/lib/types";
 import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";

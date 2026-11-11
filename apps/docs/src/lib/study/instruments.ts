@@ -116,7 +116,7 @@ const CDN_ITEMS: { name: string; dimension: string; label: string; reverse?: boo
   {
     name: "cdn_role_expressiveness",
     dimension: "Role-expressiveness",
-    label: "I understood why the tool asked each of its design questions.",
+    label: "I understood why the tool asked each of its questions.",
   },
   {
     name: "cdn_error_proneness",
@@ -235,3 +235,266 @@ export const CDN_DIMENSIONS = CDN_ITEMS.map(({ name, dimension, reverse }) => ({
   dimension,
   reverse: !!reverse,
 }));
+
+// ---------------------------------------------------------------------------
+// Panel study (briefs sessions)
+// ---------------------------------------------------------------------------
+
+export const BRIEFS_INSTRUMENT = "briefs-final";
+
+/**
+ * Items that read the same in every condition (no "elicitation questions", no
+ * "intent"), so the two arms answer the same questionnaire.
+ */
+const EXPERIENCE_ITEMS: { name: string; label: string; reverse?: boolean }[] = [
+  {
+    name: "exp_complete",
+    label: "I am confident that my forms ask for everything the organisations need.",
+  },
+  {
+    name: "exp_thought_of_more",
+    label: "While I worked, the tool made me think of things I would not have thought of myself.",
+  },
+  {
+    name: "exp_unwanted_changes",
+    label: "The tool made changes to my forms that I did not want.",
+    reverse: true,
+  },
+  {
+    name: "exp_what_changed",
+    label: "When the tool changed a form, it was clear to me what had changed.",
+  },
+  {
+    name: "exp_understood_forms",
+    label: "I understood what was in my finished forms and why.",
+  },
+  {
+    name: "exp_effort",
+    label: "Getting the forms the way I wanted took a lot of effort.",
+    reverse: true,
+  },
+];
+
+/**
+ * An instructed-response item (allowed by Prolific's attention check
+ * policy). Expected answer: 2 ("Disagree").
+ */
+export const ATTENTION_ITEM = { name: "attention_1", expected: 2 };
+
+const briefsExperienceFields = [
+  ...EXPERIENCE_ITEMS.slice(0, 3).map((item) => likert(item.name, item.label)),
+  likert(
+    ATTENTION_ITEM.name,
+    "To show that you are reading the statements, please select “Disagree” here.",
+  ),
+  ...EXPERIENCE_ITEMS.slice(3).map((item) => likert(item.name, item.label)),
+];
+
+const briefsOpenFields = [
+  longText(
+    "open_helped",
+    "What helped you most in getting the forms right?",
+    true,
+  ),
+  longText("open_hindered", "What got in your way?"),
+];
+
+const briefsAboutFields = [
+  select("forms_experience", "How often do you create forms or questionnaires?", [
+    "Never before",
+    "A few times",
+    "Regularly",
+    "It's part of my job",
+  ]),
+  select("ai_experience", "How often do you use AI chat assistants (e.g. ChatGPT)?", [
+    "Never",
+    "A few times",
+    "Every week",
+    "Every day",
+  ]),
+  longText("comments", "Anything else you'd like to tell us?"),
+];
+
+/**
+ * Need for Cognition, six-item version (NCS-6): Lins de Holanda Coelho,
+ * Hanel & Wolf (2020), "The Very Efficient Assessment of Need for
+ * Cognition: Developing a Six-Item Version", Assessment 27(8), 1870–1885.
+ *
+ * Wording, reverse-scored items (R) and item numbers are the paper's
+ * appendix (numbers refer to the 18-item scale); the response format is the
+ * one the paper administered: 1 = extremely uncharacteristic of me,
+ * 5 = extremely characteristic of me. Do not reword: the items are the
+ * instrument. A trait measure, so it is the same in every condition.
+ */
+export const NCS6_ITEMS: { name: string; item: number; label: string; reverse: boolean }[] = [
+  { name: "ncs_1", item: 1, label: "I would prefer complex to simple problems.", reverse: false },
+  {
+    name: "ncs_2",
+    item: 2,
+    label:
+      "I like to have the responsibility of handling a situation that requires a lot of thinking.",
+    reverse: false,
+  },
+  { name: "ncs_3", item: 3, label: "Thinking is not my idea of fun.", reverse: true },
+  {
+    name: "ncs_4",
+    item: 4,
+    label:
+      "I would rather do something that requires little thought than something that is sure to challenge my thinking abilities.",
+    reverse: true,
+  },
+  {
+    name: "ncs_5",
+    item: 11,
+    label: "I really enjoy a task that involves coming up with new solutions to problems.",
+    reverse: false,
+  },
+  {
+    name: "ncs_6",
+    item: 15,
+    label:
+      "I would prefer a task that is intellectual, difficult, and important to one that is somewhat important but does not require much thought.",
+    reverse: false,
+  },
+];
+
+const NCS6_SCALE = {
+  kind: "scale" as const,
+  min: 1,
+  max: 5,
+  labels: {
+    low: "Extremely uncharacteristic of me",
+    high: "Extremely characteristic of me",
+  },
+};
+
+const briefsNcsFields = NCS6_ITEMS.map(
+  ({ name, label }): Field => ({
+    id: name,
+    name,
+    label,
+    type: NCS6_SCALE,
+    required: true,
+    constraints: [],
+    origin: "system",
+    tags: [],
+  }),
+);
+
+/**
+ * NCS-6 score: the mean of the six answers (1–5) with items 3 and 4
+ * reversed, so 1 = low and 5 = high need for cognition. Null if an item is
+ * missing or out of range.
+ */
+export function ncs6Score(answers: Record<string, unknown>): number | null {
+  let sum = 0;
+  for (const { name, reverse } of NCS6_ITEMS) {
+    const raw = answers[name];
+    const value = typeof raw === "number" ? raw : typeof raw === "string" && raw.trim() ? Number(raw) : NaN;
+    if (!Number.isInteger(value) || value < NCS6_SCALE.min || value > NCS6_SCALE.max) return null;
+    sum += reverse ? NCS6_SCALE.min + NCS6_SCALE.max - value : value;
+  }
+  return sum / NCS6_ITEMS.length;
+}
+
+export const BRIEFS_QUESTIONNAIRE: PortfolioSchema = {
+  version: 1,
+  layout: "paged",
+  fields: [
+    ...susFields,
+    ...briefsExperienceFields,
+    ...briefsOpenFields,
+    ...briefsNcsFields,
+    ...briefsAboutFields,
+  ],
+  groups: [
+    section(
+      "sus",
+      "Using the tool",
+      "How much do you agree with each statement about the form tool you just used?",
+      susFields,
+    ),
+    section(
+      "experience",
+      "Working on your forms",
+      "Think about building the two forms.",
+      briefsExperienceFields,
+    ),
+    section("open", "In your own words", "A sentence or two is enough.", briefsOpenFields),
+    section(
+      "ncs",
+      "About how you like to think",
+      "These statements are about you in general, not about the tool. For each one, choose how characteristic it is of you, from 1 (extremely uncharacteristic of me) to 5 (extremely characteristic of me).",
+      briefsNcsFields,
+    ),
+    section("about", "About you", "Optional.", briefsAboutFields),
+  ],
+};
+
+/** Experience items with their scoring direction, for analysis/export. */
+export const EXPERIENCE_CODEBOOK = EXPERIENCE_ITEMS.map(({ name, label, reverse }) => ({
+  name,
+  label,
+  reverse: !!reverse,
+}));
+
+// --- Quiz: "Does your form ask for this?" ----------------------------------
+
+export const quizInstrument = (position: number) => `quiz:${position}`;
+
+export type QuizAnswer = "yes" | "no" | "unsure";
+
+export interface QuizItem {
+  id: string;
+  label: string;
+  /** "own": a question of the participant's form. "foil": not from it. */
+  kind: "own" | "foil";
+}
+
+/** Own questions shown at most (sampled when the form has more) */
+const QUIZ_OWN_MAX = 6;
+const QUIZ_FOIL_MAX = 4;
+
+/**
+ * The quiz for one finished form: some of its own questions, mixed with
+ * foils that are not in it. Deterministic per `seed`. A foil whose label
+ * matches one of the form's questions is dropped (it would be true).
+ */
+export function buildQuiz(
+  fields: { id: string; label: string }[],
+  foils: string[],
+  seed: string,
+  shuffle: <T>(items: readonly T[], seed: string) => T[],
+): QuizItem[] {
+  const norm = (text: string) => text.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+  const labels = new Set(fields.map((f) => norm(f.label)));
+  const own = shuffle(
+    fields.filter((f) => f.label.trim()),
+    `${seed}:own`,
+  )
+    .slice(0, QUIZ_OWN_MAX)
+    .map((f): QuizItem => ({ id: `own:${f.id}`, label: f.label, kind: "own" }));
+  const foil = shuffle(
+    foils.filter((label) => !labels.has(norm(label))),
+    `${seed}:foil`,
+  )
+    .slice(0, QUIZ_FOIL_MAX)
+    .map((label, i): QuizItem => ({ id: `foil:${i}`, label, kind: "foil" }));
+  return shuffle([...own, ...foil], `${seed}:mix`);
+}
+
+/**
+ * Share of quiz items answered correctly ("unsure" counts as wrong), or
+ * null without items. Foils count as correct on "no" — check them against
+ * the final form before trusting the score (see the coding export).
+ */
+export function quizScore(
+  items: QuizItem[],
+  answers: Record<string, QuizAnswer | undefined>,
+): number | null {
+  if (items.length === 0) return null;
+  const correct = items.filter(
+    (item) => answers[item.id] === (item.kind === "own" ? "yes" : "no"),
+  ).length;
+  return correct / items.length;
+}

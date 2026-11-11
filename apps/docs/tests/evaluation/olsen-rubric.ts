@@ -37,15 +37,15 @@ export const olsenCriteria: OlsenCriterion[] = [
       "underlying technology.",
     evaluationFocus:
       "Does the creator work in natural language (their domain language) " +
-      "rather than JSON schemas or database notation? Do design probes use " +
+      "rather than JSON schemas or database notation? Do elicitation questions use " +
       "domain-specific terminology? Does the system surface domain standards " +
       "(Purpose/Audience/Constraints) a natural way to describe a form?",
     anchors: {
       1: "Creator must work entirely in technical schema notation (field types, keys, constraints) with no domain language support",
       2: "Some natural language input accepted but output is purely technical; significant mental translation required",
-      3: "Natural language used for initial input but the system responds in technical terms; design probes are generic",
-      4: "Good domain mapping — natural language intent, domain-aware design probes and standards detection, but generated schema still requires technical understanding to verify",
-      5: "Excellent match — creator works entirely in domain language throughout; system translates to technical representation automatically; standards referenced by domain name; design probes phrased in domain terms",
+      3: "Natural language used for initial input but the system responds in technical terms; elicitation questions are generic",
+      4: "Good domain mapping — natural language intent, domain-aware elicitation questions and standards detection, but generated schema still requires technical understanding to verify",
+      5: "Excellent match — creator works entirely in domain language throughout; system translates to technical representation automatically; standards referenced by domain name; elicitation questions phrased in domain terms",
     },
   },
   {
@@ -58,16 +58,16 @@ export const olsenCriteria: OlsenCriterion[] = [
       "and intelligent defaults.",
     evaluationFocus:
       "How many fields does a single intent paragraph generate? " +
-      "Does one design probe resolution update both intent AND schema simultaneously? " +
+      "Does one elicitation question resolution update both intent AND schema simultaneously? " +
       "Does accepting a domain standard add multiple fields at once? " +
       "How much specification is amplified by the pipeline's " +
-      "dimension discovery and design probe generation?",
+      "dimension discovery and elicitation question generation?",
     anchors: {
       1: "No leverage — each field must be individually specified with type, label, validation, and constraints; 1:1 ratio of effort to output",
       2: "Minimal leverage — templates or copy-paste reduce some repetition but most fields require individual configuration",
       3: "Moderate leverage — system generates fields from description but each requires manual review and correction; design choices have limited propagation",
-      4: "Good leverage — one intent paragraph generates 20-30 fields; design probes update both intent and schema; standards add multiple fields; some manual adjustment still needed",
-      5: "Excellent leverage — single natural language description produces complete, validated form schema; each design probe resolution propagates changes across all layers; standards compliance achieved with one accept action; minimal manual intervention",
+      4: "Good leverage — one intent paragraph generates 20-30 fields; elicitation questions update both intent and schema; standards add multiple fields; some manual adjustment still needed",
+      5: "Excellent leverage — single natural language description produces complete, validated form schema; each elicitation question resolution propagates changes across all layers; standards compliance achieved with one accept action; minimal manual intervention",
     },
   },
   {
@@ -79,15 +79,15 @@ export const olsenCriteria: OlsenCriterion[] = [
       "requiring the creator to start over or perform extensive rework.",
     evaluationFocus:
       "Can the creator edit intent and regenerate without losing resolved " +
-      "design probes? Is there a prompt-edit mode for quick what-if changes? " +
-      "Can design probes be dismissed and regenerated? " +
+      "elicitation questions? Is there a prompt-edit mode for quick what-if changes? " +
+      "Can elicitation questions be dismissed and regenerated? " +
       "Does the system support iterative refinement (add constraints, " +
       "change audience) without rebuilding the entire schema?",
     anchors: {
       1: "No flexibility — any change requires starting from scratch; no iterative refinement possible",
       2: "Limited flexibility — can edit individual fields but changing the overall design requires regeneration which resets all progress",
-      3: "Moderate flexibility — intent edits trigger partial regeneration; some design probe history preserved; manual adjustments may be lost",
-      4: "Good flexibility — intent freely editable; design probes dismissable and regenerable; prompt-edit mode for targeted changes; schema refinement builds on existing work",
+      3: "Moderate flexibility — intent edits trigger partial regeneration; some elicitation question history preserved; manual adjustments may be lost",
+      4: "Good flexibility — intent freely editable; elicitation questions dismissable and regenerable; prompt-edit mode for targeted changes; schema refinement builds on existing work",
       5: "Excellent flexibility — full iterative refinement; intent, probes, and schema all independently editable; prompt-edit for experiments; pipeline detects which sections changed and runs only necessary steps; resolved probes and provenance preserved across iterations",
     },
   },
@@ -102,7 +102,7 @@ export const olsenCriteria: OlsenCriterion[] = [
     evaluationFocus:
       "Can a non-technical user (e.g., clinic administrator) create a " +
       "well-structured form schema without understanding data types, " +
-      "validation rules, or database design? Do design probes guide " +
+      "validation rules, or database design? Do elicitation questions guide " +
       "domain decisions without requiring technical knowledge? " +
       "Does the system produce comparable quality output regardless of " +
       "creator skill level?",
@@ -110,8 +110,8 @@ export const olsenCriteria: OlsenCriterion[] = [
       1: "No skill barrier reduction — requires full understanding of data modeling, field types, validation, and schema design",
       2: "Minor reduction — simplified interface but still requires significant technical knowledge to produce quality forms",
       3: "Moderate reduction — non-technical users can create basic forms but complex requirements (validation, dependencies, compliance) require technical help",
-      4: "Good reduction — non-technical users guided through complex decisions via design probes in plain language; domain standards handled automatically; main barrier is knowing what data to collect",
-      5: "Excellent reduction — skill level affects only the specificity of the initial intent; system provides equal quality scaffolding for novice and expert; design probes, standards detection, and conflict resolution make technical decisions accessible to all",
+      4: "Good reduction — non-technical users guided through complex decisions via elicitation questions in plain language; domain standards handled automatically; main barrier is knowing what data to collect",
+      5: "Excellent reduction — skill level affects only the specificity of the initial intent; system provides equal quality scaffolding for novice and expert; elicitation questions, standards detection, and conflict resolution make technical decisions accessible to all",
     },
   },
 ];

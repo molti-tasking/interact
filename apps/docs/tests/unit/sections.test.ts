@@ -1,4 +1,4 @@
-import { applySchemaPatch } from "@/lib/engine/schema-patch";
+import { applySchemaPatch } from "interact/forms/schema-patch";
 import {
   assignSection,
   moveFieldBy,
@@ -9,8 +9,8 @@ import {
   sectionBlocks,
   sectionsFromTitles,
   updateSection,
-} from "@/lib/engine/sections";
-import { serializeSchemaForLLM } from "@/lib/engine/structured-intent";
+} from "interact/forms/sections";
+import { serializeSchemaForLLM } from "interact/forms/structured-intent";
 import type { Field, PortfolioSchema } from "@/lib/types";
 import { describe, expect, it } from "vitest";
 

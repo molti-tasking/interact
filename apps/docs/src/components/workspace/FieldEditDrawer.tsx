@@ -7,7 +7,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import { sectionOf } from "@/lib/engine/sections";
+import { sectionOf } from "interact/forms/sections";
 import type { Field, PortfolioSchema } from "@/lib/types";
 import { FieldEditForm } from "./FieldEditForm";
 

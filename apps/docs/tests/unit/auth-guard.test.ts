@@ -61,15 +61,23 @@ describe("server actions", () => {
   const dir = path.resolve(__dirname, "../../src/app/actions");
   const files = fs.readdirSync(dir).filter((f) => f.endsWith(".ts"));
 
+  /**
+   * Actions for people who aren't designers have their own gate. Respondent
+   * help loads the form on the server and checks that this caller may
+   * answer it and that its creator switched the help on (`loadAssistForm`).
+   */
+  const OTHER_GUARDS: Record<string, string> = {
+    "respondent-assist-actions.ts": "loadAssistForm(",
+  };
+
   it.each(files)("%s guards every exported action", (file) => {
     const source = fs.readFileSync(path.join(dir, file), "utf-8");
+    const guard = OTHER_GUARDS[file] ?? "guardLlmRequest(";
     const chunks = source.split(/^export async function /m).slice(1);
     expect(chunks.length).toBeGreaterThan(0);
     for (const chunk of chunks) {
       const name = chunk.slice(0, chunk.indexOf("("));
-      expect(chunk, `${name} must call guardLlmRequest()`).toContain(
-        "guardLlmRequest(",
-      );
+      expect(chunk, `${name} must call ${guard})`).toContain(guard);
     }
   });
 });

@@ -2,7 +2,7 @@
 
 import { callLlm } from "@/lib/llm-client";
 import { commitPortfolioChange } from "@/lib/engine/commit";
-import { sanitizePurposeText } from "@/lib/engine/structured-intent";
+import { sanitizePurposeText } from "interact/forms/structured-intent";
 import type { Field, Portfolio } from "@/lib/types";
 import { trackActivity } from "@/lib/workspace-activity";
 import { useQueryClient } from "@tanstack/react-query";
@@ -25,11 +25,13 @@ const DEBOUNCE_MS = 2000;
  *   const { scheduleSync } = useIntentBackpropagation(portfolio);
  *   // after saving a field edit:
  *   scheduleSync('Renamed field "Name" to "Full Name"');
- *   // after applying a pre-computed design probe answer:
+ *   // after applying a pre-computed elicitation question answer:
  *   scheduleSync('"Track sessions?" → "Yes, per week"', "design-decision");
  */
 export function useIntentBackpropagation(
   portfolio: Portfolio | null | undefined,
+  /** False where there is no intent portfolio to keep in step (baseline) */
+  enabled = true,
 ) {
   const queryClient = useQueryClient();
 
@@ -81,6 +83,8 @@ export function useIntentBackpropagation(
             return null;
           }
           return {
+            // Keeps the intent text in step; never touches the form
+            trigger: "background",
             intent: {
               ...current.intent,
               purpose: {
@@ -116,6 +120,7 @@ export function useIntentBackpropagation(
       editDescription: string,
       kind: "field-edit" | "design-decision" = "field-edit",
     ) => {
+      if (!enabled) return;
       pendingEditsRef.current.push(editDescription);
       if (kind === "design-decision") pendingDecisionRef.current = true;
       if (timerRef.current) clearTimeout(timerRef.current);
@@ -124,7 +129,7 @@ export function useIntentBackpropagation(
         void flush();
       }, DEBOUNCE_MS);
     },
-    [flush],
+    [flush, enabled],
   );
 
   // Leaving the workspace: flush what's pending now instead of dropping it

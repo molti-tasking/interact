@@ -722,7 +722,7 @@ function ArtifactCard({ artifact }: { artifact: SessionArtifact }) {
             <div className="text-lg font-bold">
               {artifact.designProbes?.length ?? 0}
             </div>
-            <div className="text-muted-foreground">Probes</div>
+            <div className="text-muted-foreground">Questions</div>
           </div>
           <div>
             <div className="text-lg font-bold">
@@ -783,7 +783,7 @@ function ArtifactCard({ artifact }: { artifact: SessionArtifact }) {
             </div>
             {artifact.designProbes?.length > 0 && (
               <div>
-                <div className="font-medium mb-1">Design Probes</div>
+                <div className="font-medium mb-1">Elicitation questions</div>
                 <ul className="space-y-1">
                   {artifact.designProbes?.map((probe, i) => (
                     <li

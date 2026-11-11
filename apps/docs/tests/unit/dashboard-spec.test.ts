@@ -7,8 +7,8 @@ import {
   widgetData,
   widgetFits,
   widgetsFromProposals,
-} from "@/lib/engine/dashboard";
-import { scaleFromSpec } from "@/lib/engine/scale";
+} from "interact/forms/dashboard";
+import { scaleFromSpec } from "interact/forms/scale";
 import type { DashboardSpec, DashboardWidget, Field, FieldType, PortfolioSchema } from "@/lib/types";
 import { describe, expect, it } from "vitest";
 

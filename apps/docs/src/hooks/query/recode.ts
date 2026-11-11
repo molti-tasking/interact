@@ -6,11 +6,11 @@ import {
   planRecodeUndo,
   type RecodeOp,
   type RecodePlan,
-} from "@/lib/engine/recode";
+} from "interact/forms/recode";
 import type {
   ResponseRowLike,
   RowWrite,
-} from "@/lib/form-renderer/response-rows";
+} from "interact/forms/response-rows";
 import type { Portfolio, PortfolioSchema } from "@/lib/types";
 import { trackActivity } from "@/lib/workspace-activity";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -50,6 +50,7 @@ export function useRecode(
     actor: string,
   ) => {
     const result = await commitPortfolioChange(portfolio.id, (current) => ({
+      trigger: "field-edit",
       ...(change ? { schema: change(current.schema) } : {}),
       provenance: { layer: "configuration", action, actor, rationale },
     }));

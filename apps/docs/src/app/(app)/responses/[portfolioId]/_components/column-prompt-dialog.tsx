@@ -24,8 +24,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { useCurrentUser } from "@/context/user-context";
 import { useCommitPortfolio } from "@/hooks/query/portfolios";
 import { useUndoToast } from "@/hooks/query/undo";
-import { addField } from "@/lib/engine/schema-ops";
-import type { ResponseRowLike } from "@/lib/form-renderer/response-rows";
+import { addField } from "interact/forms/schema-ops";
+import type { ResponseRowLike } from "interact/forms/response-rows";
 import { ResponseValue } from "@/lib/form-renderer/ResponseValue";
 import { formatActor } from "@/lib/mock-users";
 import type { Field, Portfolio, SavedColumnAction } from "@/lib/types";
@@ -165,6 +165,7 @@ function ColumnPromptBody({
         createdAt: new Date().toISOString(),
       };
       return {
+        trigger: "field-edit",
         schema: {
           ...schema,
           columnActions: [...(schema.columnActions ?? []), action],

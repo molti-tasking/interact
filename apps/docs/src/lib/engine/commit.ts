@@ -8,8 +8,14 @@ import type {
   ProvenanceLayer,
   StructuredIntent,
 } from "../types";
-import { protectLockedFields } from "./guards";
-import { diffSchemas, isDiffEmpty } from "./schema-ops";
+import {
+  checkCommit,
+  formChanged,
+  UndecidedChangeError,
+  type CommitTrigger,
+} from "interact/forms/decision-guard";
+import { protectLockedFields } from "interact/forms/guards";
+import { diffSchemas, isDiffEmpty } from "interact/forms/schema-ops";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -29,6 +35,14 @@ export interface ProvenanceSpec {
 }
 
 export interface PortfolioChange {
+  /**
+   * What the creator did that leads to this write — or "background" for
+   * work nobody asked for (keeping the intent text in step, a suggested
+   * dashboard). A background write can't change the form, and a creator's
+   * change to it must carry an actor and a rationale: `checkCommit`
+   * refuses anything else before it is written.
+   */
+  trigger: CommitTrigger;
   schema?: PortfolioSchema;
   intent?: StructuredIntent;
   title?: string;
@@ -78,7 +92,9 @@ export class PortfolioConflictError extends Error {
  *    and append provenance (prev_* taken from the DB) in one transaction.
  * 4. On a revision mismatch, retry from step 1 with the fresh state.
  *
- * Returns `null` when the change function aborted.
+ * Returns `null` when the change function aborted. Throws
+ * `UndecidedChangeError` for a form change without a creator's action, an
+ * actor or a rationale — nothing is written then.
  */
 export async function commitPortfolioChange(
   portfolioId: string,
@@ -106,6 +122,14 @@ export async function commitPortfolioChange(
         ? protectLockedFields(current.schema, proposed.schema)
         : null;
     const next = guarded ? { ...proposed, schema: guarded.schema } : proposed;
+
+    // No change without a decision (see `decision-guard.ts`)
+    const verdict = checkCommit({
+      trigger: next.trigger,
+      formChanged: !!next.schema && formChanged(current.schema, next.schema),
+      provenance: next.provenance,
+    });
+    if (!verdict.ok) throw new UndecidedChangeError(verdict.reason);
 
     const diff = next.schema
       ? diffSchemas(current.schema, next.schema)
@@ -165,6 +189,7 @@ export async function revertCommit(
   return commitPortfolioChange(result.portfolio.id, (current) => {
     if (current.revision !== result.portfolio.revision) return null;
     return {
+      trigger: "undo",
       schema: result.previous.schema,
       intent: result.previous.intent,
       provenance: {
@@ -189,6 +214,7 @@ export async function restoreSnapshot(
   rationale: string,
 ): Promise<CommitResult | null> {
   return commitPortfolioChange(portfolioId, (current) => ({
+    trigger: "undo",
     schema: snapshot.schema
       ? { ...snapshot.schema, version: current.schema.version + 1 }
       : undefined,

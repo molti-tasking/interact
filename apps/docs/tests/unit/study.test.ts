@@ -3,6 +3,7 @@ import type { StudyExport } from "@/hooks/query/study";
 import { eventsCsv, questionnaireCsv, toCsv } from "@/lib/study/export";
 import { FINAL_QUESTIONNAIRE, susScore } from "@/lib/study/instruments";
 import {
+  DEFAULT_STUDY_SETTINGS,
   formatCountdown,
   nextPhase,
   panelParams,
@@ -56,10 +57,12 @@ describe("countdown", () => {
 
 describe("parseSettings", () => {
   it("falls back to safe defaults", () => {
-    expect(parseSettings(null)).toEqual({
+    expect(parseSettings(null)).toEqual(DEFAULT_STUDY_SETTINGS);
+    expect(parseSettings(null)).toMatchObject({
       allowVoice: false,
       findingsMinResponses: 3,
       conditions: [],
+      mode: "workshop",
     });
     expect(parseSettings({ allowVoice: true, findingsMinResponses: 0 })).toMatchObject({
       allowVoice: true,

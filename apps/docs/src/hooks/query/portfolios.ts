@@ -181,11 +181,23 @@ export function usePortfolio(id: string | undefined) {
 // Mutations
 // ---------------------------------------------------------------------------
 
+/**
+ * A form derived from another one starts with fields nobody typed here:
+ * who derived it, and for what, goes into its decision trail.
+ */
+export interface DerivationRecord {
+  actor: string;
+  /** The scenario the creator described */
+  rationale: string;
+}
+
 export function useCreatePortfolio() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (input: PortfolioInsert): Promise<Portfolio> => {
+    mutationFn: async (
+      input: PortfolioInsert & { derivation?: DerivationRecord },
+    ): Promise<Portfolio> => {
       const supabase = createClient();
       const { data, error } = await supabase
         .from("portfolios")
@@ -204,7 +216,22 @@ export function useCreatePortfolio() {
         .single();
 
       if (error) throw error;
-      return rowToPortfolio(data);
+      const created = rowToPortfolio(data);
+      if (!input.derivation) return created;
+
+      // First entry of the derived form's trail (no form change: the
+      // fields were written with the row)
+      const { actor, rationale } = input.derivation;
+      const recorded = await commitPortfolioChange(created.id, () => ({
+        trigger: "derive",
+        provenance: {
+          layer: "configuration",
+          action: "portfolio_derived",
+          actor,
+          rationale,
+        },
+      }));
+      return recorded?.portfolio ?? created;
     },
     onSuccess: (portfolio) => {
       queryClient.setQueryData(portfolioKey(portfolio.id), portfolio);

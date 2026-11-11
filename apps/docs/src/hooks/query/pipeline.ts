@@ -3,13 +3,13 @@
 import { useCapabilities } from "@/context/capabilities-context";
 import type { DetectedStandard } from "@/lib/domain-standards";
 import { commitPortfolioChange, type CommitResult } from "@/lib/engine/commit";
-import { mergeIntentChange } from "@/lib/engine/merge";
+import { mergeIntentChange } from "interact/forms/merge";
 import {
   computeDelta,
   determinePipelineStrategy,
   filterExcludedFields,
   serializeForLLM,
-} from "@/lib/engine/structured-intent";
+} from "interact/forms/structured-intent";
 import type {
   PipelineStrategy,
   PortfolioSchema,
@@ -106,6 +106,7 @@ export function usePipelineGenerate(portfolioId: string) {
                 intent.exclusions.content,
               );
               return {
+                trigger: "intent-edit",
                 intent,
                 schema: filtered,
                 automated: true,
@@ -122,6 +123,7 @@ export function usePipelineGenerate(portfolioId: string) {
             }
 
             return {
+              trigger: "intent-edit",
               intent,
               provenance:
                 delta.changedSections.length > 0
@@ -189,11 +191,11 @@ export function usePipelineGenerate(portfolioId: string) {
                       added > 0 && `${added} new`,
                       dropped > 0 && `${dropped} no longer relevant`,
                     ].filter(Boolean);
-                    toast(`Design probes updated: ${parts.join(", ")}`);
+                    toast(`Elicitation questions updated: ${parts.join(", ")}`);
                   },
                   onError: (err) =>
                     toast.error(
-                      `Couldn't update design probes: ${err instanceof Error ? err.message : "unknown error"}`,
+                      `Couldn't update elicitation questions: ${err instanceof Error ? err.message : "unknown error"}`,
                     ),
                 },
               );
@@ -209,12 +211,13 @@ export function usePipelineGenerate(portfolioId: string) {
             // Step 3: Generate schema and merge it into the current one
             const schemaCommit = await generateSchema.mutateAsync({
               intent,
+              actor,
               acceptedStandards:
                 acceptedStandards.length > 0 ? acceptedStandards : undefined,
             });
             const newSchema = schemaCommit?.portfolio.schema ?? schema;
 
-            // Step 4: Generate design probes against the new schema
+            // Step 4: Generate elicitation questions against the new schema
             // (fire-and-forget; the deck shows progress)
             if (designProbes) generateDesignProbes.mutate(
               {
@@ -226,7 +229,7 @@ export function usePipelineGenerate(portfolioId: string) {
               {
                 onError: (err) =>
                   toast.error(
-                    `Couldn't generate design probes: ${err instanceof Error ? err.message : "unknown error"}`,
+                    `Couldn't generate elicitation questions: ${err instanceof Error ? err.message : "unknown error"}`,
                   ),
               },
             );

@@ -18,6 +18,8 @@ import {
   type PhaseDurations,
   type StudyPhase,
   type StudySession,
+  type StartKind,
+  type StudyRunSettings,
   type StudySettings,
 } from "@/lib/study/types";
 import { emptyPortfolioSchema, emptyStructuredIntent } from "@/lib/types";
@@ -29,6 +31,7 @@ const sessionKey = (id: string) => [...STUDY_KEY, "session", id] as const;
 const rosterKey = (id: string) => [...STUDY_KEY, "roster", id] as const;
 const myStateKey = (id: string) => [...STUDY_KEY, "my-state", id] as const;
 const formsKey = (id: string) => [...STUDY_KEY, "forms", id] as const;
+const progressKey = (id: string) => [...STUDY_KEY, "progress", id] as const;
 const questionnaireKey = (participantId: string, instrument: string) =>
   [...STUDY_KEY, "questionnaire", participantId, instrument] as const;
 
@@ -150,21 +153,28 @@ export function useJoinStudy() {
   });
 }
 
+interface PanelJoinInput {
+  code: string;
+  source: string;
+  externalId: string;
+  studyId: string | null;
+  sessionId: string | null;
+}
+
 /**
  * Join from a panel link (Prolific): no name to type — the participant gets
  * a neutral one and a condition (migration 013). Rejoining with the same
  * panel id, even from another browser, continues the same seat.
+ *
+ * A query, not a mutation: it starts by itself when the join page opens, and
+ * a mutation started from an effect loses its result when React remounts the
+ * component in development. The call is idempotent, so running it again
+ * (retry, remount) returns the same seat.
  */
-export function useJoinStudyExternal() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async (input: {
-      code: string;
-      source: string;
-      externalId: string;
-      studyId: string | null;
-      sessionId: string | null;
-    }) => {
+export function usePanelJoin(input: PanelJoinInput) {
+  return useQuery({
+    queryKey: [...STUDY_KEY, "panel-join", input.code, input.source, input.externalId],
+    queryFn: async () => {
       const supabase = createClient();
       const { data: current } = await supabase.auth.getUser();
       if (!current.user) {
@@ -189,7 +199,10 @@ export function useJoinStudyExternal() {
         portfolioId: row.portfolio_id,
       };
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: STUDY_KEY }),
+    retry: false,
+    staleTime: Infinity,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
   });
 }
 
@@ -232,6 +245,40 @@ export function useMyStudyState(sessionId: string | undefined) {
     refetchInterval: 2_000,
     refetchIntervalInBackground: true,
     staleTime: 0,
+  });
+}
+
+/**
+ * Briefs session: move this participant on from the step on their screen.
+ * Idempotent on the server, so a double click moves one step.
+ */
+export function useAdvanceStudyStep(sessionId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { from: string; reason?: "timeout" }) => {
+      const { data, error } = await createClient().rpc("advance_my_study_step", {
+        p_session_id: sessionId,
+        p_from: input.from,
+        p_reason: input.reason,
+      });
+      if (error) throw asError(error);
+      return data;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: myStateKey(sessionId) }),
+  });
+}
+
+/** Briefs session: the participant doesn't consent; their seat is closed. */
+export function useDeclineStudy(sessionId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      const { error } = await createClient().rpc("decline_my_study", {
+        p_session_id: sessionId,
+      });
+      if (error) throw asError(error);
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: myStateKey(sessionId) }),
   });
 }
 
@@ -436,7 +483,19 @@ export function useUpdateStudySession() {
     }): Promise<StudySession> => {
       const update: { name?: string; settings?: Json; phase_durations?: Json } = {};
       if (input.name !== undefined) update.name = input.name;
-      if (input.settings) update.settings = input.settings as unknown as Json;
+      if (input.settings) {
+        // What the session runs with is the server's record (written when
+        // the study is opened): a settings form that was loaded earlier
+        // must not overwrite it
+        const { data: current, error: readError } = await createClient()
+          .from("study_sessions")
+          .select("settings")
+          .eq("id", input.id)
+          .single();
+        if (readError) throw asError(readError);
+        const run = (current.settings as { run?: Json } | null)?.run ?? null;
+        update.settings = { ...input.settings, run } as unknown as Json;
+      }
       if (input.phaseDurations) {
         update.phase_durations = input.phaseDurations as unknown as Json;
       }
@@ -476,6 +535,85 @@ export function useAdvanceStudyPhase() {
       queryClient.invalidateQueries({ queryKey: sessionsKey });
       queryClient.invalidateQueries({ queryKey: rosterKey(session.id) });
     },
+  });
+}
+
+type ServerRunSettings =
+  | { run: StudyRunSettings; missing: [] }
+  | { run: null; missing: string[] };
+
+/**
+ * What a briefs session would run with (model, question strategy, committee
+ * size), from the server's environment — or which of them are not set.
+ */
+export function useServerRunSettings(sessionId: string, enabled = true) {
+  return useQuery({
+    queryKey: [...sessionKey(sessionId), "run-settings"],
+    queryFn: async (): Promise<ServerRunSettings> => {
+      const res = await fetch(`/api/study/sessions/${sessionId}/open`);
+      if (!res.ok) throw new Error("Couldn't read the server's settings");
+      return (await res.json()) as ServerRunSettings;
+    },
+    enabled,
+    staleTime: 30_000,
+  });
+}
+
+/**
+ * Open a briefs session. The server records what it runs with first and
+ * refuses when that isn't set explicitly (see /api/study/sessions/[id]/open).
+ */
+export function useOpenBriefsSession() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (sessionId: string): Promise<StudySession> => {
+      const res = await fetch(`/api/study/sessions/${sessionId}/open`, { method: "POST" });
+      const body = (await res.json().catch(() => ({}))) as {
+        session?: Parameters<typeof rowToSession>[0];
+        error?: string;
+      };
+      if (!res.ok || !body.session) {
+        throw new Error(body.error ?? "Couldn't open the study");
+      }
+      return rowToSession(body.session);
+    },
+    onSuccess: (session) => {
+      queryClient.setQueryData(sessionKey(session.id), session);
+      queryClient.invalidateQueries({ queryKey: sessionsKey });
+    },
+  });
+}
+
+export interface HandoffCandidate {
+  portfolioId: string;
+  participant: string;
+  condition: string | null;
+  brief: string;
+  fieldCount: number;
+  decisions: number;
+  finishedAt: string;
+}
+
+/** Finished forms of a briefs session: what a wave-2 session can start from. */
+export function useHandoffCandidates(sessionId: string | null | undefined) {
+  return useQuery({
+    queryKey: [...sessionKey(sessionId ?? ""), "handoff-candidates"],
+    queryFn: async (): Promise<HandoffCandidate[]> => {
+      const { data, error } = await createClient().rpc("get_study_handoff_candidates", {
+        p_session_id: sessionId!,
+      });
+      if (error) throw asError(error);
+      return (data ?? []).map((row) => ({
+        portfolioId: row.portfolio_id,
+        participant: row.participant,
+        condition: row.condition,
+        brief: row.brief,
+        fieldCount: row.field_count,
+        decisions: row.decisions,
+        finishedAt: row.finished_at,
+      }));
+    },
+    enabled: !!sessionId,
   });
 }
 
@@ -543,6 +681,81 @@ export function useStudyRoster(sessionId: string | undefined) {
   });
 }
 
+export interface ProgressTask {
+  position: number;
+  brief: string;
+  portfolioId: string | null;
+  startedAt: string | null;
+  finishedAt: string | null;
+  finishedBy: string | null;
+  fieldCount: number;
+  /** Wave 2: what the task's form started as, and from which form */
+  startKind: StartKind | null;
+  sourcePortfolioId: string | null;
+}
+
+export interface ProgressEntry {
+  participantId: string;
+  displayName: string;
+  condition: string | null;
+  taskOrder: number | null;
+  step: string | null;
+  outcome: string | null;
+  joinedAt: string;
+  lastSeenAt: string;
+  completedAt: string | null;
+  tasks: ProgressTask[];
+}
+
+/** Briefs session: where every participant is (researcher's console). */
+export function useStudyProgress(sessionId: string | undefined, enabled = true) {
+  return useQuery({
+    queryKey: progressKey(sessionId ?? ""),
+    queryFn: async (): Promise<ProgressEntry[]> => {
+      const { data, error } = await createClient().rpc("get_study_progress", {
+        p_session_id: sessionId!,
+      });
+      if (error) throw error;
+      return (data ?? []).map((row) => ({
+        participantId: row.participant_id,
+        displayName: row.display_name,
+        condition: row.condition,
+        taskOrder: row.task_order,
+        step: row.step,
+        outcome: row.outcome,
+        joinedAt: row.joined_at,
+        lastSeenAt: row.last_seen_at,
+        completedAt: row.completed_at,
+        tasks: (
+          (row.tasks ?? []) as unknown as {
+            position: number;
+            brief: string;
+            portfolio_id: string | null;
+            started_at: string | null;
+            finished_at: string | null;
+            finished_by: string | null;
+            field_count: number | null;
+            start_kind?: StartKind | null;
+            source_portfolio_id?: string | null;
+          }[]
+        ).map((t) => ({
+          position: t.position,
+          brief: t.brief,
+          portfolioId: t.portfolio_id,
+          startedAt: t.started_at,
+          finishedAt: t.finished_at,
+          finishedBy: t.finished_by,
+          fieldCount: t.field_count ?? 0,
+          startKind: t.start_kind ?? null,
+          sourcePortfolioId: t.source_portfolio_id ?? null,
+        })),
+      }));
+    },
+    enabled: !!sessionId && enabled,
+    refetchInterval: 5_000,
+  });
+}
+
 /** Let a participant re-enter from another browser under the same name. */
 export function useReassignSeat() {
   const queryClient = useQueryClient();
@@ -577,6 +790,26 @@ async function fetchAll<T>(
   }
 }
 
+/** Ids per request: a long `in.(…)` list would exceed the URL limit. */
+const ID_CHUNK = 80;
+
+/** Run `query` per chunk of ids and concatenate (keeps each chunk's order). */
+async function fetchByIds<T>(
+  ids: string[],
+  query: (
+    chunk: string[],
+    from: number,
+    to: number,
+  ) => PromiseLike<{ data: T[] | null; error: unknown }>,
+): Promise<T[]> {
+  const rows: T[] = [];
+  for (let i = 0; i < ids.length; i += ID_CHUNK) {
+    const chunk = ids.slice(i, i + ID_CHUNK);
+    rows.push(...(await fetchAll((from, to) => query(chunk, from, to))));
+  }
+  return rows;
+}
+
 export interface StudyExport {
   exportedAt: string;
   session: Tables<"study_sessions">;
@@ -593,6 +826,9 @@ export interface StudyExport {
    * keep the export out of shared folders and repos.
    */
   assignments: Tables<"study_assignments">[];
+  /** Briefs sessions (migration 014): one row per participant and brief */
+  tasks: Tables<"study_tasks">[];
+  progress: Tables<"study_progress">[];
 }
 
 export function useStudyExport() {
@@ -614,9 +850,31 @@ export function useStudyExport() {
           .order("joined_at")
           .range(from, to),
       );
-      const portfolioIds = participants
-        .map((p) => p.portfolio_id)
-        .filter((id): id is string => !!id);
+      const [tasks, progress] = await Promise.all([
+        fetchAll((from, to) =>
+          supabase
+            .from("study_tasks")
+            .select("*")
+            .eq("session_id", sessionId)
+            .order("position")
+            .range(from, to),
+        ),
+        fetchAll((from, to) =>
+          supabase
+            .from("study_progress")
+            .select("*")
+            .eq("session_id", sessionId)
+            .range(from, to),
+        ),
+      ]);
+      // A briefs participant has one form per task
+      const portfolioIds = [
+        ...new Set(
+          [...participants.map((p) => p.portfolio_id), ...tasks.map((t) => t.portfolio_id)].filter(
+            (id): id is string => !!id,
+          ),
+        ),
+      ];
 
       const [
         portfolios,
@@ -628,8 +886,8 @@ export function useStudyExport() {
         questionnaires,
         assignments,
       ] = await Promise.all([
-          fetchAll((from, to) =>
-            supabase.from("portfolios").select("*").in("id", portfolioIds).range(from, to),
+          fetchByIds(portfolioIds, (ids, from, to) =>
+            supabase.from("portfolios").select("*").in("id", ids).order("id").range(from, to),
           ),
           fetchAll((from, to) =>
             supabase
@@ -639,29 +897,38 @@ export function useStudyExport() {
               .order("created_at")
               .range(from, to),
           ),
-          fetchAll((from, to) =>
+          fetchByIds(portfolioIds, (ids, from, to) =>
             supabase
               .from("responses")
               .select("*")
-              .in("portfolio_id", portfolioIds)
+              .in("portfolio_id", ids)
               .order("submitted_at")
+              .order("id")
               .range(from, to),
+          ).then((rows) =>
+            rows.sort((a, b) => (a.submitted_at ?? "").localeCompare(b.submitted_at ?? "")),
           ),
-          fetchAll((from, to) =>
+          fetchByIds(portfolioIds, (ids, from, to) =>
             supabase
               .from("provenance_log")
               .select("*")
-              .in("portfolio_id", portfolioIds)
+              .in("portfolio_id", ids)
               .order("created_at")
+              .order("id")
               .range(from, to),
+          ).then((rows) =>
+            rows.sort((a, b) => (a.created_at ?? "").localeCompare(b.created_at ?? "")),
           ),
-          fetchAll((from, to) =>
+          fetchByIds(portfolioIds, (ids, from, to) =>
             supabase
               .from("design_probes")
               .select("*")
-              .in("portfolio_id", portfolioIds)
+              .in("portfolio_id", ids)
               .order("created_at")
+              .order("id")
               .range(from, to),
+          ).then((rows) =>
+            rows.sort((a, b) => (a.created_at ?? "").localeCompare(b.created_at ?? "")),
           ),
           fetchAll((from, to) =>
             supabase
@@ -701,6 +968,8 @@ export function useStudyExport() {
         events,
         questionnaires,
         assignments,
+        tasks,
+        progress,
       };
     },
   });

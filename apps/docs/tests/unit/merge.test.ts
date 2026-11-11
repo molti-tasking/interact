@@ -2,7 +2,7 @@ import {
   mergeIntentChange,
   mergePatchOntoLatest,
   mergeSchemaChange,
-} from "@/lib/engine/merge";
+} from "interact/forms/merge";
 import type { Field, PortfolioSchema, StructuredIntent } from "@/lib/types";
 import { describe, expect, it } from "vitest";
 

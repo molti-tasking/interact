@@ -71,7 +71,7 @@ A facilitator (admin) runs a workshop under **Workshops** (`/studies`): particip
 
 How it's enforced (`supabase/migrations/011_study_mode.sql`):
 
-- Participants are **anonymous Supabase users**. RLS lets them read/update only the portfolio they own (`portfolios.owner_id`) and its probes, history and responses; a trigger stops them from changing a form's status, owner or lineage; they can't create or delete forms (joining creates their one form).
+- Participants are **anonymous Supabase users**. RLS lets them read/update only the portfolio they own (`portfolios.owner_id`) and its elicitation questions, history and responses; a trigger stops them from changing a form's status, owner or lineage; they can't create or delete forms (joining creates their one form).
 - Peer forms are never published: `get_published_form` / `submit_response` also accept *study peers* while the session is answering (plus 2 minutes' grace), once per form.
 - Server actions accept admins and participants of a running session (`requireDesigner()`); the LLM rate limit is per user, since a room shares one IP.
 - Leaving *create* and *review* snapshots every form (`study_snapshots`); interactions are logged to `study_events`.

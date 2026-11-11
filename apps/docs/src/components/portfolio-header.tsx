@@ -15,7 +15,7 @@ export function PortfolioHeader({ portfolioId }: { portfolioId: string }) {
   const updatePortfolio = useUpdatePortfolio();
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-3" data-testid="portfolio-header">
       {portfolio ? (
         <InlineEditableTitle
           value={portfolio.title}

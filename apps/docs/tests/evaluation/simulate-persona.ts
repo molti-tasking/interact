@@ -28,7 +28,7 @@ const env = () => ({
 });
 
 /**
- * Call the LLM to make a persona-driven decision about a design probe card.
+ * Call the LLM to make a persona-driven decision about an elicitation question card.
  */
 async function personaDecision(
   persona: Persona,
@@ -180,6 +180,7 @@ export async function simulatePersona(
     // Step 1: Create portfolio
     log(`[simulate] Navigating to ${BASE_URL}/portfolios/new`);
     await page.goto(`${BASE_URL}/portfolios/new`);
+    await page.getByTestId("new-portfolio-more").click();
     await page.locator("#title").fill(scenario.title);
     await page.locator('[data-testid="create-portfolio-btn"]').click();
     await page.waitForURL(/\/portfolios\/[a-f0-9-]+/, { timeout: 15000 });
@@ -245,7 +246,7 @@ export async function simulatePersona(
 
     const genDuration = ((Date.now() - genStart) / 1000).toFixed(1);
     const initialFieldCount = await page.locator('[data-testid^="form-field-"]').count();
-    log(`[simulate] Form generated in ${genDuration}s (${initialFieldCount} fields), waiting for design probes...`);
+    log(`[simulate] Form generated in ${genDuration}s (${initialFieldCount} fields), waiting for elicitation questions...`);
     logInteraction("form-generated", `${initialFieldCount} fields in ${genDuration}s`);
 
     // Screenshot after form generation
@@ -254,12 +255,12 @@ export async function simulatePersona(
       await page.screenshot({ path: ssPath, fullPage: true });
     }
 
-    // Step 4: Wait for and resolve design probe cards
-    // Design probes are generated asynchronously (fire-and-forget LLM call after
+    // Step 4: Wait for and resolve elicitation question cards
+    // Elicitation questions are generated asynchronously (fire-and-forget LLM call after
     // schema generation). We need to poll until they appear in the UI.
     const resolvedProbes: SessionArtifacts["designProbes"] = [];
 
-    // Poll for design probe cards to appear (up to 60s)
+    // Poll for elicitation question cards to appear (up to 60s)
     const probeTimeout = 60000;
     const pollInterval = 3000;
     const probeDeadline = Date.now() + probeTimeout;
@@ -276,28 +277,28 @@ export async function simulatePersona(
         if (cardCount > 0) {
           probesAppeared = true;
           const pollDuration = ((Date.now() - probePollStart) / 1000).toFixed(1);
-          log(`[simulate] ${cardCount} design probe card(s) appeared (waited ${pollDuration}s)`);
+          log(`[simulate] ${cardCount} elicitation question card(s) appeared (waited ${pollDuration}s)`);
           break;
         }
       }
       log(
-        `[simulate] No design probes yet, polling... (${Math.round((probeDeadline - Date.now()) / 1000)}s remaining)`,
+        `[simulate] No elicitation questions yet, polling... (${Math.round((probeDeadline - Date.now()) / 1000)}s remaining)`,
       );
       await page.waitForTimeout(pollInterval);
     }
 
     if (!probesAppeared) {
       log(
-        `[simulate] ⚠️ No design probes appeared within ${probeTimeout / 1000}s — continuing without`,
+        `[simulate] ⚠️ No elicitation questions appeared within ${probeTimeout / 1000}s — continuing without`,
       );
     }
 
-    // Resolve design probe cards
+    // Resolve elicitation question cards
     let maxRounds = 8; // Safety limit
     while (maxRounds > 0 && probesAppeared) {
       maxRounds--;
 
-      // Find the first pending design probe card's options
+      // Find the first pending elicitation question card's options
       const probeCards = page.locator('[data-testid^="deck-card-"]');
       const cardCount = await probeCards.count();
       if (cardCount === 0) break;
@@ -336,7 +337,7 @@ export async function simulatePersona(
         .filter((o) => o.value !== chosenValue)
         .map((o) => o.label);
 
-      log(`[simulate] Design probe: "${questionText}" → "${chosenLabel}"`);
+      log(`[simulate] Elicitation question: "${questionText}" → "${chosenLabel}"`);
       logInteraction("probe-resolved", `"${questionText}" → "${chosenLabel}" (rejected: ${rejectedLabels.join(", ")})`);
 
       // Click the chosen option
@@ -486,7 +487,7 @@ export async function simulatePersona(
       fieldCount,
       schemaDescription: `${fieldCount} fields: ${fieldLabels.join(", ")}`,
       provenanceEntries: provenanceLog.length || resolvedProbes.length + 1,
-      provenanceSummary: `Intent updated once. ${resolvedProbes.length} design probe resolutions recorded.`,
+      provenanceSummary: `Intent updated once. ${resolvedProbes.length} elicitation question resolutions recorded.`,
       // Enriched fields (for CDN evidence collection)
       ...(interactionLog.length > 0 && { interactionLog }),
       ...(schemaJson && { schemaJson }),

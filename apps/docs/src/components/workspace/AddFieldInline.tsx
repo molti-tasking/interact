@@ -3,17 +3,19 @@
 import { addFieldFromPromptAction } from "@/app/actions/add-field-actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import type { Field, PortfolioSchema } from "@/lib/types";
+import type { Field, PortfolioSchema, StructuredIntent } from "@/lib/types";
 import { Loader2, Plus, X } from "lucide-react";
 import { useCallback, useRef, useState } from "react";
 
 interface AddFieldInlineProps {
   schema: PortfolioSchema;
+  /** What the form is for, so the new fields fit it */
+  intent?: StructuredIntent;
   /** Persists the new fields; rejects if saving failed. */
   onFieldsAdded: (fields: Field[]) => Promise<void>;
 }
 
-export function AddFieldInline({ schema, onFieldsAdded }: AddFieldInlineProps) {
+export function AddFieldInline({ schema, intent, onFieldsAdded }: AddFieldInlineProps) {
   const [open, setOpen] = useState(false);
   const [prompt, setPrompt] = useState("");
   const [loading, setLoading] = useState(false);
@@ -41,7 +43,7 @@ export function AddFieldInline({ schema, onFieldsAdded }: AddFieldInlineProps) {
     setError(null);
 
     try {
-      const result = await addFieldFromPromptAction(trimmed, schema);
+      const result = await addFieldFromPromptAction(trimmed, schema, intent);
       if (result.success && result.newFields?.length) {
         // Only clear the prompt once the fields are actually saved
         await onFieldsAdded(result.newFields);
@@ -55,7 +57,7 @@ export function AddFieldInline({ schema, onFieldsAdded }: AddFieldInlineProps) {
     } finally {
       setLoading(false);
     }
-  }, [prompt, schema, onFieldsAdded]);
+  }, [prompt, schema, intent, onFieldsAdded]);
 
   if (!open) {
     return (

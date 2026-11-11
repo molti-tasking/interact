@@ -1,15 +1,13 @@
 "use client";
 
 import { callLlm } from "@/lib/llm-client";
-import {
-  resolveSchemaConflictAction,
-  type ConflictFix,
-  type SchemaConflict,
+import type {
+  ConflictFix,
+  SchemaConflict,
 } from "@/app/actions/conflict-actions";
 import { commitPortfolioChange } from "@/lib/engine/commit";
-import { type ConflictFixPreview } from "@/lib/engine/conflict-changes";
-import { applyConflictFix, limitChangeToFields } from "@/lib/engine/guards";
-import { mergeIntentChange, mergeSchemaChange } from "@/lib/engine/merge";
+import { type ConflictFixPreview } from "interact/forms/conflict-changes";
+import { applyConflictFix } from "interact/forms/guards";
 import type { Portfolio, PortfolioSchema, StructuredIntent } from "@/lib/types";
 import { trackActivity } from "@/lib/workspace-activity";
 import {
@@ -129,65 +127,6 @@ export function useDetectConflicts(
   });
 }
 
-/**
- * Resolve a conflict by applying a selected fix. The fix is computed from the
- * snapshot the user saw and replayed onto the latest state at commit time.
- */
-export function useResolveConflict(portfolioId: string) {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async ({
-      conflict,
-      fix,
-      snapshot,
-      actor,
-    }: {
-      conflict: SchemaConflict;
-      fix: ConflictFix;
-      snapshot: { schema: PortfolioSchema; intent: StructuredIntent };
-      actor: string;
-    }) =>
-      trackActivity(portfolioId, "Fixing a conflict", async () => {
-        const response = await resolveSchemaConflictAction(
-          snapshot.schema,
-          snapshot.intent,
-          conflict,
-          fix,
-        );
-
-        if (!response.success || !response.result) {
-          throw new Error(response.error ?? "Failed to resolve conflict");
-        }
-
-        const { updatedSchema, updatedIntent, rationale } = response.result;
-        // Like a pre-computed fix: only the conflict's own fields change
-        const scoped = limitChangeToFields(
-          snapshot.schema,
-          updatedSchema,
-          conflict.fieldIds,
-        );
-
-        return commitPortfolioChange(portfolioId, (current) => ({
-          schema: mergeSchemaChange(snapshot.schema, scoped, current.schema),
-          intent: mergeIntentChange(
-            snapshot.intent,
-            updatedIntent,
-            current.intent,
-          ),
-          provenance: {
-            layer: "configuration",
-            action: "conflict_resolved",
-            actor,
-            rationale: `${conflict.kind}: "${conflict.description}" → fix: "${fix.label}". ${rationale}`,
-          },
-          automated: true,
-        }));
-      }),
-    onSuccess: (commit) => applyCommitToCache(queryClient, commit),
-  });
-}
-
 // ---------------------------------------------------------------------------
 // Pre-computed fixes: preview + instant apply
 // ---------------------------------------------------------------------------
@@ -299,6 +238,7 @@ export function useApplyConflictFix(portfolioId: string) {
           );
           if (!changed || sameStructure(schema, current.schema)) return null;
           return {
+            trigger: "answer",
             schema,
             automated: true,
             provenance: {

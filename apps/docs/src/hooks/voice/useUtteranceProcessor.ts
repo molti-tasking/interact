@@ -6,9 +6,9 @@ import { usePipelineGenerate } from "@/hooks/query/pipeline";
 import { applyCommitToCache } from "@/hooks/query/portfolios";
 import { invalidateResponseLists } from "@/hooks/query/responses-new";
 import { commitPortfolioChange, type CommitResult } from "@/lib/engine/commit";
-import { mergeIntentChange, mergeSchemaChange } from "@/lib/engine/merge";
-import { diffSchemas } from "@/lib/engine/schema-ops";
-import { sanitizePurposeText } from "@/lib/engine/structured-intent";
+import { mergeIntentChange, mergeSchemaChange } from "interact/forms/merge";
+import { diffSchemas } from "interact/forms/schema-ops";
+import { sanitizePurposeText } from "interact/forms/structured-intent";
 import { createClient } from "@/lib/supabase/client";
 import type {
   PortfolioSchema,
@@ -296,6 +296,7 @@ export function useUtteranceProcessor(
           return null;
         }
         return {
+          trigger: "request",
           schema: mergeSchemaChange(base.schema, ourSchema, current.schema),
           intent: mergeIntentChange(base.intent, ourIntent, current.intent),
           provenance: {

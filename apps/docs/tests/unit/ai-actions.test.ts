@@ -25,7 +25,7 @@ import {
   resolveSchemaConflictAction,
   type SchemaConflict,
 } from "@/app/actions/conflict-actions";
-import { applyConflictChanges } from "@/lib/engine/conflict-changes";
+import { applyConflictChanges } from "interact/forms/conflict-changes";
 import { deriveSchemaAction } from "@/app/actions/derive-actions";
 import {
   curateDesignProbesAction,
@@ -42,7 +42,7 @@ import {
   reviseWidgetAction,
   suggestDashboardAction,
 } from "@/app/actions/dashboard-actions";
-import { serializeForLLM } from "@/lib/engine/structured-intent";
+import { serializeForLLM } from "interact/forms/structured-intent";
 import { getStandardById } from "@/lib/standards";
 
 process.env.LLM_RATE_LIMIT_PER_MIN = "0";
@@ -112,6 +112,18 @@ const baseSchema: PortfolioSchema = {
   ],
 };
 
+/** An update entry as the model writes it when nothing changes. */
+const keep = {
+  label: "",
+  description: "",
+  tooltip: "",
+  type: "keep",
+  options: [],
+  scale: null,
+  required: "keep",
+  referenceTarget: "",
+};
+
 beforeEach(() => {
   generateText.mockReset();
 });
@@ -128,17 +140,18 @@ describe("resolveDesignProbeAction", () => {
     generateText.mockResolvedValue({
       output: {
         refinementDelta: "Made weight required.",
-        updatedPurpose: "Fitness check-in with weight.",
+        purposeEdit: { op: "append", target: "", text: "It records body weight in kg" },
         schemaPatch: {
           updateFields: [
-            { key: "weight", label: "Body weight", type: "number", required: true },
+            // Partial updates: only what changes, keep values for the rest
+            { ...keep, key: "weight", label: "Body weight", required: "required" },
             {
+              ...keep,
               key: "size",
-              label: "Size",
-              type: "select",
-              required: false,
-              validation: { options: [{ label: "Small", value: "small" }, { label: "Medium", value: "m" }] },
+              options: [{ label: "Small", value: "small" }, { label: "Medium", value: "m" }],
             },
+            // Names no change at all → dropped, not counted as an update
+            { ...keep, key: "email" },
           ],
           // Colliding add → treated as update, no duplicate key
           addFields: [{ key: "email", label: "E-mail", type: "email", required: true }],
@@ -172,18 +185,27 @@ describe("resolveDesignProbeAction", () => {
       expect.arrayContaining(["weight", "size", "email"]),
     );
 
-    // Prompt uses the compact schema rendering and a static system prompt
+    // The creator's purpose is kept verbatim; the decision is one appended sentence
+    expect(response.result!.updatedPurpose).toBe(
+      "Fitness check-in. It records body weight in kg.",
+    );
+
+    // The form (description + compact schema) is in the system message, which
+    // is the same for every call on this form state; the task is the prompt
     const call = generateText.mock.calls[0][0];
     expect(call.system).toMatch(/^You are a form design assistant\./);
-    expect(call.prompt).toContain('- weight: "Weight" (number, min 0, max 500, unit kg)');
-    expect(call.prompt).not.toContain('"fields"');
+    expect(call.system).toContain('- weight: "Weight" (number, min 0, max 500, unit kg)');
+    expect(call.system).toContain("<form_description>\n## Purpose\nFitness check-in");
+    expect(call.system).not.toContain('"fields"');
+    expect(call.prompt).toContain("<question>\nTrack weight?\n</question>");
+    expect(call.prompt).toContain("<answer>\nYes, in kg\n</answer>");
   });
 
   it("reports unknown keys and doesn't claim changes that didn't happen", async () => {
     generateText.mockResolvedValue({
       output: {
         refinementDelta: "Removed the phone field.",
-        updatedPurpose: "Fitness check-in.",
+        purposeEdit: { op: "none", target: "", text: "" },
         schemaPatch: { removeFieldKeys: ["phone"] },
       },
     });
@@ -232,20 +254,129 @@ describe("generateDesignProbesAction", () => {
   });
 
   it("tells the model what forms can do and what was already asked", async () => {
+    vi.stubEnv("PROBE_STRATEGY", "prompted");
     generateText.mockResolvedValue({ output: { interactions: [] } });
     await generateDesignProbesAction(
       intentWith({ purpose: "Study consent form" }),
       5,
       undefined,
       undefined,
-      undefined,
       baseSchema,
       ["Track weight?"],
     );
+    vi.unstubAllEnvs();
     const call = generateText.mock.calls[0][0];
     expect(call.system).toContain("HOW FORMS WORK HERE");
     expect(call.prompt).toContain("ALREADY ASKED");
     expect(call.prompt).toContain("- Track weight?");
+  });
+
+  describe("by committee disagreement", () => {
+    const draftField = (key: string, label: string, extra: object = {}) => ({
+      key,
+      label,
+      type: "string",
+      validation: null,
+      scale: null,
+      required: false,
+      ...extra,
+    });
+    const kept = [
+      draftField("weight", "Weight", { type: "number" }),
+      draftField("size", "Size", {
+        type: "select",
+        validation: { options: [{ label: "Small", value: "s" }, { label: "Large", value: "l" }] },
+      }),
+      draftField("email", "Email"),
+    ];
+    const goal = draftField("trainingGoal", "Training goal");
+    const sleep = draftField("sleepHours", "Hours of sleep", { type: "number" });
+
+    it("asks about what the drafts split on, with previews ready", async () => {
+      // 4 drafts: two add a goal, all four add sleep, one drops email
+      const drafts = [
+        { fields: [...kept, goal, sleep] },
+        { fields: [...kept, { ...goal, key: "goal", label: "Your training goal" }, sleep] },
+        { fields: [...kept, sleep] },
+        { fields: [kept[0], kept[1], sleep] },
+      ];
+      for (const output of drafts) generateText.mockResolvedValueOnce({ output });
+      generateText.mockResolvedValueOnce({
+        output: {
+          questions: [
+            {
+              text: "Ask for a training goal?",
+              explanation: null,
+              options: [
+                { value: "yes", label: "Yes, ask it", ops: ["a1"] },
+                { value: "no", label: "No", ops: [] },
+              ],
+            },
+            {
+              text: "Track sleep?",
+              explanation: null,
+              // No keep-as-is option, and one naming an op that doesn't exist
+              options: [
+                { value: "yes", label: "Yes", ops: ["a2"] },
+                { value: "bogus", label: "Something else", ops: ["a9"] },
+              ],
+            },
+          ],
+        },
+      });
+
+      const response = await generateDesignProbesAction(
+        intentWith({ purpose: "Fitness check-in" }),
+        5,
+        undefined,
+        undefined,
+        baseSchema,
+      );
+
+      expect(generateText).toHaveBeenCalledTimes(5);
+      expect(response.success).toBe(true);
+      const probes = response.interactions!;
+      // The even split comes first; the unanimous addition after it
+      expect(probes.map((p) => p.text)).toEqual(["Ask for a training goal?", "Track sleep?"]);
+      expect(probes.every((p) => p.source === "committee" && p.previewStatus === "ready")).toBe(true);
+
+      const [goalProbe, sleepProbe] = probes;
+      expect(goalProbe.priority).toBe(1);
+      expect(goalProbe.explanation).toBe("2 of 4 design drafts would change this.");
+      expect(goalProbe.options[0].preview).toMatchObject({
+        summary: 'Add "Training goal"',
+        schemaPatch: { addFields: [expect.objectContaining({ key: "trainingGoal" })] },
+        scope: { added: ["trainingGoal"], updated: [], removed: [] },
+      });
+      expect(goalProbe.options[1].preview!.schemaPatch).toEqual({});
+
+      // The bogus option is gone and a keep-as-is option was added
+      expect(sleepProbe.options.map((o) => o.value)).toEqual(["yes", "keepAsIs"]);
+
+      // The wording step sees the vote counts, not the drafts
+      const wording = generateText.mock.calls[4][0];
+      expect(wording.prompt).toContain('a1: add "Training goal" (text) — 2 of 4 drafts');
+      expect(wording.prompt).toContain('remove "Email" — 1 of 4 drafts');
+    });
+
+    it("falls back to asking the model when the drafts agree with the form", async () => {
+      for (let i = 0; i < 4; i++) generateText.mockResolvedValueOnce({ output: { fields: kept } });
+      generateText.mockResolvedValueOnce({
+        output: {
+          interactions: [
+            { text: "Label tone?", layer: "intent", priority: "low", options: [{ value: "a", label: "A" }] },
+          ],
+        },
+      });
+      const response = await generateDesignProbesAction(
+        intentWith({ purpose: "Fitness check-in" }),
+        5,
+        undefined,
+        undefined,
+        baseSchema,
+      );
+      expect(response.interactions!.map((p) => p.source)).toEqual(["llm"]);
+    });
   });
 });
 
@@ -362,7 +493,7 @@ describe("refineSchemaFromIntentAction", () => {
         summary: "Added a dietary preference field.",
         schemaPatch: {
           addFields: [{ key: "Dietary Preference", label: "Dietary preference", type: "string", required: false }],
-          updateFields: [{ key: "email", label: "Email", type: "email", required: true }],
+          updateFields: [{ ...keep, key: "email", required: "required" }],
         },
       },
     });
@@ -381,10 +512,12 @@ describe("refineSchemaFromIntentAction", () => {
 
     const call = generateText.mock.calls[0][0];
     expect(call.system).toContain("HOW FORMS WORK HERE");
-    expect(call.prompt).toContain("Previous form description:\n## Purpose\nFitness check-in");
-    expect(call.prompt).toContain("Edited form description:\n## Purpose\nFitness check-in with nutrition");
+    expect(call.system).toContain("<form_description>\n## Purpose\nFitness check-in with nutrition");
+    expect(call.system).toContain('- weight: "Weight"');
+    expect(call.prompt).toContain(
+      "Previous form description:\n<previous_description>\n## Purpose\nFitness check-in\n</previous_description>",
+    );
     expect(call.prompt).toContain('- "Track weight?" → "Yes, in kg"');
-    expect(call.prompt).toContain('- weight: "Weight"');
     expect(call.maxRetries).toBe(0);
   });
 });

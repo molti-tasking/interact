@@ -11,7 +11,7 @@ import {
   likertPoints,
   scaleChoices,
   type ScaleChoice,
-} from "@/lib/engine/scale";
+} from "interact/forms/scale";
 import type { Field } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { useId, type CSSProperties } from "react";

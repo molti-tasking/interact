@@ -325,7 +325,7 @@ export default function PortfoliosPage() {
         description={
           deleteBlockedBy > 0
             ? `${deleteBlockedBy} portfolio${deleteBlockedBy === 1 ? " is" : "s are"} derived from this one. Delete ${deleteBlockedBy === 1 ? "it" : "them"} first.`
-            : "This permanently deletes the portfolio together with its responses, design probes and history. This can't be undone."
+            : "This permanently deletes the portfolio together with its responses, elicitation questions and history. This can't be undone."
         }
         confirmLabel="Delete portfolio"
         pendingLabel="Deleting…"

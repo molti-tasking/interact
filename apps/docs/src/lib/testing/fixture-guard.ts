@@ -25,7 +25,7 @@ export async function fixtureGuard<T>(
   // REPLAY mode: return recorded fixture
   if (useFixtures && !recordFixtures) {
     const { loadFixture } = await import("./fixture-loader");
-    return loadFixture<T>(actionName, input);
+    return loadFixture<T>(actionName, input, matchHints);
   }
 
   // Execute the real function
@@ -33,7 +33,10 @@ export async function fixtureGuard<T>(
 
   // RECORD mode: save the result alongside real execution. A failed write
   // (read-only FS, permissions) must not fail the action itself.
-  if (recordFixtures) {
+  // A failed call is not a recording: replaying it would fail every run
+  const failed =
+    !!result && typeof result === "object" && (result as { success?: unknown }).success === false;
+  if (recordFixtures && !failed) {
     try {
       const { recordFixture } = await import("./fixture-recorder");
       recordFixture(actionName, input, result, matchHints);

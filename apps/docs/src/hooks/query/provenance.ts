@@ -25,10 +25,12 @@ export interface ProvenanceListEntry {
   rationale: string | null;
   diff: SchemaDiff;
   created_at: string;
+  /** The form revision this change produced (null: from before it was stamped) */
+  revision: number | null;
 }
 
 const LIST_COLUMNS =
-  "id, portfolio_id, action, layer, actor, rationale, diff, created_at";
+  "id, portfolio_id, action, layer, actor, rationale, diff, created_at, revision";
 
 function toListEntry(row: {
   id: string;
@@ -39,6 +41,7 @@ function toListEntry(row: {
   rationale: string | null;
   diff: unknown;
   created_at: string | null;
+  revision?: number | null;
 }): ProvenanceListEntry {
   const diff = (row.diff ?? {}) as Partial<SchemaDiff>;
   return {
@@ -50,6 +53,7 @@ function toListEntry(row: {
       modified: diff.modified ?? [],
     },
     created_at: row.created_at ?? new Date().toISOString(),
+    revision: row.revision ?? null,
   };
 }
 

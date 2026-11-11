@@ -15,8 +15,8 @@ import type { Field } from "@/lib/types";
 describe("formatProvenanceAction", () => {
   it.each([
     ["schema_generated", "Generated the form from the intent"],
-    ["design_probe_resolved", "Answered a design probe"],
-    ["design_probe_re_resolved", "Changed a design probe answer"],
+    ["design_probe_resolved", "Answered an elicitation question"],
+    ["design_probe_re_resolved", "Changed an elicitation question answer"],
     ["snapshot_restored", "Restored an earlier version"],
     ["change_reverted", "Undid a change"],
     ["voice_edit", "Edited the form by voice"],

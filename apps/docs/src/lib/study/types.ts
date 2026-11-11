@@ -75,14 +75,85 @@ export interface StudySettings {
    * e.g. ["full", "no-probes"]. Empty: everyone gets the full tool.
    */
   conditions: StudyCondition[];
+  /**
+   * "workshop": a facilitator moves the room through the phases (011).
+   * "briefs": self-paced, one form per fixed brief (014) — the panel study.
+   */
+  mode: StudyMode;
+  /** Brief keys of a briefs session, in their canonical order */
+  briefs: string[];
+  /** Time limit per task in a briefs session, in seconds */
+  taskSeconds: number;
+  /** Shown on the consent page of a briefs session */
+  contact: StudyContact;
+  /**
+   * What the session runs with: recorded by the server when a briefs
+   * session is opened (migration 015 refuses to open one without it), and
+   * part of every export. Never set from the browser.
+   */
+  run: StudyRunSettings | null;
+  /**
+   * Wave 2: every task starts from somebody else's finished form (015).
+   * Null: participants start from nothing (wave 1).
+   */
+  handoff: StudyHandoff | null;
+}
+
+/** How questions are chosen (`PROBE_STRATEGY`). */
+export const QUESTION_STRATEGIES = ["committee", "prompted"] as const;
+export type QuestionStrategy = (typeof QUESTION_STRATEGIES)[number];
+
+export interface StudyRunSettings {
+  /** `LLM_MODEL_NAME` */
+  model: string;
+  /**
+   * `LLM_FAST_MODEL_NAME`: the model for classification-style calls (intent
+   * sync, conflict checks). The same as `model` unless set.
+   */
+  fastModel: string;
+  /** `PROBE_STRATEGY` */
+  questionStrategy: QuestionStrategy;
+  /** `PROBE_COMMITTEE_SIZE` */
+  committeeSize: number;
+  recordedAt: string;
 }
 
 /**
- * - "full": the tool as is
- * - "no-probes": ablation without the design probe deck (no probes, no
- *   conflict checks); creating and editing the form works the same
+ * - "portfolio": the form with its intent and decision trail
+ * - "form": the same form, fields only
  */
-export const STUDY_CONDITIONS = ["full", "no-probes"] as const;
+export const START_KINDS = ["portfolio", "form"] as const;
+export type StartKind = (typeof START_KINDS)[number];
+
+export interface StudyHandoff {
+  /** The wave-1 session the forms come from (for the researcher's picker) */
+  sourceSessionId: string | null;
+  /** Per brief of this session: the wave-1 forms tasks start from */
+  sources: Record<string, string[]>;
+  starts: StartKind[];
+}
+
+export const STUDY_MODES = ["workshop", "briefs"] as const;
+export type StudyMode = (typeof STUDY_MODES)[number];
+
+/** Who runs the study: named on the consent page. */
+export interface StudyContact {
+  name: string;
+  email: string;
+  institution: string;
+}
+
+export const EMPTY_CONTACT: StudyContact = { name: "", email: "", institution: "" };
+
+/**
+ * - "full": the tool as is
+ * - "no-probes": ablation without the elicitation question deck (no probes, no
+ *   conflict checks); creating and editing the form works the same
+ * - "baseline": no probes and no intent portfolio — one description, one
+ *   generated form, then free-text change requests to the same model
+ *   (and the same direct editing of fields as in "full")
+ */
+export const STUDY_CONDITIONS = ["full", "no-probes", "baseline"] as const;
 export type StudyCondition = (typeof STUDY_CONDITIONS)[number];
 
 function isCondition(value: unknown): value is StudyCondition {
@@ -93,6 +164,12 @@ export const DEFAULT_STUDY_SETTINGS: StudySettings = {
   allowVoice: false,
   findingsMinResponses: 3,
   conditions: [],
+  mode: "workshop",
+  briefs: [],
+  taskSeconds: 720,
+  contact: EMPTY_CONTACT,
+  run: null,
+  handoff: null,
 };
 
 /** Planned seconds per phase (soft deadline) */
@@ -129,10 +206,31 @@ interface StudyParticipantSelf {
   external_source?: string | null;
 }
 
+/** A participant's place in a briefs session (migration 014) */
+export interface StudyProgress {
+  step: string;
+  step_started_at: string;
+  outcome: "completed" | "declined" | null;
+}
+
+/** One brief of a participant, in their order */
+export interface StudyTask {
+  position: number;
+  brief: string;
+  portfolio_id: string | null;
+  started_at: string | null;
+  finished_at: string | null;
+  /** Wave 2: what the task's form started as; null/absent: from nothing */
+  start_kind?: StartKind | null;
+}
+
 /** `get_my_study_state()`: everything the participant shell needs */
 export interface MyStudyState {
   session: Omit<StudySession, "space_id" | "created_at">;
   participant: StudyParticipantSelf;
+  /** Briefs sessions only */
+  progress?: StudyProgress | null;
+  tasks?: StudyTask[];
   participant_count: number;
   /**
    * Panel participants, once the session is done: where to return
@@ -158,7 +256,137 @@ export function parseSettings(value: unknown): StudySettings {
     conditions: Array.isArray(raw.conditions)
       ? raw.conditions.filter(isCondition)
       : DEFAULT_STUDY_SETTINGS.conditions,
+    mode: raw.mode === "briefs" ? "briefs" : "workshop",
+    briefs: Array.isArray(raw.briefs)
+      ? raw.briefs.filter((b): b is string => typeof b === "string" && !!b)
+      : DEFAULT_STUDY_SETTINGS.briefs,
+    taskSeconds:
+      typeof raw.taskSeconds === "number" && raw.taskSeconds >= 60
+        ? Math.round(raw.taskSeconds)
+        : DEFAULT_STUDY_SETTINGS.taskSeconds,
+    contact: {
+      name: typeof raw.contact?.name === "string" ? raw.contact.name : "",
+      email: typeof raw.contact?.email === "string" ? raw.contact.email : "",
+      institution:
+        typeof raw.contact?.institution === "string" ? raw.contact.institution : "",
+    },
+    run: parseRunSettings(raw.run),
+    handoff: parseHandoff(raw.handoff),
   };
+}
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export function parseRunSettings(value: unknown): StudyRunSettings | null {
+  const raw = (value ?? null) as Partial<StudyRunSettings> | null;
+  if (!raw || typeof raw !== "object") return null;
+  const size = Number(raw.committeeSize);
+  if (
+    typeof raw.model !== "string" ||
+    !raw.model.trim() ||
+    !QUESTION_STRATEGIES.includes(raw.questionStrategy as QuestionStrategy) ||
+    !Number.isInteger(size) ||
+    size < 1
+  ) {
+    return null;
+  }
+  return {
+    model: raw.model.trim(),
+    fastModel:
+      typeof raw.fastModel === "string" && raw.fastModel.trim()
+        ? raw.fastModel.trim()
+        : raw.model.trim(),
+    questionStrategy: raw.questionStrategy as QuestionStrategy,
+    committeeSize: size,
+    recordedAt: typeof raw.recordedAt === "string" ? raw.recordedAt : "",
+  };
+}
+
+export function parseHandoff(value: unknown): StudyHandoff | null {
+  const raw = (value ?? null) as Partial<StudyHandoff> | null;
+  if (!raw || typeof raw !== "object" || !raw.sources || typeof raw.sources !== "object") {
+    return null;
+  }
+  const sources: Record<string, string[]> = {};
+  for (const [brief, ids] of Object.entries(raw.sources)) {
+    if (!Array.isArray(ids)) continue;
+    const valid = [...new Set(ids.filter((id): id is string => typeof id === "string" && UUID.test(id)))];
+    if (valid.length) sources[brief] = valid;
+  }
+  const starts = Array.isArray(raw.starts)
+    ? START_KINDS.filter((kind) => raw.starts!.includes(kind))
+    : [];
+  return {
+    sourceSessionId:
+      typeof raw.sourceSessionId === "string" && UUID.test(raw.sourceSessionId)
+        ? raw.sourceSessionId
+        : null,
+    sources,
+    starts: starts.length ? starts : [...START_KINDS],
+  };
+}
+
+/**
+ * The run settings a server would record, from its environment — or what
+ * is missing. All three must be set explicitly: a default that changes with
+ * a deployment is not something a study can report.
+ */
+export function runSettingsFromEnv(
+  env: Record<string, string | undefined>,
+  now: Date = new Date(),
+): { run: StudyRunSettings; missing: [] } | { run: null; missing: string[] } {
+  const model = env.LLM_MODEL_NAME?.trim() ?? "";
+  const strategy = env.PROBE_STRATEGY?.trim() ?? "";
+  const size = env.PROBE_COMMITTEE_SIZE?.trim() ?? "";
+  const missing = [
+    (!model || model === "default") && "LLM_MODEL_NAME",
+    !QUESTION_STRATEGIES.includes(strategy as QuestionStrategy) &&
+      "PROBE_STRATEGY (committee or prompted)",
+    !/^[2-6]$/.test(size) && "PROBE_COMMITTEE_SIZE (2 to 6)",
+  ].filter((name): name is string => !!name);
+  if (missing.length) return { run: null, missing };
+  return {
+    run: {
+      model,
+      fastModel: env.LLM_FAST_MODEL_NAME?.trim() || model,
+      questionStrategy: strategy as QuestionStrategy,
+      committeeSize: Number(size),
+      recordedAt: now.toISOString(),
+    },
+    missing: [],
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Briefs sessions: steps
+// ---------------------------------------------------------------------------
+
+/**
+ * The steps of a briefs session with `tasks` tasks — the same list as
+ * `study_brief_steps()` in migration 014, which is the one that decides.
+ */
+export function briefSteps(tasks: number): string[] {
+  const steps = ["consent", "intro"];
+  for (let i = 1; i <= tasks; i++) steps.push(`brief:${i}`, `task:${i}`, `quiz:${i}`);
+  return [...steps, "questionnaire", "done"];
+}
+
+export type BriefStep =
+  | { kind: "consent" | "intro" | "questionnaire" | "done" }
+  | { kind: "brief" | "task" | "quiz"; position: number };
+
+export function parseBriefStep(step: string): BriefStep | null {
+  if (step === "consent" || step === "intro" || step === "questionnaire" || step === "done") {
+    return { kind: step };
+  }
+  const match = /^(brief|task|quiz):(\d+)$/.exec(step);
+  if (!match) return null;
+  return { kind: match[1] as "brief" | "task" | "quiz", position: Number(match[2]) };
+}
+
+/** The briefs in the order a participant with `order` gets them (Latin square). */
+export function briefOrder(briefs: readonly string[], order: number): string[] {
+  return briefs.map((_, i) => briefs[(i + order) % briefs.length]);
 }
 
 /**

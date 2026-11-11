@@ -11,7 +11,7 @@ import type {
   NumericStats,
   TextStats,
   TimelineStats,
-} from "@/lib/engine/response-stats";
+} from "interact/forms/response-stats";
 import { formatRelativeTime } from "@/lib/provenance-format";
 import { cn } from "@/lib/utils";
 import { useState, type ReactNode } from "react";

@@ -3,8 +3,8 @@ import {
   removeField,
   schemaToZod,
   validateDataAgainstSchema,
-} from "@/lib/engine/schema-ops";
-import type { StoredFile } from "@/lib/form-renderer/values";
+} from "interact/forms/schema-ops";
+import type { StoredFile } from "interact/forms/values";
 import {
   emptyPortfolioSchema,
   type Field,

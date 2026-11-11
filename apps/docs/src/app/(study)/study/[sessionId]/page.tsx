@@ -11,6 +11,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 import { AnswerView } from "./_components/answer-view";
+import { BriefsShell } from "./_components/briefs/briefs-shell";
 import { DesignView } from "./_components/create-view";
 import { DoneView } from "./_components/done-view";
 import { LobbyView } from "./_components/lobby-view";
@@ -59,7 +60,7 @@ export default function StudySessionPage() {
 
   return (
     <StudyProvider state={stateQuery.data}>
-      <StudyShell />
+      {stateQuery.data.session.settings.mode === "briefs" ? <BriefsShell /> : <StudyShell />}
     </StudyProvider>
   );
 }

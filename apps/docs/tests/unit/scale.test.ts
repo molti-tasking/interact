@@ -4,10 +4,10 @@ import {
   scaleFromSpec,
   scalePointLabel,
   scaleValueForLabel,
-} from "@/lib/engine/scale";
-import { applySchemaPatch } from "@/lib/engine/schema-patch";
-import { serializeSchemaForLLM } from "@/lib/engine/structured-intent";
-import { coerceValueForField, formatValue } from "@/lib/form-renderer/values";
+} from "interact/forms/scale";
+import { applySchemaPatch } from "interact/forms/schema-patch";
+import { serializeSchemaForLLM } from "interact/forms/structured-intent";
+import { coerceValueForField, formatValue } from "interact/forms/values";
 import type { Field, FieldType, PortfolioSchema } from "@/lib/types";
 import { buildResponseEntry } from "@/lib/voice/data-entry";
 import { describe, expect, it } from "vitest";
