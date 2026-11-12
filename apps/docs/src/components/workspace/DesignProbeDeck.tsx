@@ -76,6 +76,7 @@ import type { SpokenAnswer } from "@/lib/voice/spoken-answer";
 import { usePortfolioActivity } from "@/lib/workspace-activity";
 import { Loader2, Mic, RefreshCw, Square } from "lucide-react";
 import { probeAnsweredPayload, probeShownPayload } from "@/lib/study/probe-log";
+import { INTENT_EDIT_SOURCE } from "interact/forms/intent-refinement";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
@@ -296,7 +297,10 @@ export function DesignProbeDeck({
         spacePortfolios,
       });
       const decision = `"${probe.text}" → "${result.optionLabel}" (${result.summary})`;
-      onDecisionApplied?.(decision, "design-decision");
+      // The intent follows the decision — except for an intent edit's own
+      // changes: there the intent already says it
+      const followIntent = probe.source !== INTENT_EDIT_SOURCE;
+      if (followIntent) onDecisionApplied?.(decision, "design-decision");
 
       const message = `Applied: "${result.optionLabel}"`;
       toast.success(message, {
@@ -312,7 +316,7 @@ export function DesignProbeDeck({
                 actor,
                 label: message,
               });
-              if (result.commit) {
+              if (result.commit && followIntent) {
                 onDecisionApplied?.(`Undid ${decision}`, "design-decision");
               }
               toast("Change undone");

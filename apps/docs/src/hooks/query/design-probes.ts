@@ -23,6 +23,11 @@ import { rankProbes } from "interact/forms/probe-preview";
 import { applyProbeOption } from "interact/forms/guards";
 import { runPreviewTask, waitForProbePreview } from "@/lib/preview-queue";
 import { answerChange } from "@/lib/engine/answer-change";
+import { refineSchemaFromIntentAction } from "@/app/actions/schema-actions";
+import {
+  INTENT_EDIT_SOURCE,
+  intentEditQuestion,
+} from "interact/forms/intent-refinement";
 import { createClient } from "@/lib/supabase/client";
 import type { Database } from "@/lib/supabase/database.types";
 import { rowToDesignProbe } from "@/lib/supabase/types";
@@ -135,10 +140,15 @@ export async function fetchDesignDecisions(portfolioId: string) {
 
 /**
  * Probes curation never retires: standards have their own accept/skip flow,
- * and findings from the responses or a pretest rest on data the curating
- * LLM doesn't see.
+ * findings from the responses or a pretest rest on data the curating LLM
+ * doesn't see, and an intent edit's changes are the creator's own request.
  */
-const PROTECTED_SOURCES: ReadonlySet<string> = new Set(["standard", "data", "pretest"]);
+const PROTECTED_SOURCES: ReadonlySet<string> = new Set([
+  "standard",
+  "data",
+  "pretest",
+  INTENT_EDIT_SOURCE,
+]);
 
 /**
  * Per portfolio: the form (`schemaFingerprint`) the open probes were last
@@ -849,6 +859,89 @@ export function useInsertStandardProbes(portfolioId: string) {
  * (source "data", keyed by the finding). Its answers are computed already,
  * so they apply instantly. A finding that is already open isn't sent twice.
  */
+/**
+ * What an intent edit changes in the form, offered as a question instead of
+ * applied (1E): the model works out the fields the edit changes, as for a
+ * refinement, and the deck asks "Apply these changes from your edit?" with
+ * that patch as a previewed, scoped answer and "Keep the form as it is" as
+ * the other. Nothing is written to the form here.
+ *
+ * An earlier edit's question that is still open is withdrawn: it was worked
+ * out from an intent that no longer stands. Resolves to null when the edit
+ * changes nothing in the form.
+ */
+export function useProposeIntentEdit(portfolioId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      previousIntent,
+      intent,
+      baseSchema,
+      decisions,
+      standardNames,
+    }: {
+      previousIntent: StructuredIntent;
+      intent: StructuredIntent;
+      /** The form the changes are worked out from */
+      baseSchema: PortfolioSchema;
+      decisions?: { question: string; answer: string }[];
+      standardNames?: string[];
+    }): Promise<{ questionId: string; changes: number } | null> => {
+      const result = await refineSchemaFromIntentAction({
+        previousIntent,
+        intent,
+        currentSchema: baseSchema,
+        decisions,
+        standardNames,
+      });
+      if (!result.success || !result.result) {
+        throw new Error(result.error ?? "Couldn't work out what the edit changes");
+      }
+      const { schemaPatch, summary } = result.result;
+      const question = intentEditQuestion(baseSchema, schemaPatch, summary);
+      if (!question) return null;
+
+      const supabase = createClient();
+      const { error: withdrawError } = await supabase
+        .from("design_probes")
+        .update({ status: "dismissed", closed_reason: "withdrawn" })
+        .eq("portfolio_id", portfolioId)
+        .eq("source", INTENT_EDIT_SOURCE)
+        .eq("status", "pending");
+      if (withdrawError) throw withdrawError;
+
+      const { data, error } = await supabase
+        .from("design_probes")
+        .insert({
+          portfolio_id: portfolioId,
+          text: question.text,
+          explanation: question.explanation ?? null,
+          layer: "intent",
+          source: INTENT_EDIT_SOURCE,
+          options: storedOptions(question.text, question.options),
+          selected_option: null,
+          status: "pending",
+          priority: 1,
+          // The changes come with their preview: no preview call
+          preview_status: "ready",
+        })
+        .select("id")
+        .single();
+      if (error) throw error;
+
+      const { scope } = question.options[0].preview;
+      return {
+        questionId: data.id,
+        changes: scope ? scope.added.length + scope.updated.length + scope.removed.length : 0,
+      };
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: designProbesKey(portfolioId) });
+    },
+  });
+}
+
 export function useSendFindingToDeck(portfolioId: string) {
   const queryClient = useQueryClient();
 

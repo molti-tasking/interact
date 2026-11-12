@@ -170,6 +170,13 @@ export function ReflectiveConversationPane({
           notifyUndo(commit, `Form updated from your description: ${parts.join(", ")}`);
         }
       }
+      // With a deck the edit's changes are a question to answer, not applied
+      const proposal = result.proposal;
+      if (proposal) {
+        toast(
+          `Your edit would change ${proposal.changes} field${proposal.changes === 1 ? "" : "s"} — see “Apply these changes from your edit?” to preview and decide`,
+        );
+      }
       if (result.strategy.kind === "noop") {
         setError("No changes detected. Edit the intent to refine the form.");
         return;

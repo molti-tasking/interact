@@ -22,6 +22,7 @@ import {
   fetchDesignDecisions,
   useCurateDesignProbes,
   useGenerateDesignProbes,
+  useProposeIntentEdit,
 } from "./design-probes";
 import { applyCommitToCache } from "./portfolios";
 import { useGenerateSchema, useRefineSchema } from "./schema-generation";
@@ -37,6 +38,11 @@ export interface PipelineResult {
    * never change fields silently.
    */
   formCommit?: CommitResult | null;
+  /**
+   * With a deck: the edit's changes, offered as a question instead of
+   * applied (null when the edit changes nothing in the form).
+   */
+  proposal?: { questionId: string; changes: number } | null;
 }
 
 /**
@@ -51,6 +57,7 @@ export function usePipelineGenerate(portfolioId: string) {
   const refineSchema = useRefineSchema(portfolioId);
   const generateDesignProbes = useGenerateDesignProbes(portfolioId);
   const curateDesignProbes = useCurateDesignProbes(portfolioId);
+  const proposeIntentEdit = useProposeIntentEdit(portfolioId);
   const detectStandards = useDetectStandards(portfolioId);
   // "no-probes" study condition: no deck, so no probes to generate or curate
   const { designProbes } = useCapabilities();
@@ -163,7 +170,33 @@ export function usePipelineGenerate(portfolioId: string) {
               .map((ref) => findStandard(ref.standardId, standardsResult))
               .filter((s): s is DetectedStandard => !!s);
 
+            if (decisions && designProbes) {
+              // What the edit changes in the form is offered as a question,
+              // previewed and scoped like any answer, not applied (1E).
+              // Worked out against the intent the user started editing from
+              // (see the refine path below for why).
+              const proposal = await proposeIntentEdit.mutateAsync({
+                previousIntent,
+                intent,
+                baseSchema: schema,
+                decisions: await decisions,
+                standardNames: acceptedStandards.map((s) => s.standard.name),
+              });
+              curateDesignProbes.mutate(
+                { intent, currentSchema: schema, mode: "refine" },
+                {
+                  onError: (err) =>
+                    toast.error(
+                      `Couldn't update elicitation questions: ${err instanceof Error ? err.message : "unknown error"}`,
+                    ),
+                },
+              );
+              return { strategy, intent, schema, proposal };
+            }
+
             if (decisions) {
+              // No deck (the "no-probes" condition): nowhere to ask, so the
+              // edit's changes are applied, with an Undo.
               // Refine: patch the form for what the edit changed instead of
               // regenerating it — faster, and fields from answered probes
               // and direct edits stay. Diffed against the intent the user
