@@ -1,3 +1,4 @@
+import { assistantTurnAction } from "@/app/actions/assistant-actions";
 import { chatEditFormAction } from "@/app/actions/chat-edit-actions";
 import {
   detectSchemaConflictsAction,
@@ -39,6 +40,7 @@ const OPERATIONS = {
   "simulate-respondents": simulateRespondentsAction,
   "find-answer-themes": findAnswerThemesAction,
   "chat-edit": chatEditFormAction,
+  "assistant-turn": assistantTurnAction,
 } as const;
 
 export type LlmOperation = keyof typeof OPERATIONS;
