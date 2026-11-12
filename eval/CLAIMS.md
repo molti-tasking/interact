@@ -416,6 +416,36 @@ Exports used: `study/data/study-H7VTHW-2026-11-12.json` and `study/data/17937476
 | Session H7VTHW, 11 participants, 2026-10-27 | 11 participants. Phases ran 14:17–15:06 UTC. | Matches. |
 | 771 model calls, all `anthropic/claude-sonnet-5` | 771 generations attributed to participants, 14:17–15:01 UTC, all on that model | Matches. **The Langfuse file holds 1,096 generations in total**, including development traffic from 21–27 Oct (150 of them on `claude-sonnet-5-5`). The harness must filter by participant user id. |
 | 50 calls failed on a budget cap within ~100 s; 25 were intent syncs | 50 `ExceededBudget` errors in 102.5 s: 25 intent sync, 13 conflict detection, 5 add field, 5 curation, 2 fix preview | Matches. |
-| "9 intent edits triggered a full-regeneration pass" | 9 `schema_refined` log entries and 9 `schema-refine` calls | **Discrepancy.** At the pilot commit (see PLAN.md), the `full` strategy on a form with fields already ran `useRefineSchema`: a model *patch* merged by `mergePatchOntoLatest` (`git show a64d230:apps/docs/src/hooks/query/pipeline.ts`, lines 154–170). The other 11 `schema_generated` entries are first generations. The paper (and the pilot-profile spec in Section 4C) describes a full regeneration that the pilot code did not do. |
+| "9 intent edits triggered a full-regeneration pass" (wording in the harness spec only; the paper now says "a model call that proposed a patch against the whole schema, unrestricted in which fields it could change") | 9 `schema_refined` log entries and 9 `schema-refine` calls | **The new wording matches the code.** At the pilot commit, the `full` strategy on a form with fields ran `useRefineSchema`: a model *patch* merged by `mergePatchOntoLatest`, with no limit on which fields it could touch (`git show a64d230:apps/docs/src/hooks/query/pipeline.ts`, lines 154–170). The other 11 `schema_generated` entries are first generations. Counts are below. |
 | 5 of 112 matched answers changed fields beyond their preview; 27–44 of 104 answers waited | Not recomputed in this phase | They are computed by `study/analyze_workshop.py:185-204` and `study/analyze_langfuse.py` in the paper repository. **None of the 627 pilot answer previews has a recorded scope.** E2 and E3 reuse these definitions (see PLAN.md). |
 | Locks, scope, committee, bounded purpose edits came after the pilot | `Field.locked` is absent at `a64d230`; `MAX_CONCURRENT_PREVIEWS = 3` at `a64d230:apps/docs/src/hooks/query/design-probes.ts:538` | Consistent. |
+
+### The 9 pilot intent refinements, counted
+
+Source: the `diff` of each `schema_refined` entry in the study export. The diff is computed against the database state at commit time, so it counts what landed. The model's raw proposals were not recorded. Pseudonyms are P1–P11 in join order. Times are UTC on 2026-10-27.
+
+| Entry | Participant | Time | Fields before | Added | Changed | Removed |
+|---|---|---|---|---|---|---|
+| 1 | P4 | 14:20:01 | 5 | 6 | 0 | 0 |
+| 2 | P4 | 14:22:13 | 10 | 0 | 1 | 1 |
+| 3 | P9 | 14:22:22 | 2 | 10 | 0 | 0 |
+| 4 | P3 | 14:23:23 | 4 | 1 | 0 | 1 |
+| 5 | P9 | 14:23:39 | 12 | 4 | 0 | 0 |
+| 6 | P3 | 14:24:39 | 5 | 0 | 0 | 0 |
+| 7 | P9 | 14:25:27 | 16 | 0 | 2 | 0 |
+| 8 | P9 | 14:53:46 | 13 | 2 | 0 | 0 |
+| 9 | P11 | 14:55:47 | 12 | 2 | 0 | 0 |
+
+**Summary**
+- **Added:** median 2, range 0–10, 25 in total.
+- **Changed:** median 0, range 0–2, 3 in total.
+- **Removed:** median 0, range 0–1, 2 in total.
+- **All fields touched per entry:** median 2, range 0–10.
+- Four participants account for the 9 entries (P3, P4, P9, P11).
+
+**Notes on single entries**
+- **Entry 6 changed no field and no section.** Only the schema's `version` counter moved. A patch restating a field's current values counts as an update in `applySchemaPatch`, which is a likely cause but is not confirmed.
+- **Entry 2:** the changed field got a new label, help text and requiredness.
+- **Entry 7:** two fields changed `type` (their kind or its details, e.g. options).
+
+**This path still exists in the current system.** An intent edit to the purpose or audience of a form with fields still runs `useRefineSchema` with `mergePatchOntoLatest` (`apps/docs/src/hooks/query/schema-generation.ts:145-196`). The current code restricts it only by locked fields (`automated: true`, `:194`) and has no preview scope. "Unrestricted in which fields it could change" therefore still describes the current refinement, apart from locks.

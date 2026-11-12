@@ -109,7 +109,9 @@ The harness reads the exports from `EVAL_DATA_DIR`, which defaults to `eval/data
    - Mark `failed` with the reason class (budget, rate limit, timeout, other) on failure, and when still pending after `INTENT_SYNC_STALE_MS`, which is configurable, default 30 s.
    - Retry with exponential backoff (3 attempts, base 2 s, jitter).
    - Clear the flag only after a successful sync commit.
-   - Today a sync is skipped when the purpose changed meanwhile. That case should re-queue the sync rather than drop it **[D9]**.
+   - **A sync whose purpose changed meanwhile is queued again, not dropped (decided, [D9]).** Today it is skipped (`intent-backpropagation.ts:80-84`).
+     - The re-queued sync makes a **new model call on the current state**; it does not replay the old edit's result.
+     - While it waits or runs again, the flag stays `pending` and turns `failed` (shown) after `INTENT_SYNC_STALE_MS`, as for any sync.
 3. **UI:** a banner in the intent editor with the reason and a "Retry now" button.
 4. **Tests:** injected gateway failures (budget, 429, timeout) through a stubbed `callLlm`, with fake timers for the backoff and the stale timeout.
 
@@ -139,13 +141,32 @@ The harness reads the exports from `EVAL_DATA_DIR`, which defaults to `eval/data
   - Next.js and browser timing are not reproduced; they are simulated in E3 (Section 7).
 - **Before 9 Nov the engine lived in `apps/docs/src/lib/engine`,** so the pilot adapter imports from there.
 
-**Spec mismatch to resolve** **[D2]**
-- **The spec's pilot profile lists "full regeneration on intent edits".** At `a64d230`, the `full` strategy on a form with fields already ran a model *patch* merged by `mergePatchOntoLatest`. The export agrees: 9 `schema_refined` entries and no regeneration of an existing form.
-- **The worktree reproduces what actually ran.** If the paper's sentence is kept, it needs rewording.
+**Intent edits in the pilot (decided, [D2])**
+- **The spec's pilot profile listed "full regeneration on intent edits".** At `a64d230`, the `full` strategy on a form with fields ran a model *patch* merged by `mergePatchOntoLatest`, with no limit on which fields it could touch.
+- **The pilot profile reproduces what actually ran,** which the worktree does by construction. "Full regeneration" is dropped from the pilot profile.
+- The paper now reads: "a model call that proposed a patch against the whole schema, unrestricted in which fields it could change".
+- The counts for its 9 instances are in CLAIMS.md (last section).
 
 **Small refactors the harness needs (behaviour unchanged, each with a test)**
 - Export the change functions of `useApplyProbePreview` and the derive page's projection assembly as pure functions. The headless harness then runs the exact code instead of a copy.
 - Move the preview queue (`runPreviewTask`, `waitForProbePreview`) into a module that can be driven with fake timers.
+
+### D. Study handoff through the commit function (decided, [D7])
+
+**Current behaviour.** `study_start_from_source` (`mig/015_study_handoff_run_settings.sql:148-218`) overwrites a task form's schema and intent with a plain `UPDATE`. It then logs `portfolio_derived` with `prev_*` set to `NULL`.
+
+**Context.** It runs inside the panel join (`:486-488`), on a task form inserted moments earlier in the same transaction (`:455-458`). Nobody has seen or edited that form yet.
+
+**Change.**
+- A new migration redefines the function so that the overwrite and its log entry go through `commit_portfolio_change`:
+  - the expected revision is read from the row;
+  - the takeover is the provenance spec;
+  - `prev_*` comes from the database.
+- The copied history of the source form (answered questions, earlier log entries attributed to "Previous author") stays as it is. It is history from another form, not a change to this one.
+
+**Size and testing.** About 20 lines of SQL. The test is an extension of `apps/docs/tests/unit/study-handoff.integration.test.ts`: one revision bump, one takeover entry, and that entry's `prev_schema` equals the form as it was before the takeover.
+
+**Deploying.** It changes the live join function, so it is deployed only when no study session is open.
 
 ## 5. E1: stability under change
 
@@ -178,7 +199,10 @@ The harness reads the exports from `EVAL_DATA_DIR`, which defaults to `eval/data
 
 - **P: the real path.**
   - **How a request runs:** the request is a typed answer to a question. It gets a preview through the same function as `preview-probe-options`, with a scope. It is then applied through the extracted answer change function, `applyProbeOption`, and `commitPortfolioChange` against the local DB. The post-answer purpose sync runs as in the app.
-  - **It needs a question to answer.** The proposal is a fixed carrier question ("Anything else to change on this form?"), versus the chat-edit request path **[D5]**.
+  - **It needs a question to answer (decided, [D5]):** the fixed carrier question "Anything else to change on this form?".
+    - This matches the paper's description of P: a free-text answer applied through the answer path, with its preview scope. The chat-edit box goes through a different merge path and would measure something else.
+    - The carrier question's text is part of the frozen material and its hash.
+    - The post-answer purpose update runs after each answer, as in the app.
   - **Derive** uses `deriveAction` and the extracted projection assembly.
 - **W: whole-schema rewrite.**
   - **Input:** the model gets the current schema JSON, the same 7-kind field vocabulary, and the request, with the instruction to keep everything else unchanged and to keep existing keys.
@@ -186,7 +210,7 @@ The harness reads the exports from `EVAL_DATA_DIR`, which defaults to `eval/data
   - **Derive:** the same call, given the base schema and the scenario.
 - **R: regeneration.**
   - **How a request runs:** the request is appended as a sentence to the intent's purpose, and the schema is regenerated with the initial-generation prompt.
-  - **The regenerated schema replaces the old one** rather than going through `mergeRegeneratedSchema`, which is a Malleable Forms mechanism **[D6]**.
+  - **The regenerated schema replaces the old one (decided, [D6]).** It does not go through `mergeRegeneratedSchema`, which is a Malleable Forms mechanism. Lost field ids or keys are what this baseline is meant to show.
   - **Derive:** base intent plus the scenario sentence, then generation.
 
 Each script runs 5 times per pipeline. Requests are applied in sequence within a run. All prompts are committed under `eval/e1/prompts/`, and their hashes are recorded.
@@ -220,7 +244,10 @@ Each script runs 5 times per pipeline. Requests are applied in sequence within a
 - **Gateway failures:** budget, 429, timeout, injected per call.
 
 **Oracles,** checked after every step, as in the spec. Per-path definitions are needed for some:
-- **I1:** one entry per commit; the entry's previous state equals the state read just before the commit; no state change without an entry. Portfolio *creation* and derive insert outside the commit function (CLAIMS 3). Whether creation counts as a change under I1 must be decided before freezing **[D7]**.
+- **I1:** one entry per commit; the entry's previous state equals the state read just before the commit; no state change without an entry. **Scope (decided, [D7]):** I1 covers changes to an *existing* portfolio.
+  - Creating a form, and the insert that creates a derived form, are not changes and are out of scope for the oracle.
+  - The study handoff is brought under the commit function in Phase 1D.
+  - The paper's I1 will say "every change to an existing portfolio", and that the app routes changes through the commit function while the database does not enforce it (CLAIMS 3).
 - **I2:** "apply" is the path's documented function:
   - answers: `applyProbeOption`
   - refine: `mergePatchOntoLatest` followed by the lock guard
@@ -228,7 +255,9 @@ Each script runs 5 times per pipeline. Requests are applied in sequence within a
 - **I6:** every response carries a revision, and the count logged with the preview equals the true count (needs Phase 1A).
 - **Drift:** needs Phase 1B.
 
-**Profile output.** I4, I5 and I6 report `--` for the pilot (the features do not exist there). For Drift in the pilot, the proposal is to report 0 %, because a failed sync was observably not shown, rather than `--` **[D8]**.
+**Profile output.**
+- I4, I5 and I6 report `--` for the pilot, because the features do not exist there.
+- **Drift in the pilot is reported as a measured 0 % (decided, [D8]):** a failed sync was observably not shown. `--` is reserved for features that did not exist.
 
 **Counterexamples.** They are shrunk by fast-check and stored as `eval/e2/counterexamples/<profile>-<invariant>-<seed>.json`.
 
@@ -273,7 +302,13 @@ Both profiles keep the pilot's prompted questions.
 
 **Validation**
 - **Targets:** 27–44 of 104 answers waited; 47 on-demand computations; foreground latency median 7.9 s and p90 17.0 s; ~94 s of waiting per participant.
-- **Tolerance:** fixed before running, proposed at ±10 % for the medians and totals and inside the range for 27–44 **[D10]**.
+- **Tolerance (decided, [D10]).** Each target is compared with the **median over the 10 seeded repetitions**.
+  - The number of answers that waited must fall inside 27–44.
+  - Within ±10 %:
+    - the 47 on-demand computations;
+    - the foreground latency median of 7.9 s and p90 of 17.0 s;
+    - the ~94 s of waiting per participant.
+  - The tolerance is written into `FROZEN.md` and committed before the simulation's first run.
 - **What cannot be validated:** the conflict-card latency, because the pilot logged no card times. It is reported as simulated only.
 
 ## 8. Layout and commands
@@ -303,17 +338,18 @@ Every output carries: git commit, model ids, settings, prompt hashes, material h
 
 ### Open
 
-1. **[D2]** The pilot did not regenerate the form on intent edits; it patched it. Reword the paper's "9 intent edits triggered a full-regeneration pass" and drop that item from the pilot profile? (CLAIMS, last section.)
-2. **[D5]** P's free-text path: a fixed carrier question (proposed) or the chat-edit request path? Include the post-answer purpose sync (proposed: yes, it is part of the real path)?
-3. **[D6]** R: replace the schema (proposed) or fold it in with `mergeRegeneratedSchema`?
-4. **[D7]** Does portfolio creation or derive (an insert outside the commit function) count under I1?
-5. **[D8]** Drift in the pilot: 0 % (proposed) or `--`?
-6. **[D9]** Phase 1B: re-queue an intent sync that was skipped because the purpose changed meanwhile (proposed), or keep skipping it but mark the intent out of sync?
-7. **[D10]** E3 validation tolerance (proposed above).
+None.
 
 ### Decided (2026-11-12)
 
 - **[D1] Pilot commit:** `a64d230`, confirmed by Coolify's deployment history (Section 4C).
+- **[D2] Intent edits in the pilot:** the profile runs them as they ran (a model patch, unrestricted in which fields it could change). There is no full regeneration (Section 4C). Counts are in CLAIMS.md (last section).
+- **[D5] P's path:** the carrier question "Anything else to change on this form?", frozen with the material, with the purpose update after each answer (Section 5).
+- **[D6] R:** replaces the old form (Section 5).
+- **[D7] I1 scope:** changes to existing portfolios only; creation is out of scope. The handoff goes through the commit function (Sections 4D and 6).
+- **[D8] Drift in the pilot:** a measured 0 % (Section 6).
+- **[D9] Skipped intent syncs:** queued again as a new model call on the current state, and shown as out of sync after the timeout (Section 4B).
+- **[D10] E3 tolerance:** the median of 10 repetitions; inside 27–44 for answers that waited; ±10 % for the rest, including the 47 on-demand computations; frozen in `FROZEN.md` before the first run (Section 7).
 - **[D3] Third scenario:** the sales representative, from an earlier version of the paper. The intent and the draft requests are in Section 5.
 - **[D4] Field kinds:** option (a), the model's seven kinds for all pipelines, with no system change (Section 5).
 - **Model:** `anthropic/claude-sonnet-5` for both the main and the fast model, in all pipelines (Section 5).
@@ -324,8 +360,9 @@ Every output carries: git commit, model ids, settings, prompt hashes, material h
 1. Phase 1: one commit per item, each with tests.
    - (a) refactors for the harness;
    - (b) I6 count, preview and UI;
-   - (c) out-of-sync flag;
-   - (d) pilot worktree and adapter.
+   - (c) out-of-sync flag, with re-queued syncs;
+   - (d) study handoff through the commit function;
+   - (e) pilot worktree and adapter.
 2. E1 material and oracles, then **freeze and record hashes**, then the runs.
 3. E2 oracles and generators, then **freeze**, then runs. Violations are recorded before any fix.
 4. E3 simulation, validation against the pilot, then measures.
