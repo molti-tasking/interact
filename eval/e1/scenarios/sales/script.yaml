@@ -1,0 +1,140 @@
+# E1 script: job application for a sales representative.
+# Requests drafted by the authors (2026-11-12); scopes and assertions are
+# DRAFTS for their review. Format: see scenarios/soccer/script.yaml.
+
+scenario: sales
+requests:
+  - id: sales-1
+    kind: add
+    target: base
+    request: >-
+      Ask which industries the applicant has sold into, as a required choice.
+    gold:
+      reviewed: false
+      scope:
+        add:
+          - label: "/industr/i"
+      assertions:
+        - field: { label: "/industr/i" }
+          type: select
+          required: true
+
+  - id: sales-2
+    kind: change
+    target: base
+    request: >-
+      Require 2 to 5 years of B2B sales experience.
+    gold:
+      reviewed: false
+      scope:
+        change: [{ key: yearsOfSalesExperience }]
+        add:
+          - label: "/b2b|experience/i"
+      assertions:
+        # The patch vocabulary has no number range: "2–5 years" can only be
+        # said in a label, help text or options. Checked: experience stays a
+        # required question, and B2B is named somewhere a respondent sees it.
+        - field: { label: "/experience/i" }
+          required: true
+        - field: { label: "/b2b/i" }
+
+  - id: sales-3
+    kind: add
+    target: base
+    request: >-
+      Add a written screening question about a deal the applicant closed.
+    gold:
+      reviewed: false
+      scope:
+        add:
+          - label: "/deal|clos/i"
+      assertions:
+        - field: { label: "/deal/i" }
+          type: text
+
+  - id: sales-4
+    kind: add
+    target: base
+    request: >-
+      Ask which sales territory the applicant can cover.
+    gold:
+      reviewed: false
+      scope:
+        add:
+          - label: "/territor|region|area/i"
+      assertions:
+        - field: { label: "/territor|region|area/i" }
+
+  - id: sales-5
+    kind: remove
+    target: base
+    # The authors' draft: "Make an existing optional field, such as the cover
+    # letter, not collected". The frozen base form has no cover letter; its
+    # only optional field is the resume link.
+    request: >-
+      Stop asking for a resume link.
+    gold:
+      reviewed: false
+      scope:
+        remove: [{ key: resumeLink }]
+      assertions:
+        - field: { key: resumeLink }
+          exists: false
+
+  - id: sales-6
+    kind: derive
+    name: phone-screen
+    target: base
+    request: >-
+      A phone-screen form with only contact details, industry background and
+      experience.
+    gold:
+      reviewed: false
+      scope:
+        include:
+          - { key: fullName }
+          - { key: email }
+          - { key: phoneNumber }
+          - { label: "/industr/i" }
+          - { label: "/experience/i" }
+        exclude:
+          - { key: whyInterested }
+          - { label: "/deal/i" }
+          - { label: "/territor|region|area/i" }
+        add: []
+      assertions:
+        - field: { key: fullName }
+        - field: { key: email }
+        - field: { key: phoneNumber }
+        - field: { label: "/industr/i" }
+        - field: { label: "/experience/i" }
+        - field: { key: whyInterested }
+          exists: false
+
+  - id: sales-7
+    kind: change
+    target: base
+    request: >-
+      Change the industry options to SaaS, fintech, healthcare and other.
+    gold:
+      reviewed: false
+      scope:
+        # The field sales-1 created: named by its label, resolved at run time
+        change: [{ label: "/industr/i" }]
+      assertions:
+        - field: { label: "/industr/i" }
+          type: select
+          options: { exactly: ["/^saas$/i", "/^fintech$/i", "/^health ?care$/i", "/^other$/i"] }
+
+  - id: sales-8
+    kind: add
+    target: base
+    request: >-
+      Add a LinkedIn profile URL.
+    gold:
+      reviewed: false
+      scope:
+        add:
+          - label: "/linkedin/i"
+      assertions:
+        - field: { label: "/linkedin/i" }

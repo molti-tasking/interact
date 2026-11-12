@@ -1,0 +1,158 @@
+# E1 script: youth soccer club registration.
+#
+# Change requests in order; within a run, each starts from the state the
+# previous one left. `target` is the form the request is about: `base`, or a
+# derived form by the name its derive request gave it.
+#
+# Gold specs: DRAFTS, to be reviewed by the authors. The harness refuses
+# `--final` until every `reviewed` is true. After review, any change to a
+# spec is recorded in eval/DEVIATIONS.md.
+#
+# Selectors name a field by `key` (exact) or `label` (a regex, "/…/flags").
+# scope:
+#   change   fields the request may change (type, label, required, options)
+#   remove   fields the request may remove (cumulative: they no longer count
+#            for bound responses afterwards)
+#   add      descriptors of fields the request may add
+#   (derive) include: base fields the derived form must keep
+#            exclude: base fields it must leave out
+# assertions: each must hold on the target form after the request.
+#   exists (default true), type (stored kind: text, number, select, date,
+#   boolean, file, scale, reference), required, multiple,
+#   options: { includes: [regex…] } or { exactly: [regex…] }, scale: {min, max}
+
+scenario: soccer
+requests:
+  - id: soccer-1
+    kind: add
+    target: base
+    request: >-
+      The league now requires proof of residency: we need to collect the
+      family's home address and a document upload as proof.
+    gold:
+      reviewed: false
+      scope:
+        add:
+          - label: "/address|street|city|town|post ?code|postal|zip|residen|proof|document/i"
+      assertions:
+        - field: { label: "/address|street/i" }
+        # The model can't create file fields (CLAIMS 1, D4): any field that
+        # captures the proof counts
+        - field: { label: "/residen|proof|document/i" }
+
+  - id: soccer-2
+    kind: add
+    target: base
+    request: >-
+      Ask how the emergency contact is related to the player.
+    gold:
+      reviewed: false
+      scope:
+        add:
+          - label: "/relation/i"
+      assertions:
+        - field: { label: "/relation/i" }
+
+  - id: soccer-3
+    kind: change
+    target: base
+    request: >-
+      The emergency contact phone number should be optional; many families
+      give the same number as the parent's.
+    gold:
+      reviewed: false
+      scope:
+        change: [{ key: emergencyContactPhone }]
+      assertions:
+        - field: { key: emergencyContactPhone }
+          required: false
+
+  - id: soccer-4
+    kind: remove
+    target: base
+    request: >-
+      We no longer need the parent or guardian's full name; the email and
+      phone number are enough.
+    gold:
+      reviewed: false
+      scope:
+        remove: [{ key: parentGuardianName }]
+      assertions:
+        - field: { key: parentGuardianName }
+          exists: false
+        - field: { key: parentGuardianEmail }
+        - field: { key: parentGuardianPhone }
+
+  - id: soccer-5
+    kind: derive
+    name: medical
+    target: base
+    request: >-
+      A medical information sheet for the coaches: only the player's name and
+      date of birth and the emergency contact, plus allergies and medical
+      conditions.
+    gold:
+      reviewed: false
+      scope:
+        include:
+          - { key: playerFullName }
+          - { key: playerDateOfBirth }
+          - { key: emergencyContactName }
+          - { key: emergencyContactPhone }
+        exclude:
+          - { key: parentGuardianEmail }
+          - { key: parentGuardianPhone }
+        add:
+          - label: "/allerg|medical|condition|medication|health/i"
+      assertions:
+        - field: { key: playerFullName }
+        - field: { key: playerDateOfBirth }
+        - field: { key: emergencyContactName }
+        - field: { label: "/allerg/i" }
+        - field: { label: "/medical|condition/i" }
+        - field: { key: parentGuardianEmail }
+          exists: false
+
+  - id: soccer-6
+    kind: change
+    target: base
+    request: >-
+      Rename "Player's date of birth" to "Date of birth (as on the passport)".
+    gold:
+      reviewed: false
+      scope:
+        change: [{ key: playerDateOfBirth }]
+      assertions:
+        - field: { key: playerDateOfBirth }
+          type: date
+        - field: { label: "/passport/i" }
+
+  - id: soccer-7
+    kind: add
+    target: base
+    request: >-
+      Add a required confirmation that the family has read the club's
+      concussion protocol.
+    gold:
+      reviewed: false
+      scope:
+        add:
+          - label: "/concussion/i"
+      assertions:
+        - field: { label: "/concussion/i" }
+          required: true
+
+  - id: soccer-8
+    kind: add
+    target: base
+    request: >-
+      Ask for the player's shirt size: XS, S, M, L or XL.
+    gold:
+      reviewed: false
+      scope:
+        add:
+          - label: "/shirt|size|jersey/i"
+      assertions:
+        - field: { label: "/shirt|size|jersey/i" }
+          type: select
+          options: { includes: ["/^xs$/i", "/^s$/i", "/^m$/i", "/^l$/i", "/^xl$/i"] }

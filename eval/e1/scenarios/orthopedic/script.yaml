@@ -1,0 +1,142 @@
+# E1 script: orthopedic patient record. The two derive requests are the
+# paper's own (content/05-scenarios.tex). Scopes and assertions are DRAFTS
+# for the authors' review. Format: see scenarios/soccer/script.yaml.
+
+scenario: orthopedic
+requests:
+  - id: orthopedic-1
+    kind: add
+    target: base
+    request: >-
+      Record the affected side (left or right) and the joint: hip, knee,
+      shoulder, ankle or spine.
+    gold:
+      reviewed: false
+      scope:
+        add:
+          - label: "/side|laterality|joint|location|site/i"
+      assertions:
+        - field: { label: "/side|laterality/i" }
+          type: select
+        - field: { label: "/joint|location|site/i" }
+          type: select
+          options: { includes: ["/hip/i", "/knee/i", "/shoulder/i", "/ankle/i", "/spine/i"] }
+
+  - id: orthopedic-2
+    kind: add
+    target: base
+    request: >-
+      Add the patient's pain score on a 0 to 10 scale.
+    gold:
+      reviewed: false
+      scope:
+        add:
+          - label: "/pain/i"
+      assertions:
+        - field: { label: "/pain/i" }
+          type: scale
+          scale: { min: 0, max: 10 }
+
+  - id: orthopedic-3
+    kind: change
+    target: base
+    request: >-
+      Make known allergies required; we can't operate without knowing them.
+    gold:
+      reviewed: false
+      scope:
+        change: [{ key: knownAllergies }]
+      assertions:
+        - field: { key: knownAllergies }
+          required: true
+
+  - id: orthopedic-4
+    kind: remove
+    target: base
+    request: >-
+      Body temperature isn't needed in this record; remove it.
+    gold:
+      reviewed: false
+      scope:
+        remove: [{ key: bodyTemperature }]
+      assertions:
+        - field: { key: bodyTemperature }
+          exists: false
+
+  - id: orthopedic-5
+    kind: derive
+    name: surgical
+    target: base
+    request: >-
+      A surgical planning view with implant details and operative protocols.
+    gold:
+      reviewed: false
+      scope:
+        include:
+          - { key: fullName }
+          - { key: dateOfBirth }
+          - { key: primaryDiagnosis }
+          - { key: knownAllergies }
+        exclude: []
+        add:
+          - label: "/implant|manufacturer|catalog|lot|operat|surg|approach|procedure|anesth|anaesth|weight|bearing|protocol|position|date/i"
+      assertions:
+        - field: { key: fullName }
+        - field: { key: primaryDiagnosis }
+        - field: { label: "/implant/i" }
+        - field: { label: "/approach|procedure|operat/i" }
+
+  - id: orthopedic-6
+    kind: derive
+    name: rehab
+    target: base
+    request: >-
+      A rehab-focused view with range of motion, strength, outcome scores, and
+      exercise plans. I need to see weight-bearing status but not implant
+      details.
+    gold:
+      reviewed: false
+      scope:
+        include:
+          - { key: fullName }
+          - { key: dateOfBirth }
+          - { key: primaryDiagnosis }
+        exclude:
+          - { label: "/implant/i" }
+        add:
+          - label: "/range|motion|rom|strength|outcome|score|womac|exercise|plan|weight|bearing|goal|session|pain/i"
+      assertions:
+        - field: { key: primaryDiagnosis }
+        - field: { label: "/range of motion|\\brom\\b/i" }
+        - field: { label: "/strength/i" }
+        - field: { label: "/outcome|score/i" }
+        - field: { label: "/exercise/i" }
+        - field: { label: "/weight/i" }
+        - field: { label: "/implant/i" }
+          exists: false
+
+  - id: orthopedic-7
+    kind: change
+    target: base
+    request: >-
+      Rename "Primary Diagnosis" to "Primary diagnosis (ICD-10)".
+    gold:
+      reviewed: false
+      scope:
+        change: [{ key: primaryDiagnosis }]
+      assertions:
+        - field: { key: primaryDiagnosis }
+        - field: { label: "/icd/i" }
+
+  - id: orthopedic-8
+    kind: add
+    target: base
+    request: >-
+      Add the referring physician's name.
+    gold:
+      reviewed: false
+      scope:
+        add:
+          - label: "/referr|physician|doctor/i"
+      assertions:
+        - field: { label: "/referr/i" }
