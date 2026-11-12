@@ -22,7 +22,7 @@ import {
   type QuizAnswer,
   type QuizItem,
 } from "@/lib/study/instruments";
-import { seededShuffle, type StudyTask } from "@/lib/study/types";
+import { seededShuffle, studyMinutes, type StudyTask } from "@/lib/study/types";
 import { ArrowRight, Loader2 } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { toast } from "sonner";
@@ -31,11 +31,11 @@ import { BriefImage } from "./brief-image";
 /** Seconds a situation stays on screen before "start" is offered */
 const MIN_READ_SECONDS = 20;
 
-function Page({ children }: { children: ReactNode }) {
+export function Page({ children }: { children: ReactNode }) {
   return <div className="mx-auto w-full max-w-2xl space-y-6 py-6">{children}</div>;
 }
 
-function Spinner() {
+export function Spinner() {
   return (
     <div className="flex justify-center py-16">
       <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" aria-label="Loading" />
@@ -66,7 +66,7 @@ export function ConsentView() {
   const decline = useDeclineStudy(state.session.id);
   const [agreed, setAgreed] = useState(false);
   const { contact } = settings;
-  const minutes = Math.round((settings.taskSeconds * state.tasks!.length) / 60) + 11;
+  const minutes = studyMinutes(settings, state.tasks!.length);
 
   return (
     <Page>
@@ -193,7 +193,11 @@ export function IntroView() {
             minutes; finish earlier when you think the form is ready. You can look at the
             situation again at any time.
           </li>
-          <li>You answer a few quick questions about the form you built.</li>
+          <li>
+            {state.session.settings.postTaskMeasures
+              ? "With the form hidden, you answer a few questions about the form you built."
+              : "You answer a few quick questions about the form you built."}
+          </li>
           <li>
             {count === 2 ? "Then the same again for a second situation" : `This repeats for ${count} situations`},
             followed by a short questionnaire.

@@ -399,6 +399,21 @@ export function briefSteps(tasks: number, postTaskMeasures = false): string[] {
   return [...steps, "questionnaire", "done"];
 }
 
+/**
+ * What the consent page says a briefs session takes, in minutes: the tasks'
+ * time limits, plus consent, intro, situations and the questionnaire
+ * (11 minutes), plus about 4.5 minutes per task for ratings, recall and the
+ * "why" items when the session has them. See the runbook for the measured
+ * breakdown.
+ */
+export function studyMinutes(
+  settings: Pick<StudySettings, "taskSeconds" | "postTaskMeasures">,
+  tasks: number,
+): number {
+  const perTask = settings.taskSeconds / 60 + (settings.postTaskMeasures ? 4.5 : 0);
+  return Math.round(perTask * tasks + 11);
+}
+
 type PositionedStep = "brief" | "task" | PostTaskStep | "quiz";
 
 export type BriefStep =

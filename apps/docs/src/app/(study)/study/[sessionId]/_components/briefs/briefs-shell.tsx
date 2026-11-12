@@ -15,6 +15,7 @@ import {
   IntroView,
   QuizView,
 } from "./steps";
+import { RatingsView, RecallView, WhyView } from "./post-task";
 import { TaskView } from "./task-view";
 
 /**
@@ -82,7 +83,7 @@ export function BriefsShell() {
   }
 
   const parsed = parseBriefStep(progress.step);
-  const steps = briefSteps(tasks.length);
+  const steps = briefSteps(tasks.length, session.settings.postTaskMeasures);
   const index = steps.indexOf(progress.step);
   const task =
     parsed && "position" in parsed
@@ -141,6 +142,12 @@ export function BriefsShell() {
           <BriefView key={task.position} task={task} total={tasks.length} />
         ) : parsed.kind === "task" ? (
           <TaskView key={task.position} task={task} />
+        ) : parsed.kind === "ratings" ? (
+          <RatingsView key={task.position} task={task} />
+        ) : parsed.kind === "recall" ? (
+          <RecallView key={task.position} task={task} />
+        ) : parsed.kind === "why" ? (
+          <WhyView key={task.position} task={task} />
         ) : (
           <QuizView key={task.position} task={task} />
         )}

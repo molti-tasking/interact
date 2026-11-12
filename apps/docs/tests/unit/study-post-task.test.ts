@@ -11,6 +11,7 @@ import {
   parseBriefStep,
   parseSettings,
   seededShuffle,
+  studyMinutes,
 } from "@/lib/study/types";
 import { chooseWhyFields, type WhyItem } from "@/lib/study/why-fields";
 
@@ -37,6 +38,11 @@ describe("steps with post-task measures", () => {
     expect(parseBriefStep("recall:2")).toEqual({ kind: "recall", position: 2 });
     expect(parseBriefStep("why:2")).toEqual({ kind: "why", position: 2 });
     expect(parseBriefStep("why:")).toBeNull();
+  });
+
+  it("the consent page's estimate grows by the measures, and stays for old sessions", () => {
+    expect(studyMinutes({ taskSeconds: 720, postTaskMeasures: false }, 2)).toBe(35);
+    expect(studyMinutes({ taskSeconds: 720, postTaskMeasures: true }, 2)).toBe(44);
   });
 
   it("is a setting that old sessions don't have", () => {
