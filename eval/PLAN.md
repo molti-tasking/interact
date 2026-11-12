@@ -123,7 +123,13 @@ The harness reads the exports from `EVAL_DATA_DIR`, which defaults to `eval/data
 - It has `MAX_CONCURRENT_PREVIEWS = 3` (`design-probes.ts:538`).
 - It has no `Field.locked` and no preview scope.
 - Its migrations run to 011, consistent with `closed_reason` (migration 012) being NULL for every pilot question.
-- **This is an inference, not a deploy record.** The app is hosted on Coolify, which builds the repository's `Dockerfile` and applies migrations on container start. The authors should confirm the commit against Coolify's deployment history **[D1]**.
+- **Confirmed by Coolify's deployment history (2026-11-12) [D1].** The app is hosted on Coolify, which builds the repository's `Dockerfile` on a push webhook and applies migrations on container start.
+  - The history shows `a64d230` deployed successfully on 25 Oct.
+  - The next deployment, `5bb7995` on 8 Nov, failed, so the running container stayed on `a64d230`.
+  - The one after that, `f757bed` on 11 Nov, succeeded.
+  - **So the pilot session on 27 Oct ran `a64d230`.**
+  - The export taken on 12 Nov already has the columns from migrations 012–015, all NULL for pilot rows. That is consistent: those migrations were applied when `f757bed` started.
+  - Environment settings at the time (model, keys) are not in git. The pilot's model is known from Langfuse.
 
 **Fidelity**
 - **Same code:** client scheduling, engine and SQL are those of the pilot.
@@ -297,17 +303,17 @@ Every output carries: git commit, model ids, settings, prompt hashes, material h
 
 ### Open
 
-1. **[D1]** Confirm the pilot deployment was `a64d230`, from Coolify's deployment history: the commit of the last successful deployment before 2026-10-27 14:00 UTC, and no deployment until 15:10 UTC.
-2. **[D2]** The pilot did not regenerate the form on intent edits; it patched it. Reword the paper's "9 intent edits triggered a full-regeneration pass" and drop that item from the pilot profile? (CLAIMS, last section.)
-3. **[D5]** P's free-text path: a fixed carrier question (proposed) or the chat-edit request path? Include the post-answer purpose sync (proposed: yes, it is part of the real path)?
-4. **[D6]** R: replace the schema (proposed) or fold it in with `mergeRegeneratedSchema`?
-5. **[D7]** Does portfolio creation or derive (an insert outside the commit function) count under I1?
-6. **[D8]** Drift in the pilot: 0 % (proposed) or `--`?
-7. **[D9]** Phase 1B: re-queue an intent sync that was skipped because the purpose changed meanwhile (proposed), or keep skipping it but mark the intent out of sync?
-8. **[D10]** E3 validation tolerance (proposed above).
+1. **[D2]** The pilot did not regenerate the form on intent edits; it patched it. Reword the paper's "9 intent edits triggered a full-regeneration pass" and drop that item from the pilot profile? (CLAIMS, last section.)
+2. **[D5]** P's free-text path: a fixed carrier question (proposed) or the chat-edit request path? Include the post-answer purpose sync (proposed: yes, it is part of the real path)?
+3. **[D6]** R: replace the schema (proposed) or fold it in with `mergeRegeneratedSchema`?
+4. **[D7]** Does portfolio creation or derive (an insert outside the commit function) count under I1?
+5. **[D8]** Drift in the pilot: 0 % (proposed) or `--`?
+6. **[D9]** Phase 1B: re-queue an intent sync that was skipped because the purpose changed meanwhile (proposed), or keep skipping it but mark the intent out of sync?
+7. **[D10]** E3 validation tolerance (proposed above).
 
 ### Decided (2026-11-12)
 
+- **[D1] Pilot commit:** `a64d230`, confirmed by Coolify's deployment history (Section 4C).
 - **[D3] Third scenario:** the sales representative, from an earlier version of the paper. The intent and the draft requests are in Section 5.
 - **[D4] Field kinds:** option (a), the model's seven kinds for all pipelines, with no system change (Section 5).
 - **Model:** `anthropic/claude-sonnet-5` for both the main and the fast model, in all pipelines (Section 5).
