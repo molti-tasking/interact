@@ -28,3 +28,10 @@ The final runs need the reviewed version recorded as `e1-material:`.
   - w-derive.md: `5c4d1826…`
   - form rules: `0ee15abb…`
   - carrier question: `e1077927…`
+
+## E1, draft 2 (2026-11-12): not reviewed
+
+Draft 1 plus the summarizer (`e1/summarize.ts`: how measures are aggregated, and the bootstrap). The scripts and gold specs are unchanged from draft 1. Recorded before the plumbing check.
+
+- commit: `c3967a7`
+- e1-material-draft: b58b07290933edb167d3198390a99978156a41b7384d558ab2f47326399b2739
