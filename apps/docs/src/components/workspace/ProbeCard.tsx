@@ -28,6 +28,11 @@ import {
   useProbePreviewActions,
   type ProbePreview,
 } from "./deck-canvas-context";
+import {
+  impactDetail,
+  impactText,
+  useResponseImpact,
+} from "./collected-responses-context";
 
 const priorityStyles: Record<ProbePriority, { dot: string; label: string }> = {
   1: { dot: "bg-rose-500", label: "High impact" },
@@ -450,12 +455,14 @@ export function OptionTile({
   const log = useStudyLog();
   const previewStartedAt = useRef<number | null>(null);
 
+  const next = useMemo(() => (preview ? preview.apply(schema) : null), [schema, preview]);
   const summary = useMemo(() => {
-    if (!preview) return null;
-    const next = preview.apply(schema);
+    if (!next) return null;
     const change = previewSchemaChange(schema, next);
     return { ...summarizeChange(change), items: diffItems(change, schema, next) };
-  }, [schema, preview]);
+  }, [schema, next]);
+  // Collected answers to fields this answer removes, retypes or rewords (I6)
+  const impact = useResponseImpact(schema, next);
 
   const startPreview = () => {
     if (preview && !disabled) {
@@ -474,6 +481,8 @@ export function OptionTile({
         ownerId: preview.ownerId,
         option: value,
         ms: Date.now() - started,
+        // The count the tile showed (absent where responses aren't known)
+        ...(impact ? { affectedResponses: impact.responses } : {}),
       });
     }
   };
@@ -546,7 +555,18 @@ export function OptionTile({
         {label}
       </span>
       {summary ? (
-        <PatchDiffLine summary={summary} />
+        <>
+          <PatchDiffLine summary={summary} />
+          {impact && impact.responses > 0 && (
+            <span
+              data-testid="option-impact"
+              title={impactDetail(impact)}
+              className="mt-0.5 block text-[11px] font-medium text-amber-700 dark:text-amber-400"
+            >
+              {impactText(impact.responses).replace(/^a/, "A")}
+            </span>
+          )}
+        </>
       ) : waiting ? (
         <span role="status" className="mt-0.5 flex items-center gap-1 text-[11px] text-muted-foreground">
           <Loader2 className="h-3 w-3 animate-spin" aria-hidden />

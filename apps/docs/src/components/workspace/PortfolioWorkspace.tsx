@@ -6,6 +6,7 @@ import { DerivationBanner } from "@/components/workspace/DerivationBanner";
 import { DesignProbeDeck } from "@/components/workspace/DesignProbeDeck";
 import { FieldEditDrawer } from "@/components/workspace/FieldEditDrawer";
 import { DeckCanvasProvider } from "@/components/workspace/deck-canvas-context";
+import { CollectedResponsesProvider } from "@/components/workspace/collected-responses-context";
 import { ReflectiveConversationPane } from "@/components/workspace/ReflectiveConversationPane";
 import { useCapabilities } from "@/context/capabilities-context";
 import { useStudyLog } from "@/context/study-context";
@@ -206,49 +207,51 @@ export function PortfolioWorkspace({
         so the open app sidebar is taken into account.
       */}
       <DeckCanvasProvider>
-        <div className="@container">
-          <div className="grid grid-cols-1 gap-6 @5xl:grid-cols-[minmax(320px,400px)_minmax(0,1fr)]">
-            <div className="flex min-w-0 flex-col gap-5">
-              {capabilities.chatEdits ? (
-                <ChatEditPane
-                  portfolio={portfolio}
-                  autoGenerate={autoGenerate}
-                  onAutoGenerateStarted={onAutoGenerateStarted}
-                />
-              ) : (
-                <div
-                  data-testid="reflective-conversation-pane"
-                  className="flex flex-col"
-                >
-                  <ReflectiveConversationPane
+        <CollectedResponsesProvider portfolioId={portfolio.id}>
+          <div className="@container">
+            <div className="grid grid-cols-1 gap-6 @5xl:grid-cols-[minmax(320px,400px)_minmax(0,1fr)]">
+              <div className="flex min-w-0 flex-col gap-5">
+                {capabilities.chatEdits ? (
+                  <ChatEditPane
                     portfolio={portfolio}
                     autoGenerate={autoGenerate}
                     onAutoGenerateStarted={onAutoGenerateStarted}
                   />
-                </div>
-              )}
+                ) : (
+                  <div
+                    data-testid="reflective-conversation-pane"
+                    className="flex flex-col"
+                  >
+                    <ReflectiveConversationPane
+                      portfolio={portfolio}
+                      autoGenerate={autoGenerate}
+                      onAutoGenerateStarted={onAutoGenerateStarted}
+                    />
+                  </div>
+                )}
 
-              {capabilities.designProbes && (
-                <DesignProbeDeck
+                {capabilities.designProbes && (
+                  <DesignProbeDeck
+                    portfolio={portfolio}
+                    onDecisionApplied={scheduleSync}
+                  />
+                )}
+              </div>
+
+              {/* Artifact (form on a canvas) */}
+              <div
+                data-testid="preview-pane"
+                className="h-[70vh] @5xl:sticky @5xl:top-20 @5xl:h-[calc(100vh-6rem)]"
+              >
+                <ArtifactPane
                   portfolio={portfolio}
-                  onDecisionApplied={scheduleSync}
+                  onFieldClick={handleFieldClick}
+                  onFieldsAdded={handleFieldsAdded}
                 />
-              )}
-            </div>
-
-            {/* Artifact (form on a canvas) */}
-            <div
-              data-testid="preview-pane"
-              className="h-[70vh] @5xl:sticky @5xl:top-20 @5xl:h-[calc(100vh-6rem)]"
-            >
-              <ArtifactPane
-                portfolio={portfolio}
-                onFieldClick={handleFieldClick}
-                onFieldsAdded={handleFieldsAdded}
-              />
+              </div>
             </div>
           </div>
-        </div>
+        </CollectedResponsesProvider>
       </DeckCanvasProvider>
 
       {/* Field edit drawer — saves only the changed properties, applied to

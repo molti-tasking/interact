@@ -67,6 +67,11 @@ import {
   useDeckFocus,
   useProbePreview,
 } from "./deck-canvas-context";
+import {
+  impactDetail,
+  impactText,
+  useResponseImpact,
+} from "./collected-responses-context";
 
 const SEVERITY_ORDER = { error: 0, warning: 1, info: 2 } as const;
 
@@ -269,15 +274,20 @@ export function ArtifactPane({
 
   // A probe answer or conflict fix hovered in the deck: show what it'd do
   const probePreview = useProbePreview();
+  const previewNext = useMemo(
+    () => (probePreview ? probePreview.apply(schema) : null),
+    [schema, probePreview],
+  );
   const preview = useMemo(() => {
-    if (!probePreview) return null;
-    const next = probePreview.apply(schema);
+    if (!previewNext) return null;
     return {
-      ...previewSchemaChange(schema, next),
+      ...previewSchemaChange(schema, previewNext),
       // What changes about fields the creator already has
-      notes: describeSchemaChange(schema, next),
+      notes: describeSchemaChange(schema, previewNext),
     };
-  }, [schema, probePreview]);
+  }, [schema, previewNext]);
+  // Collected answers the previewed change affects (I6)
+  const previewImpact = useResponseImpact(schema, previewNext);
 
   // Fields involved in a detected conflict; the open conflict stands out.
   // Clicking a marker opens that conflict in the deck.
@@ -461,6 +471,15 @@ export function ArtifactPane({
             : "no change to the form"}
         </span>
       </span>
+      {previewImpact && previewImpact.responses > 0 && (
+        <span
+          data-testid="probe-preview-impact"
+          title={impactDetail(previewImpact)}
+          className="shrink-0 font-medium text-amber-700 dark:text-amber-400"
+        >
+          · {impactText(previewImpact.responses)}
+        </span>
+      )}
       <span className="shrink-0 text-muted-foreground/70">· click to apply</span>
     </div>
   ) : changed.length > 0 ? (

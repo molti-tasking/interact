@@ -141,3 +141,81 @@ export function fieldChangesAfterResponses(
   }
   return notices;
 }
+
+// ---------------------------------------------------------------------------
+// Before a change: which collected answers it affects (I6)
+// ---------------------------------------------------------------------------
+
+/**
+ * What a change does to a field that existing answers depend on:
+ * - `removed`: the field is gone;
+ * - `type`: it asks differently (another kind, or one choice ↔ several);
+ * - `label`: its wording changed;
+ * - `key`: its key changed — stored answers are keyed by it, so they no
+ *   longer belong to the field.
+ */
+export type DestructiveKind = "removed" | "type" | "label" | "key";
+
+export interface DestructiveChange {
+  fieldId: string;
+  /** The field's key before the change: the key its answers are stored under */
+  fieldName: string;
+  /** Its label before the change */
+  label: string;
+  kinds: DestructiveKind[];
+}
+
+/**
+ * The fields of `before` that `after` removes, retypes, relabels or rekeys.
+ * Fields are matched by id; added fields are not destructive.
+ */
+export function destructiveChanges(
+  before: PortfolioSchema,
+  after: PortfolioSchema,
+): DestructiveChange[] {
+  const afterById = new Map(after.fields.map((f) => [f.id, f]));
+  const out: DestructiveChange[] = [];
+  for (const old of before.fields) {
+    const now = afterById.get(old.id);
+    const kinds: DestructiveKind[] = [];
+    if (!now) {
+      kinds.push("removed");
+    } else {
+      if (describeType(old.type) !== describeType(now.type)) kinds.push("type");
+      if (old.label.trim() !== now.label.trim()) kinds.push("label");
+      if (old.name !== now.name) kinds.push("key");
+    }
+    if (kinds.length) {
+      out.push({ fieldId: old.id, fieldName: old.name, label: old.label, kinds });
+    }
+  }
+  return out;
+}
+
+export interface ResponseImpact {
+  /** Every destructive change, with the answers stored for its field */
+  fields: (DestructiveChange & { answers: number })[];
+  /** Responses with an answer to at least one of these fields */
+  responses: number;
+}
+
+/**
+ * How many collected responses a change from `before` to `after` affects:
+ * those with an answer (non-empty) to a field it removes, retypes, relabels
+ * or rekeys. Answers are looked up under the field's key before the change.
+ */
+export function affectedResponses(
+  before: PortfolioSchema,
+  after: PortfolioSchema,
+  responses: readonly Pick<VersionedResponse, "data">[],
+): ResponseImpact {
+  const changes = destructiveChanges(before, after);
+  const fields = changes.map((c) => ({
+    ...c,
+    answers: responses.filter((r) => answered(r.data[c.fieldName])).length,
+  }));
+  const responsesAffected = changes.length
+    ? responses.filter((r) => changes.some((c) => answered(r.data[c.fieldName]))).length
+    : 0;
+  return { fields, responses: responsesAffected };
+}
