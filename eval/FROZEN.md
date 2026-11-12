@@ -35,3 +35,15 @@ Draft 1 plus the summarizer (`e1/summarize.ts`: how measures are aggregated, and
 
 - commit: `c3967a7`
 - e1-material-draft: b58b07290933edb167d3198390a99978156a41b7384d558ab2f47326399b2739
+
+## E1, reviewed (2026-11-12): frozen for the dry run and the final runs
+
+The authors set every gold spec to `reviewed: true`. Compared with draft 2, nothing else changed in substance.
+- One options list was re-wrapped by an editor.
+- Three soccer assertions that a find-and-replace (`false` → `true`) had flipped were restored as drafted, at the authors' instruction: soccer-3 `required: false`, soccer-4 and soccer-5 `exists: false`.
+- The orthopedic intent, written from the paper's description, is accepted as drafted.
+
+Only the plumbing check had run at this point. It computed no measures.
+
+- commit: `3679584`
+- e1-material: 52b0d7de479edb11911a0f72b189b3d4026e5b89b7540e7bf65c0edd2f85bd66
