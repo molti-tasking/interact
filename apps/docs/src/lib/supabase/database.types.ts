@@ -787,6 +787,10 @@ export type Database = {
         }
       }
       decline_my_study: { Args: { p_session_id: string }; Returns: undefined }
+      force_my_study_arm: {
+        Args: { p_arm: string; p_session_id: string }
+        Returns: string | null
+      }
       extend_study_phase: {
         Args: { p_seconds: number; p_session_id: string }
         Returns: {
@@ -925,6 +929,7 @@ export type Database = {
         Returns: boolean
       }
       study_brief_steps: { Args: { p_tasks: number }; Returns: string[] }
+      study_steps: { Args: { p_settings: Json; p_tasks: number }; Returns: string[] }
       submit_response: {
         Args: { p_data: Json; p_portfolio_id: string }
         Returns: string

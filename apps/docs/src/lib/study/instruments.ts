@@ -498,3 +498,38 @@ export function quizScore(
   ).length;
   return correct / items.length;
 }
+
+// --- After each task, before the quiz (sessions with post-task measures) ---
+
+export const ratingsInstrument = (position: number) => `ratings:${position}`;
+export const recallInstrument = (position: number) => `recall:${position}`;
+export const whyInstrument = (position: number) => `why:${position}`;
+
+/** Two self-ratings, 1–7, asked right after the form is hidden. */
+export const RATING_ITEMS = [
+  {
+    name: "know",
+    label: "How well do you know what your form asks?",
+    low: "Not at all",
+    high: "Very well",
+  },
+  {
+    name: "confident",
+    label: "How confident are you that your form collects everything this situation needs?",
+    low: "Not at all confident",
+    high: "Completely confident",
+  },
+] as const;
+
+export type RatingName = (typeof RATING_ITEMS)[number]["name"];
+
+/** Free recall: a notice (nothing is cut off) after this many seconds */
+export const RECALL_SOFT_LIMIT_SECONDS = 180;
+
+/** The non-empty lines of a free-recall answer, trimmed, in order. */
+export function recallLines(text: string): string[] {
+  return text
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+}

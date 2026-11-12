@@ -44,6 +44,7 @@ export default function StudiesPage() {
             // The wave-1 comparison; the silent baseline and the ablation
             // can be ticked as extra arms
             conditions: ["full", "assistant"],
+            postTaskMeasures: true,
             contact: settings.contact,
           }
         : { ...DEFAULT_STUDY_SETTINGS, contact: settings.contact },

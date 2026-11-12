@@ -97,6 +97,12 @@ export interface StudySettings {
    * Null: participants start from nothing (wave 1).
    */
   handoff: StudyHandoff | null;
+  /**
+   * After each task: self-ratings, free recall and "why" items before the
+   * quiz (migration 017). Every briefs session created from 2026-11-13 on;
+   * absent (false) in sessions created before, which keep their steps.
+   */
+  postTaskMeasures: boolean;
 }
 
 /** How questions are chosen (`PROBE_STRATEGY`). */
@@ -182,6 +188,7 @@ export const DEFAULT_STUDY_SETTINGS: StudySettings = {
   contact: EMPTY_CONTACT,
   run: null,
   handoff: null,
+  postTaskMeasures: false,
 };
 
 /** Planned seconds per phase (soft deadline) */
@@ -284,6 +291,7 @@ export function parseSettings(value: unknown): StudySettings {
     },
     run: parseRunSettings(raw.run),
     handoff: parseHandoff(raw.handoff),
+    postTaskMeasures: raw.postTaskMeasures === true,
   };
 }
 
@@ -373,27 +381,37 @@ export function runSettingsFromEnv(
 // Briefs sessions: steps
 // ---------------------------------------------------------------------------
 
+/** The steps after a task, before its quiz, in sessions with post-task measures */
+export const POST_TASK_STEPS = ["ratings", "recall", "why"] as const;
+export type PostTaskStep = (typeof POST_TASK_STEPS)[number];
+
 /**
  * The steps of a briefs session with `tasks` tasks — the same list as
- * `study_brief_steps()` in migration 014, which is the one that decides.
+ * `study_steps()` in migration 017, which is the one that decides.
  */
-export function briefSteps(tasks: number): string[] {
+export function briefSteps(tasks: number, postTaskMeasures = false): string[] {
   const steps = ["consent", "intro"];
-  for (let i = 1; i <= tasks; i++) steps.push(`brief:${i}`, `task:${i}`, `quiz:${i}`);
+  for (let i = 1; i <= tasks; i++) {
+    steps.push(`brief:${i}`, `task:${i}`);
+    if (postTaskMeasures) steps.push(...POST_TASK_STEPS.map((step) => `${step}:${i}`));
+    steps.push(`quiz:${i}`);
+  }
   return [...steps, "questionnaire", "done"];
 }
 
+type PositionedStep = "brief" | "task" | PostTaskStep | "quiz";
+
 export type BriefStep =
   | { kind: "consent" | "intro" | "questionnaire" | "done" }
-  | { kind: "brief" | "task" | "quiz"; position: number };
+  | { kind: PositionedStep; position: number };
 
 export function parseBriefStep(step: string): BriefStep | null {
   if (step === "consent" || step === "intro" || step === "questionnaire" || step === "done") {
     return { kind: step };
   }
-  const match = /^(brief|task|quiz):(\d+)$/.exec(step);
+  const match = /^(brief|task|ratings|recall|why|quiz):(\d+)$/.exec(step);
   if (!match) return null;
-  return { kind: match[1] as "brief" | "task" | "quiz", position: Number(match[2]) };
+  return { kind: match[1] as PositionedStep, position: Number(match[2]) };
 }
 
 /** The briefs in the order a participant with `order` gets them (Latin square). */
