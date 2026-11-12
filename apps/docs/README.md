@@ -31,7 +31,7 @@ npx supabase start
 After changing the database schema (migrations in `supabase/migrations/`), regenerate the TypeScript types:
 
 ```bash
-npx supabase gen types typescript --local > src/lib/supabase/database.types.ts
+npx supabase gen types typescript > src/lib/supabase/database.types.ts
 ```
 
 The generated `database.types.ts` file is **auto-generated — do not edit it manually**.

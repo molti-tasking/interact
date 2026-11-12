@@ -53,7 +53,8 @@ jobs:
       - name: Install Supabase CLI
         uses: supabase/setup-cli@v1
         with:
-          version: latest
+          # Same version as apps/docs/package.json, which `pnpm start` uses
+          version: 3.1.0
 
       - name: Check database secret
         env:
@@ -117,23 +118,23 @@ jobs:
             v="$(basename "$f" | cut -d_ -f1)"
             if [ "$((10#$v))" -le "$((10#$BASELINE))" ]; then
               echo "Baseline: marking $v as applied"
-              supabase migration repair --status applied "$v" --db-url "$SUPABASE_DB_URL"
+              supabase migration repair "$v" --status applied --yes --remote="$SUPABASE_DB_URL"
             fi
           done
 
       - name: Show pending migrations
         env:
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
-        run: supabase migration list --db-url "$SUPABASE_DB_URL"
+        run: supabase migration list --remote="$SUPABASE_DB_URL"
 
       - name: Apply migrations
         if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.dry_run) }}
         env:
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
-        run: supabase db push --db-url "$SUPABASE_DB_URL"
+        run: supabase db push --yes --remote="$SUPABASE_DB_URL"
 
       - name: Dry run
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run }}
         env:
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
-        run: supabase db push --dry-run --db-url "$SUPABASE_DB_URL"
+        run: supabase db push --dry-run --remote="$SUPABASE_DB_URL"
