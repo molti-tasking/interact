@@ -1,3 +1,4 @@
+import { createAnthropic } from "@ai-sdk/anthropic";
 import { createOpenAI } from "@ai-sdk/openai";
 import {
   APICallError,
@@ -37,13 +38,67 @@ const llm = createOpenAI({
  * interface.
  */
 function chatModel(modelId: string): LanguageModel {
+  return LLM_PROVIDER === "anthropic"
+    ? anthropicChatModel(modelId)
+    : wrapLanguageModel({
+        model: llm.chat(modelId),
+        middleware: {
+          specificationVersion: "v3",
+          transformParams: async ({ params }) => ({
+            ...params,
+            temperature: resolveTemperature(modelId, params.temperature),
+          }),
+        },
+      });
+}
+
+/**
+ * Which API the chat models call:
+ * - unset (default): the OpenAI-compatible gateway above (LiteLLM) — the
+ *   deployed app;
+ * - `anthropic`: Anthropic's Messages API directly, with `ANTHROPIC_API_KEY`
+ *   — used by the evaluation harness (eval/PLAN.md), whose budget can't run
+ *   through the capped gateway keys.
+ */
+const LLM_PROVIDER = process.env.LLM_PROVIDER?.trim().toLowerCase();
+
+/**
+ * Output cap for calls that set none. `@ai-sdk/anthropic` 3.0.x doesn't know
+ * the Claude 5 models and would send 4096, which thinking (on by default on
+ * Claude 5) also counts against.
+ */
+export const ANTHROPIC_DEFAULT_MAX_OUTPUT_TOKENS = 16_000;
+
+/**
+ * A chat model on Anthropic's Messages API, with the same temperature
+ * policy as the gateway route. Structured outputs use the API's native
+ * `output_config.format` — as the gateway did — not the provider's "json
+ * tool" fallback, which it picks for models it doesn't know.
+ * `fetch` is for tests.
+ */
+export function anthropicChatModel(
+  modelId: string,
+  opts: { apiKey?: string; fetch?: typeof globalThis.fetch } = {},
+): LanguageModel {
+  const anthropic = createAnthropic({
+    apiKey: opts.apiKey ?? process.env.ANTHROPIC_API_KEY,
+    ...(opts.fetch ? { fetch: opts.fetch } : {}),
+  });
   return wrapLanguageModel({
-    model: llm.chat(modelId),
+    model: anthropic(modelId),
     middleware: {
       specificationVersion: "v3",
       transformParams: async ({ params }) => ({
         ...params,
         temperature: resolveTemperature(modelId, params.temperature),
+        maxOutputTokens: params.maxOutputTokens ?? ANTHROPIC_DEFAULT_MAX_OUTPUT_TOKENS,
+        providerOptions: {
+          ...params.providerOptions,
+          anthropic: {
+            structuredOutputMode: "outputFormat",
+            ...params.providerOptions?.anthropic,
+          },
+        },
       }),
     },
   });

@@ -48,3 +48,20 @@ Nothing has been run against a model yet; no results have been seen.
 The wave-2 handoff (`study_start_from_source`, migration 015) writes a task form's schema and intent with a plain `UPDATE`. It does so inside the join that creates the form, moments after inserting it.
 
 Under D7 that is part of creating the form, which I1 does not cover. The join function is left unchanged. Readers of the I1 results should know this study-only path exists.
+
+### 5. E1 calls Anthropic directly, not through the gateway (2026-11-12, before any results)
+
+**Spec.** "All use the same model and settings as the app."
+
+**Implemented.** Same model, a different route.
+- **Pilot and deployed app:** call `anthropic/claude-sonnet-5` through the LiteLLM gateway (OpenAI-compatible chat completions).
+- **E1:** calls `claude-sonnet-5` on Anthropic's Messages API (`LLM_PROVIDER=anthropic`, `@ai-sdk/anthropic`), because the gateway keys are capped below the evaluation's budget.
+
+**Settings kept equal where the route allows:**
+- **Temperature:** omitted (Claude 5 rejects others; same rule as before).
+- **Structured output:** native `output_config.format`, as the gateway produced it (the provider's "json tool" fallback is switched off).
+- **Thinking:** the API's default (adaptive).
+
+**One explicit setting.** An output cap of 16,000 tokens where a call sets none. Through the gateway the cap was the gateway's own default, which is not recorded.
+
+**Budget control.** The Anthropic API has no per-key cap. The harness enforces the $40 cap and the $30 stop-and-ask rule from its own ledger, at the frozen prices in `eval/prices.json`.
