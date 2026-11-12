@@ -206,6 +206,8 @@ const COMMIT_SITES: Record<string, string[]> = {
   "components/workspace/ArtifactPane.tsx": ["field-edit", "field-edit"],
   // A typed change request (baseline condition)
   "components/workspace/ChatEditPane.tsx": ["request"],
+  // A message to the chat assistant whose reply changes the form (assistant condition)
+  "components/workspace/AssistantPane.tsx": ["request"],
   // A spoken change request
   "hooks/voice/useUtteranceProcessor.ts": ["request"],
   // A column action saved from the response table

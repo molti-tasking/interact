@@ -40,7 +40,7 @@ const START_COPY = {
  */
 export function TaskView({ task }: { task: StudyTask }) {
   const { state, log } = useStudy()!;
-  const { designProbes, chatEdits } = useCapabilities();
+  const { designProbes, chatEdits, assistantChat } = useCapabilities();
   const step = `task:${task.position}`;
   const portfolioId = task.portfolio_id ?? undefined;
   const portfolio = usePortfolio(portfolioId);
@@ -112,7 +112,10 @@ export function TaskView({ task }: { task: StudyTask }) {
   }
 
   const form = portfolio.data;
-  const started = !!form.intent.purpose.content.trim() || form.schema.fields.length > 0;
+  // The assistant arm has no "describe the form" card: its first message is
+  // the description
+  const started =
+    assistantChat || !!form.intent.purpose.content.trim() || form.schema.fields.length > 0;
   const hasFields = form.schema.fields.length > 0;
 
   return (
@@ -128,7 +131,9 @@ export function TaskView({ task }: { task: StudyTask }) {
               : "Build the form the people in the situation need."}
           </span>{" "}
           {started &&
-            (chatEdits
+            (assistantChat
+              ? "Write to the assistant, or click a field to edit it."
+              : chatEdits
               ? "Write to the tool to change the form, or click a field to edit it."
               : designProbes
                 ? "Answer the tool's questions that matter, or click a field to edit it."

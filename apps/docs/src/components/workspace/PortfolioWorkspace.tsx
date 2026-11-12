@@ -1,6 +1,7 @@
 "use client";
 
 import { ArtifactPane } from "@/components/workspace/ArtifactPane";
+import { AssistantPane } from "@/components/workspace/AssistantPane";
 import { ChatEditPane } from "@/components/workspace/ChatEditPane";
 import { DerivationBanner } from "@/components/workspace/DerivationBanner";
 import { DesignProbeDeck } from "@/components/workspace/DesignProbeDeck";
@@ -211,7 +212,9 @@ export function PortfolioWorkspace({
           <div className="@container">
             <div className="grid grid-cols-1 gap-6 @5xl:grid-cols-[minmax(320px,400px)_minmax(0,1fr)]">
               <div className="flex min-w-0 flex-col gap-5">
-                {capabilities.chatEdits ? (
+                {capabilities.assistantChat ? (
+                  <AssistantPane portfolio={portfolio} />
+                ) : capabilities.chatEdits ? (
                   <ChatEditPane
                     portfolio={portfolio}
                     autoGenerate={autoGenerate}
