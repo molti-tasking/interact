@@ -41,7 +41,9 @@ export default function StudiesPage() {
             ...DEFAULT_STUDY_SETTINGS,
             mode,
             briefs: BRIEF_KEYS,
-            conditions: ["full", "baseline"],
+            // The wave-1 comparison; the silent baseline and the ablation
+            // can be ticked as extra arms
+            conditions: ["full", "assistant"],
             contact: settings.contact,
           }
         : { ...DEFAULT_STUDY_SETTINGS, contact: settings.contact },

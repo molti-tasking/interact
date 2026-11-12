@@ -41,6 +41,12 @@ export interface Capabilities {
    */
   chatEdits: boolean;
   /**
+   * A general-purpose chat assistant in place of the intent pane and the
+   * question deck: it builds and changes the form itself. The "assistant"
+   * study condition.
+   */
+  assistantChat: boolean;
+  /**
    * Let the creator turn on AI help for respondents ("What does this
    * mean?", "Fill from text"). Off for study participants: the peers
    * answering their forms must all get the same, plain form.
@@ -70,6 +76,7 @@ const FULL_CAPABILITIES: Capabilities = {
   designProbes: true,
   intentPortfolio: true,
   chatEdits: false,
+  assistantChat: false,
   respondentAssist: true,
   pretest: true,
   answerThemes: true,

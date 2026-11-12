@@ -149,12 +149,24 @@ export const EMPTY_CONTACT: StudyContact = { name: "", email: "", institution: "
  * - "full": the tool as is
  * - "no-probes": ablation without the elicitation question deck (no probes, no
  *   conflict checks); creating and editing the form works the same
- * - "baseline": no probes and no intent portfolio — one description, one
- *   generated form, then free-text change requests to the same model
- *   (and the same direct editing of fields as in "full")
+ * - "baseline": the "silent baseline" — no probes and no intent portfolio;
+ *   one description, one generated form, then free-text change requests to
+ *   the same model, which does what it is told and nothing more (and the
+ *   same direct editing of fields as in "full")
+ * - "assistant": a general-purpose chat assistant next to the same canvas —
+ *   no probes, no intent portfolio; it builds and changes the form with
+ *   patches and decides by itself whether to ask, suggest or just build
+ *   (2026-11-13)
  */
-export const STUDY_CONDITIONS = ["full", "no-probes", "baseline"] as const;
+export const STUDY_CONDITIONS = ["full", "no-probes", "baseline", "assistant"] as const;
 export type StudyCondition = (typeof STUDY_CONDITIONS)[number];
+
+/** How a condition is named on the session page and in the docs. */
+export function conditionLabel(condition: string | null | undefined): string {
+  if (!condition || condition === "full") return "full";
+  if (condition === "baseline") return "silent baseline";
+  return condition;
+}
 
 function isCondition(value: unknown): value is StudyCondition {
   return STUDY_CONDITIONS.includes(value as StudyCondition);

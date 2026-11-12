@@ -16,7 +16,8 @@ import {
 const CONDITION_COPY: Record<StudyCondition, string> = {
   full: "Full tool",
   "no-probes": "Without elicitation questions (ablation)",
-  baseline: "Baseline: one generated form, then free-text change requests",
+  baseline: "Silent baseline: one generated form, then free-text change requests",
+  assistant: "Chat assistant: builds the form in a conversation, asks or suggests on its own",
 };
 
 const TIMED_PHASES = ["create", "answer", "review", "questionnaire"] as const;

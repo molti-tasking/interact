@@ -23,6 +23,7 @@ import {
 import { useNow } from "@/hooks/use-now";
 import {
   briefOrder,
+  conditionLabel,
   type StartKind,
   type StudyPhase,
   type StudySession,
@@ -239,7 +240,7 @@ export function BriefsConsole({ session }: { session: StudySession }) {
                 starts.flatMap((start) =>
                   orders.map((order) => (
                     <TableRow key={`${condition}:${start}:${order}`}>
-                      <TableCell className="font-medium">{condition ?? "full"}</TableCell>
+                      <TableCell className="font-medium">{conditionLabel(condition)}</TableCell>
                       {handoff && <TableCell>{START_LABEL[start ?? "form"]}</TableCell>}
                       <TableCell>{briefOrder(settings.briefs, order).join(" → ")}</TableCell>
                       {(["completed", "active", "abandoned", "declined"] as const).map((what) => (
@@ -285,7 +286,7 @@ export function BriefsConsole({ session }: { session: StudySession }) {
                 {entries.map((entry) => (
                   <TableRow key={entry.participantId}>
                     <TableCell className="font-medium">{entry.displayName}</TableCell>
-                    <TableCell>{entry.condition ?? "full"}</TableCell>
+                    <TableCell>{conditionLabel(entry.condition)}</TableCell>
                     <TableCell>{status(entry, now)}</TableCell>
                     <TableCell>{entry.step}</TableCell>
                     {orders.map((i) => {

@@ -45,7 +45,9 @@ export function StudyProvider({
 
   const { allowVoice, findingsMinResponses } = session.settings;
   const baseline = participant.condition === "baseline";
-  const designProbes = participant.condition !== "no-probes" && !baseline;
+  const assistant = participant.condition === "assistant";
+  const designProbes =
+    participant.condition !== "no-probes" && !baseline && !assistant;
   const capabilities = useMemo<Capabilities>(
     () => ({
       publish: false,
@@ -59,13 +61,14 @@ export function StudyProvider({
         minResponses: findingsMinResponses,
       },
       designProbes,
-      intentPortfolio: !baseline,
+      intentPortfolio: !baseline && !assistant,
       chatEdits: baseline,
+      assistantChat: assistant,
       respondentAssist: false,
       pretest: false,
       answerThemes: false,
     }),
-    [allowVoice, findingsMinResponses, session.id, designProbes, baseline],
+    [allowVoice, findingsMinResponses, session.id, designProbes, baseline, assistant],
   );
 
   const user = useMemo<MockUser>(
