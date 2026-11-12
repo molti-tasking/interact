@@ -11,7 +11,7 @@ requests:
       Record the affected side (left or right) and the joint: hip, knee,
       shoulder, ankle or spine.
     gold:
-      reviewed: false
+      reviewed: true
       scope:
         add:
           - label: "/side|laterality|joint|location|site/i"
@@ -28,7 +28,7 @@ requests:
     request: >-
       Add the patient's pain score on a 0 to 10 scale.
     gold:
-      reviewed: false
+      reviewed: true
       scope:
         add:
           - label: "/pain/i"
@@ -43,7 +43,7 @@ requests:
     request: >-
       Make known allergies required; we can't operate without knowing them.
     gold:
-      reviewed: false
+      reviewed: true
       scope:
         change: [{ key: knownAllergies }]
       assertions:
@@ -56,7 +56,7 @@ requests:
     request: >-
       Body temperature isn't needed in this record; remove it.
     gold:
-      reviewed: false
+      reviewed: true
       scope:
         remove: [{ key: bodyTemperature }]
       assertions:
@@ -70,7 +70,7 @@ requests:
     request: >-
       A surgical planning view with implant details and operative protocols.
     gold:
-      reviewed: false
+      reviewed: true
       scope:
         include:
           - { key: fullName }
@@ -95,7 +95,7 @@ requests:
       exercise plans. I need to see weight-bearing status but not implant
       details.
     gold:
-      reviewed: false
+      reviewed: true
       scope:
         include:
           - { key: fullName }
@@ -121,7 +121,7 @@ requests:
     request: >-
       Rename "Primary Diagnosis" to "Primary diagnosis (ICD-10)".
     gold:
-      reviewed: false
+      reviewed: true
       scope:
         change: [{ key: primaryDiagnosis }]
       assertions:
@@ -134,7 +134,7 @@ requests:
     request: >-
       Add the referring physician's name.
     gold:
-      reviewed: false
+      reviewed: true
       scope:
         add:
           - label: "/referr|physician|doctor/i"

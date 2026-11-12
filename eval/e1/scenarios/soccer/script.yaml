@@ -30,7 +30,7 @@ requests:
       The league now requires proof of residency: we need to collect the
       family's home address and a document upload as proof.
     gold:
-      reviewed: false
+      reviewed: true
       scope:
         add:
           - label: "/address|street|city|town|post ?code|postal|zip|residen|proof|document/i"
@@ -46,7 +46,7 @@ requests:
     request: >-
       Ask how the emergency contact is related to the player.
     gold:
-      reviewed: false
+      reviewed: true
       scope:
         add:
           - label: "/relation/i"
@@ -60,7 +60,7 @@ requests:
       The emergency contact phone number should be optional; many families
       give the same number as the parent's.
     gold:
-      reviewed: false
+      reviewed: true
       scope:
         change: [{ key: emergencyContactPhone }]
       assertions:
@@ -74,7 +74,7 @@ requests:
       We no longer need the parent or guardian's full name; the email and
       phone number are enough.
     gold:
-      reviewed: false
+      reviewed: true
       scope:
         remove: [{ key: parentGuardianName }]
       assertions:
@@ -92,7 +92,7 @@ requests:
       date of birth and the emergency contact, plus allergies and medical
       conditions.
     gold:
-      reviewed: false
+      reviewed: true
       scope:
         include:
           - { key: playerFullName }
@@ -119,7 +119,7 @@ requests:
     request: >-
       Rename "Player's date of birth" to "Date of birth (as on the passport)".
     gold:
-      reviewed: false
+      reviewed: true
       scope:
         change: [{ key: playerDateOfBirth }]
       assertions:
@@ -134,7 +134,7 @@ requests:
       Add a required confirmation that the family has read the club's
       concussion protocol.
     gold:
-      reviewed: false
+      reviewed: true
       scope:
         add:
           - label: "/concussion/i"
@@ -148,11 +148,12 @@ requests:
     request: >-
       Ask for the player's shirt size: XS, S, M, L or XL.
     gold:
-      reviewed: false
+      reviewed: true
       scope:
         add:
           - label: "/shirt|size|jersey/i"
       assertions:
         - field: { label: "/shirt|size|jersey/i" }
           type: select
-          options: { includes: ["/^xs$/i", "/^s$/i", "/^m$/i", "/^l$/i", "/^xl$/i"] }
+          options:
+            { includes: ["/^xs$/i", "/^s$/i", "/^m$/i", "/^l$/i", "/^xl$/i"] }
