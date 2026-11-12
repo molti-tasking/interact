@@ -41,7 +41,7 @@ export interface GoldSpec {
 }
 
 export function parseRegex(text: string): RegExp {
-  const m = text.match(/^\/(.*)\/([a-z]*)$/s);
+  const m = text.match(/^\/(.*)\/([a-z]*)$/);
   return m ? new RegExp(m[1], m[2]) : new RegExp(`^${text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i");
 }
 
