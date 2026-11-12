@@ -86,6 +86,21 @@ The harness reads the exports from `EVAL_DATA_DIR`, which defaults to `eval/data
 
 ## 4. Phase 1: system changes (each with tests, in separate commits)
 
+**Status (2026-11-12).**
+- **A (I6 count):** done. Its own browser test, `tests/e2e/response-impact.spec.ts`, runs on seeded data with no model calls.
+- **B (out-of-sync flag):** done. Migration 016 adds the flag column.
+- **Harness refactors:** done:
+  - `lib/preview-queue.ts`
+  - `lib/engine/answer-change.ts`
+  - `lib/derivation.ts`
+- **C (pilot worktree and stacks, `eval/stacks.sh`):** in progress.
+- **D:** dropped.
+- **E:** in progress.
+
+Choices that differ from the spec's wording are in `DEVIATIONS.md` (1–4).
+
+All test runs use isolated stacks (`eval/stacks.sh`). Without the `E2E_*` and `NEXT_PUBLIC_SUPABASE_*` exports, `vitest` runs the integration tests against whatever `.env.local` names. On this machine that is the developer's own `docs` stack.
+
 ### A. I6: versioned responses
 
 **Already present:** the nullable `responses.schema_version`, stamped by a trigger, plus `provenance_log.revision` (migration 015). Pre-015 rows stay NULL and are reported as "unversioned". **No new column is needed.**
