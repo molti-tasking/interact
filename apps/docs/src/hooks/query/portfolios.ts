@@ -16,6 +16,7 @@ import type {
   PortfolioInsert,
   PortfolioStatus,
 } from "@/lib/types";
+import type { IntentSyncFlag } from "interact/forms/intent-sync";
 import {
   type QueryClient,
   useMutation,
@@ -304,6 +305,28 @@ export function useUpdatePortfolio() {
       invalidatePortfolioLists(queryClient);
     },
   });
+}
+
+/**
+ * Store whether the intent is behind the form (`intent_sync`, migration 016;
+ * null: in step). Not a change to the form or the intent: no revision, no
+ * history entry. The cached portfolio is updated first, so the editor shows
+ * the state at once.
+ */
+export async function writeIntentSync(
+  queryClient: QueryClient,
+  portfolioId: string,
+  flag: IntentSyncFlag | null,
+): Promise<void> {
+  queryClient.setQueryData<Portfolio>(portfolioKey(portfolioId), (p) =>
+    p ? { ...p, intent_sync: flag } : p,
+  );
+  const supabase = createClient();
+  const { error } = await supabase
+    .from("portfolios")
+    .update({ intent_sync: flag as unknown as Json })
+    .eq("id", portfolioId);
+  if (error) throw error;
 }
 
 export function useDeletePortfolio() {

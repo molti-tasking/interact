@@ -137,6 +137,7 @@ export type Database = {
           field_count: number | null
           id: string
           intent: Json
+          intent_sync: Json | null
           owner_id: string | null
           projection: Json | null
           revision: number
@@ -153,6 +154,7 @@ export type Database = {
           field_count?: never
           id?: string
           intent: Json
+          intent_sync?: Json | null
           owner_id?: string | null
           projection?: Json | null
           revision?: number
@@ -169,6 +171,7 @@ export type Database = {
           field_count?: never
           id?: string
           intent?: Json
+          intent_sync?: Json | null
           owner_id?: string | null
           projection?: Json | null
           revision?: number
@@ -943,6 +946,7 @@ export type Database = {
           field_count: number | null
           id: string
           intent: Json
+          intent_sync: Json | null
           owner_id: string | null
           projection: Json | null
           revision: number

@@ -20,6 +20,7 @@ import type {
   Space,
   StructuredIntent,
 } from "../types";
+import type { IntentSyncFlag } from "interact/forms/intent-sync";
 import type { Tables } from "./database.types";
 
 // ---------------------------------------------------------------------------
@@ -66,6 +67,8 @@ export function rowToPortfolio(row: PortfolioRow): Portfolio {
     schema: row.schema as unknown as PortfolioSchema,
     projection: row.projection as unknown as DerivationSpec | null,
     status: (row.status ?? "draft") as "draft" | "published",
+    // Absent on rows read before migration 016 or from narrow selects
+    intent_sync: (row.intent_sync ?? null) as unknown as IntentSyncFlag | null,
   };
 }
 

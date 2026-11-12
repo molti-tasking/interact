@@ -16,12 +16,15 @@ import { ChevronDown, Loader2, Sparkles } from "lucide-react";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { toast } from "sonner";
 import { StructuredIntentEditor } from "./StructuredIntentEditor";
+import { IntentSyncNotice } from "./IntentSyncNotice";
 
 interface ReflectiveConversationPaneProps {
   portfolio: Portfolio;
   /** Run generation once on mount (new portfolio created with an intent). */
   autoGenerate?: boolean;
   onAutoGenerateStarted?: () => void;
+  /** Try the intent update again (the notice shown when it is out of sync) */
+  onRetryIntentSync?: () => void;
 }
 
 /** An in-progress intent edit: the saved state it started from + the draft. */
@@ -71,6 +74,7 @@ export function ReflectiveConversationPane({
   portfolio,
   autoGenerate,
   onAutoGenerateStarted,
+  onRetryIntentSync,
 }: ReflectiveConversationPaneProps) {
   const portfolioSchema = portfolio.schema;
   const { currentUser } = useCurrentUser();
@@ -317,6 +321,9 @@ export function ReflectiveConversationPane({
             </div>
           )}
         </div>
+
+        {/* The update after field edits or answers failed, or is slow */}
+        <IntentSyncNotice flag={portfolio.intent_sync} onRetry={onRetryIntentSync} />
 
         {changedElsewhere && (
           <p className="text-xs text-muted-foreground" role="status">

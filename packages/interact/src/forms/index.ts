@@ -16,6 +16,7 @@ export * from "./findings";
 export * from "./form-diversity";
 export * from "./form-model";
 export * from "./guards";
+export * from "./intent-sync";
 export * from "./merge";
 export * from "./pretest";
 export * from "./probe-curation";

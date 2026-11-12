@@ -66,7 +66,7 @@ export function PortfolioWorkspace({
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   // Debounced intent backpropagation from field edits
-  const { scheduleSync } = useIntentBackpropagation(
+  const { scheduleSync, retrySync } = useIntentBackpropagation(
     portfolio,
     capabilities.intentPortfolio,
   );
@@ -226,6 +226,7 @@ export function PortfolioWorkspace({
                       portfolio={portfolio}
                       autoGenerate={autoGenerate}
                       onAutoGenerateStarted={onAutoGenerateStarted}
+                      onRetryIntentSync={retrySync}
                     />
                   </div>
                 )}

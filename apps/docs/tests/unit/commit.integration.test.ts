@@ -139,6 +139,43 @@ describe.runIf(available)("commitPortfolioChange (local Supabase)", () => {
     expect(result).toBeNull();
   });
 
+  it("stores the out-of-sync flag without a revision or a history entry (migration 016)", async () => {
+    const { createClient } = await import("@/lib/supabase/client");
+    const { QueryClient } = await import("@tanstack/react-query");
+    const { writeIntentSync } = await import("@/hooks/query/portfolios");
+    const { commitPortfolioChange } = await import("@/lib/engine/commit");
+    const read = async () =>
+      (await createClient().from("portfolios").select("revision, intent_sync").eq("id", portfolioId).single()).data!;
+    const entries = async () =>
+      (await createClient().from("provenance_log").select("id").eq("portfolio_id", portfolioId)).data!.length;
+
+    const before = await read();
+    const logged = await entries();
+    const flag = {
+      state: "failed" as const,
+      since: "2026-11-12T10:00:00.000Z",
+      edits: [{ text: 'Made field "first" required', at: "2026-11-12T10:00:00.000Z", decision: false }],
+      attempts: 1,
+      reason: "budget" as const,
+      message: "The AI service has reached its usage limit.",
+    };
+    await writeIntentSync(new QueryClient(), portfolioId, flag);
+
+    const flagged = await read();
+    expect(flagged.intent_sync).toEqual(flag);
+    expect(flagged.revision).toBe(before.revision);
+    expect(await entries()).toBe(logged);
+
+    // A commit carries the flag along, and clearing it is again no change
+    const commit = await commitPortfolioChange(portfolioId, () => null);
+    expect(commit).toBeNull();
+    await writeIntentSync(new QueryClient(), portfolioId, null);
+    const cleared = await read();
+    expect(cleared.intent_sync).toBeNull();
+    expect(cleared.revision).toBe(before.revision);
+    expect(await entries()).toBe(logged);
+  });
+
   it("refuses an undo once something else changed the portfolio", async () => {
     const { commitPortfolioChange, revertCommit } = await import(
       "@/lib/engine/commit"

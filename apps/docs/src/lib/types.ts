@@ -11,6 +11,7 @@ import type {
   SchemaDiff,
   StructuredIntent,
 } from "interact/forms/types";
+import type { IntentSyncFlag } from "interact/forms/intent-sync";
 import type { Tables, TablesInsert } from "./supabase/database.types";
 
 export * from "interact/forms/types";
@@ -29,11 +30,13 @@ export interface PortfolioInsert extends Omit<
 
 export interface Portfolio extends Omit<
   Tables<"portfolios">,
-  "schema" | "projection" | "intent"
+  "schema" | "projection" | "intent" | "intent_sync"
 > {
   intent: StructuredIntent;
   schema: PortfolioSchema;
   projection: DerivationSpec | null;
+  /** The intent is behind the form (migration 016); null when in step */
+  intent_sync: IntentSyncFlag | null;
 }
 
 // ---------------------------------------------------------------------------
