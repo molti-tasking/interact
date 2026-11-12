@@ -449,3 +449,20 @@ Source: the `diff` of each `schema_refined` entry in the study export. The diff 
 - **Entry 7:** two fields changed `type` (their kind or its details, e.g. options).
 
 **This path still exists in the current system.** An intent edit to the purpose or audience of a form with fields still runs `useRefineSchema` with `mergePatchOntoLatest` (`apps/docs/src/hooks/query/schema-generation.ts:145-196`). The current code restricts it only by locked fields (`automated: true`, `:194`) and has no preview scope. "Unrestricted in which fields it could change" therefore still describes the current refinement, apart from locks.
+
+---
+
+## Changes since this audit (Phase 1, 2026-11-12)
+
+The verdicts above describe the code at `10f46bd`. Phase 1 changed what some of them refer to.
+
+- **I6 (versioned responses).** Previews now state how many collected responses a change affects:
+  - answer tiles, conflict-fix tiles, and the canvas;
+  - counted for fields it removes, retypes, rewords or rekeys (DEVIATIONS 1–2).
+- **Out-of-sync intent (claim 21b, eventual consistency).**
+  - **Visible:** a failed or slow intent update is stored on the portfolio (`intent_sync`, migration 016) and shown in the intent editor. It is retried with backoff.
+  - **Re-queued, not dropped:** an update overtaken by a newer purpose is queued again.
+- **Claims 12 and 13 (intent edits).** With a deck, editing the purpose or audience of a form with fields no longer changes the form directly.
+  - **What happens instead:** the model's patch is offered as the question "Apply these changes from your edit?", with a scoped preview and a keep-as-is answer.
+  - **Old path:** the Undo toast only remains where there is no deck (the `no-probes` condition).
+  - **Paper wording:** "an intent edit reports what it changed and offers undo" then needs rewording for the `full` condition.
