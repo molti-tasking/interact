@@ -65,3 +65,22 @@ Under D7 that is part of creating the form, which I1 does not cover. The join fu
 **One explicit setting.** An output cap of 16,000 tokens where a call sets none. Through the gateway the cap was the gateway's own default, which is not recorded.
 
 **Budget control.** The Anthropic API has no per-key cap. The harness enforces the $40 cap and the $30 stop-and-ask rule from its own ledger, at the frozen prices in `eval/prices.json`.
+
+## Phase 2 (E1)
+
+### 6. Failed requests stay in the measures (defined in the frozen summarizer, before any results)
+
+The spec doesn't say how a request that fails counts. The frozen summarizer (`e1/summarize.ts`, draft 2) counts it as what it left behind:
+- **A failed change:** the form unchanged.
+- **A failed derive:** no derived form.
+  - Its fulfilment is that of an empty form.
+  - The fields it had to keep count as collateral.
+  - It drops out of link integrity, which has no derived form to check (R: n = 17 instead of 20).
+
+In the final runs this affects 3 requests, all orthopedic-6 under R. The app's generation action timed out (45 s plus one retry).
+
+### 7. Latency is the time the creator waits (defined in the frozen summarizer, before any results)
+
+The spec asks for "seconds per request". `\eOneLatency*` is the time from submitting the request to the form having changed.
+- **For P** that excludes the purpose update the app runs in the background after an answer.
+- The summary also reports the total including it (`totalS`: P 5.7 s against 4.2 s).

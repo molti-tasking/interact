@@ -15,4 +15,8 @@ Every run that calls a model is listed here, including failed and aborted ones. 
 - they may still have been billed, at most about $0.06 at that request's size;
 - to be reconciled with the Anthropic Console.
 
-**Running total:** $1.765. The ledger is in `eval/out/spend.json`.
+| 2026-11-12 | `final-2026-11-12T22-29-02-229Z` | E1 final runs on the frozen, reviewed material: 3 scenarios × P/W/R × 5 runs, 24 requests per run | 457 + 6 aborted | (in the run files) | 7.703 | 42 runs completed, 3 failed; summary in `eval/out/e1-summary.json` |
+
+**The failed final runs.** All 3 are orthopedic R runs (r3, r4, r5). In each, request orthopedic-6 failed the same way as in the dry run: the app's generation action gave up after 45 s plus one retry. Their 6 aborted calls are counted at $0 and may have been billed (at most about $0.20 together).
+
+**Running total:** $9.468. The ledger is in `eval/out/spend.json`. The Console total should be checked against it; failed calls may make the Console up to about $0.30 higher.

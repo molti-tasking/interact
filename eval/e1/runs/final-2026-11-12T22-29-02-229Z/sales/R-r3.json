@@ -1,0 +1,3827 @@
+{
+  "scenario": "sales",
+  "pipeline": "R",
+  "rep": 3,
+  "status": "completed",
+  "startedAt": "2026-11-12T22:39:25.593Z",
+  "finishedAt": "2026-11-12T22:40:58.209Z",
+  "requests": [
+    {
+      "id": "sales-1",
+      "kind": "add",
+      "target": "base",
+      "request": "Ask which industries the applicant has sold into, as a required choice.",
+      "before": {
+        "schema": {
+          "fields": [
+            {
+              "id": "field-ee3557d2-9d0a-4d89-bd0d-419fd5c8b2d8",
+              "name": "fullName",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Full name",
+              "origin": "system",
+              "required": true,
+              "constraints": []
+            },
+            {
+              "id": "field-5984efae-277a-46c5-94cd-5ce0a04ce814",
+              "name": "email",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Email address",
+              "origin": "system",
+              "required": true,
+              "constraints": []
+            },
+            {
+              "id": "field-c6119042-0bc8-4c31-b61e-beec651afcd9",
+              "name": "phoneNumber",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Phone number",
+              "origin": "system",
+              "required": true,
+              "constraints": []
+            },
+            {
+              "id": "field-43752b58-b575-4088-98a3-acef91362daa",
+              "name": "yearsOfSalesExperience",
+              "tags": [],
+              "type": {
+                "kind": "number"
+              },
+              "label": "Years of sales experience",
+              "origin": "system",
+              "required": true,
+              "constraints": []
+            },
+            {
+              "id": "field-20fbe73f-86cd-4652-a85c-768955c21020",
+              "name": "resumeLink",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Resume link",
+              "origin": "system",
+              "required": false,
+              "constraints": [],
+              "description": "Link to an online resume or portfolio"
+            },
+            {
+              "id": "field-90d35bf1-dc15-437b-98e2-59d9ea1762fb",
+              "name": "whyInterested",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Why are you interested in this role?",
+              "origin": "system",
+              "required": true,
+              "constraints": []
+            }
+          ],
+          "groups": [],
+          "version": 1
+        },
+        "intent": {
+          "purpose": {
+            "content": "I need a job application form for a sales representative",
+            "updatedAt": "2026-11-12T00:00:00.000Z"
+          },
+          "audience": {
+            "content": "",
+            "updatedAt": "2026-11-12T00:00:00.000Z"
+          },
+          "exclusions": {
+            "content": "",
+            "updatedAt": "2026-11-12T00:00:00.000Z"
+          },
+          "constraints": {
+            "content": "",
+            "updatedAt": "2026-11-12T00:00:00.000Z"
+          }
+        }
+      },
+      "after": {
+        "schema": {
+          "fields": [
+            {
+              "id": "field-e6ce2ed4-767d-4d8c-98ba-0af800030b6b",
+              "name": "fullName",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Full name",
+              "origin": "system",
+              "required": true,
+              "constraints": []
+            },
+            {
+              "id": "field-a0a0734e-f55e-4848-a7d0-f91ebf8e03da",
+              "name": "email",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Email address",
+              "origin": "system",
+              "required": true,
+              "constraints": []
+            },
+            {
+              "id": "field-88a4d4cf-c4e9-47e8-a9a6-fae645022818",
+              "name": "phoneNumber",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Phone number",
+              "origin": "system",
+              "required": true,
+              "constraints": []
+            },
+            {
+              "id": "field-8a0dbae7-b62f-4755-9fcc-29f03af7856e",
+              "name": "industriesSoldInto",
+              "tags": [],
+              "type": {
+                "kind": "select",
+                "options": [
+                  {
+                    "label": "Technology/Software",
+                    "value": "technology_software"
+                  },
+                  {
+                    "label": "Healthcare",
+                    "value": "healthcare"
+                  },
+                  {
+                    "label": "Financial Services",
+                    "value": "financial_services"
+                  },
+                  {
+                    "label": "Manufacturing",
+                    "value": "manufacturing"
+                  },
+                  {
+                    "label": "Retail/Consumer Goods",
+                    "value": "retail_consumer_goods"
+                  },
+                  {
+                    "label": "Real Estate",
+                    "value": "real_estate"
+                  },
+                  {
+                    "label": "Telecommunications",
+                    "value": "telecommunications"
+                  },
+                  {
+                    "label": "Automotive",
+                    "value": "automotive"
+                  },
+                  {
+                    "label": "Pharmaceutical",
+                    "value": "pharmaceutical"
+                  },
+                  {
+                    "label": "Other",
+                    "value": "other"
+                  }
+                ],
+                "multiple": false
+              },
+              "label": "Which industry have you primarily sold into?",
+              "origin": "system",
+              "required": true,
+              "constraints": [],
+              "description": "Select the industry you have the most sales experience in"
+            }
+          ],
+          "groups": [],
+          "version": 2
+        },
+        "intent": {
+          "purpose": {
+            "content": "I need a job application form for a sales representative. Ask which industries the applicant has sold into, as a required choice.",
+            "updatedAt": "2026-11-12T22:39:25.603Z"
+          },
+          "audience": {
+            "content": "",
+            "updatedAt": "2026-11-12T00:00:00.000Z"
+          },
+          "exclusions": {
+            "content": "",
+            "updatedAt": "2026-11-12T00:00:00.000Z"
+          },
+          "constraints": {
+            "content": "",
+            "updatedAt": "2026-11-12T00:00:00.000Z"
+          }
+        }
+      },
+      "calls": [
+        {
+          "functionId": "schema-action",
+          "model": "claude-sonnet-5",
+          "startedAt": "2026-11-12T22:39:25.604Z",
+          "ms": 6040,
+          "inputTokens": 3211,
+          "outputTokens": 667,
+          "cacheReadTokens": 0,
+          "cacheWriteTokens": 0,
+          "costUsd": 0.013092,
+          "output": {
+            "artifactFormSchema": {
+              "name": "Sales Representative Job Application",
+              "description": "Application form for candidates applying to a sales representative position.",
+              "fields": [
+                {
+                  "key": "fullName",
+                  "label": "Full name",
+                  "type": "string",
+                  "validation": null,
+                  "scale": null,
+                  "required": true
+                },
+                {
+                  "key": "email",
+                  "label": "Email address",
+                  "type": "email",
+                  "validation": null,
+                  "scale": null,
+                  "required": true
+                },
+                {
+                  "key": "phoneNumber",
+                  "label": "Phone number",
+                  "type": "string",
+                  "validation": null,
+                  "scale": null,
+                  "required": true
+                },
+                {
+                  "key": "industriesSoldInto",
+                  "label": "Which industry have you primarily sold into?",
+                  "description": "Select the industry you have the most sales experience in",
+                  "type": "select",
+                  "validation": {
+                    "options": [
+                      {
+                        "label": "Technology/Software",
+                        "value": "technology_software"
+                      },
+                      {
+                        "label": "Healthcare",
+                        "value": "healthcare"
+                      },
+                      {
+                        "label": "Financial Services",
+                        "value": "financial_services"
+                      },
+                      {
+                        "label": "Manufacturing",
+                        "value": "manufacturing"
+                      },
+                      {
+                        "label": "Retail/Consumer Goods",
+                        "value": "retail_consumer_goods"
+                      },
+                      {
+                        "label": "Real Estate",
+                        "value": "real_estate"
+                      },
+                      {
+                        "label": "Telecommunications",
+                        "value": "telecommunications"
+                      },
+                      {
+                        "label": "Automotive",
+                        "value": "automotive"
+                      },
+                      {
+                        "label": "Pharmaceutical",
+                        "value": "pharmaceutical"
+                      },
+                      {
+                        "label": "Other",
+                        "value": "other"
+                      }
+                    ]
+                  },
+                  "scale": null,
+                  "required": true
+                }
+              ]
+            }
+          }
+        }
+      ],
+      "costUsd": 0.013092,
+      "foregroundMs": 6060,
+      "totalMs": 6060,
+      "notes": []
+    },
+    {
+      "id": "sales-2",
+      "kind": "change",
+      "target": "base",
+      "request": "Require 2 to 5 years of B2B sales experience.",
+      "before": {
+        "schema": {
+          "fields": [
+            {
+              "id": "field-e6ce2ed4-767d-4d8c-98ba-0af800030b6b",
+              "name": "fullName",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Full name",
+              "origin": "system",
+              "required": true,
+              "constraints": []
+            },
+            {
+              "id": "field-a0a0734e-f55e-4848-a7d0-f91ebf8e03da",
+              "name": "email",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Email address",
+              "origin": "system",
+              "required": true,
+              "constraints": []
+            },
+            {
+              "id": "field-88a4d4cf-c4e9-47e8-a9a6-fae645022818",
+              "name": "phoneNumber",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Phone number",
+              "origin": "system",
+              "required": true,
+              "constraints": []
+            },
+            {
+              "id": "field-8a0dbae7-b62f-4755-9fcc-29f03af7856e",
+              "name": "industriesSoldInto",
+              "tags": [],
+              "type": {
+                "kind": "select",
+                "options": [
+                  {
+                    "label": "Technology/Software",
+                    "value": "technology_software"
+                  },
+                  {
+                    "label": "Healthcare",
+                    "value": "healthcare"
+                  },
+                  {
+                    "label": "Financial Services",
+                    "value": "financial_services"
+                  },
+                  {
+                    "label": "Manufacturing",
+                    "value": "manufacturing"
+                  },
+                  {
+                    "label": "Retail/Consumer Goods",
+                    "value": "retail_consumer_goods"
+                  },
+                  {
+                    "label": "Real Estate",
+                    "value": "real_estate"
+                  },
+                  {
+                    "label": "Telecommunications",
+                    "value": "telecommunications"
+                  },
+                  {
+                    "label": "Automotive",
+                    "value": "automotive"
+                  },
+                  {
+                    "label": "Pharmaceutical",
+                    "value": "pharmaceutical"
+                  },
+                  {
+                    "label": "Other",
+                    "value": "other"
+                  }
+                ],
+                "multiple": false
+              },
+              "label": "Which industry have you primarily sold into?",
+              "origin": "system",
+              "required": true,
+              "constraints": [],
+              "description": "Select the industry you have the most sales experience in"
+            }
+          ],
+          "groups": [],
+          "version": 2
+        },
+        "intent": {
+          "purpose": {
+            "content": "I need a job application form for a sales representative. Ask which industries the applicant has sold into, as a required choice.",
+            "updatedAt": "2026-11-12T22:39:25.603Z"
+          },
+          "audience": {
+            "content": "",
+            "updatedAt": "2026-11-12T00:00:00.000Z"
+          },
+          "exclusions": {
+            "content": "",
+            "updatedAt": "2026-11-12T00:00:00.000Z"
+          },
+          "constraints": {
+            "content": "",
+            "updatedAt": "2026-11-12T00:00:00.000Z"
+          }
+        }
+      },
+      "after": {
+        "schema": {
+          "fields": [
+            {
+              "id": "field-fd93859e-1925-4a7e-8be5-9fb6a6cff5bb",
+              "name": "fullName",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Full name",
+              "origin": "system",
+              "required": true,
+              "constraints": []
+            },
+            {
+              "id": "field-65115dce-5bed-468f-81a9-285edaa09c6c",
+              "name": "email",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Email address",
+              "origin": "system",
+              "required": true,
+              "constraints": []
+            },
+            {
+              "id": "field-5e095d21-556c-49f6-b21a-72c1423785fd",
+              "name": "industriesSoldInto",
+              "tags": [],
+              "type": {
+                "kind": "select",
+                "options": [
+                  {
+                    "label": "Technology/SaaS",
+                    "value": "technology_saas"
+                  },
+                  {
+                    "label": "Healthcare",
+                    "value": "healthcare"
+                  },
+                  {
+                    "label": "Financial services",
+                    "value": "financial_services"
+                  },
+                  {
+                    "label": "Manufacturing",
+                    "value": "manufacturing"
+                  },
+                  {
+                    "label": "Retail/Consumer goods",
+                    "value": "retail_consumer_goods"
+                  },
+                  {
+                    "label": "Telecommunications",
+                    "value": "telecommunications"
+                  },
+                  {
+                    "label": "Real estate",
+                    "value": "real_estate"
+                  },
+                  {
+                    "label": "Other",
+                    "value": "other"
+                  }
+                ],
+                "multiple": false
+              },
+              "label": "Which industry have you sold into?",
+              "origin": "system",
+              "required": true,
+              "constraints": [],
+              "description": "Select the industry you have the most B2B sales experience in"
+            },
+            {
+              "id": "field-c125c84b-4519-4844-9353-eef6e1fc61db",
+              "name": "yearsB2bSalesExperience",
+              "tags": [],
+              "type": {
+                "kind": "number"
+              },
+              "label": "Years of B2B sales experience",
+              "origin": "system",
+              "tooltip": "Applicants must have between 2 and 5 years of B2B sales experience to qualify",
+              "required": true,
+              "constraints": [],
+              "description": "Enter a number between 2 and 5"
+            }
+          ],
+          "groups": [],
+          "version": 3
+        },
+        "intent": {
+          "purpose": {
+            "content": "I need a job application form for a sales representative. Ask which industries the applicant has sold into, as a required choice. Require 2 to 5 years of B2B sales experience.",
+            "updatedAt": "2026-11-12T22:39:31.671Z"
+          },
+          "audience": {
+            "content": "",
+            "updatedAt": "2026-11-12T00:00:00.000Z"
+          },
+          "exclusions": {
+            "content": "",
+            "updatedAt": "2026-11-12T00:00:00.000Z"
+          },
+          "constraints": {
+            "content": "",
+            "updatedAt": "2026-11-12T00:00:00.000Z"
+          }
+        }
+      },
+      "calls": [
+        {
+          "functionId": "schema-action",
+          "model": "claude-sonnet-5",
+          "startedAt": "2026-11-12T22:39:31.672Z",
+          "ms": 14922,
+          "inputTokens": 3230,
+          "outputTokens": 1039,
+          "cacheReadTokens": 0,
+          "cacheWriteTokens": 0,
+          "costUsd": 0.01685,
+          "output": {
+            "artifactFormSchema": {
+              "name": "Sales Representative Job Application",
+              "description": "Application form for candidates applying to a sales representative position.",
+              "appliedStandards": [],
+              "fields": [
+                {
+                  "key": "fullName",
+                  "label": "Full name",
+                  "type": "string",
+                  "validation": null,
+                  "scale": null,
+                  "required": true
+                },
+                {
+                  "key": "email",
+                  "label": "Email address",
+                  "type": "email",
+                  "validation": null,
+                  "scale": null,
+                  "required": true
+                },
+                {
+                  "key": "industriesSoldInto",
+                  "label": "Which industry have you sold into?",
+                  "description": "Select the industry you have the most B2B sales experience in",
+                  "type": "select",
+                  "validation": {
+                    "options": [
+                      {
+                        "label": "Technology/SaaS",
+                        "value": "technology_saas"
+                      },
+                      {
+                        "label": "Healthcare",
+                        "value": "healthcare"
+                      },
+                      {
+                        "label": "Financial services",
+                        "value": "financial_services"
+                      },
+                      {
+                        "label": "Manufacturing",
+                        "value": "manufacturing"
+                      },
+                      {
+                        "label": "Retail/Consumer goods",
+                        "value": "retail_consumer_goods"
+                      },
+                      {
+                        "label": "Telecommunications",
+                        "value": "telecommunications"
+                      },
+                      {
+                        "label": "Real estate",
+                        "value": "real_estate"
+                      },
+                      {
+                        "label": "Other",
+                        "value": "other"
+                      }
+                    ]
+                  },
+                  "scale": null,
+                  "required": true
+                },
+                {
+                  "key": "yearsB2bSalesExperience",
+                  "label": "Years of B2B sales experience",
+                  "description": "Enter a number between 2 and 5",
+                  "tooltip": "Applicants must have between 2 and 5 years of B2B sales experience to qualify",
+                  "type": "number",
+                  "validation": null,
+                  "scale": null,
+                  "required": true
+                }
+              ]
+            }
+          }
+        }
+      ],
+      "costUsd": 0.01685,
+      "foregroundMs": 14945,
+      "totalMs": 14945,
+      "notes": []
+    },
+    {
+      "id": "sales-3",
+      "kind": "add",
+      "target": "base",
+      "request": "Add a written screening question about a deal the applicant closed.",
+      "before": {
+        "schema": {
+          "fields": [
+            {
+              "id": "field-fd93859e-1925-4a7e-8be5-9fb6a6cff5bb",
+              "name": "fullName",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Full name",
+              "origin": "system",
+              "required": true,
+              "constraints": []
+            },
+            {
+              "id": "field-65115dce-5bed-468f-81a9-285edaa09c6c",
+              "name": "email",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Email address",
+              "origin": "system",
+              "required": true,
+              "constraints": []
+            },
+            {
+              "id": "field-5e095d21-556c-49f6-b21a-72c1423785fd",
+              "name": "industriesSoldInto",
+              "tags": [],
+              "type": {
+                "kind": "select",
+                "options": [
+                  {
+                    "label": "Technology/SaaS",
+                    "value": "technology_saas"
+                  },
+                  {
+                    "label": "Healthcare",
+                    "value": "healthcare"
+                  },
+                  {
+                    "label": "Financial services",
+                    "value": "financial_services"
+                  },
+                  {
+                    "label": "Manufacturing",
+                    "value": "manufacturing"
+                  },
+                  {
+                    "label": "Retail/Consumer goods",
+                    "value": "retail_consumer_goods"
+                  },
+                  {
+                    "label": "Telecommunications",
+                    "value": "telecommunications"
+                  },
+                  {
+                    "label": "Real estate",
+                    "value": "real_estate"
+                  },
+                  {
+                    "label": "Other",
+                    "value": "other"
+                  }
+                ],
+                "multiple": false
+              },
+              "label": "Which industry have you sold into?",
+              "origin": "system",
+              "required": true,
+              "constraints": [],
+              "description": "Select the industry you have the most B2B sales experience in"
+            },
+            {
+              "id": "field-c125c84b-4519-4844-9353-eef6e1fc61db",
+              "name": "yearsB2bSalesExperience",
+              "tags": [],
+              "type": {
+                "kind": "number"
+              },
+              "label": "Years of B2B sales experience",
+              "origin": "system",
+              "tooltip": "Applicants must have between 2 and 5 years of B2B sales experience to qualify",
+              "required": true,
+              "constraints": [],
+              "description": "Enter a number between 2 and 5"
+            }
+          ],
+          "groups": [],
+          "version": 3
+        },
+        "intent": {
+          "purpose": {
+            "content": "I need a job application form for a sales representative. Ask which industries the applicant has sold into, as a required choice. Require 2 to 5 years of B2B sales experience.",
+            "updatedAt": "2026-11-12T22:39:31.671Z"
+          },
+          "audience": {
+            "content": "",
+            "updatedAt": "2026-11-12T00:00:00.000Z"
+          },
+          "exclusions": {
+            "content": "",
+            "updatedAt": "2026-11-12T00:00:00.000Z"
+          },
+          "constraints": {
+            "content": "",
+            "updatedAt": "2026-11-12T00:00:00.000Z"
+          }
+        }
+      },
+      "after": {
+        "schema": {
+          "fields": [
+            {
+              "id": "field-0b3327e9-008a-41a8-bd20-ddf04d869a77",
+              "name": "fullName",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Full name",
+              "origin": "system",
+              "required": true,
+              "constraints": []
+            },
+            {
+              "id": "field-0ef26833-7768-4c84-abee-24e9afda5041",
+              "name": "email",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Email address",
+              "origin": "system",
+              "required": true,
+              "constraints": []
+            },
+            {
+              "id": "field-36ace7f8-57e6-43bb-b36a-30d791ff7c71",
+              "name": "industriesSoldInto",
+              "tags": [],
+              "type": {
+                "kind": "select",
+                "options": [
+                  {
+                    "label": "Technology",
+                    "value": "technology"
+                  },
+                  {
+                    "label": "Healthcare",
+                    "value": "healthcare"
+                  },
+                  {
+                    "label": "Finance",
+                    "value": "finance"
+                  },
+                  {
+                    "label": "Retail",
+                    "value": "retail"
+                  },
+                  {
+                    "label": "Manufacturing",
+                    "value": "manufacturing"
+                  },
+                  {
+                    "label": "Other",
+                    "value": "other"
+                  }
+                ],
+                "multiple": false
+              },
+              "label": "Industries sold into",
+              "origin": "system",
+              "required": true,
+              "constraints": [],
+              "description": "Select the industry you have sales experience in"
+            },
+            {
+              "id": "field-f6bcd13c-4d13-4a4b-9e5d-6c4daddd1118",
+              "name": "yearsOfB2bSalesExperience",
+              "tags": [],
+              "type": {
+                "kind": "number"
+              },
+              "label": "Years of B2B sales experience",
+              "origin": "system",
+              "tooltip": "Enter a number between 2 and 5",
+              "required": true,
+              "constraints": [],
+              "description": "Must be between 2 and 5 years"
+            },
+            {
+              "id": "field-3da071cc-36cb-4a68-a80a-cd6f2b507aec",
+              "name": "dealClosedDescription",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Describe a deal you closed",
+              "origin": "system",
+              "required": true,
+              "constraints": [],
+              "description": "Tell us about a notable deal you successfully closed"
+            }
+          ],
+          "groups": [],
+          "version": 4
+        },
+        "intent": {
+          "purpose": {
+            "content": "I need a job application form for a sales representative. Ask which industries the applicant has sold into, as a required choice. Require 2 to 5 years of B2B sales experience. Add a written screening question about a deal the applicant closed.",
+            "updatedAt": "2026-11-12T22:39:46.621Z"
+          },
+          "audience": {
+            "content": "",
+            "updatedAt": "2026-11-12T00:00:00.000Z"
+          },
+          "exclusions": {
+            "content": "",
+            "updatedAt": "2026-11-12T00:00:00.000Z"
+          },
+          "constraints": {
+            "content": "",
+            "updatedAt": "2026-11-12T00:00:00.000Z"
+          }
+        }
+      },
+      "calls": [
+        {
+          "functionId": "schema-action",
+          "model": "claude-sonnet-5",
+          "startedAt": "2026-11-12T22:39:46.621Z",
+          "ms": 10419,
+          "inputTokens": 3248,
+          "outputTokens": 955,
+          "cacheReadTokens": 0,
+          "cacheWriteTokens": 0,
+          "costUsd": 0.016046,
+          "output": {
+            "artifactFormSchema": {
+              "name": "Sales Representative Job Application",
+              "description": "Application form for candidates applying to a sales representative position.",
+              "appliedStandards": [],
+              "fields": [
+                {
+                  "key": "fullName",
+                  "label": "Full name",
+                  "type": "string",
+                  "validation": null,
+                  "scale": null,
+                  "required": true
+                },
+                {
+                  "key": "email",
+                  "label": "Email address",
+                  "type": "email",
+                  "validation": null,
+                  "scale": null,
+                  "required": true
+                },
+                {
+                  "key": "industriesSoldInto",
+                  "label": "Industries sold into",
+                  "description": "Select the industry you have sales experience in",
+                  "type": "select",
+                  "validation": {
+                    "options": [
+                      {
+                        "label": "Technology",
+                        "value": "technology"
+                      },
+                      {
+                        "label": "Healthcare",
+                        "value": "healthcare"
+                      },
+                      {
+                        "label": "Finance",
+                        "value": "finance"
+                      },
+                      {
+                        "label": "Retail",
+                        "value": "retail"
+                      },
+                      {
+                        "label": "Manufacturing",
+                        "value": "manufacturing"
+                      },
+                      {
+                        "label": "Other",
+                        "value": "other"
+                      }
+                    ]
+                  },
+                  "scale": null,
+                  "required": true
+                },
+                {
+                  "key": "yearsOfB2bSalesExperience",
+                  "label": "Years of B2B sales experience",
+                  "description": "Must be between 2 and 5 years",
+                  "tooltip": "Enter a number between 2 and 5",
+                  "type": "number",
+                  "validation": null,
+                  "scale": null,
+                  "required": true
+                },
+                {
+                  "key": "dealClosedDescription",
+                  "label": "Describe a deal you closed",
+                  "description": "Tell us about a notable deal you successfully closed",
+                  "type": "string",
+                  "validation": null,
+                  "scale": null,
+                  "required": true
+                }
+              ]
+            }
+          }
+        }
+      ],
+      "costUsd": 0.016046,
+      "foregroundMs": 10460,
+      "totalMs": 10460,
+      "notes": []
+    },
+    {
+      "id": "sales-4",
+      "kind": "add",
+      "target": "base",
+      "request": "Ask which sales territory the applicant can cover.",
+      "before": {
+        "schema": {
+          "fields": [
+            {
+              "id": "field-0b3327e9-008a-41a8-bd20-ddf04d869a77",
+              "name": "fullName",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Full name",
+              "origin": "system",
+              "required": true,
+              "constraints": []
+            },
+            {
+              "id": "field-0ef26833-7768-4c84-abee-24e9afda5041",
+              "name": "email",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Email address",
+              "origin": "system",
+              "required": true,
+              "constraints": []
+            },
+            {
+              "id": "field-36ace7f8-57e6-43bb-b36a-30d791ff7c71",
+              "name": "industriesSoldInto",
+              "tags": [],
+              "type": {
+                "kind": "select",
+                "options": [
+                  {
+                    "label": "Technology",
+                    "value": "technology"
+                  },
+                  {
+                    "label": "Healthcare",
+                    "value": "healthcare"
+                  },
+                  {
+                    "label": "Finance",
+                    "value": "finance"
+                  },
+                  {
+                    "label": "Retail",
+                    "value": "retail"
+                  },
+                  {
+                    "label": "Manufacturing",
+                    "value": "manufacturing"
+                  },
+                  {
+                    "label": "Other",
+                    "value": "other"
+                  }
+                ],
+                "multiple": false
+              },
+              "label": "Industries sold into",
+              "origin": "system",
+              "required": true,
+              "constraints": [],
+              "description": "Select the industry you have sales experience in"
+            },
+            {
+              "id": "field-f6bcd13c-4d13-4a4b-9e5d-6c4daddd1118",
+              "name": "yearsOfB2bSalesExperience",
+              "tags": [],
+              "type": {
+                "kind": "number"
+              },
+              "label": "Years of B2B sales experience",
+              "origin": "system",
+              "tooltip": "Enter a number between 2 and 5",
+              "required": true,
+              "constraints": [],
+              "description": "Must be between 2 and 5 years"
+            },
+            {
+              "id": "field-3da071cc-36cb-4a68-a80a-cd6f2b507aec",
+              "name": "dealClosedDescription",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Describe a deal you closed",
+              "origin": "system",
+              "required": true,
+              "constraints": [],
+              "description": "Tell us about a notable deal you successfully closed"
+            }
+          ],
+          "groups": [],
+          "version": 4
+        },
+        "intent": {
+          "purpose": {
+            "content": "I need a job application form for a sales representative. Ask which industries the applicant has sold into, as a required choice. Require 2 to 5 years of B2B sales experience. Add a written screening question about a deal the applicant closed.",
+            "updatedAt": "2026-11-12T22:39:46.621Z"
+          },
+          "audience": {
+            "content": "",
+            "updatedAt": "2026-11-12T00:00:00.000Z"
+          },
+          "exclusions": {
+            "content": "",
+            "updatedAt": "2026-11-12T00:00:00.000Z"
+          },
+          "constraints": {
+            "content": "",
+            "updatedAt": "2026-11-12T00:00:00.000Z"
+          }
+        }
+      },
+      "after": {
+        "schema": {
+          "fields": [
+            {
+              "id": "field-dbac6d5d-b6a5-4d70-b957-3ccc67871c0e",
+              "name": "fullName",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Full name",
+              "origin": "system",
+              "required": true,
+              "constraints": []
+            },
+            {
+              "id": "field-71dc4f8c-4c40-4d00-bf58-a68cfa707a0a",
+              "name": "email",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Email address",
+              "origin": "system",
+              "required": true,
+              "constraints": []
+            },
+            {
+              "id": "field-4451c845-8b8e-4561-989e-9be299ebfdd4",
+              "name": "industriesSoldInto",
+              "tags": [],
+              "type": {
+                "kind": "select",
+                "options": [
+                  {
+                    "label": "Technology/SaaS",
+                    "value": "technology_saas"
+                  },
+                  {
+                    "label": "Healthcare",
+                    "value": "healthcare"
+                  },
+                  {
+                    "label": "Financial Services",
+                    "value": "financial_services"
+                  },
+                  {
+                    "label": "Manufacturing",
+                    "value": "manufacturing"
+                  },
+                  {
+                    "label": "Retail",
+                    "value": "retail"
+                  },
+                  {
+                    "label": "Real Estate",
+                    "value": "real_estate"
+                  },
+                  {
+                    "label": "Education",
+                    "value": "education"
+                  },
+                  {
+                    "label": "Other",
+                    "value": "other"
+                  }
+                ],
+                "multiple": false
+              },
+              "label": "Industries sold into",
+              "origin": "system",
+              "required": true,
+              "constraints": [],
+              "description": "Primary industry experience"
+            },
+            {
+              "id": "field-a6b94e74-fd70-4804-b9d5-dd61361836eb",
+              "name": "yearsB2bSalesExperience",
+              "tags": [],
+              "type": {
+                "kind": "number"
+              },
+              "label": "Years of B2B sales experience",
+              "origin": "system",
+              "tooltip": "Enter a whole number between 2 and 5",
+              "required": true,
+              "constraints": [],
+              "description": "Must be between 2 and 5 years"
+            },
+            {
+              "id": "field-0c0b089d-afed-4c5c-9990-c97b1bbc3f3d",
+              "name": "dealClosedDescription",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Describe a deal you closed",
+              "origin": "system",
+              "required": true,
+              "constraints": [],
+              "description": "Include the challenge, your approach, and the outcome"
+            },
+            {
+              "id": "field-94c67497-ad05-437e-8d96-dc7ba20bb477",
+              "name": "salesTerritory",
+              "tags": [],
+              "type": {
+                "kind": "select",
+                "options": [
+                  {
+                    "label": "Northeast",
+                    "value": "northeast"
+                  },
+                  {
+                    "label": "Southeast",
+                    "value": "southeast"
+                  },
+                  {
+                    "label": "Midwest",
+                    "value": "midwest"
+                  },
+                  {
+                    "label": "Southwest",
+                    "value": "southwest"
+                  },
+                  {
+                    "label": "West Coast",
+                    "value": "west_coast"
+                  },
+                  {
+                    "label": "National",
+                    "value": "national"
+                  },
+                  {
+                    "label": "International",
+                    "value": "international"
+                  }
+                ],
+                "multiple": false
+              },
+              "label": "Sales territory you can cover",
+              "origin": "system",
+              "required": true,
+              "constraints": []
+            }
+          ],
+          "groups": [],
+          "version": 5
+        },
+        "intent": {
+          "purpose": {
+            "content": "I need a job application form for a sales representative. Ask which industries the applicant has sold into, as a required choice. Require 2 to 5 years of B2B sales experience. Add a written screening question about a deal the applicant closed. Ask which sales territory the applicant can cover.",
+            "updatedAt": "2026-11-12T22:39:57.088Z"
+          },
+          "audience": {
+            "content": "",
+            "updatedAt": "2026-11-12T00:00:00.000Z"
+          },
+          "exclusions": {
+            "content": "",
+            "updatedAt": "2026-11-12T00:00:00.000Z"
+          },
+          "constraints": {
+            "content": "",
+            "updatedAt": "2026-11-12T00:00:00.000Z"
+          }
+        }
+      },
+      "calls": [
+        {
+          "functionId": "schema-action",
+          "model": "claude-sonnet-5",
+          "startedAt": "2026-11-12T22:39:57.088Z",
+          "ms": 11731,
+          "inputTokens": 3264,
+          "outputTokens": 1113,
+          "cacheReadTokens": 0,
+          "cacheWriteTokens": 0,
+          "costUsd": 0.017658,
+          "output": {
+            "artifactFormSchema": {
+              "name": "Sales Representative Job Application",
+              "description": "Application form for candidates applying to a sales representative position.",
+              "appliedStandards": [],
+              "fields": [
+                {
+                  "key": "fullName",
+                  "label": "Full name",
+                  "type": "string",
+                  "validation": null,
+                  "scale": null,
+                  "required": true
+                },
+                {
+                  "key": "email",
+                  "label": "Email address",
+                  "type": "email",
+                  "validation": null,
+                  "scale": null,
+                  "required": true
+                },
+                {
+                  "key": "industriesSoldInto",
+                  "label": "Industries sold into",
+                  "description": "Primary industry experience",
+                  "type": "select",
+                  "validation": {
+                    "options": [
+                      {
+                        "label": "Technology/SaaS",
+                        "value": "technology_saas"
+                      },
+                      {
+                        "label": "Healthcare",
+                        "value": "healthcare"
+                      },
+                      {
+                        "label": "Financial Services",
+                        "value": "financial_services"
+                      },
+                      {
+                        "label": "Manufacturing",
+                        "value": "manufacturing"
+                      },
+                      {
+                        "label": "Retail",
+                        "value": "retail"
+                      },
+                      {
+                        "label": "Real Estate",
+                        "value": "real_estate"
+                      },
+                      {
+                        "label": "Education",
+                        "value": "education"
+                      },
+                      {
+                        "label": "Other",
+                        "value": "other"
+                      }
+                    ]
+                  },
+                  "scale": null,
+                  "required": true
+                },
+                {
+                  "key": "yearsB2bSalesExperience",
+                  "label": "Years of B2B sales experience",
+                  "description": "Must be between 2 and 5 years",
+                  "tooltip": "Enter a whole number between 2 and 5",
+                  "type": "number",
+                  "validation": null,
+                  "scale": null,
+                  "required": true
+                },
+                {
+                  "key": "dealClosedDescription",
+                  "label": "Describe a deal you closed",
+                  "description": "Include the challenge, your approach, and the outcome",
+                  "type": "string",
+                  "validation": null,
+                  "scale": null,
+                  "required": true
+                },
+                {
+                  "key": "salesTerritory",
+                  "label": "Sales territory you can cover",
+                  "type": "select",
+                  "validation": {
+                    "options": [
+                      {
+                        "label": "Northeast",
+                        "value": "northeast"
+                      },
+                      {
+                        "label": "Southeast",
+                        "value": "southeast"
+                      },
+                      {
+                        "label": "Midwest",
+                        "value": "midwest"
+                      },
+                      {
+                        "label": "Southwest",
+                        "value": "southwest"
+                      },
+                      {
+                        "label": "West Coast",
+                        "value": "west_coast"
+                      },
+                      {
+                        "label": "National",
+                        "value": "national"
+                      },
+                      {
+                        "label": "International",
+                        "value": "international"
+                      }
+                    ]
+                  },
+                  "scale": null,
+                  "required": true
+                }
+              ]
+            }
+          }
+        }
+      ],
+      "costUsd": 0.017658,
+      "foregroundMs": 11759,
+      "totalMs": 11759,
+      "notes": []
+    },
+    {
+      "id": "sales-5",
+      "kind": "remove",
+      "target": "base",
+      "request": "Stop asking for a resume link.",
+      "before": {
+        "schema": {
+          "fields": [
+            {
+              "id": "field-dbac6d5d-b6a5-4d70-b957-3ccc67871c0e",
+              "name": "fullName",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Full name",
+              "origin": "system",
+              "required": true,
+              "constraints": []
+            },
+            {
+              "id": "field-71dc4f8c-4c40-4d00-bf58-a68cfa707a0a",
+              "name": "email",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Email address",
+              "origin": "system",
+              "required": true,
+              "constraints": []
+            },
+            {
+              "id": "field-4451c845-8b8e-4561-989e-9be299ebfdd4",
+              "name": "industriesSoldInto",
+              "tags": [],
+              "type": {
+                "kind": "select",
+                "options": [
+                  {
+                    "label": "Technology/SaaS",
+                    "value": "technology_saas"
+                  },
+                  {
+                    "label": "Healthcare",
+                    "value": "healthcare"
+                  },
+                  {
+                    "label": "Financial Services",
+                    "value": "financial_services"
+                  },
+                  {
+                    "label": "Manufacturing",
+                    "value": "manufacturing"
+                  },
+                  {
+                    "label": "Retail",
+                    "value": "retail"
+                  },
+                  {
+                    "label": "Real Estate",
+                    "value": "real_estate"
+                  },
+                  {
+                    "label": "Education",
+                    "value": "education"
+                  },
+                  {
+                    "label": "Other",
+                    "value": "other"
+                  }
+                ],
+                "multiple": false
+              },
+              "label": "Industries sold into",
+              "origin": "system",
+              "required": true,
+              "constraints": [],
+              "description": "Primary industry experience"
+            },
+            {
+              "id": "field-a6b94e74-fd70-4804-b9d5-dd61361836eb",
+              "name": "yearsB2bSalesExperience",
+              "tags": [],
+              "type": {
+                "kind": "number"
+              },
+              "label": "Years of B2B sales experience",
+              "origin": "system",
+              "tooltip": "Enter a whole number between 2 and 5",
+              "required": true,
+              "constraints": [],
+              "description": "Must be between 2 and 5 years"
+            },
+            {
+              "id": "field-0c0b089d-afed-4c5c-9990-c97b1bbc3f3d",
+              "name": "dealClosedDescription",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Describe a deal you closed",
+              "origin": "system",
+              "required": true,
+              "constraints": [],
+              "description": "Include the challenge, your approach, and the outcome"
+            },
+            {
+              "id": "field-94c67497-ad05-437e-8d96-dc7ba20bb477",
+              "name": "salesTerritory",
+              "tags": [],
+              "type": {
+                "kind": "select",
+                "options": [
+                  {
+                    "label": "Northeast",
+                    "value": "northeast"
+                  },
+                  {
+                    "label": "Southeast",
+                    "value": "southeast"
+                  },
+                  {
+                    "label": "Midwest",
+                    "value": "midwest"
+                  },
+                  {
+                    "label": "Southwest",
+                    "value": "southwest"
+                  },
+                  {
+                    "label": "West Coast",
+                    "value": "west_coast"
+                  },
+                  {
+                    "label": "National",
+                    "value": "national"
+                  },
+                  {
+                    "label": "International",
+                    "value": "international"
+                  }
+                ],
+                "multiple": false
+              },
+              "label": "Sales territory you can cover",
+              "origin": "system",
+              "required": true,
+              "constraints": []
+            }
+          ],
+          "groups": [],
+          "version": 5
+        },
+        "intent": {
+          "purpose": {
+            "content": "I need a job application form for a sales representative. Ask which industries the applicant has sold into, as a required choice. Require 2 to 5 years of B2B sales experience. Add a written screening question about a deal the applicant closed. Ask which sales territory the applicant can cover.",
+            "updatedAt": "2026-11-12T22:39:57.088Z"
+          },
+          "audience": {
+            "content": "",
+            "updatedAt": "2026-11-12T00:00:00.000Z"
+          },
+          "exclusions": {
+            "content": "",
+            "updatedAt": "2026-11-12T00:00:00.000Z"
+          },
+          "constraints": {
+            "content": "",
+            "updatedAt": "2026-11-12T00:00:00.000Z"
+          }
+        }
+      },
+      "after": {
+        "schema": {
+          "fields": [
+            {
+              "id": "field-31dec4b1-1c40-480c-9004-fd4a993e1439",
+              "name": "fullName",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Full name",
+              "origin": "system",
+              "required": true,
+              "constraints": []
+            },
+            {
+              "id": "field-dc0d7029-1bf2-44cd-80ad-070f2ea7a6cf",
+              "name": "email",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Email address",
+              "origin": "system",
+              "required": true,
+              "constraints": []
+            },
+            {
+              "id": "field-476be59f-e610-4d6c-aef7-a27e5f5ffaef",
+              "name": "industriesSoldInto",
+              "tags": [],
+              "type": {
+                "kind": "select",
+                "options": [
+                  {
+                    "label": "Technology",
+                    "value": "technology"
+                  },
+                  {
+                    "label": "Healthcare",
+                    "value": "healthcare"
+                  },
+                  {
+                    "label": "Financial Services",
+                    "value": "financial_services"
+                  },
+                  {
+                    "label": "Manufacturing",
+                    "value": "manufacturing"
+                  },
+                  {
+                    "label": "Retail",
+                    "value": "retail"
+                  },
+                  {
+                    "label": "Real Estate",
+                    "value": "real_estate"
+                  },
+                  {
+                    "label": "Telecommunications",
+                    "value": "telecommunications"
+                  },
+                  {
+                    "label": "Other",
+                    "value": "other"
+                  }
+                ],
+                "multiple": false
+              },
+              "label": "Industries sold into",
+              "origin": "system",
+              "required": true,
+              "constraints": [],
+              "description": "Select the industry you have the most B2B sales experience in"
+            },
+            {
+              "id": "field-2a2c17a7-7705-4dc7-a5a1-a4ebb7d0f1df",
+              "name": "yearsB2bSalesExperience",
+              "tags": [],
+              "type": {
+                "kind": "number"
+              },
+              "label": "Years of B2B sales experience",
+              "origin": "system",
+              "tooltip": "Enter a whole number between 2 and 5",
+              "required": true,
+              "constraints": [],
+              "description": "Must be between 2 and 5 years"
+            },
+            {
+              "id": "field-0fde2298-21b9-4629-9feb-75692141f530",
+              "name": "dealClosedDescription",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Describe a deal you closed",
+              "origin": "system",
+              "required": true,
+              "constraints": [],
+              "description": "Tell us about a significant B2B deal you closed, including the challenge and outcome"
+            },
+            {
+              "id": "field-b733fe45-d064-4643-b335-c0f81f1eb976",
+              "name": "salesTerritory",
+              "tags": [],
+              "type": {
+                "kind": "select",
+                "options": [
+                  {
+                    "label": "Northeast",
+                    "value": "northeast"
+                  },
+                  {
+                    "label": "Southeast",
+                    "value": "southeast"
+                  },
+                  {
+                    "label": "Midwest",
+                    "value": "midwest"
+                  },
+                  {
+                    "label": "Southwest",
+                    "value": "southwest"
+                  },
+                  {
+                    "label": "West",
+                    "value": "west"
+                  },
+                  {
+                    "label": "National",
+                    "value": "national"
+                  },
+                  {
+                    "label": "International",
+                    "value": "international"
+                  }
+                ],
+                "multiple": false
+              },
+              "label": "Sales territory you can cover",
+              "origin": "system",
+              "required": true,
+              "constraints": []
+            }
+          ],
+          "groups": [],
+          "version": 6
+        },
+        "intent": {
+          "purpose": {
+            "content": "I need a job application form for a sales representative. Ask which industries the applicant has sold into, as a required choice. Require 2 to 5 years of B2B sales experience. Add a written screening question about a deal the applicant closed. Ask which sales territory the applicant can cover. Stop asking for a resume link.",
+            "updatedAt": "2026-11-12T22:40:08.856Z"
+          },
+          "audience": {
+            "content": "",
+            "updatedAt": "2026-11-12T00:00:00.000Z"
+          },
+          "exclusions": {
+            "content": "",
+            "updatedAt": "2026-11-12T00:00:00.000Z"
+          },
+          "constraints": {
+            "content": "",
+            "updatedAt": "2026-11-12T00:00:00.000Z"
+          }
+        }
+      },
+      "calls": [
+        {
+          "functionId": "schema-action",
+          "model": "claude-sonnet-5",
+          "startedAt": "2026-11-12T22:40:08.857Z",
+          "ms": 12557,
+          "inputTokens": 3275,
+          "outputTokens": 1203,
+          "cacheReadTokens": 0,
+          "cacheWriteTokens": 0,
+          "costUsd": 0.01858,
+          "output": {
+            "artifactFormSchema": {
+              "name": "Sales Representative Job Application",
+              "description": "Application form for candidates applying to a sales representative position.",
+              "appliedStandards": [],
+              "fields": [
+                {
+                  "key": "fullName",
+                  "label": "Full name",
+                  "type": "string",
+                  "validation": null,
+                  "scale": null,
+                  "required": true
+                },
+                {
+                  "key": "email",
+                  "label": "Email address",
+                  "type": "email",
+                  "validation": null,
+                  "scale": null,
+                  "required": true
+                },
+                {
+                  "key": "industriesSoldInto",
+                  "label": "Industries sold into",
+                  "description": "Select the industry you have the most B2B sales experience in",
+                  "type": "select",
+                  "validation": {
+                    "options": [
+                      {
+                        "label": "Technology",
+                        "value": "technology"
+                      },
+                      {
+                        "label": "Healthcare",
+                        "value": "healthcare"
+                      },
+                      {
+                        "label": "Financial Services",
+                        "value": "financial_services"
+                      },
+                      {
+                        "label": "Manufacturing",
+                        "value": "manufacturing"
+                      },
+                      {
+                        "label": "Retail",
+                        "value": "retail"
+                      },
+                      {
+                        "label": "Real Estate",
+                        "value": "real_estate"
+                      },
+                      {
+                        "label": "Telecommunications",
+                        "value": "telecommunications"
+                      },
+                      {
+                        "label": "Other",
+                        "value": "other"
+                      }
+                    ]
+                  },
+                  "scale": null,
+                  "required": true
+                },
+                {
+                  "key": "yearsB2bSalesExperience",
+                  "label": "Years of B2B sales experience",
+                  "description": "Must be between 2 and 5 years",
+                  "tooltip": "Enter a whole number between 2 and 5",
+                  "type": "number",
+                  "validation": null,
+                  "scale": null,
+                  "required": true
+                },
+                {
+                  "key": "dealClosedDescription",
+                  "label": "Describe a deal you closed",
+                  "description": "Tell us about a significant B2B deal you closed, including the challenge and outcome",
+                  "type": "string",
+                  "validation": null,
+                  "scale": null,
+                  "required": true
+                },
+                {
+                  "key": "salesTerritory",
+                  "label": "Sales territory you can cover",
+                  "type": "select",
+                  "validation": {
+                    "options": [
+                      {
+                        "label": "Northeast",
+                        "value": "northeast"
+                      },
+                      {
+                        "label": "Southeast",
+                        "value": "southeast"
+                      },
+                      {
+                        "label": "Midwest",
+                        "value": "midwest"
+                      },
+                      {
+                        "label": "Southwest",
+                        "value": "southwest"
+                      },
+                      {
+                        "label": "West",
+                        "value": "west"
+                      },
+                      {
+                        "label": "National",
+                        "value": "national"
+                      },
+                      {
+                        "label": "International",
+                        "value": "international"
+                      }
+                    ]
+                  },
+                  "scale": null,
+                  "required": true
+                }
+              ]
+            }
+          }
+        }
+      ],
+      "costUsd": 0.01858,
+      "foregroundMs": 12585,
+      "totalMs": 12585,
+      "notes": []
+    },
+    {
+      "id": "sales-6",
+      "kind": "derive",
+      "target": "base",
+      "name": "phone-screen",
+      "request": "A phone-screen form with only contact details, industry background and experience.",
+      "before": {
+        "schema": {
+          "fields": [
+            {
+              "id": "field-31dec4b1-1c40-480c-9004-fd4a993e1439",
+              "name": "fullName",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Full name",
+              "origin": "system",
+              "required": true,
+              "constraints": []
+            },
+            {
+              "id": "field-dc0d7029-1bf2-44cd-80ad-070f2ea7a6cf",
+              "name": "email",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Email address",
+              "origin": "system",
+              "required": true,
+              "constraints": []
+            },
+            {
+              "id": "field-476be59f-e610-4d6c-aef7-a27e5f5ffaef",
+              "name": "industriesSoldInto",
+              "tags": [],
+              "type": {
+                "kind": "select",
+                "options": [
+                  {
+                    "label": "Technology",
+                    "value": "technology"
+                  },
+                  {
+                    "label": "Healthcare",
+                    "value": "healthcare"
+                  },
+                  {
+                    "label": "Financial Services",
+                    "value": "financial_services"
+                  },
+                  {
+                    "label": "Manufacturing",
+                    "value": "manufacturing"
+                  },
+                  {
+                    "label": "Retail",
+                    "value": "retail"
+                  },
+                  {
+                    "label": "Real Estate",
+                    "value": "real_estate"
+                  },
+                  {
+                    "label": "Telecommunications",
+                    "value": "telecommunications"
+                  },
+                  {
+                    "label": "Other",
+                    "value": "other"
+                  }
+                ],
+                "multiple": false
+              },
+              "label": "Industries sold into",
+              "origin": "system",
+              "required": true,
+              "constraints": [],
+              "description": "Select the industry you have the most B2B sales experience in"
+            },
+            {
+              "id": "field-2a2c17a7-7705-4dc7-a5a1-a4ebb7d0f1df",
+              "name": "yearsB2bSalesExperience",
+              "tags": [],
+              "type": {
+                "kind": "number"
+              },
+              "label": "Years of B2B sales experience",
+              "origin": "system",
+              "tooltip": "Enter a whole number between 2 and 5",
+              "required": true,
+              "constraints": [],
+              "description": "Must be between 2 and 5 years"
+            },
+            {
+              "id": "field-0fde2298-21b9-4629-9feb-75692141f530",
+              "name": "dealClosedDescription",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Describe a deal you closed",
+              "origin": "system",
+              "required": true,
+              "constraints": [],
+              "description": "Tell us about a significant B2B deal you closed, including the challenge and outcome"
+            },
+            {
+              "id": "field-b733fe45-d064-4643-b335-c0f81f1eb976",
+              "name": "salesTerritory",
+              "tags": [],
+              "type": {
+                "kind": "select",
+                "options": [
+                  {
+                    "label": "Northeast",
+                    "value": "northeast"
+                  },
+                  {
+                    "label": "Southeast",
+                    "value": "southeast"
+                  },
+                  {
+                    "label": "Midwest",
+                    "value": "midwest"
+                  },
+                  {
+                    "label": "Southwest",
+                    "value": "southwest"
+                  },
+                  {
+                    "label": "West",
+                    "value": "west"
+                  },
+                  {
+                    "label": "National",
+                    "value": "national"
+                  },
+                  {
+                    "label": "International",
+                    "value": "international"
+                  }
+                ],
+                "multiple": false
+              },
+              "label": "Sales territory you can cover",
+              "origin": "system",
+              "required": true,
+              "constraints": []
+            }
+          ],
+          "groups": [],
+          "version": 6
+        },
+        "intent": {
+          "purpose": {
+            "content": "I need a job application form for a sales representative. Ask which industries the applicant has sold into, as a required choice. Require 2 to 5 years of B2B sales experience. Add a written screening question about a deal the applicant closed. Ask which sales territory the applicant can cover. Stop asking for a resume link.",
+            "updatedAt": "2026-11-12T22:40:08.856Z"
+          },
+          "audience": {
+            "content": "",
+            "updatedAt": "2026-11-12T00:00:00.000Z"
+          },
+          "exclusions": {
+            "content": "",
+            "updatedAt": "2026-11-12T00:00:00.000Z"
+          },
+          "constraints": {
+            "content": "",
+            "updatedAt": "2026-11-12T00:00:00.000Z"
+          }
+        }
+      },
+      "after": {
+        "schema": {
+          "fields": [
+            {
+              "id": "field-31dec4b1-1c40-480c-9004-fd4a993e1439",
+              "name": "fullName",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Full name",
+              "origin": "system",
+              "required": true,
+              "constraints": []
+            },
+            {
+              "id": "field-dc0d7029-1bf2-44cd-80ad-070f2ea7a6cf",
+              "name": "email",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Email address",
+              "origin": "system",
+              "required": true,
+              "constraints": []
+            },
+            {
+              "id": "field-476be59f-e610-4d6c-aef7-a27e5f5ffaef",
+              "name": "industriesSoldInto",
+              "tags": [],
+              "type": {
+                "kind": "select",
+                "options": [
+                  {
+                    "label": "Technology",
+                    "value": "technology"
+                  },
+                  {
+                    "label": "Healthcare",
+                    "value": "healthcare"
+                  },
+                  {
+                    "label": "Financial Services",
+                    "value": "financial_services"
+                  },
+                  {
+                    "label": "Manufacturing",
+                    "value": "manufacturing"
+                  },
+                  {
+                    "label": "Retail",
+                    "value": "retail"
+                  },
+                  {
+                    "label": "Real Estate",
+                    "value": "real_estate"
+                  },
+                  {
+                    "label": "Telecommunications",
+                    "value": "telecommunications"
+                  },
+                  {
+                    "label": "Other",
+                    "value": "other"
+                  }
+                ],
+                "multiple": false
+              },
+              "label": "Industries sold into",
+              "origin": "system",
+              "required": true,
+              "constraints": [],
+              "description": "Select the industry you have the most B2B sales experience in"
+            },
+            {
+              "id": "field-2a2c17a7-7705-4dc7-a5a1-a4ebb7d0f1df",
+              "name": "yearsB2bSalesExperience",
+              "tags": [],
+              "type": {
+                "kind": "number"
+              },
+              "label": "Years of B2B sales experience",
+              "origin": "system",
+              "tooltip": "Enter a whole number between 2 and 5",
+              "required": true,
+              "constraints": [],
+              "description": "Must be between 2 and 5 years"
+            },
+            {
+              "id": "field-0fde2298-21b9-4629-9feb-75692141f530",
+              "name": "dealClosedDescription",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Describe a deal you closed",
+              "origin": "system",
+              "required": true,
+              "constraints": [],
+              "description": "Tell us about a significant B2B deal you closed, including the challenge and outcome"
+            },
+            {
+              "id": "field-b733fe45-d064-4643-b335-c0f81f1eb976",
+              "name": "salesTerritory",
+              "tags": [],
+              "type": {
+                "kind": "select",
+                "options": [
+                  {
+                    "label": "Northeast",
+                    "value": "northeast"
+                  },
+                  {
+                    "label": "Southeast",
+                    "value": "southeast"
+                  },
+                  {
+                    "label": "Midwest",
+                    "value": "midwest"
+                  },
+                  {
+                    "label": "Southwest",
+                    "value": "southwest"
+                  },
+                  {
+                    "label": "West",
+                    "value": "west"
+                  },
+                  {
+                    "label": "National",
+                    "value": "national"
+                  },
+                  {
+                    "label": "International",
+                    "value": "international"
+                  }
+                ],
+                "multiple": false
+              },
+              "label": "Sales territory you can cover",
+              "origin": "system",
+              "required": true,
+              "constraints": []
+            }
+          ],
+          "groups": [],
+          "version": 6
+        },
+        "intent": {
+          "purpose": {
+            "content": "I need a job application form for a sales representative. Ask which industries the applicant has sold into, as a required choice. Require 2 to 5 years of B2B sales experience. Add a written screening question about a deal the applicant closed. Ask which sales territory the applicant can cover. Stop asking for a resume link.",
+            "updatedAt": "2026-11-12T22:40:08.856Z"
+          },
+          "audience": {
+            "content": "",
+            "updatedAt": "2026-11-12T00:00:00.000Z"
+          },
+          "exclusions": {
+            "content": "",
+            "updatedAt": "2026-11-12T00:00:00.000Z"
+          },
+          "constraints": {
+            "content": "",
+            "updatedAt": "2026-11-12T00:00:00.000Z"
+          }
+        }
+      },
+      "calls": [
+        {
+          "functionId": "schema-action",
+          "model": "claude-sonnet-5",
+          "startedAt": "2026-11-12T22:40:21.450Z",
+          "ms": 12147,
+          "inputTokens": 3295,
+          "outputTokens": 1225,
+          "cacheReadTokens": 0,
+          "cacheWriteTokens": 0,
+          "costUsd": 0.01884,
+          "output": {
+            "artifactFormSchema": {
+              "name": "Sales Representative Phone Screen",
+              "description": "Phone-screen application form collecting contact details, industry background, and B2B sales experience for a sales representative role.",
+              "appliedStandards": [],
+              "fields": [
+                {
+                  "key": "fullName",
+                  "label": "Full name",
+                  "type": "string",
+                  "validation": null,
+                  "scale": null,
+                  "required": true
+                },
+                {
+                  "key": "email",
+                  "label": "Email address",
+                  "type": "email",
+                  "validation": null,
+                  "scale": null,
+                  "required": true
+                },
+                {
+                  "key": "phoneNumber",
+                  "label": "Phone number",
+                  "type": "string",
+                  "validation": null,
+                  "scale": null,
+                  "required": true
+                },
+                {
+                  "key": "industriesSoldInto",
+                  "label": "Industries sold into",
+                  "description": "Primary industry background in B2B sales",
+                  "type": "select",
+                  "validation": {
+                    "options": [
+                      {
+                        "label": "Technology",
+                        "value": "technology"
+                      },
+                      {
+                        "label": "Healthcare",
+                        "value": "healthcare"
+                      },
+                      {
+                        "label": "Finance",
+                        "value": "finance"
+                      },
+                      {
+                        "label": "Retail",
+                        "value": "retail"
+                      },
+                      {
+                        "label": "Manufacturing",
+                        "value": "manufacturing"
+                      },
+                      {
+                        "label": "Other",
+                        "value": "other"
+                      }
+                    ]
+                  },
+                  "scale": null,
+                  "required": true
+                },
+                {
+                  "key": "yearsB2bSalesExperience",
+                  "label": "Years of B2B sales experience",
+                  "description": "Must be between 2 and 5 years",
+                  "tooltip": "Enter a whole number between 2 and 5",
+                  "type": "number",
+                  "validation": null,
+                  "scale": null,
+                  "required": true
+                },
+                {
+                  "key": "dealClosedDescription",
+                  "label": "Describe a deal you closed",
+                  "description": "Tell us about a specific B2B deal you closed, including the challenge and outcome",
+                  "type": "string",
+                  "validation": null,
+                  "scale": null,
+                  "required": true
+                },
+                {
+                  "key": "salesTerritory",
+                  "label": "Sales territory you can cover",
+                  "type": "select",
+                  "validation": {
+                    "options": [
+                      {
+                        "label": "Northeast",
+                        "value": "northeast"
+                      },
+                      {
+                        "label": "Southeast",
+                        "value": "southeast"
+                      },
+                      {
+                        "label": "Midwest",
+                        "value": "midwest"
+                      },
+                      {
+                        "label": "West",
+                        "value": "west"
+                      },
+                      {
+                        "label": "Southwest",
+                        "value": "southwest"
+                      },
+                      {
+                        "label": "National",
+                        "value": "national"
+                      },
+                      {
+                        "label": "International",
+                        "value": "international"
+                      }
+                    ]
+                  },
+                  "scale": null,
+                  "required": true
+                }
+              ]
+            }
+          }
+        }
+      ],
+      "costUsd": 0.01884,
+      "foregroundMs": 12164,
+      "totalMs": 12164,
+      "notes": [],
+      "baseAtDerive": {
+        "fields": [
+          {
+            "id": "field-31dec4b1-1c40-480c-9004-fd4a993e1439",
+            "name": "fullName",
+            "tags": [],
+            "type": {
+              "kind": "text"
+            },
+            "label": "Full name",
+            "origin": "system",
+            "required": true,
+            "constraints": []
+          },
+          {
+            "id": "field-dc0d7029-1bf2-44cd-80ad-070f2ea7a6cf",
+            "name": "email",
+            "tags": [],
+            "type": {
+              "kind": "text"
+            },
+            "label": "Email address",
+            "origin": "system",
+            "required": true,
+            "constraints": []
+          },
+          {
+            "id": "field-476be59f-e610-4d6c-aef7-a27e5f5ffaef",
+            "name": "industriesSoldInto",
+            "tags": [],
+            "type": {
+              "kind": "select",
+              "options": [
+                {
+                  "label": "Technology",
+                  "value": "technology"
+                },
+                {
+                  "label": "Healthcare",
+                  "value": "healthcare"
+                },
+                {
+                  "label": "Financial Services",
+                  "value": "financial_services"
+                },
+                {
+                  "label": "Manufacturing",
+                  "value": "manufacturing"
+                },
+                {
+                  "label": "Retail",
+                  "value": "retail"
+                },
+                {
+                  "label": "Real Estate",
+                  "value": "real_estate"
+                },
+                {
+                  "label": "Telecommunications",
+                  "value": "telecommunications"
+                },
+                {
+                  "label": "Other",
+                  "value": "other"
+                }
+              ],
+              "multiple": false
+            },
+            "label": "Industries sold into",
+            "origin": "system",
+            "required": true,
+            "constraints": [],
+            "description": "Select the industry you have the most B2B sales experience in"
+          },
+          {
+            "id": "field-2a2c17a7-7705-4dc7-a5a1-a4ebb7d0f1df",
+            "name": "yearsB2bSalesExperience",
+            "tags": [],
+            "type": {
+              "kind": "number"
+            },
+            "label": "Years of B2B sales experience",
+            "origin": "system",
+            "tooltip": "Enter a whole number between 2 and 5",
+            "required": true,
+            "constraints": [],
+            "description": "Must be between 2 and 5 years"
+          },
+          {
+            "id": "field-0fde2298-21b9-4629-9feb-75692141f530",
+            "name": "dealClosedDescription",
+            "tags": [],
+            "type": {
+              "kind": "text"
+            },
+            "label": "Describe a deal you closed",
+            "origin": "system",
+            "required": true,
+            "constraints": [],
+            "description": "Tell us about a significant B2B deal you closed, including the challenge and outcome"
+          },
+          {
+            "id": "field-b733fe45-d064-4643-b335-c0f81f1eb976",
+            "name": "salesTerritory",
+            "tags": [],
+            "type": {
+              "kind": "select",
+              "options": [
+                {
+                  "label": "Northeast",
+                  "value": "northeast"
+                },
+                {
+                  "label": "Southeast",
+                  "value": "southeast"
+                },
+                {
+                  "label": "Midwest",
+                  "value": "midwest"
+                },
+                {
+                  "label": "Southwest",
+                  "value": "southwest"
+                },
+                {
+                  "label": "West",
+                  "value": "west"
+                },
+                {
+                  "label": "National",
+                  "value": "national"
+                },
+                {
+                  "label": "International",
+                  "value": "international"
+                }
+              ],
+              "multiple": false
+            },
+            "label": "Sales territory you can cover",
+            "origin": "system",
+            "required": true,
+            "constraints": []
+          }
+        ],
+        "groups": [],
+        "version": 6
+      },
+      "derived": {
+        "schema": {
+          "fields": [
+            {
+              "id": "field-555396ef-e225-4859-a43a-24d39eff05bd",
+              "name": "fullName",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Full name",
+              "origin": "system",
+              "required": true,
+              "constraints": []
+            },
+            {
+              "id": "field-73a636c4-842d-44b3-b97c-59b259bcf099",
+              "name": "email",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Email address",
+              "origin": "system",
+              "required": true,
+              "constraints": []
+            },
+            {
+              "id": "field-17a29e19-48a2-4b64-a936-08660f0aeb0b",
+              "name": "phoneNumber",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Phone number",
+              "origin": "system",
+              "required": true,
+              "constraints": []
+            },
+            {
+              "id": "field-2a6d8a34-f1fe-47d6-b35e-87a4d4eedea5",
+              "name": "industriesSoldInto",
+              "tags": [],
+              "type": {
+                "kind": "select",
+                "options": [
+                  {
+                    "label": "Technology",
+                    "value": "technology"
+                  },
+                  {
+                    "label": "Healthcare",
+                    "value": "healthcare"
+                  },
+                  {
+                    "label": "Finance",
+                    "value": "finance"
+                  },
+                  {
+                    "label": "Retail",
+                    "value": "retail"
+                  },
+                  {
+                    "label": "Manufacturing",
+                    "value": "manufacturing"
+                  },
+                  {
+                    "label": "Other",
+                    "value": "other"
+                  }
+                ],
+                "multiple": false
+              },
+              "label": "Industries sold into",
+              "origin": "system",
+              "required": true,
+              "constraints": [],
+              "description": "Primary industry background in B2B sales"
+            },
+            {
+              "id": "field-0c986e79-69d7-49c1-a7a7-70991ea74c9e",
+              "name": "yearsB2bSalesExperience",
+              "tags": [],
+              "type": {
+                "kind": "number"
+              },
+              "label": "Years of B2B sales experience",
+              "origin": "system",
+              "tooltip": "Enter a whole number between 2 and 5",
+              "required": true,
+              "constraints": [],
+              "description": "Must be between 2 and 5 years"
+            },
+            {
+              "id": "field-3d201acc-b8d0-480c-adee-cbea513eeea2",
+              "name": "dealClosedDescription",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Describe a deal you closed",
+              "origin": "system",
+              "required": true,
+              "constraints": [],
+              "description": "Tell us about a specific B2B deal you closed, including the challenge and outcome"
+            },
+            {
+              "id": "field-ae524732-8ada-4107-90ba-0c1a966066bb",
+              "name": "salesTerritory",
+              "tags": [],
+              "type": {
+                "kind": "select",
+                "options": [
+                  {
+                    "label": "Northeast",
+                    "value": "northeast"
+                  },
+                  {
+                    "label": "Southeast",
+                    "value": "southeast"
+                  },
+                  {
+                    "label": "Midwest",
+                    "value": "midwest"
+                  },
+                  {
+                    "label": "West",
+                    "value": "west"
+                  },
+                  {
+                    "label": "Southwest",
+                    "value": "southwest"
+                  },
+                  {
+                    "label": "National",
+                    "value": "national"
+                  },
+                  {
+                    "label": "International",
+                    "value": "international"
+                  }
+                ],
+                "multiple": false
+              },
+              "label": "Sales territory you can cover",
+              "origin": "system",
+              "required": true,
+              "constraints": []
+            }
+          ],
+          "groups": [],
+          "version": 1
+        },
+        "intent": {
+          "purpose": {
+            "content": "I need a job application form for a sales representative. Ask which industries the applicant has sold into, as a required choice. Require 2 to 5 years of B2B sales experience. Add a written screening question about a deal the applicant closed. Ask which sales territory the applicant can cover. Stop asking for a resume link. A phone-screen form with only contact details, industry background and experience.",
+            "updatedAt": "2026-11-12T22:40:33.598Z"
+          },
+          "audience": {
+            "content": "",
+            "updatedAt": "2026-11-12T00:00:00.000Z"
+          },
+          "exclusions": {
+            "content": "",
+            "updatedAt": "2026-11-12T00:00:00.000Z"
+          },
+          "constraints": {
+            "content": "",
+            "updatedAt": "2026-11-12T00:00:00.000Z"
+          }
+        }
+      }
+    },
+    {
+      "id": "sales-7",
+      "kind": "change",
+      "target": "base",
+      "request": "Change the industry options to SaaS, fintech, healthcare and other.",
+      "before": {
+        "schema": {
+          "fields": [
+            {
+              "id": "field-31dec4b1-1c40-480c-9004-fd4a993e1439",
+              "name": "fullName",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Full name",
+              "origin": "system",
+              "required": true,
+              "constraints": []
+            },
+            {
+              "id": "field-dc0d7029-1bf2-44cd-80ad-070f2ea7a6cf",
+              "name": "email",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Email address",
+              "origin": "system",
+              "required": true,
+              "constraints": []
+            },
+            {
+              "id": "field-476be59f-e610-4d6c-aef7-a27e5f5ffaef",
+              "name": "industriesSoldInto",
+              "tags": [],
+              "type": {
+                "kind": "select",
+                "options": [
+                  {
+                    "label": "Technology",
+                    "value": "technology"
+                  },
+                  {
+                    "label": "Healthcare",
+                    "value": "healthcare"
+                  },
+                  {
+                    "label": "Financial Services",
+                    "value": "financial_services"
+                  },
+                  {
+                    "label": "Manufacturing",
+                    "value": "manufacturing"
+                  },
+                  {
+                    "label": "Retail",
+                    "value": "retail"
+                  },
+                  {
+                    "label": "Real Estate",
+                    "value": "real_estate"
+                  },
+                  {
+                    "label": "Telecommunications",
+                    "value": "telecommunications"
+                  },
+                  {
+                    "label": "Other",
+                    "value": "other"
+                  }
+                ],
+                "multiple": false
+              },
+              "label": "Industries sold into",
+              "origin": "system",
+              "required": true,
+              "constraints": [],
+              "description": "Select the industry you have the most B2B sales experience in"
+            },
+            {
+              "id": "field-2a2c17a7-7705-4dc7-a5a1-a4ebb7d0f1df",
+              "name": "yearsB2bSalesExperience",
+              "tags": [],
+              "type": {
+                "kind": "number"
+              },
+              "label": "Years of B2B sales experience",
+              "origin": "system",
+              "tooltip": "Enter a whole number between 2 and 5",
+              "required": true,
+              "constraints": [],
+              "description": "Must be between 2 and 5 years"
+            },
+            {
+              "id": "field-0fde2298-21b9-4629-9feb-75692141f530",
+              "name": "dealClosedDescription",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Describe a deal you closed",
+              "origin": "system",
+              "required": true,
+              "constraints": [],
+              "description": "Tell us about a significant B2B deal you closed, including the challenge and outcome"
+            },
+            {
+              "id": "field-b733fe45-d064-4643-b335-c0f81f1eb976",
+              "name": "salesTerritory",
+              "tags": [],
+              "type": {
+                "kind": "select",
+                "options": [
+                  {
+                    "label": "Northeast",
+                    "value": "northeast"
+                  },
+                  {
+                    "label": "Southeast",
+                    "value": "southeast"
+                  },
+                  {
+                    "label": "Midwest",
+                    "value": "midwest"
+                  },
+                  {
+                    "label": "Southwest",
+                    "value": "southwest"
+                  },
+                  {
+                    "label": "West",
+                    "value": "west"
+                  },
+                  {
+                    "label": "National",
+                    "value": "national"
+                  },
+                  {
+                    "label": "International",
+                    "value": "international"
+                  }
+                ],
+                "multiple": false
+              },
+              "label": "Sales territory you can cover",
+              "origin": "system",
+              "required": true,
+              "constraints": []
+            }
+          ],
+          "groups": [],
+          "version": 6
+        },
+        "intent": {
+          "purpose": {
+            "content": "I need a job application form for a sales representative. Ask which industries the applicant has sold into, as a required choice. Require 2 to 5 years of B2B sales experience. Add a written screening question about a deal the applicant closed. Ask which sales territory the applicant can cover. Stop asking for a resume link.",
+            "updatedAt": "2026-11-12T22:40:08.856Z"
+          },
+          "audience": {
+            "content": "",
+            "updatedAt": "2026-11-12T00:00:00.000Z"
+          },
+          "exclusions": {
+            "content": "",
+            "updatedAt": "2026-11-12T00:00:00.000Z"
+          },
+          "constraints": {
+            "content": "",
+            "updatedAt": "2026-11-12T00:00:00.000Z"
+          }
+        }
+      },
+      "after": {
+        "schema": {
+          "fields": [
+            {
+              "id": "field-2c8e7c6d-adb6-4cb4-a59f-8bbb81be8b73",
+              "name": "applicantName",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Full name",
+              "origin": "system",
+              "required": true,
+              "constraints": []
+            },
+            {
+              "id": "field-316ed9ab-d22a-456f-aaa9-01949ed63267",
+              "name": "applicantEmail",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Email address",
+              "origin": "system",
+              "required": true,
+              "constraints": []
+            },
+            {
+              "id": "field-33f11230-b222-4062-9013-dbe56135e335",
+              "name": "industriesSoldInto",
+              "tags": [],
+              "type": {
+                "kind": "select",
+                "options": [
+                  {
+                    "label": "SaaS",
+                    "value": "saas"
+                  },
+                  {
+                    "label": "Fintech",
+                    "value": "fintech"
+                  },
+                  {
+                    "label": "Healthcare",
+                    "value": "healthcare"
+                  },
+                  {
+                    "label": "Other",
+                    "value": "other"
+                  }
+                ],
+                "multiple": false
+              },
+              "label": "Which industries have you sold into?",
+              "origin": "system",
+              "required": true,
+              "constraints": []
+            },
+            {
+              "id": "field-592eb5f2-c903-492a-90fe-769de02fa2dd",
+              "name": "yearsOfB2bSalesExperience",
+              "tags": [],
+              "type": {
+                "kind": "number"
+              },
+              "label": "Years of B2B sales experience",
+              "origin": "system",
+              "required": true,
+              "constraints": [],
+              "description": "Must be between 2 and 5 years"
+            },
+            {
+              "id": "field-818674b6-d50d-4141-8cad-de05e02f3dd2",
+              "name": "dealClosedDescription",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Describe a deal you closed",
+              "origin": "system",
+              "required": true,
+              "constraints": [],
+              "description": "Tell us about a significant deal you closed and how you did it"
+            },
+            {
+              "id": "field-fa38986f-2538-43e5-a50b-2cf255ab5664",
+              "name": "salesTerritory",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Which sales territory can you cover?",
+              "origin": "system",
+              "required": true,
+              "constraints": []
+            }
+          ],
+          "groups": [],
+          "version": 7
+        },
+        "intent": {
+          "purpose": {
+            "content": "I need a job application form for a sales representative. Ask which industries the applicant has sold into, as a required choice. Require 2 to 5 years of B2B sales experience. Add a written screening question about a deal the applicant closed. Ask which sales territory the applicant can cover. Stop asking for a resume link. Change the industry options to SaaS, fintech, healthcare and other.",
+            "updatedAt": "2026-11-12T22:40:33.626Z"
+          },
+          "audience": {
+            "content": "",
+            "updatedAt": "2026-11-12T00:00:00.000Z"
+          },
+          "exclusions": {
+            "content": "",
+            "updatedAt": "2026-11-12T00:00:00.000Z"
+          },
+          "constraints": {
+            "content": "",
+            "updatedAt": "2026-11-12T00:00:00.000Z"
+          }
+        }
+      },
+      "calls": [
+        {
+          "functionId": "schema-action",
+          "model": "claude-sonnet-5",
+          "startedAt": "2026-11-12T22:40:33.627Z",
+          "ms": 10347,
+          "inputTokens": 3298,
+          "outputTokens": 1034,
+          "cacheReadTokens": 0,
+          "cacheWriteTokens": 0,
+          "costUsd": 0.016936,
+          "output": {
+            "artifactFormSchema": {
+              "name": "Sales Representative Job Application",
+              "description": "Application form for candidates applying to a sales representative position.",
+              "appliedStandards": [],
+              "fields": [
+                {
+                  "key": "applicantName",
+                  "label": "Full name",
+                  "type": "string",
+                  "validation": null,
+                  "scale": null,
+                  "required": true
+                },
+                {
+                  "key": "applicantEmail",
+                  "label": "Email address",
+                  "type": "email",
+                  "validation": null,
+                  "scale": null,
+                  "required": true
+                },
+                {
+                  "key": "industriesSoldInto",
+                  "label": "Which industries have you sold into?",
+                  "type": "select",
+                  "validation": {
+                    "options": [
+                      {
+                        "label": "SaaS",
+                        "value": "saas"
+                      },
+                      {
+                        "label": "Fintech",
+                        "value": "fintech"
+                      },
+                      {
+                        "label": "Healthcare",
+                        "value": "healthcare"
+                      },
+                      {
+                        "label": "Other",
+                        "value": "other"
+                      }
+                    ]
+                  },
+                  "scale": null,
+                  "required": true
+                },
+                {
+                  "key": "yearsOfB2bSalesExperience",
+                  "label": "Years of B2B sales experience",
+                  "description": "Must be between 2 and 5 years",
+                  "type": "number",
+                  "validation": null,
+                  "scale": null,
+                  "required": true
+                },
+                {
+                  "key": "dealClosedDescription",
+                  "label": "Describe a deal you closed",
+                  "description": "Tell us about a significant deal you closed and how you did it",
+                  "type": "string",
+                  "validation": null,
+                  "scale": null,
+                  "required": true
+                },
+                {
+                  "key": "salesTerritory",
+                  "label": "Which sales territory can you cover?",
+                  "type": "string",
+                  "validation": null,
+                  "scale": null,
+                  "required": true
+                }
+              ]
+            }
+          }
+        }
+      ],
+      "costUsd": 0.016936,
+      "foregroundMs": 10384,
+      "totalMs": 10384,
+      "notes": []
+    },
+    {
+      "id": "sales-8",
+      "kind": "add",
+      "target": "base",
+      "request": "Add a LinkedIn profile URL.",
+      "before": {
+        "schema": {
+          "fields": [
+            {
+              "id": "field-2c8e7c6d-adb6-4cb4-a59f-8bbb81be8b73",
+              "name": "applicantName",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Full name",
+              "origin": "system",
+              "required": true,
+              "constraints": []
+            },
+            {
+              "id": "field-316ed9ab-d22a-456f-aaa9-01949ed63267",
+              "name": "applicantEmail",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Email address",
+              "origin": "system",
+              "required": true,
+              "constraints": []
+            },
+            {
+              "id": "field-33f11230-b222-4062-9013-dbe56135e335",
+              "name": "industriesSoldInto",
+              "tags": [],
+              "type": {
+                "kind": "select",
+                "options": [
+                  {
+                    "label": "SaaS",
+                    "value": "saas"
+                  },
+                  {
+                    "label": "Fintech",
+                    "value": "fintech"
+                  },
+                  {
+                    "label": "Healthcare",
+                    "value": "healthcare"
+                  },
+                  {
+                    "label": "Other",
+                    "value": "other"
+                  }
+                ],
+                "multiple": false
+              },
+              "label": "Which industries have you sold into?",
+              "origin": "system",
+              "required": true,
+              "constraints": []
+            },
+            {
+              "id": "field-592eb5f2-c903-492a-90fe-769de02fa2dd",
+              "name": "yearsOfB2bSalesExperience",
+              "tags": [],
+              "type": {
+                "kind": "number"
+              },
+              "label": "Years of B2B sales experience",
+              "origin": "system",
+              "required": true,
+              "constraints": [],
+              "description": "Must be between 2 and 5 years"
+            },
+            {
+              "id": "field-818674b6-d50d-4141-8cad-de05e02f3dd2",
+              "name": "dealClosedDescription",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Describe a deal you closed",
+              "origin": "system",
+              "required": true,
+              "constraints": [],
+              "description": "Tell us about a significant deal you closed and how you did it"
+            },
+            {
+              "id": "field-fa38986f-2538-43e5-a50b-2cf255ab5664",
+              "name": "salesTerritory",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Which sales territory can you cover?",
+              "origin": "system",
+              "required": true,
+              "constraints": []
+            }
+          ],
+          "groups": [],
+          "version": 7
+        },
+        "intent": {
+          "purpose": {
+            "content": "I need a job application form for a sales representative. Ask which industries the applicant has sold into, as a required choice. Require 2 to 5 years of B2B sales experience. Add a written screening question about a deal the applicant closed. Ask which sales territory the applicant can cover. Stop asking for a resume link. Change the industry options to SaaS, fintech, healthcare and other.",
+            "updatedAt": "2026-11-12T22:40:33.626Z"
+          },
+          "audience": {
+            "content": "",
+            "updatedAt": "2026-11-12T00:00:00.000Z"
+          },
+          "exclusions": {
+            "content": "",
+            "updatedAt": "2026-11-12T00:00:00.000Z"
+          },
+          "constraints": {
+            "content": "",
+            "updatedAt": "2026-11-12T00:00:00.000Z"
+          }
+        }
+      },
+      "after": {
+        "schema": {
+          "fields": [
+            {
+              "id": "field-ff8e7c2b-2459-4d6f-9128-956e60c080f8",
+              "name": "fullName",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Full name",
+              "origin": "system",
+              "required": true,
+              "constraints": []
+            },
+            {
+              "id": "field-9f40cbd7-a7ab-464a-8136-1e926a20ba7f",
+              "name": "email",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Email address",
+              "origin": "system",
+              "required": true,
+              "constraints": []
+            },
+            {
+              "id": "field-66e9f635-4344-4c55-90e3-0f2afafb4cd7",
+              "name": "linkedinUrl",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "LinkedIn profile URL",
+              "origin": "system",
+              "required": false,
+              "constraints": []
+            },
+            {
+              "id": "field-0b0f8982-0eca-4e50-aede-84ee7b2ef552",
+              "name": "industriesSoldInto",
+              "tags": [],
+              "type": {
+                "kind": "select",
+                "options": [
+                  {
+                    "label": "SaaS",
+                    "value": "saas"
+                  },
+                  {
+                    "label": "Fintech",
+                    "value": "fintech"
+                  },
+                  {
+                    "label": "Healthcare",
+                    "value": "healthcare"
+                  },
+                  {
+                    "label": "Other",
+                    "value": "other"
+                  }
+                ],
+                "multiple": false
+              },
+              "label": "Industries sold into",
+              "origin": "system",
+              "required": true,
+              "constraints": [],
+              "description": "Select the industry you have sold into"
+            },
+            {
+              "id": "field-153d3ffd-221e-4eca-9232-317c02d08bf6",
+              "name": "yearsOfB2bSalesExperience",
+              "tags": [],
+              "type": {
+                "kind": "number"
+              },
+              "label": "Years of B2B sales experience",
+              "origin": "system",
+              "tooltip": "Enter a number between 2 and 5",
+              "required": true,
+              "constraints": [],
+              "description": "Must be between 2 and 5 years"
+            },
+            {
+              "id": "field-b3d72f0f-5335-4f34-87f0-ffd53eb84d23",
+              "name": "dealClosedDescription",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Describe a deal you closed",
+              "origin": "system",
+              "required": true,
+              "constraints": [],
+              "description": "Tell us about a significant deal you closed and how you did it"
+            },
+            {
+              "id": "field-4683035e-08b1-44cb-8ea2-3af993c2f881",
+              "name": "salesTerritory",
+              "tags": [],
+              "type": {
+                "kind": "select",
+                "options": [
+                  {
+                    "label": "North America",
+                    "value": "north_america"
+                  },
+                  {
+                    "label": "Europe",
+                    "value": "europe"
+                  },
+                  {
+                    "label": "Asia Pacific",
+                    "value": "asia_pacific"
+                  },
+                  {
+                    "label": "Latin America",
+                    "value": "latin_america"
+                  },
+                  {
+                    "label": "Middle East & Africa",
+                    "value": "middle_east_africa"
+                  },
+                  {
+                    "label": "Other",
+                    "value": "other"
+                  }
+                ],
+                "multiple": false
+              },
+              "label": "Sales territory you can cover",
+              "origin": "system",
+              "required": true,
+              "constraints": []
+            }
+          ],
+          "groups": [],
+          "version": 8
+        },
+        "intent": {
+          "purpose": {
+            "content": "I need a job application form for a sales representative. Ask which industries the applicant has sold into, as a required choice. Require 2 to 5 years of B2B sales experience. Add a written screening question about a deal the applicant closed. Ask which sales territory the applicant can cover. Stop asking for a resume link. Change the industry options to SaaS, fintech, healthcare and other. Add a LinkedIn profile URL.",
+            "updatedAt": "2026-11-12T22:40:44.021Z"
+          },
+          "audience": {
+            "content": "",
+            "updatedAt": "2026-11-12T00:00:00.000Z"
+          },
+          "exclusions": {
+            "content": "",
+            "updatedAt": "2026-11-12T00:00:00.000Z"
+          },
+          "constraints": {
+            "content": "",
+            "updatedAt": "2026-11-12T00:00:00.000Z"
+          }
+        }
+      },
+      "calls": [
+        {
+          "functionId": "schema-action",
+          "model": "claude-sonnet-5",
+          "startedAt": "2026-11-12T22:40:44.022Z",
+          "ms": 14150,
+          "inputTokens": 3312,
+          "outputTokens": 1388,
+          "cacheReadTokens": 0,
+          "cacheWriteTokens": 0,
+          "costUsd": 0.020504,
+          "output": {
+            "artifactFormSchema": {
+              "name": "Sales Representative Job Application",
+              "description": "Application form for candidates applying to a sales representative position.",
+              "appliedStandards": [],
+              "fields": [
+                {
+                  "key": "fullName",
+                  "label": "Full name",
+                  "type": "string",
+                  "validation": null,
+                  "scale": null,
+                  "required": true
+                },
+                {
+                  "key": "email",
+                  "label": "Email address",
+                  "type": "email",
+                  "validation": null,
+                  "scale": null,
+                  "required": true
+                },
+                {
+                  "key": "linkedinUrl",
+                  "label": "LinkedIn profile URL",
+                  "type": "string",
+                  "validation": null,
+                  "scale": null,
+                  "required": false
+                },
+                {
+                  "key": "industriesSoldInto",
+                  "label": "Industries sold into",
+                  "description": "Select the industry you have sold into",
+                  "type": "select",
+                  "validation": {
+                    "options": [
+                      {
+                        "label": "SaaS",
+                        "value": "saas"
+                      },
+                      {
+                        "label": "Fintech",
+                        "value": "fintech"
+                      },
+                      {
+                        "label": "Healthcare",
+                        "value": "healthcare"
+                      },
+                      {
+                        "label": "Other",
+                        "value": "other"
+                      }
+                    ]
+                  },
+                  "scale": null,
+                  "required": true
+                },
+                {
+                  "key": "yearsOfB2bSalesExperience",
+                  "label": "Years of B2B sales experience",
+                  "description": "Must be between 2 and 5 years",
+                  "tooltip": "Enter a number between 2 and 5",
+                  "type": "number",
+                  "validation": null,
+                  "scale": null,
+                  "required": true
+                },
+                {
+                  "key": "dealClosedDescription",
+                  "label": "Describe a deal you closed",
+                  "description": "Tell us about a significant deal you closed and how you did it",
+                  "type": "string",
+                  "validation": null,
+                  "scale": null,
+                  "required": true
+                },
+                {
+                  "key": "salesTerritory",
+                  "label": "Sales territory you can cover",
+                  "type": "select",
+                  "validation": {
+                    "options": [
+                      {
+                        "label": "North America",
+                        "value": "north_america"
+                      },
+                      {
+                        "label": "Europe",
+                        "value": "europe"
+                      },
+                      {
+                        "label": "Asia Pacific",
+                        "value": "asia_pacific"
+                      },
+                      {
+                        "label": "Latin America",
+                        "value": "latin_america"
+                      },
+                      {
+                        "label": "Middle East & Africa",
+                        "value": "middle_east_africa"
+                      },
+                      {
+                        "label": "Other",
+                        "value": "other"
+                      }
+                    ]
+                  },
+                  "scale": null,
+                  "required": true
+                }
+              ]
+            }
+          }
+        }
+      ],
+      "costUsd": 0.020504,
+      "foregroundMs": 14178,
+      "totalMs": 14178,
+      "notes": []
+    }
+  ],
+  "final": {
+    "base": {
+      "fields": [
+        {
+          "id": "field-ff8e7c2b-2459-4d6f-9128-956e60c080f8",
+          "name": "fullName",
+          "tags": [],
+          "type": {
+            "kind": "text"
+          },
+          "label": "Full name",
+          "origin": "system",
+          "required": true,
+          "constraints": []
+        },
+        {
+          "id": "field-9f40cbd7-a7ab-464a-8136-1e926a20ba7f",
+          "name": "email",
+          "tags": [],
+          "type": {
+            "kind": "text"
+          },
+          "label": "Email address",
+          "origin": "system",
+          "required": true,
+          "constraints": []
+        },
+        {
+          "id": "field-66e9f635-4344-4c55-90e3-0f2afafb4cd7",
+          "name": "linkedinUrl",
+          "tags": [],
+          "type": {
+            "kind": "text"
+          },
+          "label": "LinkedIn profile URL",
+          "origin": "system",
+          "required": false,
+          "constraints": []
+        },
+        {
+          "id": "field-0b0f8982-0eca-4e50-aede-84ee7b2ef552",
+          "name": "industriesSoldInto",
+          "tags": [],
+          "type": {
+            "kind": "select",
+            "options": [
+              {
+                "label": "SaaS",
+                "value": "saas"
+              },
+              {
+                "label": "Fintech",
+                "value": "fintech"
+              },
+              {
+                "label": "Healthcare",
+                "value": "healthcare"
+              },
+              {
+                "label": "Other",
+                "value": "other"
+              }
+            ],
+            "multiple": false
+          },
+          "label": "Industries sold into",
+          "origin": "system",
+          "required": true,
+          "constraints": [],
+          "description": "Select the industry you have sold into"
+        },
+        {
+          "id": "field-153d3ffd-221e-4eca-9232-317c02d08bf6",
+          "name": "yearsOfB2bSalesExperience",
+          "tags": [],
+          "type": {
+            "kind": "number"
+          },
+          "label": "Years of B2B sales experience",
+          "origin": "system",
+          "tooltip": "Enter a number between 2 and 5",
+          "required": true,
+          "constraints": [],
+          "description": "Must be between 2 and 5 years"
+        },
+        {
+          "id": "field-b3d72f0f-5335-4f34-87f0-ffd53eb84d23",
+          "name": "dealClosedDescription",
+          "tags": [],
+          "type": {
+            "kind": "text"
+          },
+          "label": "Describe a deal you closed",
+          "origin": "system",
+          "required": true,
+          "constraints": [],
+          "description": "Tell us about a significant deal you closed and how you did it"
+        },
+        {
+          "id": "field-4683035e-08b1-44cb-8ea2-3af993c2f881",
+          "name": "salesTerritory",
+          "tags": [],
+          "type": {
+            "kind": "select",
+            "options": [
+              {
+                "label": "North America",
+                "value": "north_america"
+              },
+              {
+                "label": "Europe",
+                "value": "europe"
+              },
+              {
+                "label": "Asia Pacific",
+                "value": "asia_pacific"
+              },
+              {
+                "label": "Latin America",
+                "value": "latin_america"
+              },
+              {
+                "label": "Middle East & Africa",
+                "value": "middle_east_africa"
+              },
+              {
+                "label": "Other",
+                "value": "other"
+              }
+            ],
+            "multiple": false
+          },
+          "label": "Sales territory you can cover",
+          "origin": "system",
+          "required": true,
+          "constraints": []
+        }
+      ],
+      "groups": [],
+      "version": 8
+    },
+    "derived": {
+      "phone-screen": {
+        "fields": [
+          {
+            "id": "field-555396ef-e225-4859-a43a-24d39eff05bd",
+            "name": "fullName",
+            "tags": [],
+            "type": {
+              "kind": "text"
+            },
+            "label": "Full name",
+            "origin": "system",
+            "required": true,
+            "constraints": []
+          },
+          {
+            "id": "field-73a636c4-842d-44b3-b97c-59b259bcf099",
+            "name": "email",
+            "tags": [],
+            "type": {
+              "kind": "text"
+            },
+            "label": "Email address",
+            "origin": "system",
+            "required": true,
+            "constraints": []
+          },
+          {
+            "id": "field-17a29e19-48a2-4b64-a936-08660f0aeb0b",
+            "name": "phoneNumber",
+            "tags": [],
+            "type": {
+              "kind": "text"
+            },
+            "label": "Phone number",
+            "origin": "system",
+            "required": true,
+            "constraints": []
+          },
+          {
+            "id": "field-2a6d8a34-f1fe-47d6-b35e-87a4d4eedea5",
+            "name": "industriesSoldInto",
+            "tags": [],
+            "type": {
+              "kind": "select",
+              "options": [
+                {
+                  "label": "Technology",
+                  "value": "technology"
+                },
+                {
+                  "label": "Healthcare",
+                  "value": "healthcare"
+                },
+                {
+                  "label": "Finance",
+                  "value": "finance"
+                },
+                {
+                  "label": "Retail",
+                  "value": "retail"
+                },
+                {
+                  "label": "Manufacturing",
+                  "value": "manufacturing"
+                },
+                {
+                  "label": "Other",
+                  "value": "other"
+                }
+              ],
+              "multiple": false
+            },
+            "label": "Industries sold into",
+            "origin": "system",
+            "required": true,
+            "constraints": [],
+            "description": "Primary industry background in B2B sales"
+          },
+          {
+            "id": "field-0c986e79-69d7-49c1-a7a7-70991ea74c9e",
+            "name": "yearsB2bSalesExperience",
+            "tags": [],
+            "type": {
+              "kind": "number"
+            },
+            "label": "Years of B2B sales experience",
+            "origin": "system",
+            "tooltip": "Enter a whole number between 2 and 5",
+            "required": true,
+            "constraints": [],
+            "description": "Must be between 2 and 5 years"
+          },
+          {
+            "id": "field-3d201acc-b8d0-480c-adee-cbea513eeea2",
+            "name": "dealClosedDescription",
+            "tags": [],
+            "type": {
+              "kind": "text"
+            },
+            "label": "Describe a deal you closed",
+            "origin": "system",
+            "required": true,
+            "constraints": [],
+            "description": "Tell us about a specific B2B deal you closed, including the challenge and outcome"
+          },
+          {
+            "id": "field-ae524732-8ada-4107-90ba-0c1a966066bb",
+            "name": "salesTerritory",
+            "tags": [],
+            "type": {
+              "kind": "select",
+              "options": [
+                {
+                  "label": "Northeast",
+                  "value": "northeast"
+                },
+                {
+                  "label": "Southeast",
+                  "value": "southeast"
+                },
+                {
+                  "label": "Midwest",
+                  "value": "midwest"
+                },
+                {
+                  "label": "West",
+                  "value": "west"
+                },
+                {
+                  "label": "Southwest",
+                  "value": "southwest"
+                },
+                {
+                  "label": "National",
+                  "value": "national"
+                },
+                {
+                  "label": "International",
+                  "value": "international"
+                }
+              ],
+              "multiple": false
+            },
+            "label": "Sales territory you can cover",
+            "origin": "system",
+            "required": true,
+            "constraints": []
+          }
+        ],
+        "groups": [],
+        "version": 1
+      }
+    }
+  }
+}

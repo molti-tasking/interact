@@ -1,0 +1,5201 @@
+{
+  "scenario": "soccer",
+  "pipeline": "W",
+  "rep": 5,
+  "status": "completed",
+  "startedAt": "2026-11-12T22:31:36.683Z",
+  "finishedAt": "2026-11-12T22:32:48.946Z",
+  "requests": [
+    {
+      "id": "soccer-1",
+      "kind": "add",
+      "target": "base",
+      "request": "The league now requires proof of residency: we need to collect the family's home address and a document upload as proof.",
+      "before": {
+        "schema": {
+          "fields": [
+            {
+              "id": "field-f8453450-f9ca-481b-9236-a3cfd7e25e9a",
+              "name": "playerFullName",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Player's full name",
+              "origin": "system",
+              "required": true,
+              "constraints": []
+            },
+            {
+              "id": "field-4cb4ad90-6899-4d87-aad2-e63a4c56d5c7",
+              "name": "playerDateOfBirth",
+              "tags": [],
+              "type": {
+                "kind": "date"
+              },
+              "label": "Player's date of birth",
+              "origin": "system",
+              "required": true,
+              "constraints": [],
+              "description": "Must be between ages 9 and 14"
+            },
+            {
+              "id": "field-a0590e17-b4e6-4431-9da8-bb36b2d4bf2e",
+              "name": "parentGuardianName",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Parent/guardian full name",
+              "origin": "system",
+              "required": true,
+              "constraints": []
+            },
+            {
+              "id": "field-209cdf8c-64c8-453e-9f83-239eb0d32710",
+              "name": "parentGuardianEmail",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Parent/guardian email",
+              "origin": "system",
+              "required": true,
+              "constraints": []
+            },
+            {
+              "id": "field-7674acfd-a42b-473d-abf4-50a79528284d",
+              "name": "parentGuardianPhone",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Parent/guardian phone number",
+              "origin": "system",
+              "required": true,
+              "constraints": []
+            },
+            {
+              "id": "field-c61a77ca-598d-49e2-a67d-d6ca572673a3",
+              "name": "emergencyContactName",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Emergency contact name",
+              "origin": "system",
+              "required": true,
+              "constraints": [],
+              "description": "Someone other than the parent/guardian listed above"
+            },
+            {
+              "id": "field-8e75ea10-eeb5-49ab-90f6-f3fd4b4d34c8",
+              "name": "emergencyContactPhone",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Emergency contact phone number",
+              "origin": "system",
+              "required": true,
+              "constraints": []
+            }
+          ],
+          "groups": [
+            {
+              "id": "section-a4488ed1-f5a3-4992-a484-dd8d8f2a9300",
+              "label": "Player Information",
+              "fieldIds": [
+                "field-f8453450-f9ca-481b-9236-a3cfd7e25e9a",
+                "field-4cb4ad90-6899-4d87-aad2-e63a4c56d5c7"
+              ]
+            },
+            {
+              "id": "section-5f92e3b7-7353-4dc4-a222-46425ea8c8fe",
+              "label": "Parent/Guardian Information",
+              "fieldIds": [
+                "field-a0590e17-b4e6-4431-9da8-bb36b2d4bf2e",
+                "field-209cdf8c-64c8-453e-9f83-239eb0d32710",
+                "field-7674acfd-a42b-473d-abf4-50a79528284d"
+              ]
+            },
+            {
+              "id": "section-cc821286-0574-463c-99e3-b633761aa814",
+              "label": "Emergency Contact",
+              "fieldIds": [
+                "field-c61a77ca-598d-49e2-a67d-d6ca572673a3",
+                "field-8e75ea10-eeb5-49ab-90f6-f3fd4b4d34c8"
+              ]
+            }
+          ],
+          "version": 1
+        },
+        "intent": {
+          "purpose": {
+            "content": "A registration form for youth soccer players between the ages of 9 and 14, collecting personal details, emergency contacts, and handling payment offline.",
+            "updatedAt": "2026-11-12T00:00:00.000Z"
+          },
+          "audience": {
+            "content": "",
+            "updatedAt": "2026-11-12T00:00:00.000Z"
+          },
+          "exclusions": {
+            "content": "",
+            "updatedAt": "2026-11-12T00:00:00.000Z"
+          },
+          "constraints": {
+            "content": "",
+            "updatedAt": "2026-11-12T00:00:00.000Z"
+          }
+        }
+      },
+      "after": {
+        "schema": {
+          "fields": [
+            {
+              "id": "field-4b00c829-d0bb-46f3-a526-f993d0d3c5fb",
+              "name": "playerFullName",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Player's full name",
+              "origin": "system",
+              "required": true,
+              "constraints": []
+            },
+            {
+              "id": "field-0b254cab-3b54-451b-9201-415ba9279b54",
+              "name": "playerDateOfBirth",
+              "tags": [],
+              "type": {
+                "kind": "date"
+              },
+              "label": "Player's date of birth",
+              "origin": "system",
+              "required": true,
+              "constraints": [],
+              "description": "Must be between ages 9 and 14"
+            },
+            {
+              "id": "field-42a51b25-4da5-4f54-9258-c2833e7b2103",
+              "name": "parentGuardianName",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Parent/guardian full name",
+              "origin": "system",
+              "required": true,
+              "constraints": []
+            },
+            {
+              "id": "field-a990d512-8e91-4684-9134-0f87277352f7",
+              "name": "parentGuardianEmail",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Parent/guardian email",
+              "origin": "system",
+              "required": true,
+              "constraints": []
+            },
+            {
+              "id": "field-33a07a5b-8aee-4742-bdf2-cdff10f5e334",
+              "name": "parentGuardianPhone",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Parent/guardian phone number",
+              "origin": "system",
+              "required": true,
+              "constraints": []
+            },
+            {
+              "id": "field-4f732330-5163-4636-a378-d3f5deadb852",
+              "name": "emergencyContactName",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Emergency contact name",
+              "origin": "system",
+              "required": true,
+              "constraints": [],
+              "description": "Someone other than the parent/guardian listed above"
+            },
+            {
+              "id": "field-13426719-dc47-4488-9aba-d48e9ed4a900",
+              "name": "emergencyContactPhone",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Emergency contact phone number",
+              "origin": "system",
+              "required": true,
+              "constraints": []
+            },
+            {
+              "id": "field-885237ea-8c41-4f29-a5b5-32320714db67",
+              "name": "familyHomeAddress",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Family home address",
+              "origin": "system",
+              "required": true,
+              "constraints": [],
+              "description": "Street, city, state, and zip code"
+            },
+            {
+              "id": "field-b8551302-6e46-4907-9e91-2c5cf4f9c11d",
+              "name": "proofOfResidencyDocument",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Proof of residency document",
+              "origin": "system",
+              "required": true,
+              "constraints": [],
+              "description": "Provide a link to or reference of a document (e.g. utility bill, lease) verifying your home address"
+            }
+          ],
+          "groups": [
+            {
+              "id": "section-f49a951d-f475-4abd-a3f2-f9ec642d4db9",
+              "label": "Player Information",
+              "fieldIds": [
+                "field-4b00c829-d0bb-46f3-a526-f993d0d3c5fb",
+                "field-0b254cab-3b54-451b-9201-415ba9279b54"
+              ]
+            },
+            {
+              "id": "section-2e5165b4-cf81-4c23-9c7d-20b1004e08c3",
+              "label": "Parent/Guardian Information",
+              "fieldIds": [
+                "field-42a51b25-4da5-4f54-9258-c2833e7b2103",
+                "field-a990d512-8e91-4684-9134-0f87277352f7",
+                "field-33a07a5b-8aee-4742-bdf2-cdff10f5e334"
+              ]
+            },
+            {
+              "id": "section-6daf8ea0-f013-4496-a852-3f28dad29bb4",
+              "label": "Emergency Contact",
+              "fieldIds": [
+                "field-4f732330-5163-4636-a378-d3f5deadb852",
+                "field-13426719-dc47-4488-9aba-d48e9ed4a900"
+              ]
+            },
+            {
+              "id": "section-f208335e-572c-46f4-95eb-318e9dd24615",
+              "label": "Proof of Residency",
+              "fieldIds": [
+                "field-885237ea-8c41-4f29-a5b5-32320714db67",
+                "field-b8551302-6e46-4907-9e91-2c5cf4f9c11d"
+              ],
+              "description": "Provide the family's home address and a document verifying residency."
+            }
+          ],
+          "version": 2
+        },
+        "intent": {
+          "purpose": {
+            "content": "A registration form for youth soccer players between the ages of 9 and 14, collecting personal details, emergency contacts, and handling payment offline.",
+            "updatedAt": "2026-11-12T00:00:00.000Z"
+          },
+          "audience": {
+            "content": "",
+            "updatedAt": "2026-11-12T00:00:00.000Z"
+          },
+          "exclusions": {
+            "content": "",
+            "updatedAt": "2026-11-12T00:00:00.000Z"
+          },
+          "constraints": {
+            "content": "",
+            "updatedAt": "2026-11-12T00:00:00.000Z"
+          }
+        }
+      },
+      "calls": [
+        {
+          "functionId": "e1-w-change",
+          "model": "claude-sonnet-5",
+          "startedAt": "2026-11-12T22:31:36.699Z",
+          "ms": 9560,
+          "inputTokens": 3431,
+          "outputTokens": 1067,
+          "cacheReadTokens": 0,
+          "cacheWriteTokens": 0,
+          "costUsd": 0.017532,
+          "output": {
+            "artifactFormSchema": {
+              "name": "Youth League Player Registration Form",
+              "description": "Registration form for enrolling a youth player in the league, including player, parent/guardian, emergency contact, and proof of residency details.",
+              "sections": [
+                {
+                  "title": "Player Information",
+                  "description": ""
+                },
+                {
+                  "title": "Parent/Guardian Information",
+                  "description": ""
+                },
+                {
+                  "title": "Emergency Contact",
+                  "description": ""
+                },
+                {
+                  "title": "Proof of Residency",
+                  "description": "Provide the family's home address and a document verifying residency."
+                }
+              ],
+              "fields": [
+                {
+                  "key": "playerFullName",
+                  "label": "Player's full name",
+                  "type": "string",
+                  "validation": null,
+                  "scale": null,
+                  "required": true,
+                  "section": "Player Information"
+                },
+                {
+                  "key": "playerDateOfBirth",
+                  "label": "Player's date of birth",
+                  "description": "Must be between ages 9 and 14",
+                  "type": "date",
+                  "validation": null,
+                  "scale": null,
+                  "required": true,
+                  "section": "Player Information"
+                },
+                {
+                  "key": "parentGuardianName",
+                  "label": "Parent/guardian full name",
+                  "type": "string",
+                  "validation": null,
+                  "scale": null,
+                  "required": true,
+                  "section": "Parent/Guardian Information"
+                },
+                {
+                  "key": "parentGuardianEmail",
+                  "label": "Parent/guardian email",
+                  "type": "string",
+                  "validation": null,
+                  "scale": null,
+                  "required": true,
+                  "section": "Parent/Guardian Information"
+                },
+                {
+                  "key": "parentGuardianPhone",
+                  "label": "Parent/guardian phone number",
+                  "type": "string",
+                  "validation": null,
+                  "scale": null,
+                  "required": true,
+                  "section": "Parent/Guardian Information"
+                },
+                {
+                  "key": "emergencyContactName",
+                  "label": "Emergency contact name",
+                  "description": "Someone other than the parent/guardian listed above",
+                  "type": "string",
+                  "validation": null,
+                  "scale": null,
+                  "required": true,
+                  "section": "Emergency Contact"
+                },
+                {
+                  "key": "emergencyContactPhone",
+                  "label": "Emergency contact phone number",
+                  "type": "string",
+                  "validation": null,
+                  "scale": null,
+                  "required": true,
+                  "section": "Emergency Contact"
+                },
+                {
+                  "key": "familyHomeAddress",
+                  "label": "Family home address",
+                  "description": "Street, city, state, and zip code",
+                  "type": "string",
+                  "validation": null,
+                  "scale": null,
+                  "required": true,
+                  "section": "Proof of Residency"
+                },
+                {
+                  "key": "proofOfResidencyDocument",
+                  "label": "Proof of residency document",
+                  "description": "Provide a link to or reference of a document (e.g. utility bill, lease) verifying your home address",
+                  "type": "string",
+                  "validation": null,
+                  "scale": null,
+                  "required": true,
+                  "section": "Proof of Residency"
+                }
+              ]
+            }
+          }
+        }
+      ],
+      "costUsd": 0.017532,
+      "foregroundMs": 9653,
+      "totalMs": 9653,
+      "notes": []
+    },
+    {
+      "id": "soccer-2",
+      "kind": "add",
+      "target": "base",
+      "request": "Ask how the emergency contact is related to the player.",
+      "before": {
+        "schema": {
+          "fields": [
+            {
+              "id": "field-4b00c829-d0bb-46f3-a526-f993d0d3c5fb",
+              "name": "playerFullName",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Player's full name",
+              "origin": "system",
+              "required": true,
+              "constraints": []
+            },
+            {
+              "id": "field-0b254cab-3b54-451b-9201-415ba9279b54",
+              "name": "playerDateOfBirth",
+              "tags": [],
+              "type": {
+                "kind": "date"
+              },
+              "label": "Player's date of birth",
+              "origin": "system",
+              "required": true,
+              "constraints": [],
+              "description": "Must be between ages 9 and 14"
+            },
+            {
+              "id": "field-42a51b25-4da5-4f54-9258-c2833e7b2103",
+              "name": "parentGuardianName",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Parent/guardian full name",
+              "origin": "system",
+              "required": true,
+              "constraints": []
+            },
+            {
+              "id": "field-a990d512-8e91-4684-9134-0f87277352f7",
+              "name": "parentGuardianEmail",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Parent/guardian email",
+              "origin": "system",
+              "required": true,
+              "constraints": []
+            },
+            {
+              "id": "field-33a07a5b-8aee-4742-bdf2-cdff10f5e334",
+              "name": "parentGuardianPhone",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Parent/guardian phone number",
+              "origin": "system",
+              "required": true,
+              "constraints": []
+            },
+            {
+              "id": "field-4f732330-5163-4636-a378-d3f5deadb852",
+              "name": "emergencyContactName",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Emergency contact name",
+              "origin": "system",
+              "required": true,
+              "constraints": [],
+              "description": "Someone other than the parent/guardian listed above"
+            },
+            {
+              "id": "field-13426719-dc47-4488-9aba-d48e9ed4a900",
+              "name": "emergencyContactPhone",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Emergency contact phone number",
+              "origin": "system",
+              "required": true,
+              "constraints": []
+            },
+            {
+              "id": "field-885237ea-8c41-4f29-a5b5-32320714db67",
+              "name": "familyHomeAddress",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Family home address",
+              "origin": "system",
+              "required": true,
+              "constraints": [],
+              "description": "Street, city, state, and zip code"
+            },
+            {
+              "id": "field-b8551302-6e46-4907-9e91-2c5cf4f9c11d",
+              "name": "proofOfResidencyDocument",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Proof of residency document",
+              "origin": "system",
+              "required": true,
+              "constraints": [],
+              "description": "Provide a link to or reference of a document (e.g. utility bill, lease) verifying your home address"
+            }
+          ],
+          "groups": [
+            {
+              "id": "section-f49a951d-f475-4abd-a3f2-f9ec642d4db9",
+              "label": "Player Information",
+              "fieldIds": [
+                "field-4b00c829-d0bb-46f3-a526-f993d0d3c5fb",
+                "field-0b254cab-3b54-451b-9201-415ba9279b54"
+              ]
+            },
+            {
+              "id": "section-2e5165b4-cf81-4c23-9c7d-20b1004e08c3",
+              "label": "Parent/Guardian Information",
+              "fieldIds": [
+                "field-42a51b25-4da5-4f54-9258-c2833e7b2103",
+                "field-a990d512-8e91-4684-9134-0f87277352f7",
+                "field-33a07a5b-8aee-4742-bdf2-cdff10f5e334"
+              ]
+            },
+            {
+              "id": "section-6daf8ea0-f013-4496-a852-3f28dad29bb4",
+              "label": "Emergency Contact",
+              "fieldIds": [
+                "field-4f732330-5163-4636-a378-d3f5deadb852",
+                "field-13426719-dc47-4488-9aba-d48e9ed4a900"
+              ]
+            },
+            {
+              "id": "section-f208335e-572c-46f4-95eb-318e9dd24615",
+              "label": "Proof of Residency",
+              "fieldIds": [
+                "field-885237ea-8c41-4f29-a5b5-32320714db67",
+                "field-b8551302-6e46-4907-9e91-2c5cf4f9c11d"
+              ],
+              "description": "Provide the family's home address and a document verifying residency."
+            }
+          ],
+          "version": 2
+        },
+        "intent": {
+          "purpose": {
+            "content": "A registration form for youth soccer players between the ages of 9 and 14, collecting personal details, emergency contacts, and handling payment offline.",
+            "updatedAt": "2026-11-12T00:00:00.000Z"
+          },
+          "audience": {
+            "content": "",
+            "updatedAt": "2026-11-12T00:00:00.000Z"
+          },
+          "exclusions": {
+            "content": "",
+            "updatedAt": "2026-11-12T00:00:00.000Z"
+          },
+          "constraints": {
+            "content": "",
+            "updatedAt": "2026-11-12T00:00:00.000Z"
+          }
+        }
+      },
+      "after": {
+        "schema": {
+          "fields": [
+            {
+              "id": "field-3cac1ff6-5815-48e1-9195-c5210ac73a86",
+              "name": "playerFullName",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Player's full name",
+              "origin": "system",
+              "required": true,
+              "constraints": []
+            },
+            {
+              "id": "field-35785d8b-5bd7-4ffd-8a04-c08df175f9e1",
+              "name": "playerDateOfBirth",
+              "tags": [],
+              "type": {
+                "kind": "date"
+              },
+              "label": "Player's date of birth",
+              "origin": "system",
+              "required": true,
+              "constraints": [],
+              "description": "Must be between ages 9 and 14"
+            },
+            {
+              "id": "field-461497b1-3e61-4650-8660-c85cacfeac25",
+              "name": "parentGuardianName",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Parent/guardian full name",
+              "origin": "system",
+              "required": true,
+              "constraints": []
+            },
+            {
+              "id": "field-51a3c73b-c0f6-4532-9ed6-73550a2921df",
+              "name": "parentGuardianEmail",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Parent/guardian email",
+              "origin": "system",
+              "required": true,
+              "constraints": []
+            },
+            {
+              "id": "field-da693545-4719-43d2-8cc7-bc0a5d841ed9",
+              "name": "parentGuardianPhone",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Parent/guardian phone number",
+              "origin": "system",
+              "required": true,
+              "constraints": []
+            },
+            {
+              "id": "field-77167be7-72a2-46e8-889f-f4b49fcbcea5",
+              "name": "emergencyContactName",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Emergency contact name",
+              "origin": "system",
+              "required": true,
+              "constraints": [],
+              "description": "Someone other than the parent/guardian listed above"
+            },
+            {
+              "id": "field-3641c2a9-be54-426f-bd42-47e1300e903c",
+              "name": "emergencyContactPhone",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Emergency contact phone number",
+              "origin": "system",
+              "required": true,
+              "constraints": []
+            },
+            {
+              "id": "field-03117d4c-7960-4c73-8699-6321026870df",
+              "name": "emergencyContactRelationship",
+              "tags": [],
+              "type": {
+                "kind": "select",
+                "options": [
+                  {
+                    "label": "Grandparent",
+                    "value": "grandparent"
+                  },
+                  {
+                    "label": "Aunt/Uncle",
+                    "value": "auntUncle"
+                  },
+                  {
+                    "label": "Sibling",
+                    "value": "sibling"
+                  },
+                  {
+                    "label": "Family friend",
+                    "value": "familyFriend"
+                  },
+                  {
+                    "label": "Other relative",
+                    "value": "otherRelative"
+                  },
+                  {
+                    "label": "Other",
+                    "value": "other"
+                  }
+                ],
+                "multiple": false
+              },
+              "label": "Emergency contact's relationship to player",
+              "origin": "system",
+              "required": true,
+              "constraints": []
+            },
+            {
+              "id": "field-4627376c-85a5-43a0-8103-496137bdcf15",
+              "name": "familyHomeAddress",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Family home address",
+              "origin": "system",
+              "required": true,
+              "constraints": [],
+              "description": "Street, city, state, and zip code"
+            },
+            {
+              "id": "field-a0a34e85-aba8-463e-a41c-09467c8a2301",
+              "name": "proofOfResidencyDocument",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Proof of residency document",
+              "origin": "system",
+              "required": true,
+              "constraints": [],
+              "description": "Provide a link to or reference of a document (e.g. utility bill, lease) verifying your home address"
+            }
+          ],
+          "groups": [
+            {
+              "id": "section-29051b99-f913-4f3e-9aa5-fb1900d94a62",
+              "label": "Player Information",
+              "fieldIds": [
+                "field-3cac1ff6-5815-48e1-9195-c5210ac73a86",
+                "field-35785d8b-5bd7-4ffd-8a04-c08df175f9e1"
+              ]
+            },
+            {
+              "id": "section-08cf92eb-b470-4822-824f-630d267d4d87",
+              "label": "Parent/Guardian Information",
+              "fieldIds": [
+                "field-461497b1-3e61-4650-8660-c85cacfeac25",
+                "field-51a3c73b-c0f6-4532-9ed6-73550a2921df",
+                "field-da693545-4719-43d2-8cc7-bc0a5d841ed9"
+              ]
+            },
+            {
+              "id": "section-d2a283ef-bed3-4bb5-9ba2-a9cfe54a5ee5",
+              "label": "Emergency Contact",
+              "fieldIds": [
+                "field-77167be7-72a2-46e8-889f-f4b49fcbcea5",
+                "field-3641c2a9-be54-426f-bd42-47e1300e903c",
+                "field-03117d4c-7960-4c73-8699-6321026870df"
+              ]
+            },
+            {
+              "id": "section-51a58f17-b6dc-4a18-abf0-5499e6210e2a",
+              "label": "Proof of Residency",
+              "fieldIds": [
+                "field-4627376c-85a5-43a0-8103-496137bdcf15",
+                "field-a0a34e85-aba8-463e-a41c-09467c8a2301"
+              ]
+            }
+          ],
+          "version": 3
+        },
+        "intent": {
+          "purpose": {
+            "content": "A registration form for youth soccer players between the ages of 9 and 14, collecting personal details, emergency contacts, and handling payment offline.",
+            "updatedAt": "2026-11-12T00:00:00.000Z"
+          },
+          "audience": {
+            "content": "",
+            "updatedAt": "2026-11-12T00:00:00.000Z"
+          },
+          "exclusions": {
+            "content": "",
+            "updatedAt": "2026-11-12T00:00:00.000Z"
+          },
+          "constraints": {
+            "content": "",
+            "updatedAt": "2026-11-12T00:00:00.000Z"
+          }
+        }
+      },
+      "calls": [
+        {
+          "functionId": "e1-w-change",
+          "model": "claude-sonnet-5",
+          "startedAt": "2026-11-12T22:31:46.377Z",
+          "ms": 7589,
+          "inputTokens": 3601,
+          "outputTokens": 917,
+          "cacheReadTokens": 0,
+          "cacheWriteTokens": 0,
+          "costUsd": 0.016372,
+          "output": {
+            "artifactFormSchema": {
+              "name": "Youth Baseball League Registration",
+              "description": "Registration form for youth baseball league players, completed by a parent or guardian.",
+              "fields": [
+                {
+                  "key": "playerFullName",
+                  "label": "Player's full name",
+                  "type": "string",
+                  "validation": null,
+                  "scale": null,
+                  "required": true,
+                  "section": "Player Information"
+                },
+                {
+                  "key": "playerDateOfBirth",
+                  "label": "Player's date of birth",
+                  "description": "Must be between ages 9 and 14",
+                  "type": "date",
+                  "validation": null,
+                  "scale": null,
+                  "required": true,
+                  "section": "Player Information"
+                },
+                {
+                  "key": "parentGuardianName",
+                  "label": "Parent/guardian full name",
+                  "type": "string",
+                  "validation": null,
+                  "scale": null,
+                  "required": true,
+                  "section": "Parent/Guardian Information"
+                },
+                {
+                  "key": "parentGuardianEmail",
+                  "label": "Parent/guardian email",
+                  "type": "string",
+                  "validation": null,
+                  "scale": null,
+                  "required": true,
+                  "section": "Parent/Guardian Information"
+                },
+                {
+                  "key": "parentGuardianPhone",
+                  "label": "Parent/guardian phone number",
+                  "type": "string",
+                  "validation": null,
+                  "scale": null,
+                  "required": true,
+                  "section": "Parent/Guardian Information"
+                },
+                {
+                  "key": "emergencyContactName",
+                  "label": "Emergency contact name",
+                  "description": "Someone other than the parent/guardian listed above",
+                  "type": "string",
+                  "validation": null,
+                  "scale": null,
+                  "required": true,
+                  "section": "Emergency Contact"
+                },
+                {
+                  "key": "emergencyContactPhone",
+                  "label": "Emergency contact phone number",
+                  "type": "string",
+                  "validation": null,
+                  "scale": null,
+                  "required": true,
+                  "section": "Emergency Contact"
+                },
+                {
+                  "key": "emergencyContactRelationship",
+                  "label": "Emergency contact's relationship to player",
+                  "type": "select",
+                  "validation": {
+                    "options": [
+                      {
+                        "label": "Grandparent",
+                        "value": "grandparent"
+                      },
+                      {
+                        "label": "Aunt/Uncle",
+                        "value": "auntUncle"
+                      },
+                      {
+                        "label": "Sibling",
+                        "value": "sibling"
+                      },
+                      {
+                        "label": "Family friend",
+                        "value": "familyFriend"
+                      },
+                      {
+                        "label": "Other relative",
+                        "value": "otherRelative"
+                      },
+                      {
+                        "label": "Other",
+                        "value": "other"
+                      }
+                    ]
+                  },
+                  "scale": null,
+                  "required": true,
+                  "section": "Emergency Contact"
+                },
+                {
+                  "key": "familyHomeAddress",
+                  "label": "Family home address",
+                  "description": "Street, city, state, and zip code",
+                  "type": "string",
+                  "validation": null,
+                  "scale": null,
+                  "required": true,
+                  "section": "Proof of Residency"
+                },
+                {
+                  "key": "proofOfResidencyDocument",
+                  "label": "Proof of residency document",
+                  "description": "Provide a link to or reference of a document (e.g. utility bill, lease) verifying your home address",
+                  "type": "string",
+                  "validation": null,
+                  "scale": null,
+                  "required": true,
+                  "section": "Proof of Residency"
+                }
+              ]
+            }
+          }
+        }
+      ],
+      "costUsd": 0.016372,
+      "foregroundMs": 7616,
+      "totalMs": 7616,
+      "notes": []
+    },
+    {
+      "id": "soccer-3",
+      "kind": "change",
+      "target": "base",
+      "request": "The emergency contact phone number should be optional; many families give the same number as the parent's.",
+      "before": {
+        "schema": {
+          "fields": [
+            {
+              "id": "field-3cac1ff6-5815-48e1-9195-c5210ac73a86",
+              "name": "playerFullName",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Player's full name",
+              "origin": "system",
+              "required": true,
+              "constraints": []
+            },
+            {
+              "id": "field-35785d8b-5bd7-4ffd-8a04-c08df175f9e1",
+              "name": "playerDateOfBirth",
+              "tags": [],
+              "type": {
+                "kind": "date"
+              },
+              "label": "Player's date of birth",
+              "origin": "system",
+              "required": true,
+              "constraints": [],
+              "description": "Must be between ages 9 and 14"
+            },
+            {
+              "id": "field-461497b1-3e61-4650-8660-c85cacfeac25",
+              "name": "parentGuardianName",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Parent/guardian full name",
+              "origin": "system",
+              "required": true,
+              "constraints": []
+            },
+            {
+              "id": "field-51a3c73b-c0f6-4532-9ed6-73550a2921df",
+              "name": "parentGuardianEmail",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Parent/guardian email",
+              "origin": "system",
+              "required": true,
+              "constraints": []
+            },
+            {
+              "id": "field-da693545-4719-43d2-8cc7-bc0a5d841ed9",
+              "name": "parentGuardianPhone",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Parent/guardian phone number",
+              "origin": "system",
+              "required": true,
+              "constraints": []
+            },
+            {
+              "id": "field-77167be7-72a2-46e8-889f-f4b49fcbcea5",
+              "name": "emergencyContactName",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Emergency contact name",
+              "origin": "system",
+              "required": true,
+              "constraints": [],
+              "description": "Someone other than the parent/guardian listed above"
+            },
+            {
+              "id": "field-3641c2a9-be54-426f-bd42-47e1300e903c",
+              "name": "emergencyContactPhone",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Emergency contact phone number",
+              "origin": "system",
+              "required": true,
+              "constraints": []
+            },
+            {
+              "id": "field-03117d4c-7960-4c73-8699-6321026870df",
+              "name": "emergencyContactRelationship",
+              "tags": [],
+              "type": {
+                "kind": "select",
+                "options": [
+                  {
+                    "label": "Grandparent",
+                    "value": "grandparent"
+                  },
+                  {
+                    "label": "Aunt/Uncle",
+                    "value": "auntUncle"
+                  },
+                  {
+                    "label": "Sibling",
+                    "value": "sibling"
+                  },
+                  {
+                    "label": "Family friend",
+                    "value": "familyFriend"
+                  },
+                  {
+                    "label": "Other relative",
+                    "value": "otherRelative"
+                  },
+                  {
+                    "label": "Other",
+                    "value": "other"
+                  }
+                ],
+                "multiple": false
+              },
+              "label": "Emergency contact's relationship to player",
+              "origin": "system",
+              "required": true,
+              "constraints": []
+            },
+            {
+              "id": "field-4627376c-85a5-43a0-8103-496137bdcf15",
+              "name": "familyHomeAddress",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Family home address",
+              "origin": "system",
+              "required": true,
+              "constraints": [],
+              "description": "Street, city, state, and zip code"
+            },
+            {
+              "id": "field-a0a34e85-aba8-463e-a41c-09467c8a2301",
+              "name": "proofOfResidencyDocument",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Proof of residency document",
+              "origin": "system",
+              "required": true,
+              "constraints": [],
+              "description": "Provide a link to or reference of a document (e.g. utility bill, lease) verifying your home address"
+            }
+          ],
+          "groups": [
+            {
+              "id": "section-29051b99-f913-4f3e-9aa5-fb1900d94a62",
+              "label": "Player Information",
+              "fieldIds": [
+                "field-3cac1ff6-5815-48e1-9195-c5210ac73a86",
+                "field-35785d8b-5bd7-4ffd-8a04-c08df175f9e1"
+              ]
+            },
+            {
+              "id": "section-08cf92eb-b470-4822-824f-630d267d4d87",
+              "label": "Parent/Guardian Information",
+              "fieldIds": [
+                "field-461497b1-3e61-4650-8660-c85cacfeac25",
+                "field-51a3c73b-c0f6-4532-9ed6-73550a2921df",
+                "field-da693545-4719-43d2-8cc7-bc0a5d841ed9"
+              ]
+            },
+            {
+              "id": "section-d2a283ef-bed3-4bb5-9ba2-a9cfe54a5ee5",
+              "label": "Emergency Contact",
+              "fieldIds": [
+                "field-77167be7-72a2-46e8-889f-f4b49fcbcea5",
+                "field-3641c2a9-be54-426f-bd42-47e1300e903c",
+                "field-03117d4c-7960-4c73-8699-6321026870df"
+              ]
+            },
+            {
+              "id": "section-51a58f17-b6dc-4a18-abf0-5499e6210e2a",
+              "label": "Proof of Residency",
+              "fieldIds": [
+                "field-4627376c-85a5-43a0-8103-496137bdcf15",
+                "field-a0a34e85-aba8-463e-a41c-09467c8a2301"
+              ]
+            }
+          ],
+          "version": 3
+        },
+        "intent": {
+          "purpose": {
+            "content": "A registration form for youth soccer players between the ages of 9 and 14, collecting personal details, emergency contacts, and handling payment offline.",
+            "updatedAt": "2026-11-12T00:00:00.000Z"
+          },
+          "audience": {
+            "content": "",
+            "updatedAt": "2026-11-12T00:00:00.000Z"
+          },
+          "exclusions": {
+            "content": "",
+            "updatedAt": "2026-11-12T00:00:00.000Z"
+          },
+          "constraints": {
+            "content": "",
+            "updatedAt": "2026-11-12T00:00:00.000Z"
+          }
+        }
+      },
+      "after": {
+        "schema": {
+          "fields": [
+            {
+              "id": "field-ee79058e-a168-4e18-bce8-8ef72aecd88b",
+              "name": "playerFullName",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Player's full name",
+              "origin": "system",
+              "required": true,
+              "constraints": []
+            },
+            {
+              "id": "field-d44570bf-bde8-465e-b844-e4bda976b0b1",
+              "name": "playerDateOfBirth",
+              "tags": [],
+              "type": {
+                "kind": "date"
+              },
+              "label": "Player's date of birth",
+              "origin": "system",
+              "required": true,
+              "constraints": [],
+              "description": "Must be between ages 9 and 14"
+            },
+            {
+              "id": "field-dea00a73-2525-4117-bde9-409369021b0d",
+              "name": "parentGuardianName",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Parent/guardian full name",
+              "origin": "system",
+              "required": true,
+              "constraints": []
+            },
+            {
+              "id": "field-e95f259f-89a5-4632-b525-42d3dbc6c359",
+              "name": "parentGuardianEmail",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Parent/guardian email",
+              "origin": "system",
+              "required": true,
+              "constraints": []
+            },
+            {
+              "id": "field-cf96ee4d-c8b1-4679-9425-1a255bb22bfe",
+              "name": "parentGuardianPhone",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Parent/guardian phone number",
+              "origin": "system",
+              "required": true,
+              "constraints": []
+            },
+            {
+              "id": "field-9ba8b270-70cd-46e2-ad15-6313d4eb2a13",
+              "name": "emergencyContactName",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Emergency contact name",
+              "origin": "system",
+              "required": true,
+              "constraints": [],
+              "description": "Someone other than the parent/guardian listed above"
+            },
+            {
+              "id": "field-9b743ecc-a161-45d1-9543-7c0f2367e683",
+              "name": "emergencyContactPhone",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Emergency contact phone number",
+              "origin": "system",
+              "required": false,
+              "constraints": []
+            },
+            {
+              "id": "field-c4fe6960-7ef1-4cdf-a4fe-3e0347ec1352",
+              "name": "emergencyContactRelationship",
+              "tags": [],
+              "type": {
+                "kind": "select",
+                "options": [
+                  {
+                    "label": "Grandparent",
+                    "value": "grandparent"
+                  },
+                  {
+                    "label": "Aunt/Uncle",
+                    "value": "auntUncle"
+                  },
+                  {
+                    "label": "Sibling",
+                    "value": "sibling"
+                  },
+                  {
+                    "label": "Family friend",
+                    "value": "familyFriend"
+                  },
+                  {
+                    "label": "Other relative",
+                    "value": "otherRelative"
+                  },
+                  {
+                    "label": "Other",
+                    "value": "other"
+                  }
+                ],
+                "multiple": false
+              },
+              "label": "Emergency contact's relationship to player",
+              "origin": "system",
+              "required": true,
+              "constraints": []
+            },
+            {
+              "id": "field-a1bfff16-2dd8-4dbe-8028-5c62201b4f28",
+              "name": "familyHomeAddress",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Family home address",
+              "origin": "system",
+              "required": true,
+              "constraints": [],
+              "description": "Street, city, state, and zip code"
+            },
+            {
+              "id": "field-1b3af3f7-6d4d-47f5-8145-46a13dbef88c",
+              "name": "proofOfResidencyDocument",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Proof of residency document",
+              "origin": "system",
+              "required": true,
+              "constraints": [],
+              "description": "Provide a link to or reference of a document (e.g. utility bill, lease) verifying your home address"
+            }
+          ],
+          "groups": [
+            {
+              "id": "section-a8815542-26c5-4b75-ba7e-d1b38a02e20f",
+              "label": "Player Information",
+              "fieldIds": [
+                "field-ee79058e-a168-4e18-bce8-8ef72aecd88b",
+                "field-d44570bf-bde8-465e-b844-e4bda976b0b1"
+              ]
+            },
+            {
+              "id": "section-38c4c7a4-65b4-4518-970b-c1cb46f5f890",
+              "label": "Parent/Guardian Information",
+              "fieldIds": [
+                "field-dea00a73-2525-4117-bde9-409369021b0d",
+                "field-e95f259f-89a5-4632-b525-42d3dbc6c359",
+                "field-cf96ee4d-c8b1-4679-9425-1a255bb22bfe"
+              ]
+            },
+            {
+              "id": "section-d5af62f9-d01b-42dd-bc94-e6e83e8e2a49",
+              "label": "Emergency Contact",
+              "fieldIds": [
+                "field-9ba8b270-70cd-46e2-ad15-6313d4eb2a13",
+                "field-9b743ecc-a161-45d1-9543-7c0f2367e683",
+                "field-c4fe6960-7ef1-4cdf-a4fe-3e0347ec1352"
+              ]
+            },
+            {
+              "id": "section-fb73c6f7-9dd1-4b6b-b94f-e428d8680a5c",
+              "label": "Proof of Residency",
+              "fieldIds": [
+                "field-a1bfff16-2dd8-4dbe-8028-5c62201b4f28",
+                "field-1b3af3f7-6d4d-47f5-8145-46a13dbef88c"
+              ]
+            }
+          ],
+          "version": 4
+        },
+        "intent": {
+          "purpose": {
+            "content": "A registration form for youth soccer players between the ages of 9 and 14, collecting personal details, emergency contacts, and handling payment offline.",
+            "updatedAt": "2026-11-12T00:00:00.000Z"
+          },
+          "audience": {
+            "content": "",
+            "updatedAt": "2026-11-12T00:00:00.000Z"
+          },
+          "exclusions": {
+            "content": "",
+            "updatedAt": "2026-11-12T00:00:00.000Z"
+          },
+          "constraints": {
+            "content": "",
+            "updatedAt": "2026-11-12T00:00:00.000Z"
+          }
+        }
+      },
+      "calls": [
+        {
+          "functionId": "e1-w-change",
+          "model": "claude-sonnet-5",
+          "startedAt": "2026-11-12T22:31:54.001Z",
+          "ms": 6844,
+          "inputTokens": 3873,
+          "outputTokens": 869,
+          "cacheReadTokens": 0,
+          "cacheWriteTokens": 0,
+          "costUsd": 0.016436,
+          "output": {
+            "artifactFormSchema": {
+              "name": "Little League Registration",
+              "description": "Registration form for youth league players, completed by a parent or guardian.",
+              "fields": [
+                {
+                  "key": "playerFullName",
+                  "label": "Player's full name",
+                  "type": "string",
+                  "validation": null,
+                  "scale": null,
+                  "required": true,
+                  "section": "Player Information"
+                },
+                {
+                  "key": "playerDateOfBirth",
+                  "label": "Player's date of birth",
+                  "description": "Must be between ages 9 and 14",
+                  "type": "date",
+                  "validation": null,
+                  "scale": null,
+                  "required": true,
+                  "section": "Player Information"
+                },
+                {
+                  "key": "parentGuardianName",
+                  "label": "Parent/guardian full name",
+                  "type": "string",
+                  "validation": null,
+                  "scale": null,
+                  "required": true,
+                  "section": "Parent/Guardian Information"
+                },
+                {
+                  "key": "parentGuardianEmail",
+                  "label": "Parent/guardian email",
+                  "type": "string",
+                  "validation": null,
+                  "scale": null,
+                  "required": true,
+                  "section": "Parent/Guardian Information"
+                },
+                {
+                  "key": "parentGuardianPhone",
+                  "label": "Parent/guardian phone number",
+                  "type": "string",
+                  "validation": null,
+                  "scale": null,
+                  "required": true,
+                  "section": "Parent/Guardian Information"
+                },
+                {
+                  "key": "emergencyContactName",
+                  "label": "Emergency contact name",
+                  "description": "Someone other than the parent/guardian listed above",
+                  "type": "string",
+                  "validation": null,
+                  "scale": null,
+                  "required": true,
+                  "section": "Emergency Contact"
+                },
+                {
+                  "key": "emergencyContactPhone",
+                  "label": "Emergency contact phone number",
+                  "type": "string",
+                  "validation": null,
+                  "scale": null,
+                  "required": false,
+                  "section": "Emergency Contact"
+                },
+                {
+                  "key": "emergencyContactRelationship",
+                  "label": "Emergency contact's relationship to player",
+                  "type": "select",
+                  "validation": {
+                    "options": [
+                      {
+                        "label": "Grandparent",
+                        "value": "grandparent"
+                      },
+                      {
+                        "label": "Aunt/Uncle",
+                        "value": "auntUncle"
+                      },
+                      {
+                        "label": "Sibling",
+                        "value": "sibling"
+                      },
+                      {
+                        "label": "Family friend",
+                        "value": "familyFriend"
+                      },
+                      {
+                        "label": "Other relative",
+                        "value": "otherRelative"
+                      },
+                      {
+                        "label": "Other",
+                        "value": "other"
+                      }
+                    ]
+                  },
+                  "scale": null,
+                  "required": true,
+                  "section": "Emergency Contact"
+                },
+                {
+                  "key": "familyHomeAddress",
+                  "label": "Family home address",
+                  "description": "Street, city, state, and zip code",
+                  "type": "string",
+                  "validation": null,
+                  "scale": null,
+                  "required": true,
+                  "section": "Proof of Residency"
+                },
+                {
+                  "key": "proofOfResidencyDocument",
+                  "label": "Proof of residency document",
+                  "description": "Provide a link to or reference of a document (e.g. utility bill, lease) verifying your home address",
+                  "type": "string",
+                  "validation": null,
+                  "scale": null,
+                  "required": true,
+                  "section": "Proof of Residency"
+                }
+              ]
+            }
+          }
+        }
+      ],
+      "costUsd": 0.016436,
+      "foregroundMs": 6878,
+      "totalMs": 6878,
+      "notes": []
+    },
+    {
+      "id": "soccer-4",
+      "kind": "remove",
+      "target": "base",
+      "request": "We no longer need the parent or guardian's full name; the email and phone number are enough.",
+      "before": {
+        "schema": {
+          "fields": [
+            {
+              "id": "field-ee79058e-a168-4e18-bce8-8ef72aecd88b",
+              "name": "playerFullName",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Player's full name",
+              "origin": "system",
+              "required": true,
+              "constraints": []
+            },
+            {
+              "id": "field-d44570bf-bde8-465e-b844-e4bda976b0b1",
+              "name": "playerDateOfBirth",
+              "tags": [],
+              "type": {
+                "kind": "date"
+              },
+              "label": "Player's date of birth",
+              "origin": "system",
+              "required": true,
+              "constraints": [],
+              "description": "Must be between ages 9 and 14"
+            },
+            {
+              "id": "field-dea00a73-2525-4117-bde9-409369021b0d",
+              "name": "parentGuardianName",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Parent/guardian full name",
+              "origin": "system",
+              "required": true,
+              "constraints": []
+            },
+            {
+              "id": "field-e95f259f-89a5-4632-b525-42d3dbc6c359",
+              "name": "parentGuardianEmail",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Parent/guardian email",
+              "origin": "system",
+              "required": true,
+              "constraints": []
+            },
+            {
+              "id": "field-cf96ee4d-c8b1-4679-9425-1a255bb22bfe",
+              "name": "parentGuardianPhone",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Parent/guardian phone number",
+              "origin": "system",
+              "required": true,
+              "constraints": []
+            },
+            {
+              "id": "field-9ba8b270-70cd-46e2-ad15-6313d4eb2a13",
+              "name": "emergencyContactName",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Emergency contact name",
+              "origin": "system",
+              "required": true,
+              "constraints": [],
+              "description": "Someone other than the parent/guardian listed above"
+            },
+            {
+              "id": "field-9b743ecc-a161-45d1-9543-7c0f2367e683",
+              "name": "emergencyContactPhone",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Emergency contact phone number",
+              "origin": "system",
+              "required": false,
+              "constraints": []
+            },
+            {
+              "id": "field-c4fe6960-7ef1-4cdf-a4fe-3e0347ec1352",
+              "name": "emergencyContactRelationship",
+              "tags": [],
+              "type": {
+                "kind": "select",
+                "options": [
+                  {
+                    "label": "Grandparent",
+                    "value": "grandparent"
+                  },
+                  {
+                    "label": "Aunt/Uncle",
+                    "value": "auntUncle"
+                  },
+                  {
+                    "label": "Sibling",
+                    "value": "sibling"
+                  },
+                  {
+                    "label": "Family friend",
+                    "value": "familyFriend"
+                  },
+                  {
+                    "label": "Other relative",
+                    "value": "otherRelative"
+                  },
+                  {
+                    "label": "Other",
+                    "value": "other"
+                  }
+                ],
+                "multiple": false
+              },
+              "label": "Emergency contact's relationship to player",
+              "origin": "system",
+              "required": true,
+              "constraints": []
+            },
+            {
+              "id": "field-a1bfff16-2dd8-4dbe-8028-5c62201b4f28",
+              "name": "familyHomeAddress",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Family home address",
+              "origin": "system",
+              "required": true,
+              "constraints": [],
+              "description": "Street, city, state, and zip code"
+            },
+            {
+              "id": "field-1b3af3f7-6d4d-47f5-8145-46a13dbef88c",
+              "name": "proofOfResidencyDocument",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Proof of residency document",
+              "origin": "system",
+              "required": true,
+              "constraints": [],
+              "description": "Provide a link to or reference of a document (e.g. utility bill, lease) verifying your home address"
+            }
+          ],
+          "groups": [
+            {
+              "id": "section-a8815542-26c5-4b75-ba7e-d1b38a02e20f",
+              "label": "Player Information",
+              "fieldIds": [
+                "field-ee79058e-a168-4e18-bce8-8ef72aecd88b",
+                "field-d44570bf-bde8-465e-b844-e4bda976b0b1"
+              ]
+            },
+            {
+              "id": "section-38c4c7a4-65b4-4518-970b-c1cb46f5f890",
+              "label": "Parent/Guardian Information",
+              "fieldIds": [
+                "field-dea00a73-2525-4117-bde9-409369021b0d",
+                "field-e95f259f-89a5-4632-b525-42d3dbc6c359",
+                "field-cf96ee4d-c8b1-4679-9425-1a255bb22bfe"
+              ]
+            },
+            {
+              "id": "section-d5af62f9-d01b-42dd-bc94-e6e83e8e2a49",
+              "label": "Emergency Contact",
+              "fieldIds": [
+                "field-9ba8b270-70cd-46e2-ad15-6313d4eb2a13",
+                "field-9b743ecc-a161-45d1-9543-7c0f2367e683",
+                "field-c4fe6960-7ef1-4cdf-a4fe-3e0347ec1352"
+              ]
+            },
+            {
+              "id": "section-fb73c6f7-9dd1-4b6b-b94f-e428d8680a5c",
+              "label": "Proof of Residency",
+              "fieldIds": [
+                "field-a1bfff16-2dd8-4dbe-8028-5c62201b4f28",
+                "field-1b3af3f7-6d4d-47f5-8145-46a13dbef88c"
+              ]
+            }
+          ],
+          "version": 4
+        },
+        "intent": {
+          "purpose": {
+            "content": "A registration form for youth soccer players between the ages of 9 and 14, collecting personal details, emergency contacts, and handling payment offline.",
+            "updatedAt": "2026-11-12T00:00:00.000Z"
+          },
+          "audience": {
+            "content": "",
+            "updatedAt": "2026-11-12T00:00:00.000Z"
+          },
+          "exclusions": {
+            "content": "",
+            "updatedAt": "2026-11-12T00:00:00.000Z"
+          },
+          "constraints": {
+            "content": "",
+            "updatedAt": "2026-11-12T00:00:00.000Z"
+          }
+        }
+      },
+      "after": {
+        "schema": {
+          "fields": [
+            {
+              "id": "field-c730d5e9-4233-4551-a449-7f7abcd21623",
+              "name": "playerFullName",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Player's full name",
+              "origin": "system",
+              "required": true,
+              "constraints": []
+            },
+            {
+              "id": "field-0eaa3cca-0612-4f47-a83a-9469f3d91ef9",
+              "name": "playerDateOfBirth",
+              "tags": [],
+              "type": {
+                "kind": "date"
+              },
+              "label": "Player's date of birth",
+              "origin": "system",
+              "required": true,
+              "constraints": [],
+              "description": "Must be between ages 9 and 14"
+            },
+            {
+              "id": "field-8b1a501b-5887-4164-8784-67e2072060ab",
+              "name": "parentGuardianEmail",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Parent/guardian email",
+              "origin": "system",
+              "required": true,
+              "constraints": []
+            },
+            {
+              "id": "field-8c36f9a2-ee80-4fda-ac54-33eb5d43e748",
+              "name": "parentGuardianPhone",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Parent/guardian phone number",
+              "origin": "system",
+              "required": true,
+              "constraints": []
+            },
+            {
+              "id": "field-217a542f-4de5-4c6e-80f8-51ffcf82a0cb",
+              "name": "emergencyContactName",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Emergency contact name",
+              "origin": "system",
+              "required": true,
+              "constraints": [],
+              "description": "Someone other than the parent/guardian listed above"
+            },
+            {
+              "id": "field-ca48818b-9f4c-412e-b33a-a8c990ece5d8",
+              "name": "emergencyContactPhone",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Emergency contact phone number",
+              "origin": "system",
+              "required": false,
+              "constraints": []
+            },
+            {
+              "id": "field-73fa3750-1178-4ab6-91b4-ac8bc547885a",
+              "name": "emergencyContactRelationship",
+              "tags": [],
+              "type": {
+                "kind": "select",
+                "options": [
+                  {
+                    "label": "Grandparent",
+                    "value": "grandparent"
+                  },
+                  {
+                    "label": "Aunt/Uncle",
+                    "value": "auntUncle"
+                  },
+                  {
+                    "label": "Sibling",
+                    "value": "sibling"
+                  },
+                  {
+                    "label": "Family friend",
+                    "value": "familyFriend"
+                  },
+                  {
+                    "label": "Other relative",
+                    "value": "otherRelative"
+                  },
+                  {
+                    "label": "Other",
+                    "value": "other"
+                  }
+                ],
+                "multiple": false
+              },
+              "label": "Emergency contact's relationship to player",
+              "origin": "system",
+              "required": true,
+              "constraints": []
+            },
+            {
+              "id": "field-648d4d0e-1ecb-4ef2-b446-6e6b69890819",
+              "name": "familyHomeAddress",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Family home address",
+              "origin": "system",
+              "required": true,
+              "constraints": [],
+              "description": "Street, city, state, and zip code"
+            },
+            {
+              "id": "field-86fbcb06-d5e0-48d1-9fd9-652c10fde00e",
+              "name": "proofOfResidencyDocument",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Proof of residency document",
+              "origin": "system",
+              "required": true,
+              "constraints": [],
+              "description": "Provide a link to or reference of a document (e.g. utility bill, lease) verifying your home address"
+            }
+          ],
+          "groups": [
+            {
+              "id": "section-e1a28cb8-968d-4ee2-a6bd-945e29884b92",
+              "label": "Player Information",
+              "fieldIds": [
+                "field-c730d5e9-4233-4551-a449-7f7abcd21623",
+                "field-0eaa3cca-0612-4f47-a83a-9469f3d91ef9"
+              ]
+            },
+            {
+              "id": "section-acf4074f-a859-408c-b3d7-cc0fc32b51a4",
+              "label": "Parent/Guardian Information",
+              "fieldIds": [
+                "field-8b1a501b-5887-4164-8784-67e2072060ab",
+                "field-8c36f9a2-ee80-4fda-ac54-33eb5d43e748"
+              ]
+            },
+            {
+              "id": "section-d7a471c9-b436-4820-b35c-4f396bb539b1",
+              "label": "Emergency Contact",
+              "fieldIds": [
+                "field-217a542f-4de5-4c6e-80f8-51ffcf82a0cb",
+                "field-ca48818b-9f4c-412e-b33a-a8c990ece5d8",
+                "field-73fa3750-1178-4ab6-91b4-ac8bc547885a"
+              ]
+            },
+            {
+              "id": "section-f46d5a86-6f83-48f8-90ae-ba4de04cfd95",
+              "label": "Proof of Residency",
+              "fieldIds": [
+                "field-648d4d0e-1ecb-4ef2-b446-6e6b69890819",
+                "field-86fbcb06-d5e0-48d1-9fd9-652c10fde00e"
+              ]
+            }
+          ],
+          "version": 5
+        },
+        "intent": {
+          "purpose": {
+            "content": "A registration form for youth soccer players between the ages of 9 and 14, collecting personal details, emergency contacts, and handling payment offline.",
+            "updatedAt": "2026-11-12T00:00:00.000Z"
+          },
+          "audience": {
+            "content": "",
+            "updatedAt": "2026-11-12T00:00:00.000Z"
+          },
+          "exclusions": {
+            "content": "",
+            "updatedAt": "2026-11-12T00:00:00.000Z"
+          },
+          "constraints": {
+            "content": "",
+            "updatedAt": "2026-11-12T00:00:00.000Z"
+          }
+        }
+      },
+      "calls": [
+        {
+          "functionId": "e1-w-change",
+          "model": "claude-sonnet-5",
+          "startedAt": "2026-11-12T22:32:00.887Z",
+          "ms": 6960,
+          "inputTokens": 3873,
+          "outputTokens": 881,
+          "cacheReadTokens": 0,
+          "cacheWriteTokens": 0,
+          "costUsd": 0.016556,
+          "output": {
+            "artifactFormSchema": {
+              "name": "Youth League Registration",
+              "description": "Registration form for youth league players, completed by a parent or guardian.",
+              "sections": [
+                {
+                  "title": "Player Information",
+                  "description": ""
+                },
+                {
+                  "title": "Parent/Guardian Information",
+                  "description": ""
+                },
+                {
+                  "title": "Emergency Contact",
+                  "description": ""
+                },
+                {
+                  "title": "Proof of Residency",
+                  "description": ""
+                }
+              ],
+              "fields": [
+                {
+                  "key": "playerFullName",
+                  "label": "Player's full name",
+                  "type": "string",
+                  "validation": null,
+                  "scale": null,
+                  "required": true,
+                  "section": "Player Information"
+                },
+                {
+                  "key": "playerDateOfBirth",
+                  "label": "Player's date of birth",
+                  "description": "Must be between ages 9 and 14",
+                  "type": "date",
+                  "validation": null,
+                  "scale": null,
+                  "required": true,
+                  "section": "Player Information"
+                },
+                {
+                  "key": "parentGuardianEmail",
+                  "label": "Parent/guardian email",
+                  "type": "string",
+                  "validation": null,
+                  "scale": null,
+                  "required": true,
+                  "section": "Parent/Guardian Information"
+                },
+                {
+                  "key": "parentGuardianPhone",
+                  "label": "Parent/guardian phone number",
+                  "type": "string",
+                  "validation": null,
+                  "scale": null,
+                  "required": true,
+                  "section": "Parent/Guardian Information"
+                },
+                {
+                  "key": "emergencyContactName",
+                  "label": "Emergency contact name",
+                  "description": "Someone other than the parent/guardian listed above",
+                  "type": "string",
+                  "validation": null,
+                  "scale": null,
+                  "required": true,
+                  "section": "Emergency Contact"
+                },
+                {
+                  "key": "emergencyContactPhone",
+                  "label": "Emergency contact phone number",
+                  "type": "string",
+                  "validation": null,
+                  "scale": null,
+                  "required": false,
+                  "section": "Emergency Contact"
+                },
+                {
+                  "key": "emergencyContactRelationship",
+                  "label": "Emergency contact's relationship to player",
+                  "type": "select",
+                  "validation": {
+                    "options": [
+                      {
+                        "label": "Grandparent",
+                        "value": "grandparent"
+                      },
+                      {
+                        "label": "Aunt/Uncle",
+                        "value": "auntUncle"
+                      },
+                      {
+                        "label": "Sibling",
+                        "value": "sibling"
+                      },
+                      {
+                        "label": "Family friend",
+                        "value": "familyFriend"
+                      },
+                      {
+                        "label": "Other relative",
+                        "value": "otherRelative"
+                      },
+                      {
+                        "label": "Other",
+                        "value": "other"
+                      }
+                    ]
+                  },
+                  "scale": null,
+                  "required": true,
+                  "section": "Emergency Contact"
+                },
+                {
+                  "key": "familyHomeAddress",
+                  "label": "Family home address",
+                  "description": "Street, city, state, and zip code",
+                  "type": "string",
+                  "validation": null,
+                  "scale": null,
+                  "required": true,
+                  "section": "Proof of Residency"
+                },
+                {
+                  "key": "proofOfResidencyDocument",
+                  "label": "Proof of residency document",
+                  "description": "Provide a link to or reference of a document (e.g. utility bill, lease) verifying your home address",
+                  "type": "string",
+                  "validation": null,
+                  "scale": null,
+                  "required": true,
+                  "section": "Proof of Residency"
+                }
+              ]
+            }
+          }
+        }
+      ],
+      "costUsd": 0.016556,
+      "foregroundMs": 6991,
+      "totalMs": 6991,
+      "notes": []
+    },
+    {
+      "id": "soccer-5",
+      "kind": "derive",
+      "target": "base",
+      "name": "medical",
+      "request": "A medical information sheet for the coaches: only the player's name and date of birth and the emergency contact, plus allergies and medical conditions.",
+      "before": {
+        "schema": {
+          "fields": [
+            {
+              "id": "field-c730d5e9-4233-4551-a449-7f7abcd21623",
+              "name": "playerFullName",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Player's full name",
+              "origin": "system",
+              "required": true,
+              "constraints": []
+            },
+            {
+              "id": "field-0eaa3cca-0612-4f47-a83a-9469f3d91ef9",
+              "name": "playerDateOfBirth",
+              "tags": [],
+              "type": {
+                "kind": "date"
+              },
+              "label": "Player's date of birth",
+              "origin": "system",
+              "required": true,
+              "constraints": [],
+              "description": "Must be between ages 9 and 14"
+            },
+            {
+              "id": "field-8b1a501b-5887-4164-8784-67e2072060ab",
+              "name": "parentGuardianEmail",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Parent/guardian email",
+              "origin": "system",
+              "required": true,
+              "constraints": []
+            },
+            {
+              "id": "field-8c36f9a2-ee80-4fda-ac54-33eb5d43e748",
+              "name": "parentGuardianPhone",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Parent/guardian phone number",
+              "origin": "system",
+              "required": true,
+              "constraints": []
+            },
+            {
+              "id": "field-217a542f-4de5-4c6e-80f8-51ffcf82a0cb",
+              "name": "emergencyContactName",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Emergency contact name",
+              "origin": "system",
+              "required": true,
+              "constraints": [],
+              "description": "Someone other than the parent/guardian listed above"
+            },
+            {
+              "id": "field-ca48818b-9f4c-412e-b33a-a8c990ece5d8",
+              "name": "emergencyContactPhone",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Emergency contact phone number",
+              "origin": "system",
+              "required": false,
+              "constraints": []
+            },
+            {
+              "id": "field-73fa3750-1178-4ab6-91b4-ac8bc547885a",
+              "name": "emergencyContactRelationship",
+              "tags": [],
+              "type": {
+                "kind": "select",
+                "options": [
+                  {
+                    "label": "Grandparent",
+                    "value": "grandparent"
+                  },
+                  {
+                    "label": "Aunt/Uncle",
+                    "value": "auntUncle"
+                  },
+                  {
+                    "label": "Sibling",
+                    "value": "sibling"
+                  },
+                  {
+                    "label": "Family friend",
+                    "value": "familyFriend"
+                  },
+                  {
+                    "label": "Other relative",
+                    "value": "otherRelative"
+                  },
+                  {
+                    "label": "Other",
+                    "value": "other"
+                  }
+                ],
+                "multiple": false
+              },
+              "label": "Emergency contact's relationship to player",
+              "origin": "system",
+              "required": true,
+              "constraints": []
+            },
+            {
+              "id": "field-648d4d0e-1ecb-4ef2-b446-6e6b69890819",
+              "name": "familyHomeAddress",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Family home address",
+              "origin": "system",
+              "required": true,
+              "constraints": [],
+              "description": "Street, city, state, and zip code"
+            },
+            {
+              "id": "field-86fbcb06-d5e0-48d1-9fd9-652c10fde00e",
+              "name": "proofOfResidencyDocument",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Proof of residency document",
+              "origin": "system",
+              "required": true,
+              "constraints": [],
+              "description": "Provide a link to or reference of a document (e.g. utility bill, lease) verifying your home address"
+            }
+          ],
+          "groups": [
+            {
+              "id": "section-e1a28cb8-968d-4ee2-a6bd-945e29884b92",
+              "label": "Player Information",
+              "fieldIds": [
+                "field-c730d5e9-4233-4551-a449-7f7abcd21623",
+                "field-0eaa3cca-0612-4f47-a83a-9469f3d91ef9"
+              ]
+            },
+            {
+              "id": "section-acf4074f-a859-408c-b3d7-cc0fc32b51a4",
+              "label": "Parent/Guardian Information",
+              "fieldIds": [
+                "field-8b1a501b-5887-4164-8784-67e2072060ab",
+                "field-8c36f9a2-ee80-4fda-ac54-33eb5d43e748"
+              ]
+            },
+            {
+              "id": "section-d7a471c9-b436-4820-b35c-4f396bb539b1",
+              "label": "Emergency Contact",
+              "fieldIds": [
+                "field-217a542f-4de5-4c6e-80f8-51ffcf82a0cb",
+                "field-ca48818b-9f4c-412e-b33a-a8c990ece5d8",
+                "field-73fa3750-1178-4ab6-91b4-ac8bc547885a"
+              ]
+            },
+            {
+              "id": "section-f46d5a86-6f83-48f8-90ae-ba4de04cfd95",
+              "label": "Proof of Residency",
+              "fieldIds": [
+                "field-648d4d0e-1ecb-4ef2-b446-6e6b69890819",
+                "field-86fbcb06-d5e0-48d1-9fd9-652c10fde00e"
+              ]
+            }
+          ],
+          "version": 5
+        },
+        "intent": {
+          "purpose": {
+            "content": "A registration form for youth soccer players between the ages of 9 and 14, collecting personal details, emergency contacts, and handling payment offline.",
+            "updatedAt": "2026-11-12T00:00:00.000Z"
+          },
+          "audience": {
+            "content": "",
+            "updatedAt": "2026-11-12T00:00:00.000Z"
+          },
+          "exclusions": {
+            "content": "",
+            "updatedAt": "2026-11-12T00:00:00.000Z"
+          },
+          "constraints": {
+            "content": "",
+            "updatedAt": "2026-11-12T00:00:00.000Z"
+          }
+        }
+      },
+      "after": {
+        "schema": {
+          "fields": [
+            {
+              "id": "field-c730d5e9-4233-4551-a449-7f7abcd21623",
+              "name": "playerFullName",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Player's full name",
+              "origin": "system",
+              "required": true,
+              "constraints": []
+            },
+            {
+              "id": "field-0eaa3cca-0612-4f47-a83a-9469f3d91ef9",
+              "name": "playerDateOfBirth",
+              "tags": [],
+              "type": {
+                "kind": "date"
+              },
+              "label": "Player's date of birth",
+              "origin": "system",
+              "required": true,
+              "constraints": [],
+              "description": "Must be between ages 9 and 14"
+            },
+            {
+              "id": "field-8b1a501b-5887-4164-8784-67e2072060ab",
+              "name": "parentGuardianEmail",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Parent/guardian email",
+              "origin": "system",
+              "required": true,
+              "constraints": []
+            },
+            {
+              "id": "field-8c36f9a2-ee80-4fda-ac54-33eb5d43e748",
+              "name": "parentGuardianPhone",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Parent/guardian phone number",
+              "origin": "system",
+              "required": true,
+              "constraints": []
+            },
+            {
+              "id": "field-217a542f-4de5-4c6e-80f8-51ffcf82a0cb",
+              "name": "emergencyContactName",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Emergency contact name",
+              "origin": "system",
+              "required": true,
+              "constraints": [],
+              "description": "Someone other than the parent/guardian listed above"
+            },
+            {
+              "id": "field-ca48818b-9f4c-412e-b33a-a8c990ece5d8",
+              "name": "emergencyContactPhone",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Emergency contact phone number",
+              "origin": "system",
+              "required": false,
+              "constraints": []
+            },
+            {
+              "id": "field-73fa3750-1178-4ab6-91b4-ac8bc547885a",
+              "name": "emergencyContactRelationship",
+              "tags": [],
+              "type": {
+                "kind": "select",
+                "options": [
+                  {
+                    "label": "Grandparent",
+                    "value": "grandparent"
+                  },
+                  {
+                    "label": "Aunt/Uncle",
+                    "value": "auntUncle"
+                  },
+                  {
+                    "label": "Sibling",
+                    "value": "sibling"
+                  },
+                  {
+                    "label": "Family friend",
+                    "value": "familyFriend"
+                  },
+                  {
+                    "label": "Other relative",
+                    "value": "otherRelative"
+                  },
+                  {
+                    "label": "Other",
+                    "value": "other"
+                  }
+                ],
+                "multiple": false
+              },
+              "label": "Emergency contact's relationship to player",
+              "origin": "system",
+              "required": true,
+              "constraints": []
+            },
+            {
+              "id": "field-648d4d0e-1ecb-4ef2-b446-6e6b69890819",
+              "name": "familyHomeAddress",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Family home address",
+              "origin": "system",
+              "required": true,
+              "constraints": [],
+              "description": "Street, city, state, and zip code"
+            },
+            {
+              "id": "field-86fbcb06-d5e0-48d1-9fd9-652c10fde00e",
+              "name": "proofOfResidencyDocument",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Proof of residency document",
+              "origin": "system",
+              "required": true,
+              "constraints": [],
+              "description": "Provide a link to or reference of a document (e.g. utility bill, lease) verifying your home address"
+            }
+          ],
+          "groups": [
+            {
+              "id": "section-e1a28cb8-968d-4ee2-a6bd-945e29884b92",
+              "label": "Player Information",
+              "fieldIds": [
+                "field-c730d5e9-4233-4551-a449-7f7abcd21623",
+                "field-0eaa3cca-0612-4f47-a83a-9469f3d91ef9"
+              ]
+            },
+            {
+              "id": "section-acf4074f-a859-408c-b3d7-cc0fc32b51a4",
+              "label": "Parent/Guardian Information",
+              "fieldIds": [
+                "field-8b1a501b-5887-4164-8784-67e2072060ab",
+                "field-8c36f9a2-ee80-4fda-ac54-33eb5d43e748"
+              ]
+            },
+            {
+              "id": "section-d7a471c9-b436-4820-b35c-4f396bb539b1",
+              "label": "Emergency Contact",
+              "fieldIds": [
+                "field-217a542f-4de5-4c6e-80f8-51ffcf82a0cb",
+                "field-ca48818b-9f4c-412e-b33a-a8c990ece5d8",
+                "field-73fa3750-1178-4ab6-91b4-ac8bc547885a"
+              ]
+            },
+            {
+              "id": "section-f46d5a86-6f83-48f8-90ae-ba4de04cfd95",
+              "label": "Proof of Residency",
+              "fieldIds": [
+                "field-648d4d0e-1ecb-4ef2-b446-6e6b69890819",
+                "field-86fbcb06-d5e0-48d1-9fd9-652c10fde00e"
+              ]
+            }
+          ],
+          "version": 5
+        },
+        "intent": {
+          "purpose": {
+            "content": "A registration form for youth soccer players between the ages of 9 and 14, collecting personal details, emergency contacts, and handling payment offline.",
+            "updatedAt": "2026-11-12T00:00:00.000Z"
+          },
+          "audience": {
+            "content": "",
+            "updatedAt": "2026-11-12T00:00:00.000Z"
+          },
+          "exclusions": {
+            "content": "",
+            "updatedAt": "2026-11-12T00:00:00.000Z"
+          },
+          "constraints": {
+            "content": "",
+            "updatedAt": "2026-11-12T00:00:00.000Z"
+          }
+        }
+      },
+      "calls": [
+        {
+          "functionId": "e1-w-derive",
+          "model": "claude-sonnet-5",
+          "startedAt": "2026-11-12T22:32:07.886Z",
+          "ms": 11485,
+          "inputTokens": 3815,
+          "outputTokens": 1244,
+          "cacheReadTokens": 0,
+          "cacheWriteTokens": 0,
+          "costUsd": 0.02007,
+          "output": {
+            "artifactFormSchema": {
+              "name": "Player Medical Information Sheet (Coach Copy)",
+              "description": "A medical information sheet for coaches, including player identification, emergency contact details, and relevant medical information such as allergies and conditions.",
+              "sections": [
+                {
+                  "title": "Player Information",
+                  "description": ""
+                },
+                {
+                  "title": "Emergency Contact",
+                  "description": "Someone other than the parent/guardian who can be reached in case of emergency"
+                },
+                {
+                  "title": "Medical Information",
+                  "description": "Please list any allergies or medical conditions coaches should be aware of"
+                }
+              ],
+              "fields": [
+                {
+                  "key": "playerFullName",
+                  "label": "Player's full name",
+                  "type": "string",
+                  "validation": null,
+                  "scale": null,
+                  "required": true,
+                  "section": "Player Information"
+                },
+                {
+                  "key": "playerDateOfBirth",
+                  "label": "Player's date of birth",
+                  "description": "Must be between ages 9 and 14",
+                  "type": "date",
+                  "validation": null,
+                  "scale": null,
+                  "required": true,
+                  "section": "Player Information"
+                },
+                {
+                  "key": "emergencyContactName",
+                  "label": "Emergency contact name",
+                  "description": "Someone other than the parent/guardian listed above",
+                  "type": "string",
+                  "validation": null,
+                  "scale": null,
+                  "required": true,
+                  "section": "Emergency Contact"
+                },
+                {
+                  "key": "emergencyContactPhone",
+                  "label": "Emergency contact phone number",
+                  "type": "string",
+                  "validation": null,
+                  "scale": null,
+                  "required": false,
+                  "section": "Emergency Contact"
+                },
+                {
+                  "key": "emergencyContactRelationship",
+                  "label": "Emergency contact's relationship to player",
+                  "type": "select",
+                  "validation": {
+                    "options": [
+                      {
+                        "label": "Grandparent",
+                        "value": "grandparent"
+                      },
+                      {
+                        "label": "Aunt/Uncle",
+                        "value": "auntUncle"
+                      },
+                      {
+                        "label": "Sibling",
+                        "value": "sibling"
+                      },
+                      {
+                        "label": "Family friend",
+                        "value": "familyFriend"
+                      },
+                      {
+                        "label": "Other relative",
+                        "value": "otherRelative"
+                      },
+                      {
+                        "label": "Other",
+                        "value": "other"
+                      }
+                    ]
+                  },
+                  "scale": null,
+                  "required": true,
+                  "section": "Emergency Contact"
+                },
+                {
+                  "key": "playerAllergies",
+                  "label": "Player's allergies",
+                  "description": "List any known allergies (food, medication, insect, etc.), or write 'None'",
+                  "type": "string",
+                  "validation": null,
+                  "scale": null,
+                  "required": true,
+                  "section": "Medical Information"
+                },
+                {
+                  "key": "playerMedicalConditions",
+                  "label": "Player's medical conditions",
+                  "description": "List any medical conditions coaches should be aware of (e.g. asthma, diabetes), or write 'None'",
+                  "type": "string",
+                  "validation": null,
+                  "scale": null,
+                  "required": true,
+                  "section": "Medical Information"
+                }
+              ]
+            }
+          }
+        }
+      ],
+      "costUsd": 0.02007,
+      "foregroundMs": 11509,
+      "totalMs": 11509,
+      "notes": [],
+      "baseAtDerive": {
+        "fields": [
+          {
+            "id": "field-c730d5e9-4233-4551-a449-7f7abcd21623",
+            "name": "playerFullName",
+            "tags": [],
+            "type": {
+              "kind": "text"
+            },
+            "label": "Player's full name",
+            "origin": "system",
+            "required": true,
+            "constraints": []
+          },
+          {
+            "id": "field-0eaa3cca-0612-4f47-a83a-9469f3d91ef9",
+            "name": "playerDateOfBirth",
+            "tags": [],
+            "type": {
+              "kind": "date"
+            },
+            "label": "Player's date of birth",
+            "origin": "system",
+            "required": true,
+            "constraints": [],
+            "description": "Must be between ages 9 and 14"
+          },
+          {
+            "id": "field-8b1a501b-5887-4164-8784-67e2072060ab",
+            "name": "parentGuardianEmail",
+            "tags": [],
+            "type": {
+              "kind": "text"
+            },
+            "label": "Parent/guardian email",
+            "origin": "system",
+            "required": true,
+            "constraints": []
+          },
+          {
+            "id": "field-8c36f9a2-ee80-4fda-ac54-33eb5d43e748",
+            "name": "parentGuardianPhone",
+            "tags": [],
+            "type": {
+              "kind": "text"
+            },
+            "label": "Parent/guardian phone number",
+            "origin": "system",
+            "required": true,
+            "constraints": []
+          },
+          {
+            "id": "field-217a542f-4de5-4c6e-80f8-51ffcf82a0cb",
+            "name": "emergencyContactName",
+            "tags": [],
+            "type": {
+              "kind": "text"
+            },
+            "label": "Emergency contact name",
+            "origin": "system",
+            "required": true,
+            "constraints": [],
+            "description": "Someone other than the parent/guardian listed above"
+          },
+          {
+            "id": "field-ca48818b-9f4c-412e-b33a-a8c990ece5d8",
+            "name": "emergencyContactPhone",
+            "tags": [],
+            "type": {
+              "kind": "text"
+            },
+            "label": "Emergency contact phone number",
+            "origin": "system",
+            "required": false,
+            "constraints": []
+          },
+          {
+            "id": "field-73fa3750-1178-4ab6-91b4-ac8bc547885a",
+            "name": "emergencyContactRelationship",
+            "tags": [],
+            "type": {
+              "kind": "select",
+              "options": [
+                {
+                  "label": "Grandparent",
+                  "value": "grandparent"
+                },
+                {
+                  "label": "Aunt/Uncle",
+                  "value": "auntUncle"
+                },
+                {
+                  "label": "Sibling",
+                  "value": "sibling"
+                },
+                {
+                  "label": "Family friend",
+                  "value": "familyFriend"
+                },
+                {
+                  "label": "Other relative",
+                  "value": "otherRelative"
+                },
+                {
+                  "label": "Other",
+                  "value": "other"
+                }
+              ],
+              "multiple": false
+            },
+            "label": "Emergency contact's relationship to player",
+            "origin": "system",
+            "required": true,
+            "constraints": []
+          },
+          {
+            "id": "field-648d4d0e-1ecb-4ef2-b446-6e6b69890819",
+            "name": "familyHomeAddress",
+            "tags": [],
+            "type": {
+              "kind": "text"
+            },
+            "label": "Family home address",
+            "origin": "system",
+            "required": true,
+            "constraints": [],
+            "description": "Street, city, state, and zip code"
+          },
+          {
+            "id": "field-86fbcb06-d5e0-48d1-9fd9-652c10fde00e",
+            "name": "proofOfResidencyDocument",
+            "tags": [],
+            "type": {
+              "kind": "text"
+            },
+            "label": "Proof of residency document",
+            "origin": "system",
+            "required": true,
+            "constraints": [],
+            "description": "Provide a link to or reference of a document (e.g. utility bill, lease) verifying your home address"
+          }
+        ],
+        "groups": [
+          {
+            "id": "section-e1a28cb8-968d-4ee2-a6bd-945e29884b92",
+            "label": "Player Information",
+            "fieldIds": [
+              "field-c730d5e9-4233-4551-a449-7f7abcd21623",
+              "field-0eaa3cca-0612-4f47-a83a-9469f3d91ef9"
+            ]
+          },
+          {
+            "id": "section-acf4074f-a859-408c-b3d7-cc0fc32b51a4",
+            "label": "Parent/Guardian Information",
+            "fieldIds": [
+              "field-8b1a501b-5887-4164-8784-67e2072060ab",
+              "field-8c36f9a2-ee80-4fda-ac54-33eb5d43e748"
+            ]
+          },
+          {
+            "id": "section-d7a471c9-b436-4820-b35c-4f396bb539b1",
+            "label": "Emergency Contact",
+            "fieldIds": [
+              "field-217a542f-4de5-4c6e-80f8-51ffcf82a0cb",
+              "field-ca48818b-9f4c-412e-b33a-a8c990ece5d8",
+              "field-73fa3750-1178-4ab6-91b4-ac8bc547885a"
+            ]
+          },
+          {
+            "id": "section-f46d5a86-6f83-48f8-90ae-ba4de04cfd95",
+            "label": "Proof of Residency",
+            "fieldIds": [
+              "field-648d4d0e-1ecb-4ef2-b446-6e6b69890819",
+              "field-86fbcb06-d5e0-48d1-9fd9-652c10fde00e"
+            ]
+          }
+        ],
+        "version": 5
+      },
+      "derived": {
+        "schema": {
+          "fields": [
+            {
+              "id": "field-3b5f0488-0010-4b2f-9953-7887c2991877",
+              "name": "playerFullName",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Player's full name",
+              "origin": "system",
+              "required": true,
+              "constraints": []
+            },
+            {
+              "id": "field-0106ec03-f41d-425f-ae49-7575f5d5f698",
+              "name": "playerDateOfBirth",
+              "tags": [],
+              "type": {
+                "kind": "date"
+              },
+              "label": "Player's date of birth",
+              "origin": "system",
+              "required": true,
+              "constraints": [],
+              "description": "Must be between ages 9 and 14"
+            },
+            {
+              "id": "field-efdfc86d-0a73-478f-9122-35bc1ec20eea",
+              "name": "emergencyContactName",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Emergency contact name",
+              "origin": "system",
+              "required": true,
+              "constraints": [],
+              "description": "Someone other than the parent/guardian listed above"
+            },
+            {
+              "id": "field-b14d98bc-67aa-4251-b27d-97ff1d28cf4f",
+              "name": "emergencyContactPhone",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Emergency contact phone number",
+              "origin": "system",
+              "required": false,
+              "constraints": []
+            },
+            {
+              "id": "field-089fd845-81b4-4b65-ab3c-23e3c320b1a2",
+              "name": "emergencyContactRelationship",
+              "tags": [],
+              "type": {
+                "kind": "select",
+                "options": [
+                  {
+                    "label": "Grandparent",
+                    "value": "grandparent"
+                  },
+                  {
+                    "label": "Aunt/Uncle",
+                    "value": "auntUncle"
+                  },
+                  {
+                    "label": "Sibling",
+                    "value": "sibling"
+                  },
+                  {
+                    "label": "Family friend",
+                    "value": "familyFriend"
+                  },
+                  {
+                    "label": "Other relative",
+                    "value": "otherRelative"
+                  },
+                  {
+                    "label": "Other",
+                    "value": "other"
+                  }
+                ],
+                "multiple": false
+              },
+              "label": "Emergency contact's relationship to player",
+              "origin": "system",
+              "required": true,
+              "constraints": []
+            },
+            {
+              "id": "field-da84b23a-c9aa-4f2a-9897-c56acdffb147",
+              "name": "playerAllergies",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Player's allergies",
+              "origin": "system",
+              "required": true,
+              "constraints": [],
+              "description": "List any known allergies (food, medication, insect, etc.), or write 'None'"
+            },
+            {
+              "id": "field-0571c29e-1c77-4522-bba4-ab12a30e790b",
+              "name": "playerMedicalConditions",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Player's medical conditions",
+              "origin": "system",
+              "required": true,
+              "constraints": [],
+              "description": "List any medical conditions coaches should be aware of (e.g. asthma, diabetes), or write 'None'"
+            }
+          ],
+          "groups": [
+            {
+              "id": "section-09b39691-4604-4be0-a8e7-fe2f588f4016",
+              "label": "Player Information",
+              "fieldIds": [
+                "field-3b5f0488-0010-4b2f-9953-7887c2991877",
+                "field-0106ec03-f41d-425f-ae49-7575f5d5f698"
+              ]
+            },
+            {
+              "id": "section-5f098bf1-c225-484c-9470-5f90044a31d9",
+              "label": "Emergency Contact",
+              "fieldIds": [
+                "field-efdfc86d-0a73-478f-9122-35bc1ec20eea",
+                "field-b14d98bc-67aa-4251-b27d-97ff1d28cf4f",
+                "field-089fd845-81b4-4b65-ab3c-23e3c320b1a2"
+              ],
+              "description": "Someone other than the parent/guardian who can be reached in case of emergency"
+            },
+            {
+              "id": "section-f41be276-dd38-49fc-af7c-f06ca9dff1a0",
+              "label": "Medical Information",
+              "fieldIds": [
+                "field-da84b23a-c9aa-4f2a-9897-c56acdffb147",
+                "field-0571c29e-1c77-4522-bba4-ab12a30e790b"
+              ],
+              "description": "Please list any allergies or medical conditions coaches should be aware of"
+            }
+          ],
+          "version": 1
+        },
+        "intent": {
+          "purpose": {
+            "content": "A registration form for youth soccer players between the ages of 9 and 14, collecting personal details, emergency contacts, and handling payment offline.",
+            "updatedAt": "2026-11-12T00:00:00.000Z"
+          },
+          "audience": {
+            "content": "",
+            "updatedAt": "2026-11-12T00:00:00.000Z"
+          },
+          "exclusions": {
+            "content": "",
+            "updatedAt": "2026-11-12T00:00:00.000Z"
+          },
+          "constraints": {
+            "content": "",
+            "updatedAt": "2026-11-12T00:00:00.000Z"
+          }
+        }
+      }
+    },
+    {
+      "id": "soccer-6",
+      "kind": "change",
+      "target": "base",
+      "request": "Rename \"Player's date of birth\" to \"Date of birth (as on the passport)\".",
+      "before": {
+        "schema": {
+          "fields": [
+            {
+              "id": "field-c730d5e9-4233-4551-a449-7f7abcd21623",
+              "name": "playerFullName",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Player's full name",
+              "origin": "system",
+              "required": true,
+              "constraints": []
+            },
+            {
+              "id": "field-0eaa3cca-0612-4f47-a83a-9469f3d91ef9",
+              "name": "playerDateOfBirth",
+              "tags": [],
+              "type": {
+                "kind": "date"
+              },
+              "label": "Player's date of birth",
+              "origin": "system",
+              "required": true,
+              "constraints": [],
+              "description": "Must be between ages 9 and 14"
+            },
+            {
+              "id": "field-8b1a501b-5887-4164-8784-67e2072060ab",
+              "name": "parentGuardianEmail",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Parent/guardian email",
+              "origin": "system",
+              "required": true,
+              "constraints": []
+            },
+            {
+              "id": "field-8c36f9a2-ee80-4fda-ac54-33eb5d43e748",
+              "name": "parentGuardianPhone",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Parent/guardian phone number",
+              "origin": "system",
+              "required": true,
+              "constraints": []
+            },
+            {
+              "id": "field-217a542f-4de5-4c6e-80f8-51ffcf82a0cb",
+              "name": "emergencyContactName",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Emergency contact name",
+              "origin": "system",
+              "required": true,
+              "constraints": [],
+              "description": "Someone other than the parent/guardian listed above"
+            },
+            {
+              "id": "field-ca48818b-9f4c-412e-b33a-a8c990ece5d8",
+              "name": "emergencyContactPhone",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Emergency contact phone number",
+              "origin": "system",
+              "required": false,
+              "constraints": []
+            },
+            {
+              "id": "field-73fa3750-1178-4ab6-91b4-ac8bc547885a",
+              "name": "emergencyContactRelationship",
+              "tags": [],
+              "type": {
+                "kind": "select",
+                "options": [
+                  {
+                    "label": "Grandparent",
+                    "value": "grandparent"
+                  },
+                  {
+                    "label": "Aunt/Uncle",
+                    "value": "auntUncle"
+                  },
+                  {
+                    "label": "Sibling",
+                    "value": "sibling"
+                  },
+                  {
+                    "label": "Family friend",
+                    "value": "familyFriend"
+                  },
+                  {
+                    "label": "Other relative",
+                    "value": "otherRelative"
+                  },
+                  {
+                    "label": "Other",
+                    "value": "other"
+                  }
+                ],
+                "multiple": false
+              },
+              "label": "Emergency contact's relationship to player",
+              "origin": "system",
+              "required": true,
+              "constraints": []
+            },
+            {
+              "id": "field-648d4d0e-1ecb-4ef2-b446-6e6b69890819",
+              "name": "familyHomeAddress",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Family home address",
+              "origin": "system",
+              "required": true,
+              "constraints": [],
+              "description": "Street, city, state, and zip code"
+            },
+            {
+              "id": "field-86fbcb06-d5e0-48d1-9fd9-652c10fde00e",
+              "name": "proofOfResidencyDocument",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Proof of residency document",
+              "origin": "system",
+              "required": true,
+              "constraints": [],
+              "description": "Provide a link to or reference of a document (e.g. utility bill, lease) verifying your home address"
+            }
+          ],
+          "groups": [
+            {
+              "id": "section-e1a28cb8-968d-4ee2-a6bd-945e29884b92",
+              "label": "Player Information",
+              "fieldIds": [
+                "field-c730d5e9-4233-4551-a449-7f7abcd21623",
+                "field-0eaa3cca-0612-4f47-a83a-9469f3d91ef9"
+              ]
+            },
+            {
+              "id": "section-acf4074f-a859-408c-b3d7-cc0fc32b51a4",
+              "label": "Parent/Guardian Information",
+              "fieldIds": [
+                "field-8b1a501b-5887-4164-8784-67e2072060ab",
+                "field-8c36f9a2-ee80-4fda-ac54-33eb5d43e748"
+              ]
+            },
+            {
+              "id": "section-d7a471c9-b436-4820-b35c-4f396bb539b1",
+              "label": "Emergency Contact",
+              "fieldIds": [
+                "field-217a542f-4de5-4c6e-80f8-51ffcf82a0cb",
+                "field-ca48818b-9f4c-412e-b33a-a8c990ece5d8",
+                "field-73fa3750-1178-4ab6-91b4-ac8bc547885a"
+              ]
+            },
+            {
+              "id": "section-f46d5a86-6f83-48f8-90ae-ba4de04cfd95",
+              "label": "Proof of Residency",
+              "fieldIds": [
+                "field-648d4d0e-1ecb-4ef2-b446-6e6b69890819",
+                "field-86fbcb06-d5e0-48d1-9fd9-652c10fde00e"
+              ]
+            }
+          ],
+          "version": 5
+        },
+        "intent": {
+          "purpose": {
+            "content": "A registration form for youth soccer players between the ages of 9 and 14, collecting personal details, emergency contacts, and handling payment offline.",
+            "updatedAt": "2026-11-12T00:00:00.000Z"
+          },
+          "audience": {
+            "content": "",
+            "updatedAt": "2026-11-12T00:00:00.000Z"
+          },
+          "exclusions": {
+            "content": "",
+            "updatedAt": "2026-11-12T00:00:00.000Z"
+          },
+          "constraints": {
+            "content": "",
+            "updatedAt": "2026-11-12T00:00:00.000Z"
+          }
+        }
+      },
+      "after": {
+        "schema": {
+          "fields": [
+            {
+              "id": "field-71386069-6b4d-4980-b1db-b5d7c4a508ca",
+              "name": "playerFullName",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Player's full name",
+              "origin": "system",
+              "required": true,
+              "constraints": []
+            },
+            {
+              "id": "field-2669672f-a028-45ae-baaa-9568b4a8305d",
+              "name": "playerDateOfBirth",
+              "tags": [],
+              "type": {
+                "kind": "date"
+              },
+              "label": "Date of birth (as on the passport)",
+              "origin": "system",
+              "required": true,
+              "constraints": [],
+              "description": "Must be between ages 9 and 14"
+            },
+            {
+              "id": "field-bebcc2e0-95a0-481a-b70c-09781d3c5cae",
+              "name": "parentGuardianEmail",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Parent/guardian email",
+              "origin": "system",
+              "required": true,
+              "constraints": []
+            },
+            {
+              "id": "field-67ffdf58-1c88-4280-ad66-5c102c6df569",
+              "name": "parentGuardianPhone",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Parent/guardian phone number",
+              "origin": "system",
+              "required": true,
+              "constraints": []
+            },
+            {
+              "id": "field-46551657-dcf5-4369-9327-8bd3371309ad",
+              "name": "emergencyContactName",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Emergency contact name",
+              "origin": "system",
+              "required": true,
+              "constraints": [],
+              "description": "Someone other than the parent/guardian listed above"
+            },
+            {
+              "id": "field-f4729cee-7380-43ac-96eb-531833d10a4c",
+              "name": "emergencyContactPhone",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Emergency contact phone number",
+              "origin": "system",
+              "required": false,
+              "constraints": []
+            },
+            {
+              "id": "field-8b3cfd33-8972-427d-9ecf-555c9ea8b8fb",
+              "name": "emergencyContactRelationship",
+              "tags": [],
+              "type": {
+                "kind": "select",
+                "options": [
+                  {
+                    "label": "Grandparent",
+                    "value": "grandparent"
+                  },
+                  {
+                    "label": "Aunt/Uncle",
+                    "value": "auntUncle"
+                  },
+                  {
+                    "label": "Sibling",
+                    "value": "sibling"
+                  },
+                  {
+                    "label": "Family friend",
+                    "value": "familyFriend"
+                  },
+                  {
+                    "label": "Other relative",
+                    "value": "otherRelative"
+                  },
+                  {
+                    "label": "Other",
+                    "value": "other"
+                  }
+                ],
+                "multiple": false
+              },
+              "label": "Emergency contact's relationship to player",
+              "origin": "system",
+              "required": true,
+              "constraints": []
+            },
+            {
+              "id": "field-a59685b7-0edb-4f73-9a4b-c94a81f317dc",
+              "name": "familyHomeAddress",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Family home address",
+              "origin": "system",
+              "required": true,
+              "constraints": [],
+              "description": "Street, city, state, and zip code"
+            },
+            {
+              "id": "field-c99c7f5e-b05a-4a2c-869d-1922510c0fb2",
+              "name": "proofOfResidencyDocument",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Proof of residency document",
+              "origin": "system",
+              "required": true,
+              "constraints": [],
+              "description": "Provide a link to or reference of a document (e.g. utility bill, lease) verifying your home address"
+            }
+          ],
+          "groups": [
+            {
+              "id": "section-84f21913-7371-40b9-aca5-be69231495b9",
+              "label": "Player Information",
+              "fieldIds": [
+                "field-71386069-6b4d-4980-b1db-b5d7c4a508ca",
+                "field-2669672f-a028-45ae-baaa-9568b4a8305d"
+              ]
+            },
+            {
+              "id": "section-60501596-8798-4b0e-8b9b-94915f1cb060",
+              "label": "Parent/Guardian Information",
+              "fieldIds": [
+                "field-bebcc2e0-95a0-481a-b70c-09781d3c5cae",
+                "field-67ffdf58-1c88-4280-ad66-5c102c6df569"
+              ]
+            },
+            {
+              "id": "section-cac64932-f751-49dc-831a-45dee1cfe06c",
+              "label": "Emergency Contact",
+              "fieldIds": [
+                "field-46551657-dcf5-4369-9327-8bd3371309ad",
+                "field-f4729cee-7380-43ac-96eb-531833d10a4c",
+                "field-8b3cfd33-8972-427d-9ecf-555c9ea8b8fb"
+              ]
+            },
+            {
+              "id": "section-a08ac446-e54e-4523-978e-716903d5e549",
+              "label": "Proof of Residency",
+              "fieldIds": [
+                "field-a59685b7-0edb-4f73-9a4b-c94a81f317dc",
+                "field-c99c7f5e-b05a-4a2c-869d-1922510c0fb2"
+              ]
+            }
+          ],
+          "version": 6
+        },
+        "intent": {
+          "purpose": {
+            "content": "A registration form for youth soccer players between the ages of 9 and 14, collecting personal details, emergency contacts, and handling payment offline.",
+            "updatedAt": "2026-11-12T00:00:00.000Z"
+          },
+          "audience": {
+            "content": "",
+            "updatedAt": "2026-11-12T00:00:00.000Z"
+          },
+          "exclusions": {
+            "content": "",
+            "updatedAt": "2026-11-12T00:00:00.000Z"
+          },
+          "constraints": {
+            "content": "",
+            "updatedAt": "2026-11-12T00:00:00.000Z"
+          }
+        }
+      },
+      "calls": [
+        {
+          "functionId": "e1-w-change",
+          "model": "claude-sonnet-5",
+          "startedAt": "2026-11-12T22:32:19.411Z",
+          "ms": 6962,
+          "inputTokens": 3806,
+          "outputTokens": 831,
+          "cacheReadTokens": 0,
+          "cacheWriteTokens": 0,
+          "costUsd": 0.015922,
+          "output": {
+            "artifactFormSchema": {
+              "name": "Youth League Player Registration",
+              "description": "Registration form for a youth sports league, collecting player, parent/guardian, emergency contact, and proof of residency information.",
+              "fields": [
+                {
+                  "key": "playerFullName",
+                  "label": "Player's full name",
+                  "type": "string",
+                  "validation": null,
+                  "scale": null,
+                  "required": true,
+                  "section": "Player Information"
+                },
+                {
+                  "key": "playerDateOfBirth",
+                  "label": "Date of birth (as on the passport)",
+                  "description": "Must be between ages 9 and 14",
+                  "type": "date",
+                  "validation": null,
+                  "scale": null,
+                  "required": true,
+                  "section": "Player Information"
+                },
+                {
+                  "key": "parentGuardianEmail",
+                  "label": "Parent/guardian email",
+                  "type": "string",
+                  "validation": null,
+                  "scale": null,
+                  "required": true,
+                  "section": "Parent/Guardian Information"
+                },
+                {
+                  "key": "parentGuardianPhone",
+                  "label": "Parent/guardian phone number",
+                  "type": "string",
+                  "validation": null,
+                  "scale": null,
+                  "required": true,
+                  "section": "Parent/Guardian Information"
+                },
+                {
+                  "key": "emergencyContactName",
+                  "label": "Emergency contact name",
+                  "description": "Someone other than the parent/guardian listed above",
+                  "type": "string",
+                  "validation": null,
+                  "scale": null,
+                  "required": true,
+                  "section": "Emergency Contact"
+                },
+                {
+                  "key": "emergencyContactPhone",
+                  "label": "Emergency contact phone number",
+                  "type": "string",
+                  "validation": null,
+                  "scale": null,
+                  "required": false,
+                  "section": "Emergency Contact"
+                },
+                {
+                  "key": "emergencyContactRelationship",
+                  "label": "Emergency contact's relationship to player",
+                  "type": "select",
+                  "validation": {
+                    "options": [
+                      {
+                        "label": "Grandparent",
+                        "value": "grandparent"
+                      },
+                      {
+                        "label": "Aunt/Uncle",
+                        "value": "auntUncle"
+                      },
+                      {
+                        "label": "Sibling",
+                        "value": "sibling"
+                      },
+                      {
+                        "label": "Family friend",
+                        "value": "familyFriend"
+                      },
+                      {
+                        "label": "Other relative",
+                        "value": "otherRelative"
+                      },
+                      {
+                        "label": "Other",
+                        "value": "other"
+                      }
+                    ]
+                  },
+                  "scale": null,
+                  "required": true,
+                  "section": "Emergency Contact"
+                },
+                {
+                  "key": "familyHomeAddress",
+                  "label": "Family home address",
+                  "description": "Street, city, state, and zip code",
+                  "type": "string",
+                  "validation": null,
+                  "scale": null,
+                  "required": true,
+                  "section": "Proof of Residency"
+                },
+                {
+                  "key": "proofOfResidencyDocument",
+                  "label": "Proof of residency document",
+                  "description": "Provide a link to or reference of a document (e.g. utility bill, lease) verifying your home address",
+                  "type": "string",
+                  "validation": null,
+                  "scale": null,
+                  "required": true,
+                  "section": "Proof of Residency"
+                }
+              ]
+            }
+          }
+        }
+      ],
+      "costUsd": 0.015922,
+      "foregroundMs": 6977,
+      "totalMs": 6977,
+      "notes": []
+    },
+    {
+      "id": "soccer-7",
+      "kind": "add",
+      "target": "base",
+      "request": "Add a required confirmation that the family has read the club's concussion protocol.",
+      "before": {
+        "schema": {
+          "fields": [
+            {
+              "id": "field-71386069-6b4d-4980-b1db-b5d7c4a508ca",
+              "name": "playerFullName",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Player's full name",
+              "origin": "system",
+              "required": true,
+              "constraints": []
+            },
+            {
+              "id": "field-2669672f-a028-45ae-baaa-9568b4a8305d",
+              "name": "playerDateOfBirth",
+              "tags": [],
+              "type": {
+                "kind": "date"
+              },
+              "label": "Date of birth (as on the passport)",
+              "origin": "system",
+              "required": true,
+              "constraints": [],
+              "description": "Must be between ages 9 and 14"
+            },
+            {
+              "id": "field-bebcc2e0-95a0-481a-b70c-09781d3c5cae",
+              "name": "parentGuardianEmail",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Parent/guardian email",
+              "origin": "system",
+              "required": true,
+              "constraints": []
+            },
+            {
+              "id": "field-67ffdf58-1c88-4280-ad66-5c102c6df569",
+              "name": "parentGuardianPhone",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Parent/guardian phone number",
+              "origin": "system",
+              "required": true,
+              "constraints": []
+            },
+            {
+              "id": "field-46551657-dcf5-4369-9327-8bd3371309ad",
+              "name": "emergencyContactName",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Emergency contact name",
+              "origin": "system",
+              "required": true,
+              "constraints": [],
+              "description": "Someone other than the parent/guardian listed above"
+            },
+            {
+              "id": "field-f4729cee-7380-43ac-96eb-531833d10a4c",
+              "name": "emergencyContactPhone",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Emergency contact phone number",
+              "origin": "system",
+              "required": false,
+              "constraints": []
+            },
+            {
+              "id": "field-8b3cfd33-8972-427d-9ecf-555c9ea8b8fb",
+              "name": "emergencyContactRelationship",
+              "tags": [],
+              "type": {
+                "kind": "select",
+                "options": [
+                  {
+                    "label": "Grandparent",
+                    "value": "grandparent"
+                  },
+                  {
+                    "label": "Aunt/Uncle",
+                    "value": "auntUncle"
+                  },
+                  {
+                    "label": "Sibling",
+                    "value": "sibling"
+                  },
+                  {
+                    "label": "Family friend",
+                    "value": "familyFriend"
+                  },
+                  {
+                    "label": "Other relative",
+                    "value": "otherRelative"
+                  },
+                  {
+                    "label": "Other",
+                    "value": "other"
+                  }
+                ],
+                "multiple": false
+              },
+              "label": "Emergency contact's relationship to player",
+              "origin": "system",
+              "required": true,
+              "constraints": []
+            },
+            {
+              "id": "field-a59685b7-0edb-4f73-9a4b-c94a81f317dc",
+              "name": "familyHomeAddress",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Family home address",
+              "origin": "system",
+              "required": true,
+              "constraints": [],
+              "description": "Street, city, state, and zip code"
+            },
+            {
+              "id": "field-c99c7f5e-b05a-4a2c-869d-1922510c0fb2",
+              "name": "proofOfResidencyDocument",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Proof of residency document",
+              "origin": "system",
+              "required": true,
+              "constraints": [],
+              "description": "Provide a link to or reference of a document (e.g. utility bill, lease) verifying your home address"
+            }
+          ],
+          "groups": [
+            {
+              "id": "section-84f21913-7371-40b9-aca5-be69231495b9",
+              "label": "Player Information",
+              "fieldIds": [
+                "field-71386069-6b4d-4980-b1db-b5d7c4a508ca",
+                "field-2669672f-a028-45ae-baaa-9568b4a8305d"
+              ]
+            },
+            {
+              "id": "section-60501596-8798-4b0e-8b9b-94915f1cb060",
+              "label": "Parent/Guardian Information",
+              "fieldIds": [
+                "field-bebcc2e0-95a0-481a-b70c-09781d3c5cae",
+                "field-67ffdf58-1c88-4280-ad66-5c102c6df569"
+              ]
+            },
+            {
+              "id": "section-cac64932-f751-49dc-831a-45dee1cfe06c",
+              "label": "Emergency Contact",
+              "fieldIds": [
+                "field-46551657-dcf5-4369-9327-8bd3371309ad",
+                "field-f4729cee-7380-43ac-96eb-531833d10a4c",
+                "field-8b3cfd33-8972-427d-9ecf-555c9ea8b8fb"
+              ]
+            },
+            {
+              "id": "section-a08ac446-e54e-4523-978e-716903d5e549",
+              "label": "Proof of Residency",
+              "fieldIds": [
+                "field-a59685b7-0edb-4f73-9a4b-c94a81f317dc",
+                "field-c99c7f5e-b05a-4a2c-869d-1922510c0fb2"
+              ]
+            }
+          ],
+          "version": 6
+        },
+        "intent": {
+          "purpose": {
+            "content": "A registration form for youth soccer players between the ages of 9 and 14, collecting personal details, emergency contacts, and handling payment offline.",
+            "updatedAt": "2026-11-12T00:00:00.000Z"
+          },
+          "audience": {
+            "content": "",
+            "updatedAt": "2026-11-12T00:00:00.000Z"
+          },
+          "exclusions": {
+            "content": "",
+            "updatedAt": "2026-11-12T00:00:00.000Z"
+          },
+          "constraints": {
+            "content": "",
+            "updatedAt": "2026-11-12T00:00:00.000Z"
+          }
+        }
+      },
+      "after": {
+        "schema": {
+          "fields": [
+            {
+              "id": "field-6c74e982-3588-4ebf-923e-c6b22a66b8d4",
+              "name": "playerFullName",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Player's full name",
+              "origin": "system",
+              "required": true,
+              "constraints": []
+            },
+            {
+              "id": "field-4be338df-563c-45ef-8315-ae733181e3b9",
+              "name": "playerDateOfBirth",
+              "tags": [],
+              "type": {
+                "kind": "date"
+              },
+              "label": "Date of birth (as on the passport)",
+              "origin": "system",
+              "required": true,
+              "constraints": [],
+              "description": "Must be between ages 9 and 14"
+            },
+            {
+              "id": "field-7d5d483d-b1c3-4a44-a636-7d501ed85498",
+              "name": "parentGuardianEmail",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Parent/guardian email",
+              "origin": "system",
+              "required": true,
+              "constraints": []
+            },
+            {
+              "id": "field-68f84685-0a9d-464d-9851-be1a143a9eec",
+              "name": "parentGuardianPhone",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Parent/guardian phone number",
+              "origin": "system",
+              "required": true,
+              "constraints": []
+            },
+            {
+              "id": "field-555f4b10-d47c-40ee-80d6-9c1ba00c3dbc",
+              "name": "emergencyContactName",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Emergency contact name",
+              "origin": "system",
+              "required": true,
+              "constraints": [],
+              "description": "Someone other than the parent/guardian listed above"
+            },
+            {
+              "id": "field-d7fed928-32bc-42d6-a15c-be7b1a88691c",
+              "name": "emergencyContactPhone",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Emergency contact phone number",
+              "origin": "system",
+              "required": false,
+              "constraints": []
+            },
+            {
+              "id": "field-d72c9c06-08d1-4d82-8cc6-2ddc3252b2d0",
+              "name": "emergencyContactRelationship",
+              "tags": [],
+              "type": {
+                "kind": "select",
+                "options": [
+                  {
+                    "label": "Grandparent",
+                    "value": "grandparent"
+                  },
+                  {
+                    "label": "Aunt/Uncle",
+                    "value": "auntUncle"
+                  },
+                  {
+                    "label": "Sibling",
+                    "value": "sibling"
+                  },
+                  {
+                    "label": "Family friend",
+                    "value": "familyFriend"
+                  },
+                  {
+                    "label": "Other relative",
+                    "value": "otherRelative"
+                  },
+                  {
+                    "label": "Other",
+                    "value": "other"
+                  }
+                ],
+                "multiple": false
+              },
+              "label": "Emergency contact's relationship to player",
+              "origin": "system",
+              "required": true,
+              "constraints": []
+            },
+            {
+              "id": "field-d007026e-b73f-4e70-843b-67a76776b32a",
+              "name": "familyHomeAddress",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Family home address",
+              "origin": "system",
+              "required": true,
+              "constraints": [],
+              "description": "Street, city, state, and zip code"
+            },
+            {
+              "id": "field-cfa8cb12-bbba-4cdd-af9d-bd97f7a5036d",
+              "name": "proofOfResidencyDocument",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Proof of residency document",
+              "origin": "system",
+              "required": true,
+              "constraints": [],
+              "description": "Provide a link to or reference of a document (e.g. utility bill, lease) verifying your home address"
+            },
+            {
+              "id": "field-d1f83475-3b7c-4ea0-89a7-333d0031e822",
+              "name": "concussionProtocolConfirmation",
+              "tags": [],
+              "type": {
+                "kind": "boolean"
+              },
+              "label": "I confirm that I have read the club's concussion protocol",
+              "origin": "system",
+              "required": true,
+              "constraints": []
+            }
+          ],
+          "groups": [
+            {
+              "id": "section-067d7a7d-9045-4a17-88e5-c4b6d88abb20",
+              "label": "Player Information",
+              "fieldIds": [
+                "field-6c74e982-3588-4ebf-923e-c6b22a66b8d4",
+                "field-4be338df-563c-45ef-8315-ae733181e3b9"
+              ]
+            },
+            {
+              "id": "section-3d405619-31b2-4700-be19-57f668ad4219",
+              "label": "Parent/Guardian Information",
+              "fieldIds": [
+                "field-7d5d483d-b1c3-4a44-a636-7d501ed85498",
+                "field-68f84685-0a9d-464d-9851-be1a143a9eec"
+              ]
+            },
+            {
+              "id": "section-14a7ec36-9a77-4d88-ac9a-18262df86bf3",
+              "label": "Emergency Contact",
+              "fieldIds": [
+                "field-555f4b10-d47c-40ee-80d6-9c1ba00c3dbc",
+                "field-d7fed928-32bc-42d6-a15c-be7b1a88691c",
+                "field-d72c9c06-08d1-4d82-8cc6-2ddc3252b2d0"
+              ]
+            },
+            {
+              "id": "section-751e6ed5-a072-4367-b6b1-2de5902ecd84",
+              "label": "Proof of Residency",
+              "fieldIds": [
+                "field-d007026e-b73f-4e70-843b-67a76776b32a",
+                "field-cfa8cb12-bbba-4cdd-af9d-bd97f7a5036d"
+              ]
+            },
+            {
+              "id": "section-18e43007-c5ef-4a2e-8cbf-f65d92891cf0",
+              "label": "Health & Safety",
+              "fieldIds": [
+                "field-d1f83475-3b7c-4ea0-89a7-333d0031e822"
+              ]
+            }
+          ],
+          "version": 7
+        },
+        "intent": {
+          "purpose": {
+            "content": "A registration form for youth soccer players between the ages of 9 and 14, collecting personal details, emergency contacts, and handling payment offline.",
+            "updatedAt": "2026-11-12T00:00:00.000Z"
+          },
+          "audience": {
+            "content": "",
+            "updatedAt": "2026-11-12T00:00:00.000Z"
+          },
+          "exclusions": {
+            "content": "",
+            "updatedAt": "2026-11-12T00:00:00.000Z"
+          },
+          "constraints": {
+            "content": "",
+            "updatedAt": "2026-11-12T00:00:00.000Z"
+          }
+        }
+      },
+      "calls": [
+        {
+          "functionId": "e1-w-change",
+          "model": "claude-sonnet-5",
+          "startedAt": "2026-11-12T22:32:26.393Z",
+          "ms": 14918,
+          "inputTokens": 3807,
+          "outputTokens": 1661,
+          "cacheReadTokens": 0,
+          "cacheWriteTokens": 0,
+          "costUsd": 0.024224,
+          "output": {
+            "artifactFormSchema": {
+              "name": "Youth Club Registration Form",
+              "description": "Registration form for players, parents/guardians, and emergency contacts to join a youth sports club.",
+              "sections": [
+                {
+                  "title": "Player Information",
+                  "description": ""
+                },
+                {
+                  "title": "Parent/Guardian Information",
+                  "description": ""
+                },
+                {
+                  "title": "Emergency Contact",
+                  "description": ""
+                },
+                {
+                  "title": "Proof of Residency",
+                  "description": ""
+                },
+                {
+                  "title": "Health & Safety",
+                  "description": ""
+                }
+              ],
+              "fields": [
+                {
+                  "key": "playerFullName",
+                  "label": "Player's full name",
+                  "type": "string",
+                  "validation": null,
+                  "scale": null,
+                  "required": true,
+                  "section": "Player Information"
+                },
+                {
+                  "key": "playerDateOfBirth",
+                  "label": "Date of birth (as on the passport)",
+                  "description": "Must be between ages 9 and 14",
+                  "type": "date",
+                  "validation": null,
+                  "scale": null,
+                  "required": true,
+                  "section": "Player Information"
+                },
+                {
+                  "key": "parentGuardianEmail",
+                  "label": "Parent/guardian email",
+                  "type": "string",
+                  "validation": null,
+                  "scale": null,
+                  "required": true,
+                  "section": "Parent/Guardian Information"
+                },
+                {
+                  "key": "parentGuardianPhone",
+                  "label": "Parent/guardian phone number",
+                  "type": "string",
+                  "validation": null,
+                  "scale": null,
+                  "required": true,
+                  "section": "Parent/Guardian Information"
+                },
+                {
+                  "key": "emergencyContactName",
+                  "label": "Emergency contact name",
+                  "description": "Someone other than the parent/guardian listed above",
+                  "type": "string",
+                  "validation": null,
+                  "scale": null,
+                  "required": true,
+                  "section": "Emergency Contact"
+                },
+                {
+                  "key": "emergencyContactPhone",
+                  "label": "Emergency contact phone number",
+                  "type": "string",
+                  "validation": null,
+                  "scale": null,
+                  "required": false,
+                  "section": "Emergency Contact"
+                },
+                {
+                  "key": "emergencyContactRelationship",
+                  "label": "Emergency contact's relationship to player",
+                  "type": "select",
+                  "validation": {
+                    "options": [
+                      {
+                        "label": "Grandparent",
+                        "value": "grandparent"
+                      },
+                      {
+                        "label": "Aunt/Uncle",
+                        "value": "auntUncle"
+                      },
+                      {
+                        "label": "Sibling",
+                        "value": "sibling"
+                      },
+                      {
+                        "label": "Family friend",
+                        "value": "familyFriend"
+                      },
+                      {
+                        "label": "Other relative",
+                        "value": "otherRelative"
+                      },
+                      {
+                        "label": "Other",
+                        "value": "other"
+                      }
+                    ]
+                  },
+                  "scale": null,
+                  "required": true,
+                  "section": "Emergency Contact"
+                },
+                {
+                  "key": "familyHomeAddress",
+                  "label": "Family home address",
+                  "description": "Street, city, state, and zip code",
+                  "type": "string",
+                  "validation": null,
+                  "scale": null,
+                  "required": true,
+                  "section": "Proof of Residency"
+                },
+                {
+                  "key": "proofOfResidencyDocument",
+                  "label": "Proof of residency document",
+                  "description": "Provide a link to or reference of a document (e.g. utility bill, lease) verifying your home address",
+                  "type": "string",
+                  "validation": null,
+                  "scale": null,
+                  "required": true,
+                  "section": "Proof of Residency"
+                },
+                {
+                  "key": "concussionProtocolConfirmation",
+                  "label": "I confirm that I have read the club's concussion protocol",
+                  "type": "boolean",
+                  "validation": null,
+                  "scale": null,
+                  "required": true,
+                  "section": "Health & Safety"
+                }
+              ]
+            }
+          }
+        }
+      ],
+      "costUsd": 0.024224,
+      "foregroundMs": 14957,
+      "totalMs": 14957,
+      "notes": []
+    },
+    {
+      "id": "soccer-8",
+      "kind": "add",
+      "target": "base",
+      "request": "Ask for the player's shirt size: XS, S, M, L or XL.",
+      "before": {
+        "schema": {
+          "fields": [
+            {
+              "id": "field-6c74e982-3588-4ebf-923e-c6b22a66b8d4",
+              "name": "playerFullName",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Player's full name",
+              "origin": "system",
+              "required": true,
+              "constraints": []
+            },
+            {
+              "id": "field-4be338df-563c-45ef-8315-ae733181e3b9",
+              "name": "playerDateOfBirth",
+              "tags": [],
+              "type": {
+                "kind": "date"
+              },
+              "label": "Date of birth (as on the passport)",
+              "origin": "system",
+              "required": true,
+              "constraints": [],
+              "description": "Must be between ages 9 and 14"
+            },
+            {
+              "id": "field-7d5d483d-b1c3-4a44-a636-7d501ed85498",
+              "name": "parentGuardianEmail",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Parent/guardian email",
+              "origin": "system",
+              "required": true,
+              "constraints": []
+            },
+            {
+              "id": "field-68f84685-0a9d-464d-9851-be1a143a9eec",
+              "name": "parentGuardianPhone",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Parent/guardian phone number",
+              "origin": "system",
+              "required": true,
+              "constraints": []
+            },
+            {
+              "id": "field-555f4b10-d47c-40ee-80d6-9c1ba00c3dbc",
+              "name": "emergencyContactName",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Emergency contact name",
+              "origin": "system",
+              "required": true,
+              "constraints": [],
+              "description": "Someone other than the parent/guardian listed above"
+            },
+            {
+              "id": "field-d7fed928-32bc-42d6-a15c-be7b1a88691c",
+              "name": "emergencyContactPhone",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Emergency contact phone number",
+              "origin": "system",
+              "required": false,
+              "constraints": []
+            },
+            {
+              "id": "field-d72c9c06-08d1-4d82-8cc6-2ddc3252b2d0",
+              "name": "emergencyContactRelationship",
+              "tags": [],
+              "type": {
+                "kind": "select",
+                "options": [
+                  {
+                    "label": "Grandparent",
+                    "value": "grandparent"
+                  },
+                  {
+                    "label": "Aunt/Uncle",
+                    "value": "auntUncle"
+                  },
+                  {
+                    "label": "Sibling",
+                    "value": "sibling"
+                  },
+                  {
+                    "label": "Family friend",
+                    "value": "familyFriend"
+                  },
+                  {
+                    "label": "Other relative",
+                    "value": "otherRelative"
+                  },
+                  {
+                    "label": "Other",
+                    "value": "other"
+                  }
+                ],
+                "multiple": false
+              },
+              "label": "Emergency contact's relationship to player",
+              "origin": "system",
+              "required": true,
+              "constraints": []
+            },
+            {
+              "id": "field-d007026e-b73f-4e70-843b-67a76776b32a",
+              "name": "familyHomeAddress",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Family home address",
+              "origin": "system",
+              "required": true,
+              "constraints": [],
+              "description": "Street, city, state, and zip code"
+            },
+            {
+              "id": "field-cfa8cb12-bbba-4cdd-af9d-bd97f7a5036d",
+              "name": "proofOfResidencyDocument",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Proof of residency document",
+              "origin": "system",
+              "required": true,
+              "constraints": [],
+              "description": "Provide a link to or reference of a document (e.g. utility bill, lease) verifying your home address"
+            },
+            {
+              "id": "field-d1f83475-3b7c-4ea0-89a7-333d0031e822",
+              "name": "concussionProtocolConfirmation",
+              "tags": [],
+              "type": {
+                "kind": "boolean"
+              },
+              "label": "I confirm that I have read the club's concussion protocol",
+              "origin": "system",
+              "required": true,
+              "constraints": []
+            }
+          ],
+          "groups": [
+            {
+              "id": "section-067d7a7d-9045-4a17-88e5-c4b6d88abb20",
+              "label": "Player Information",
+              "fieldIds": [
+                "field-6c74e982-3588-4ebf-923e-c6b22a66b8d4",
+                "field-4be338df-563c-45ef-8315-ae733181e3b9"
+              ]
+            },
+            {
+              "id": "section-3d405619-31b2-4700-be19-57f668ad4219",
+              "label": "Parent/Guardian Information",
+              "fieldIds": [
+                "field-7d5d483d-b1c3-4a44-a636-7d501ed85498",
+                "field-68f84685-0a9d-464d-9851-be1a143a9eec"
+              ]
+            },
+            {
+              "id": "section-14a7ec36-9a77-4d88-ac9a-18262df86bf3",
+              "label": "Emergency Contact",
+              "fieldIds": [
+                "field-555f4b10-d47c-40ee-80d6-9c1ba00c3dbc",
+                "field-d7fed928-32bc-42d6-a15c-be7b1a88691c",
+                "field-d72c9c06-08d1-4d82-8cc6-2ddc3252b2d0"
+              ]
+            },
+            {
+              "id": "section-751e6ed5-a072-4367-b6b1-2de5902ecd84",
+              "label": "Proof of Residency",
+              "fieldIds": [
+                "field-d007026e-b73f-4e70-843b-67a76776b32a",
+                "field-cfa8cb12-bbba-4cdd-af9d-bd97f7a5036d"
+              ]
+            },
+            {
+              "id": "section-18e43007-c5ef-4a2e-8cbf-f65d92891cf0",
+              "label": "Health & Safety",
+              "fieldIds": [
+                "field-d1f83475-3b7c-4ea0-89a7-333d0031e822"
+              ]
+            }
+          ],
+          "version": 7
+        },
+        "intent": {
+          "purpose": {
+            "content": "A registration form for youth soccer players between the ages of 9 and 14, collecting personal details, emergency contacts, and handling payment offline.",
+            "updatedAt": "2026-11-12T00:00:00.000Z"
+          },
+          "audience": {
+            "content": "",
+            "updatedAt": "2026-11-12T00:00:00.000Z"
+          },
+          "exclusions": {
+            "content": "",
+            "updatedAt": "2026-11-12T00:00:00.000Z"
+          },
+          "constraints": {
+            "content": "",
+            "updatedAt": "2026-11-12T00:00:00.000Z"
+          }
+        }
+      },
+      "after": {
+        "schema": {
+          "fields": [
+            {
+              "id": "field-f5fff88d-bf14-4cec-a3dd-07eeb57675cb",
+              "name": "playerFullName",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Player's full name",
+              "origin": "system",
+              "required": true,
+              "constraints": []
+            },
+            {
+              "id": "field-36f3f0f4-d650-40da-abf4-c6351ae6c86d",
+              "name": "playerDateOfBirth",
+              "tags": [],
+              "type": {
+                "kind": "date"
+              },
+              "label": "Date of birth (as on the passport)",
+              "origin": "system",
+              "required": true,
+              "constraints": [],
+              "description": "Must be between ages 9 and 14"
+            },
+            {
+              "id": "field-b00917b3-04f4-4860-9daf-99c85c1ccb95",
+              "name": "playerShirtSize",
+              "tags": [],
+              "type": {
+                "kind": "select",
+                "options": [
+                  {
+                    "label": "XS",
+                    "value": "xs"
+                  },
+                  {
+                    "label": "S",
+                    "value": "s"
+                  },
+                  {
+                    "label": "M",
+                    "value": "m"
+                  },
+                  {
+                    "label": "L",
+                    "value": "l"
+                  },
+                  {
+                    "label": "XL",
+                    "value": "xl"
+                  }
+                ],
+                "multiple": false
+              },
+              "label": "Player's shirt size",
+              "origin": "system",
+              "required": true,
+              "constraints": []
+            },
+            {
+              "id": "field-53090aac-b878-4b82-9795-685ec24fa564",
+              "name": "parentGuardianEmail",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Parent/guardian email",
+              "origin": "system",
+              "required": true,
+              "constraints": []
+            },
+            {
+              "id": "field-dbec5f34-745f-4d4b-b4ae-f12aa9f7d2b3",
+              "name": "parentGuardianPhone",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Parent/guardian phone number",
+              "origin": "system",
+              "required": true,
+              "constraints": []
+            },
+            {
+              "id": "field-d531ffad-8fc0-4e8a-ae63-d61c99d67804",
+              "name": "emergencyContactName",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Emergency contact name",
+              "origin": "system",
+              "required": true,
+              "constraints": [],
+              "description": "Someone other than the parent/guardian listed above"
+            },
+            {
+              "id": "field-e178471a-dd92-4555-a2f8-9ca3db94d822",
+              "name": "emergencyContactPhone",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Emergency contact phone number",
+              "origin": "system",
+              "required": false,
+              "constraints": []
+            },
+            {
+              "id": "field-92fd8718-7215-49db-ad67-72a285415255",
+              "name": "emergencyContactRelationship",
+              "tags": [],
+              "type": {
+                "kind": "select",
+                "options": [
+                  {
+                    "label": "Grandparent",
+                    "value": "grandparent"
+                  },
+                  {
+                    "label": "Aunt/Uncle",
+                    "value": "auntUncle"
+                  },
+                  {
+                    "label": "Sibling",
+                    "value": "sibling"
+                  },
+                  {
+                    "label": "Family friend",
+                    "value": "familyFriend"
+                  },
+                  {
+                    "label": "Other relative",
+                    "value": "otherRelative"
+                  },
+                  {
+                    "label": "Other",
+                    "value": "other"
+                  }
+                ],
+                "multiple": false
+              },
+              "label": "Emergency contact's relationship to player",
+              "origin": "system",
+              "required": true,
+              "constraints": []
+            },
+            {
+              "id": "field-2cc0235e-60e5-4986-bd1c-a35be6aa9e94",
+              "name": "familyHomeAddress",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Family home address",
+              "origin": "system",
+              "required": true,
+              "constraints": [],
+              "description": "Street, city, state, and zip code"
+            },
+            {
+              "id": "field-edd265cd-df0d-4706-8d58-c0da411fa298",
+              "name": "proofOfResidencyDocument",
+              "tags": [],
+              "type": {
+                "kind": "text"
+              },
+              "label": "Proof of residency document",
+              "origin": "system",
+              "required": true,
+              "constraints": [],
+              "description": "Provide a link to or reference of a document (e.g. utility bill, lease) verifying your home address"
+            },
+            {
+              "id": "field-ab0277a0-435e-4af8-b936-2f0ccb30d385",
+              "name": "concussionProtocolConfirmation",
+              "tags": [],
+              "type": {
+                "kind": "boolean"
+              },
+              "label": "I confirm that I have read the club's concussion protocol",
+              "origin": "system",
+              "required": true,
+              "constraints": []
+            }
+          ],
+          "groups": [
+            {
+              "id": "section-aa3dd6c0-25aa-4163-bacf-50cda949e1d7",
+              "label": "Player Information",
+              "fieldIds": [
+                "field-f5fff88d-bf14-4cec-a3dd-07eeb57675cb",
+                "field-36f3f0f4-d650-40da-abf4-c6351ae6c86d",
+                "field-b00917b3-04f4-4860-9daf-99c85c1ccb95"
+              ]
+            },
+            {
+              "id": "section-32311616-808b-42a0-95c6-1ef7d37caa8c",
+              "label": "Parent/Guardian Information",
+              "fieldIds": [
+                "field-53090aac-b878-4b82-9795-685ec24fa564",
+                "field-dbec5f34-745f-4d4b-b4ae-f12aa9f7d2b3"
+              ]
+            },
+            {
+              "id": "section-b4f9a242-7c30-4481-8e86-3b3d8b4ac0a9",
+              "label": "Emergency Contact",
+              "fieldIds": [
+                "field-d531ffad-8fc0-4e8a-ae63-d61c99d67804",
+                "field-e178471a-dd92-4555-a2f8-9ca3db94d822",
+                "field-92fd8718-7215-49db-ad67-72a285415255"
+              ]
+            },
+            {
+              "id": "section-54ab2a54-66f3-4d42-a865-2cdb9770a411",
+              "label": "Proof of Residency",
+              "fieldIds": [
+                "field-2cc0235e-60e5-4986-bd1c-a35be6aa9e94",
+                "field-edd265cd-df0d-4706-8d58-c0da411fa298"
+              ]
+            },
+            {
+              "id": "section-4fe7648e-d7a7-4bf7-ae7b-b2a9e27711e5",
+              "label": "Health & Safety",
+              "fieldIds": [
+                "field-ab0277a0-435e-4af8-b936-2f0ccb30d385"
+              ]
+            }
+          ],
+          "version": 8
+        },
+        "intent": {
+          "purpose": {
+            "content": "A registration form for youth soccer players between the ages of 9 and 14, collecting personal details, emergency contacts, and handling payment offline.",
+            "updatedAt": "2026-11-12T00:00:00.000Z"
+          },
+          "audience": {
+            "content": "",
+            "updatedAt": "2026-11-12T00:00:00.000Z"
+          },
+          "exclusions": {
+            "content": "",
+            "updatedAt": "2026-11-12T00:00:00.000Z"
+          },
+          "constraints": {
+            "content": "",
+            "updatedAt": "2026-11-12T00:00:00.000Z"
+          }
+        }
+      },
+      "calls": [
+        {
+          "functionId": "e1-w-change",
+          "model": "claude-sonnet-5",
+          "startedAt": "2026-11-12T22:32:41.357Z",
+          "ms": 7550,
+          "inputTokens": 3887,
+          "outputTokens": 987,
+          "cacheReadTokens": 0,
+          "cacheWriteTokens": 0,
+          "costUsd": 0.017644,
+          "output": {
+            "artifactFormSchema": {
+              "name": "",
+              "description": "",
+              "fields": [
+                {
+                  "key": "playerFullName",
+                  "label": "Player's full name",
+                  "type": "string",
+                  "validation": null,
+                  "scale": null,
+                  "required": true,
+                  "section": "Player Information"
+                },
+                {
+                  "key": "playerDateOfBirth",
+                  "label": "Date of birth (as on the passport)",
+                  "description": "Must be between ages 9 and 14",
+                  "type": "date",
+                  "validation": null,
+                  "scale": null,
+                  "required": true,
+                  "section": "Player Information"
+                },
+                {
+                  "key": "playerShirtSize",
+                  "label": "Player's shirt size",
+                  "type": "select",
+                  "validation": {
+                    "options": [
+                      {
+                        "label": "XS",
+                        "value": "xs"
+                      },
+                      {
+                        "label": "S",
+                        "value": "s"
+                      },
+                      {
+                        "label": "M",
+                        "value": "m"
+                      },
+                      {
+                        "label": "L",
+                        "value": "l"
+                      },
+                      {
+                        "label": "XL",
+                        "value": "xl"
+                      }
+                    ]
+                  },
+                  "scale": null,
+                  "required": true,
+                  "section": "Player Information"
+                },
+                {
+                  "key": "parentGuardianEmail",
+                  "label": "Parent/guardian email",
+                  "type": "string",
+                  "validation": null,
+                  "scale": null,
+                  "required": true,
+                  "section": "Parent/Guardian Information"
+                },
+                {
+                  "key": "parentGuardianPhone",
+                  "label": "Parent/guardian phone number",
+                  "type": "string",
+                  "validation": null,
+                  "scale": null,
+                  "required": true,
+                  "section": "Parent/Guardian Information"
+                },
+                {
+                  "key": "emergencyContactName",
+                  "label": "Emergency contact name",
+                  "description": "Someone other than the parent/guardian listed above",
+                  "type": "string",
+                  "validation": null,
+                  "scale": null,
+                  "required": true,
+                  "section": "Emergency Contact"
+                },
+                {
+                  "key": "emergencyContactPhone",
+                  "label": "Emergency contact phone number",
+                  "type": "string",
+                  "validation": null,
+                  "scale": null,
+                  "required": false,
+                  "section": "Emergency Contact"
+                },
+                {
+                  "key": "emergencyContactRelationship",
+                  "label": "Emergency contact's relationship to player",
+                  "type": "select",
+                  "validation": {
+                    "options": [
+                      {
+                        "label": "Grandparent",
+                        "value": "grandparent"
+                      },
+                      {
+                        "label": "Aunt/Uncle",
+                        "value": "auntUncle"
+                      },
+                      {
+                        "label": "Sibling",
+                        "value": "sibling"
+                      },
+                      {
+                        "label": "Family friend",
+                        "value": "familyFriend"
+                      },
+                      {
+                        "label": "Other relative",
+                        "value": "otherRelative"
+                      },
+                      {
+                        "label": "Other",
+                        "value": "other"
+                      }
+                    ]
+                  },
+                  "scale": null,
+                  "required": true,
+                  "section": "Emergency Contact"
+                },
+                {
+                  "key": "familyHomeAddress",
+                  "label": "Family home address",
+                  "description": "Street, city, state, and zip code",
+                  "type": "string",
+                  "validation": null,
+                  "scale": null,
+                  "required": true,
+                  "section": "Proof of Residency"
+                },
+                {
+                  "key": "proofOfResidencyDocument",
+                  "label": "Proof of residency document",
+                  "description": "Provide a link to or reference of a document (e.g. utility bill, lease) verifying your home address",
+                  "type": "string",
+                  "validation": null,
+                  "scale": null,
+                  "required": true,
+                  "section": "Proof of Residency"
+                },
+                {
+                  "key": "concussionProtocolConfirmation",
+                  "label": "I confirm that I have read the club's concussion protocol",
+                  "type": "boolean",
+                  "validation": null,
+                  "scale": null,
+                  "required": true,
+                  "section": "Health & Safety"
+                }
+              ]
+            }
+          }
+        }
+      ],
+      "costUsd": 0.017644,
+      "foregroundMs": 7577,
+      "totalMs": 7577,
+      "notes": []
+    }
+  ],
+  "final": {
+    "base": {
+      "fields": [
+        {
+          "id": "field-f5fff88d-bf14-4cec-a3dd-07eeb57675cb",
+          "name": "playerFullName",
+          "tags": [],
+          "type": {
+            "kind": "text"
+          },
+          "label": "Player's full name",
+          "origin": "system",
+          "required": true,
+          "constraints": []
+        },
+        {
+          "id": "field-36f3f0f4-d650-40da-abf4-c6351ae6c86d",
+          "name": "playerDateOfBirth",
+          "tags": [],
+          "type": {
+            "kind": "date"
+          },
+          "label": "Date of birth (as on the passport)",
+          "origin": "system",
+          "required": true,
+          "constraints": [],
+          "description": "Must be between ages 9 and 14"
+        },
+        {
+          "id": "field-b00917b3-04f4-4860-9daf-99c85c1ccb95",
+          "name": "playerShirtSize",
+          "tags": [],
+          "type": {
+            "kind": "select",
+            "options": [
+              {
+                "label": "XS",
+                "value": "xs"
+              },
+              {
+                "label": "S",
+                "value": "s"
+              },
+              {
+                "label": "M",
+                "value": "m"
+              },
+              {
+                "label": "L",
+                "value": "l"
+              },
+              {
+                "label": "XL",
+                "value": "xl"
+              }
+            ],
+            "multiple": false
+          },
+          "label": "Player's shirt size",
+          "origin": "system",
+          "required": true,
+          "constraints": []
+        },
+        {
+          "id": "field-53090aac-b878-4b82-9795-685ec24fa564",
+          "name": "parentGuardianEmail",
+          "tags": [],
+          "type": {
+            "kind": "text"
+          },
+          "label": "Parent/guardian email",
+          "origin": "system",
+          "required": true,
+          "constraints": []
+        },
+        {
+          "id": "field-dbec5f34-745f-4d4b-b4ae-f12aa9f7d2b3",
+          "name": "parentGuardianPhone",
+          "tags": [],
+          "type": {
+            "kind": "text"
+          },
+          "label": "Parent/guardian phone number",
+          "origin": "system",
+          "required": true,
+          "constraints": []
+        },
+        {
+          "id": "field-d531ffad-8fc0-4e8a-ae63-d61c99d67804",
+          "name": "emergencyContactName",
+          "tags": [],
+          "type": {
+            "kind": "text"
+          },
+          "label": "Emergency contact name",
+          "origin": "system",
+          "required": true,
+          "constraints": [],
+          "description": "Someone other than the parent/guardian listed above"
+        },
+        {
+          "id": "field-e178471a-dd92-4555-a2f8-9ca3db94d822",
+          "name": "emergencyContactPhone",
+          "tags": [],
+          "type": {
+            "kind": "text"
+          },
+          "label": "Emergency contact phone number",
+          "origin": "system",
+          "required": false,
+          "constraints": []
+        },
+        {
+          "id": "field-92fd8718-7215-49db-ad67-72a285415255",
+          "name": "emergencyContactRelationship",
+          "tags": [],
+          "type": {
+            "kind": "select",
+            "options": [
+              {
+                "label": "Grandparent",
+                "value": "grandparent"
+              },
+              {
+                "label": "Aunt/Uncle",
+                "value": "auntUncle"
+              },
+              {
+                "label": "Sibling",
+                "value": "sibling"
+              },
+              {
+                "label": "Family friend",
+                "value": "familyFriend"
+              },
+              {
+                "label": "Other relative",
+                "value": "otherRelative"
+              },
+              {
+                "label": "Other",
+                "value": "other"
+              }
+            ],
+            "multiple": false
+          },
+          "label": "Emergency contact's relationship to player",
+          "origin": "system",
+          "required": true,
+          "constraints": []
+        },
+        {
+          "id": "field-2cc0235e-60e5-4986-bd1c-a35be6aa9e94",
+          "name": "familyHomeAddress",
+          "tags": [],
+          "type": {
+            "kind": "text"
+          },
+          "label": "Family home address",
+          "origin": "system",
+          "required": true,
+          "constraints": [],
+          "description": "Street, city, state, and zip code"
+        },
+        {
+          "id": "field-edd265cd-df0d-4706-8d58-c0da411fa298",
+          "name": "proofOfResidencyDocument",
+          "tags": [],
+          "type": {
+            "kind": "text"
+          },
+          "label": "Proof of residency document",
+          "origin": "system",
+          "required": true,
+          "constraints": [],
+          "description": "Provide a link to or reference of a document (e.g. utility bill, lease) verifying your home address"
+        },
+        {
+          "id": "field-ab0277a0-435e-4af8-b936-2f0ccb30d385",
+          "name": "concussionProtocolConfirmation",
+          "tags": [],
+          "type": {
+            "kind": "boolean"
+          },
+          "label": "I confirm that I have read the club's concussion protocol",
+          "origin": "system",
+          "required": true,
+          "constraints": []
+        }
+      ],
+      "groups": [
+        {
+          "id": "section-aa3dd6c0-25aa-4163-bacf-50cda949e1d7",
+          "label": "Player Information",
+          "fieldIds": [
+            "field-f5fff88d-bf14-4cec-a3dd-07eeb57675cb",
+            "field-36f3f0f4-d650-40da-abf4-c6351ae6c86d",
+            "field-b00917b3-04f4-4860-9daf-99c85c1ccb95"
+          ]
+        },
+        {
+          "id": "section-32311616-808b-42a0-95c6-1ef7d37caa8c",
+          "label": "Parent/Guardian Information",
+          "fieldIds": [
+            "field-53090aac-b878-4b82-9795-685ec24fa564",
+            "field-dbec5f34-745f-4d4b-b4ae-f12aa9f7d2b3"
+          ]
+        },
+        {
+          "id": "section-b4f9a242-7c30-4481-8e86-3b3d8b4ac0a9",
+          "label": "Emergency Contact",
+          "fieldIds": [
+            "field-d531ffad-8fc0-4e8a-ae63-d61c99d67804",
+            "field-e178471a-dd92-4555-a2f8-9ca3db94d822",
+            "field-92fd8718-7215-49db-ad67-72a285415255"
+          ]
+        },
+        {
+          "id": "section-54ab2a54-66f3-4d42-a865-2cdb9770a411",
+          "label": "Proof of Residency",
+          "fieldIds": [
+            "field-2cc0235e-60e5-4986-bd1c-a35be6aa9e94",
+            "field-edd265cd-df0d-4706-8d58-c0da411fa298"
+          ]
+        },
+        {
+          "id": "section-4fe7648e-d7a7-4bf7-ae7b-b2a9e27711e5",
+          "label": "Health & Safety",
+          "fieldIds": [
+            "field-ab0277a0-435e-4af8-b936-2f0ccb30d385"
+          ]
+        }
+      ],
+      "version": 8
+    },
+    "derived": {
+      "medical": {
+        "fields": [
+          {
+            "id": "field-3b5f0488-0010-4b2f-9953-7887c2991877",
+            "name": "playerFullName",
+            "tags": [],
+            "type": {
+              "kind": "text"
+            },
+            "label": "Player's full name",
+            "origin": "system",
+            "required": true,
+            "constraints": []
+          },
+          {
+            "id": "field-0106ec03-f41d-425f-ae49-7575f5d5f698",
+            "name": "playerDateOfBirth",
+            "tags": [],
+            "type": {
+              "kind": "date"
+            },
+            "label": "Player's date of birth",
+            "origin": "system",
+            "required": true,
+            "constraints": [],
+            "description": "Must be between ages 9 and 14"
+          },
+          {
+            "id": "field-efdfc86d-0a73-478f-9122-35bc1ec20eea",
+            "name": "emergencyContactName",
+            "tags": [],
+            "type": {
+              "kind": "text"
+            },
+            "label": "Emergency contact name",
+            "origin": "system",
+            "required": true,
+            "constraints": [],
+            "description": "Someone other than the parent/guardian listed above"
+          },
+          {
+            "id": "field-b14d98bc-67aa-4251-b27d-97ff1d28cf4f",
+            "name": "emergencyContactPhone",
+            "tags": [],
+            "type": {
+              "kind": "text"
+            },
+            "label": "Emergency contact phone number",
+            "origin": "system",
+            "required": false,
+            "constraints": []
+          },
+          {
+            "id": "field-089fd845-81b4-4b65-ab3c-23e3c320b1a2",
+            "name": "emergencyContactRelationship",
+            "tags": [],
+            "type": {
+              "kind": "select",
+              "options": [
+                {
+                  "label": "Grandparent",
+                  "value": "grandparent"
+                },
+                {
+                  "label": "Aunt/Uncle",
+                  "value": "auntUncle"
+                },
+                {
+                  "label": "Sibling",
+                  "value": "sibling"
+                },
+                {
+                  "label": "Family friend",
+                  "value": "familyFriend"
+                },
+                {
+                  "label": "Other relative",
+                  "value": "otherRelative"
+                },
+                {
+                  "label": "Other",
+                  "value": "other"
+                }
+              ],
+              "multiple": false
+            },
+            "label": "Emergency contact's relationship to player",
+            "origin": "system",
+            "required": true,
+            "constraints": []
+          },
+          {
+            "id": "field-da84b23a-c9aa-4f2a-9897-c56acdffb147",
+            "name": "playerAllergies",
+            "tags": [],
+            "type": {
+              "kind": "text"
+            },
+            "label": "Player's allergies",
+            "origin": "system",
+            "required": true,
+            "constraints": [],
+            "description": "List any known allergies (food, medication, insect, etc.), or write 'None'"
+          },
+          {
+            "id": "field-0571c29e-1c77-4522-bba4-ab12a30e790b",
+            "name": "playerMedicalConditions",
+            "tags": [],
+            "type": {
+              "kind": "text"
+            },
+            "label": "Player's medical conditions",
+            "origin": "system",
+            "required": true,
+            "constraints": [],
+            "description": "List any medical conditions coaches should be aware of (e.g. asthma, diabetes), or write 'None'"
+          }
+        ],
+        "groups": [
+          {
+            "id": "section-09b39691-4604-4be0-a8e7-fe2f588f4016",
+            "label": "Player Information",
+            "fieldIds": [
+              "field-3b5f0488-0010-4b2f-9953-7887c2991877",
+              "field-0106ec03-f41d-425f-ae49-7575f5d5f698"
+            ]
+          },
+          {
+            "id": "section-5f098bf1-c225-484c-9470-5f90044a31d9",
+            "label": "Emergency Contact",
+            "fieldIds": [
+              "field-efdfc86d-0a73-478f-9122-35bc1ec20eea",
+              "field-b14d98bc-67aa-4251-b27d-97ff1d28cf4f",
+              "field-089fd845-81b4-4b65-ab3c-23e3c320b1a2"
+            ],
+            "description": "Someone other than the parent/guardian who can be reached in case of emergency"
+          },
+          {
+            "id": "section-f41be276-dd38-49fc-af7c-f06ca9dff1a0",
+            "label": "Medical Information",
+            "fieldIds": [
+              "field-da84b23a-c9aa-4f2a-9897-c56acdffb147",
+              "field-0571c29e-1c77-4522-bba4-ab12a30e790b"
+            ],
+            "description": "Please list any allergies or medical conditions coaches should be aware of"
+          }
+        ],
+        "version": 1
+      }
+    }
+  }
+}
