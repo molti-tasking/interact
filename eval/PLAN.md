@@ -151,22 +151,31 @@ The harness reads the exports from `EVAL_DATA_DIR`, which defaults to `eval/data
 - Export the change functions of `useApplyProbePreview` and the derive page's projection assembly as pure functions. The headless harness then runs the exact code instead of a copy.
 - Move the preview queue (`runPreviewTask`, `waitForProbePreview`) into a module that can be driven with fake timers.
 
-### D. Study handoff through the commit function (decided, [D7])
+### D. Study handoff: dropped (decided 2026-11-12, [D7])
 
-**Current behaviour.** `study_start_from_source` (`mig/015_study_handoff_run_settings.sql:148-218`) overwrites a task form's schema and intent with a plain `UPDATE`. It then logs `portfolio_derived` with `prev_*` set to `NULL`.
+`study_start_from_source` (`mig/015_study_handoff_run_settings.sql:148-218`) overwrites a task form's schema and intent with a plain `UPDATE` and logs `portfolio_derived` with `prev_*` set to `NULL`.
 
-**Context.** It runs inside the panel join (`:486-488`), on a task form inserted moments earlier in the same transaction (`:455-458`). Nobody has seen or edited that form yet.
+It runs inside the panel join (`:486-488`), on a task form inserted moments earlier in the same transaction (`:455-458`), which nobody has seen or edited. It is therefore **part of creating the form**, which is out of scope for I1 under D7.
+
+The join function stays untouched. `DEVIATIONS.md` will list it as a study-only creation path, so readers of the I1 results know it exists.
+
+### E. Intent-edit refinements as an elicitation question (optional, last in Phase 1)
+
+**Today.** Editing the purpose or audience of a form with fields commits a model patch right away (`useRefineSchema`). The patch is guarded for locked fields but has no scope, and the creator gets a toast with Undo (CLAIMS 13, last section).
 
 **Change.**
-- A new migration redefines the function so that the overwrite and its log entry go through `commit_portfolio_change`:
-  - the expected revision is read from the row;
-  - the takeover is the provenance spec;
-  - `prev_*` comes from the database.
-- The copied history of the source form (answered questions, earlier log entries attributed to "Previous author") stays as it is. It is history from another form, not a change to this one.
+- The patch is computed as now but **not committed**.
+- It is stored as a question, "Apply these changes from your edit?", with two answers:
+  - **apply:** its preview is the patch, with `scope = patchScope(base, patch)` and status `ready`;
+  - **keep the form as it is.**
+- Choosing an answer goes through the normal answer path: scoped, lock-guarded, logged with `trigger: "answer"`.
+- The intent edit itself is still committed at once, as now.
 
-**Size and testing.** About 20 lines of SQL. The test is an extension of `apps/docs/tests/unit/study-handoff.integration.test.ts`: one revision bump, one takeover entry, and that entry's `prev_schema` equals the form as it was before the takeover.
+**Where it does not apply.** In the `no-probes` study condition there is no deck to show the question, so the automatic refinement stays there. That difference between conditions is recorded.
 
-**Deploying.** It changes the live join function, so it is deployed only when no study session is open.
+**Commits.** Separate ones, after A–C, so 1E can be dropped on its own. It must land before E2's oracles are frozen, because E2's current profile includes intent edits.
+
+**Deploying.** It changes what creators in the `full` condition see, so it is deployed only between study sessions.
 
 ## 5. E1: stability under change
 
@@ -246,7 +255,7 @@ Each script runs 5 times per pipeline. Requests are applied in sequence within a
 **Oracles,** checked after every step, as in the spec. Per-path definitions are needed for some:
 - **I1:** one entry per commit; the entry's previous state equals the state read just before the commit; no state change without an entry. **Scope (decided, [D7]):** I1 covers changes to an *existing* portfolio.
   - Creating a form, and the insert that creates a derived form, are not changes and are out of scope for the oracle.
-  - The study handoff is brought under the commit function in Phase 1D.
+  - The study handoff overwrites a form inside the join that creates it, so it counts as creation and is out of scope too (Section 4D).
   - The paper's I1 will say "every change to an existing portfolio", and that the app routes changes through the commit function while the database does not enforce it (CLAIMS 3).
 - **I2:** "apply" is the path's documented function:
   - answers: `applyProbeOption`
@@ -265,7 +274,7 @@ Each script runs 5 times per pipeline. Requests are applied in sequence within a
 - Each is recorded in `eval/e2/VIOLATIONS.md`, with seed and shrunk counterexample, **before** any fix.
 - Any fix goes in a separate commit with a regression test made from the counterexample.
 - Expected candidates from the audit (they are hypotheses until the property tests confirm them):
-  - unscoped finding answers (I5);
+  - unscoped finding answers (I5). Phase 1 deliberately leaves them as they are: E2 records the violation with its seed and counterexample first, and the fix follows in its own commit;
   - intent syncs dropped when the purpose changed meanwhile (I3);
   - automated key changes unbinding responses.
 
@@ -346,7 +355,7 @@ None.
 - **[D2] Intent edits in the pilot:** the profile runs them as they ran (a model patch, unrestricted in which fields it could change). There is no full regeneration (Section 4C). Counts are in CLAIMS.md (last section).
 - **[D5] P's path:** the carrier question "Anything else to change on this form?", frozen with the material, with the purpose update after each answer (Section 5).
 - **[D6] R:** replaces the old form (Section 5).
-- **[D7] I1 scope:** changes to existing portfolios only; creation is out of scope. The handoff goes through the commit function (Sections 4D and 6).
+- **[D7] I1 scope:** changes to existing portfolios only; creation is out of scope, including the study handoff, which happens inside the join that creates the form. The join function stays untouched (Sections 4D and 6).
 - **[D8] Drift in the pilot:** a measured 0 % (Section 6).
 - **[D9] Skipped intent syncs:** queued again as a new model call on the current state, and shown as out of sync after the timeout (Section 4B).
 - **[D10] E3 tolerance:** the median of 10 repetitions; inside 27–44 for answers that waited; ±10 % for the rest, including the 47 on-demand computations; frozen in `FROZEN.md` before the first run (Section 7).
@@ -361,8 +370,8 @@ None.
    - (a) refactors for the harness;
    - (b) I6 count, preview and UI;
    - (c) out-of-sync flag, with re-queued syncs;
-   - (d) study handoff through the commit function;
-   - (e) pilot worktree and adapter.
+   - (d) pilot worktree and adapter;
+   - (e) optional: intent-edit refinements as a question (Section 4E).
 2. E1 material and oracles, then **freeze and record hashes**, then the runs.
 3. E2 oracles and generators, then **freeze**, then runs. Violations are recorded before any fix.
 4. E3 simulation, validation against the pilot, then measures.
