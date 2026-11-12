@@ -265,7 +265,7 @@ it("E1", async () => {
   const label = `${args.mode}-${new Date().toISOString().replace(/[:.]/g, "-")}`;
   const dir = path.join(RUNS_DIR, label);
   const commit = execSync("git rev-parse HEAD", { cwd: EVAL_DIR }).toString().trim();
-  const dirty = execSync("git status --porcelain -- .", { cwd: EVAL_DIR }).toString().trim() !== "";
+  const dirty = execSync("git status --porcelain -- . ':!out' ':!e1/runs'", { cwd: EVAL_DIR }).toString().trim() !== "";
   fs.mkdirSync(dir, { recursive: true });
   fs.writeFileSync(
     path.join(dir, "meta.json"),
