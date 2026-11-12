@@ -1,6 +1,6 @@
 "use client";
 
-import { useResponses } from "@/hooks/query/responses-new";
+import { useCollectedResponses } from "@/hooks/query/responses-new";
 import type { FormResponse, PortfolioSchema } from "@/lib/types";
 import {
   affectedResponses,
@@ -18,9 +18,6 @@ const CollectedResponsesContext = createContext<readonly FormResponse[] | null>(
   null,
 );
 
-/** Responses keep arriving while a form is live (study peers, the public link). */
-const REFRESH_MS = 30_000;
-
 export function CollectedResponsesProvider({
   portfolioId,
   children,
@@ -28,7 +25,8 @@ export function CollectedResponsesProvider({
   portfolioId: string;
   children: React.ReactNode;
 }) {
-  const { data } = useResponses(portfolioId, { refetchInterval: REFRESH_MS });
+  // Refreshed every 30 s: responses keep arriving while a form is live
+  const { data } = useCollectedResponses(portfolioId);
   return (
     <CollectedResponsesContext.Provider value={data ?? null}>
       {children}

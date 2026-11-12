@@ -116,13 +116,15 @@ test.describe("Collected responses in previews (I6)", () => {
     const deck = page.getByTestId("card-deck-section");
     await deck.waitFor({ state: "visible", timeout: 60_000 });
 
-    // Open the question (it may already be open)
+    // Open the question (it may already be open). Only the collapsed row is
+    // clicked: a click on the open card could land on an answer and apply it
     const drop = page.getByTestId("deck-option-dropNotes");
+    const collapsed = page.locator(
+      `button[data-testid="deck-card-${questionId}"][aria-expanded="false"]`,
+    );
     await expect(async () => {
-      if (!(await drop.isVisible())) {
-        await page.getByTestId(`deck-card-${questionId}`).click();
-      }
-      await expect(drop).toBeVisible({ timeout: 2_000 });
+      if (await collapsed.isVisible()) await collapsed.click();
+      await expect(drop).toBeVisible({ timeout: 5_000 });
     }).toPass({ timeout: 30_000 });
 
     // Two of the three responses answered the field this answer removes

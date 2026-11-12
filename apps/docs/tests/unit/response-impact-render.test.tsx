@@ -16,7 +16,7 @@ const responses: FormResponse[] = [
 ];
 
 vi.mock("@/hooks/query/responses-new", () => ({
-  useResponses: () => ({ data: responses }),
+  useCollectedResponses: () => ({ data: responses }),
 }));
 
 const field = (name: string, label = name): Field => ({

@@ -145,6 +145,26 @@ export function useResponses(
   });
 }
 
+/**
+ * A form's collected responses for previews that say how many of them a
+ * change affects (I6). A query of its own, refreshed every 30 s: sharing
+ * `useResponses`' cache entry would hand other views (the study's answers
+ * panel) a list fetched while the workspace was open, which counts as fresh
+ * for a minute. Response writes still refresh it (same key prefix).
+ */
+export function useCollectedResponses(portfolioId: string | undefined) {
+  return useQuery({
+    queryKey: [...responsesKey(portfolioId ?? ""), "collected"] as const,
+    queryFn: async (): Promise<FormResponse[]> => {
+      if (!portfolioId) return [];
+      const rows = await fetchAllResponseRows([portfolioId]);
+      return rows.map(rowToResponse);
+    },
+    enabled: !!portfolioId,
+    refetchInterval: 30_000,
+  });
+}
+
 // ---------------------------------------------------------------------------
 // Mutations
 // ---------------------------------------------------------------------------
