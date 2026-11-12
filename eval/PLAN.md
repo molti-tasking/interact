@@ -93,9 +93,16 @@ The harness reads the exports from `EVAL_DATA_DIR`, which defaults to `eval/data
   - `lib/preview-queue.ts`
   - `lib/engine/answer-change.ts`
   - `lib/derivation.ts`
-- **C (pilot worktree and stacks, `eval/stacks.sh`):** in progress.
+- **C (pilot worktree and stacks):** done. `eval/stacks.sh pilot up` does three things:
+  - creates the worktree at `a64d230` (`eval/.worktrees/pilot`);
+  - installs the pilot's own dependencies from its lockfile (e.g. `@supabase/supabase-js` 2.99, Supabase CLI 2.120);
+  - starts a stack with its migrations 001–011 on ports 573xx.
+
+  The pilot's own test suite passes there: 40 of 41 files, 446 tests. Two of its integration tests don't count:
+  - `commit.integration` fails. It was already broken at the pilot commit: written on 5 Oct, it inserts as an anonymous user, and migration 010 (12 Oct) made the workspace admin-only.
+  - `study-rls.integration` is excluded. It hard-codes port 54322, the developer's stack.
 - **D:** dropped.
-- **E:** in progress.
+- **E (intent-edit changes as a question):** implemented. See 4E.
 
 Choices that differ from the spec's wording are in `DEVIATIONS.md` (1–4).
 
