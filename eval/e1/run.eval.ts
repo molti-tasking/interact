@@ -23,15 +23,20 @@ import { execSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { expect, it } from "vitest";
-import { parse } from "yaml";
 import { ANTHROPIC_DEFAULT_MAX_OUTPUT_TOKENS } from "@/lib/model";
 import type { Portfolio, PortfolioSchema, StructuredIntent } from "@/lib/types";
 import { assertEvalEnvironment } from "../lib/env";
-import { hashTree } from "../lib/hash";
 import { Budget, onCall, withCalls, type CallRecord } from "../lib/ledger";
 import { insertPortfolio, readPortfolio, signInEvalAdmin } from "../lib/db";
-import { loadBaseSchema, loadIntent, SCENARIOS, scenarioDir, type ScenarioName } from "./material";
-import type { GoldSpec } from "./measures";
+import {
+  loadBaseSchema,
+  loadIntent,
+  loadScript,
+  materialHash,
+  SCENARIOS,
+  type ScenarioName,
+  type ScriptRequest,
+} from "./material";
 import {
   CARRIER_QUESTION,
   PIPELINES,
@@ -49,33 +54,6 @@ const ASK_ABOVE_USD = 30;
 const FINAL_RUNS = 5;
 /** Before any run of a scenario × pipeline has been seen */
 const FALLBACK_COST_PER_REQUEST = 0.06;
-
-// ---------------------------------------------------------------------------
-// Script
-// ---------------------------------------------------------------------------
-
-export interface ScriptRequest {
-  id: string;
-  kind: "add" | "change" | "remove" | "derive";
-  target: string;
-  name?: string;
-  request: string;
-  gold: GoldSpec;
-}
-
-export function loadScript(name: ScenarioName): ScriptRequest[] {
-  const doc = parse(fs.readFileSync(path.join(scenarioDir(name), "script.yaml"), "utf-8")) as {
-    scenario: string;
-    requests: ScriptRequest[];
-  };
-  if (doc.scenario !== name) throw new Error(`script.yaml of ${name} names "${doc.scenario}"`);
-  return doc.requests;
-}
-
-/** One hash over everything a run's numbers depend on besides the model. */
-export function materialHash(): string {
-  return hashTree(__dirname, /^(runs|node_modules|.*\.test\.ts|.*\.eval\.ts)$/);
-}
 
 // ---------------------------------------------------------------------------
 // Arguments

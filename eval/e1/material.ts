@@ -6,6 +6,8 @@
 import fs from "node:fs";
 import path from "node:path";
 import { parse } from "yaml";
+import { hashTree } from "../lib/hash";
+import type { GoldSpec } from "./measures";
 import type { PortfolioSchema, SectionKey, StructuredIntent } from "@/lib/types";
 
 export const SCENARIOS_DIR = path.join(__dirname, "scenarios");
@@ -68,4 +70,31 @@ export function loadIntent(name: ScenarioName): IntentFile {
 
 export function loadBaseSchema(name: ScenarioName): PortfolioSchema {
   return JSON.parse(fs.readFileSync(path.join(scenarioDir(name), "base-schema.json"), "utf-8"));
+}
+
+// ---------------------------------------------------------------------------
+// Script
+// ---------------------------------------------------------------------------
+
+export interface ScriptRequest {
+  id: string;
+  kind: "add" | "change" | "remove" | "derive";
+  target: string;
+  name?: string;
+  request: string;
+  gold: GoldSpec;
+}
+
+export function loadScript(name: ScenarioName): ScriptRequest[] {
+  const doc = parse(fs.readFileSync(path.join(scenarioDir(name), "script.yaml"), "utf-8")) as {
+    scenario: string;
+    requests: ScriptRequest[];
+  };
+  if (doc.scenario !== name) throw new Error(`script.yaml of ${name} names "${doc.scenario}"`);
+  return doc.requests;
+}
+
+/** One hash over everything a run's numbers depend on besides the model. */
+export function materialHash(): string {
+  return hashTree(__dirname, /^(runs|node_modules|.*\.test\.ts|.*\.eval\.ts)$/);
 }
