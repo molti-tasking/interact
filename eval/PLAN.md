@@ -75,7 +75,9 @@ The harness reads the exports from `EVAL_DATA_DIR`, which defaults to `eval/data
 - **Cost.**
   - **How it is recorded:** every model call goes through a harness wrapper that records model id, settings, prompt hash, tokens, latency and gateway cost (the LiteLLM response cost when available, otherwise tokens × a frozen price table). The key's spend is also read before and after each experiment.
   - **Estimate at pilot prices:** E1 ≈ 3 scenarios × 8 requests × 5 runs × 3 pipelines, about 600 calls, ≈ **$15**.
-  - **Budget:** proposed cap on the dedicated key: $40.
+  - **Budget (decided 2026-11-12):** the dedicated key is capped at $40. Two rules apply:
+    - **After the dry run,** the harness projects the cost of the final runs from the dry run's recorded costs. If the projection exceeds **$30**, it stops and asks the authors before going on.
+    - **Before each run** (one pipeline × one scenario × one repetition), it reads the key's remaining budget. If the projected cost of that run doesn't fit, it stops cleanly *between* runs, never mid-run. Every aborted or skipped run is logged with its reason in the run log and in `eval-summary.json`. This avoids the pilot's mid-session budget outage.
   - E2, E3 and all Phase 1 tests use stubs and cost $0.
 - **Privacy.**
   - Participants are pseudonymized as P1–P11 in join order (as in `analyze_workshop.py`).
@@ -121,7 +123,7 @@ The harness reads the exports from `EVAL_DATA_DIR`, which defaults to `eval/data
 - It has `MAX_CONCURRENT_PREVIEWS = 3` (`design-probes.ts:538`).
 - It has no `Field.locked` and no preview scope.
 - Its migrations run to 011, consistent with `closed_reason` (migration 012) being NULL for every pilot question.
-- **This is an inference, not a deploy record.** The authors should confirm it against the Vercel deployment list **[D1]**.
+- **This is an inference, not a deploy record.** The app is hosted on Coolify, which builds the repository's `Dockerfile` and applies migrations on container start. The authors should confirm the commit against Coolify's deployment history **[D1]**.
 
 **Fidelity**
 - **Same code:** client scheduling, engine and SQL are those of the pilot.
@@ -145,17 +147,35 @@ The harness reads the exports from `EVAL_DATA_DIR`, which defaults to `eval/data
 - **Files:** `intent.md`, `base-schema.json` (generated once with the app's generation path, then frozen), `responses.json` (30 per scenario, seeded generator, keyed by field key like stored responses), `script.yaml` (about 8 requests; at least one derive followed by at least two base changes).
 - **Gold specs:** one per request, `scope` plus `assertions`, with `reviewed: false`.
 - **Freezing:** `eval/FROZEN.md` records the commit hash and a SHA-256 of the material and oracles. Every output records the material hash. `--final` refuses unless every spec is `reviewed: true` and the material matches the recorded hash.
-- **Scenario texts:** the paper has two of the three, the youth-soccer registration and the orthopedic record (`content/05-scenarios.tex`). **There is no sales-representative scenario text** **[D3]**.
-- **Assertions must respect the model's vocabulary.** The model cannot produce `file` or nested `group` fields (CLAIMS 1). The spec's example ("…with type file and is required") cannot be met by P or R **[D4]**.
+- **Scenario texts:** the youth-soccer registration and the orthopedic record come from the current paper (`content/05-scenarios.tex`).
+- **The sales scenario (decided 2026-11-12) comes from an earlier version of the paper.**
+  - **Intent:** "I need a job application form for a sales representative".
+  - **Draft change requests,** to be reviewed as gold specs by the authors (`reviewed: false`):
+    1. Ask which industries the applicant has sold into, as a required choice.
+    2. Require 2–5 years of B2B sales experience.
+    3. Add a written screening question about a closed deal.
+    4. Ask which sales territory the applicant can cover.
+    5. Make an existing optional field (e.g. the cover letter) not collected. The field is picked from the frozen base schema once it exists, so this scenario's `script.yaml` is finalized only after `base-schema.json` is frozen.
+    6. Derive a phone-screen form with only contact details, industry background and experience.
+    7. After the derive, change the industry options to SaaS, fintech, healthcare, other.
+    8. After the derive, add a LinkedIn profile URL.
+  - Request 7 changes a field that request 1 creates, so its gold scope names that field by descriptor. The descriptor is resolved to a key at run time with the same alignment as the measures. This is recorded in the spec.
+- **Field kinds (decided 2026-11-12, option a).**
+  - All three pipelines use the model's seven field kinds, and the system is not extended for the evaluation.
+  - Gold assertions for upload requests (e.g. the soccer proof of residency) check that a field capturing the item exists, of any kind.
+  - The paper's "nine field types" gets a clause: the model proposes seven, and the creator sets file fields (CLAIMS 1).
 
-**Pipelines.** All use the app's model ids and code settings. Temperatures are dropped for Claude 5, so the provider default applies and is recorded.
+**Pipelines.** All three use `LLM_MODEL_NAME = LLM_FAST_MODEL_NAME = anthropic/claude-sonnet-5` (decided 2026-11-12).
+- The pilot made every call on that model, so "one model" stays literally true. Sonnet 5.5 appears in the Langfuse export only in development calls and is not used.
+- The ids are recorded in every output.
+- Temperatures are dropped for Claude 5, so the provider default applies and is recorded.
 
 - **P: the real path.**
   - **How a request runs:** the request is a typed answer to a question. It gets a preview through the same function as `preview-probe-options`, with a scope. It is then applied through the extracted answer change function, `applyProbeOption`, and `commitPortfolioChange` against the local DB. The post-answer purpose sync runs as in the app.
   - **It needs a question to answer.** The proposal is a fixed carrier question ("Anything else to change on this form?"), versus the chat-edit request path **[D5]**.
   - **Derive** uses `deriveAction` and the extracted projection assembly.
 - **W: whole-schema rewrite.**
-  - **Input:** the model gets the current schema JSON, the same 7-kind field vocabulary **[D4]**, and the request, with the instruction to keep everything else unchanged and to keep existing keys.
+  - **Input:** the model gets the current schema JSON, the same 7-kind field vocabulary, and the request, with the instruction to keep everything else unchanged and to keep existing keys.
   - **Commit:** the returned schema replaces the old one through `commit_portfolio_change`.
   - **Derive:** the same call, given the base schema and the scenario.
 - **R: regeneration.**
@@ -273,22 +293,25 @@ eval/
 
 Every output carries: git commit, model ids, settings, prompt hashes, material hash, seed, date and cost.
 
-## 9. Decisions needed from the authors
+## 9. Decisions
 
-1. **[D1]** Confirm the pilot deployment was `a64d230`, from the Vercel deployment list.
+### Open
+
+1. **[D1]** Confirm the pilot deployment was `a64d230`, from Coolify's deployment history: the commit of the last successful deployment before 2026-10-27 14:00 UTC, and no deployment until 15:10 UTC.
 2. **[D2]** The pilot did not regenerate the form on intent edits; it patched it. Reword the paper's "9 intent edits triggered a full-regeneration pass" and drop that item from the pilot profile? (CLAIMS, last section.)
-3. **[D3]** Provide the sales-representative scenario text, or name the third scenario.
-4. **[D4]** Field-type vocabulary in E1. Two options:
-   - (a) Assertions use the model vocabulary (no `file`), and W gets the same vocabulary.
-   - (b) Extend the model vocabulary with `file` in Phase 1, as a system change with tests, for all pipelines.
-5. **[D5]** P's free-text path: a fixed carrier question (proposed) or the chat-edit request path? Include the post-answer purpose sync (proposed: yes, it is part of the real path)?
-6. **[D6]** R: replace the schema (proposed) or fold it in with `mergeRegeneratedSchema`?
-7. **[D7]** Does portfolio creation or derive (an insert outside the commit function) count under I1?
-8. **[D8]** Drift in the pilot: 0 % (proposed) or `--`?
-9. **[D9]** Phase 1B: re-queue an intent sync that was skipped because the purpose changed meanwhile (proposed), or keep skipping it but mark the intent out of sync?
-10. **[D10]** E3 validation tolerance (proposed above).
-11. Which model ids to use for E1: the pilot's `anthropic/claude-sonnet-5`, or the current deployment's main and fast models.
-12. The budget cap for the dedicated gateway key (proposed: $40).
+3. **[D5]** P's free-text path: a fixed carrier question (proposed) or the chat-edit request path? Include the post-answer purpose sync (proposed: yes, it is part of the real path)?
+4. **[D6]** R: replace the schema (proposed) or fold it in with `mergeRegeneratedSchema`?
+5. **[D7]** Does portfolio creation or derive (an insert outside the commit function) count under I1?
+6. **[D8]** Drift in the pilot: 0 % (proposed) or `--`?
+7. **[D9]** Phase 1B: re-queue an intent sync that was skipped because the purpose changed meanwhile (proposed), or keep skipping it but mark the intent out of sync?
+8. **[D10]** E3 validation tolerance (proposed above).
+
+### Decided (2026-11-12)
+
+- **[D3] Third scenario:** the sales representative, from an earlier version of the paper. The intent and the draft requests are in Section 5.
+- **[D4] Field kinds:** option (a), the model's seven kinds for all pipelines, with no system change (Section 5).
+- **Model:** `anthropic/claude-sonnet-5` for both the main and the fast model, in all pipelines (Section 5).
+- **Budget:** a $40 cap; stop and ask if the projection after the dry run exceeds $30; check the budget before each run and stop only between runs (Section 3).
 
 ## 10. Order of work
 
