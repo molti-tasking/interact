@@ -102,7 +102,12 @@ The harness reads the exports from `EVAL_DATA_DIR`, which defaults to `eval/data
   - `commit.integration` fails. It was already broken at the pilot commit: written on 5 Oct, it inserts as an anonymous user, and migration 010 (12 Oct) made the workspace admin-only.
   - `study-rls.integration` is excluded. It hard-codes port 54322, the developer's stack.
 - **D:** dropped.
-- **E (intent-edit changes as a question):** implemented. See 4E.
+- **E (intent-edit changes as a question):** done (see 4E). It has its own browser test with a hand-written fixture for its one model call.
+
+All checks pass on the isolated stack:
+- 773 unit and integration tests;
+- the 6 earlier browser tests;
+- the new 1E browser test (run on its own).
 
 Choices that differ from the spec's wording are in `DEVIATIONS.md` (1–4).
 

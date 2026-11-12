@@ -64,6 +64,8 @@ pnpm test:e2e:ui        # interactive
 | `designer-workspace.spec.ts` | describe → form → elicitation questions with previews → a typed answer → ask an answered question again → history | `fixtures/designer-workspace` |
 | `study-briefs.spec.ts` | the Prolific study, both conditions, study link to completion redirect; wave 2 (taking over a finished form) | `fixtures/study-briefs` |
 | `study-workshop.spec.ts` | a whole workshop with three participants | none (forms are seeded) |
+| `response-impact.spec.ts` | an answer that removes an answered field says how many collected responses it affects (I6) | none (seeded) |
+| `intent-edit-question.spec.ts` | an intent edit becomes "Apply these changes from your edit?"; the form changes only when chosen | `fixtures/intent-edit-question` (hand-written) |
 
 **Recording fixtures.** `RECORD_FIXTURES=true pnpm test:e2e <spec>` runs the
 spec against the live model (settings from `.env.local`) and writes every
