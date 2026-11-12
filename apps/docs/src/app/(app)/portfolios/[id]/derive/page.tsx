@@ -9,11 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useCurrentUser } from "@/context/user-context";
 import { useCreatePortfolio, usePortfolio } from "@/hooks/query/portfolios";
 import { formatActor } from "@/lib/mock-users";
-import {
-  type DerivationSpec,
-  emptyStructuredIntent,
-  type PortfolioInsert,
-} from "@/lib/types";
+import { derivedPortfolio } from "@/lib/derivation";
 import {
   AlertTriangle,
   FileText,
@@ -93,46 +89,15 @@ export default function DerivePage() {
         return;
       }
 
-      const {
-        derivationType,
-        includedFieldKeys,
-        additionalFields,
-        schema,
-        derivedPurpose,
-        derivedIntent,
-      } = deriveResult.result;
-
-      const projection: DerivationSpec = {
-        type: derivationType,
-        scenarioIntent: scenario.trim(),
-        includedFieldIds: parentSchema.fields
-          .filter((f) => includedFieldKeys.includes(f.name))
-          .map((f) => f.id),
-        additionalFields: JSON.parse(JSON.stringify(additionalFields)),
-        fieldMappings: {},
-      };
-
-      const derived = await createPortfolio.mutateAsync({
-        title: `${portfolio.title} — ${scenario.trim().slice(0, 50)}`,
-        // Inherits the parent's exclusions + constraints (from the action)
-        intent: derivedIntent ?? {
-          ...emptyStructuredIntent(),
-          purpose: {
-            content: derivedPurpose,
-            updatedAt: new Date().toISOString(),
-          },
-        },
-        schema,
-        base_id: portfolio.id,
-        // Keep derived views in the base's space (lists, reference siblings)
-        space_id: portfolio.space_id,
-        projection: projection as unknown as PortfolioInsert["projection"],
-        status: "draft",
-        derivation: {
-          actor: formatActor(currentUser),
-          rationale: `Derived from "${portfolio.title}" for: ${scenario.trim()}`,
-        },
-      });
+      const derived = await createPortfolio.mutateAsync(
+        derivedPortfolio(
+          portfolio,
+          parentSchema,
+          deriveResult.result,
+          scenario,
+          formatActor(currentUser),
+        ),
+      );
 
       router.push(`/portfolios/${derived.id}`);
     } catch (err) {

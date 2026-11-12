@@ -21,6 +21,8 @@ import {
 } from "interact/forms/probe-options";
 import { rankProbes } from "interact/forms/probe-preview";
 import { applyProbeOption } from "interact/forms/guards";
+import { runPreviewTask, waitForProbePreview } from "@/lib/preview-queue";
+import { answerChange } from "@/lib/engine/answer-change";
 import { createClient } from "@/lib/supabase/client";
 import type { Database } from "@/lib/supabase/database.types";
 import { rowToDesignProbe } from "@/lib/supabase/types";
@@ -398,87 +400,9 @@ function needsPreview(probe: DesignProbe): boolean {
 
 /** Probes whose previews were started in this tab (never re-run on their own). */
 const previewsStarted = new Set<string>();
-/**
- * Pilot: with 3 at a time in arrival order, 27–44 of 104 answers were
- * clicked before their preview existed and fell back to a second, on-demand
- * LLM call. Now more run at once, the most important probe goes first (it's
- * the one shown open), and a click waits for a preview already under way
- * instead of starting another call (`waitForProbePreview`).
- */
-const MAX_CONCURRENT_PREVIEWS = 5;
-let previewsRunning = 0;
-interface PreviewTask {
-  probeId: string;
-  /** Lower runs first: probe priority, then newest */
-  rank: [number, string];
-  run: () => Promise<void>;
-}
-const previewQueue: PreviewTask[] = [];
-/** Settles when the probe's preview task is done (whatever the outcome). */
-const previewDone = new Map<string, Promise<void>>();
-
-function byRank(a: PreviewTask, b: PreviewTask) {
-  return a.rank[0] - b.rank[0] || b.rank[1].localeCompare(a.rank[1]);
-}
-
-function runPreviewTask(
-  task: () => Promise<void>,
-  { probeId, rank }: Omit<PreviewTask, "run">,
-) {
-  let settle!: () => void;
-  const done = new Promise<void>((resolve) => (settle = resolve));
-  previewDone.set(probeId, done);
-  previewQueue.push({
-    probeId,
-    rank,
-    run: () =>
-      task().finally(() => {
-        // A retry may have registered a newer task meanwhile: keep its entry
-        if (previewDone.get(probeId) === done) previewDone.delete(probeId);
-        settle();
-      }),
-  });
-  previewQueue.sort(byRank);
-  const next = () => {
-    while (previewsRunning < MAX_CONCURRENT_PREVIEWS && previewQueue.length) {
-      const { run } = previewQueue.shift()!;
-      previewsRunning++;
-      void run().finally(() => {
-        previewsRunning--;
-        next();
-      });
-    }
-  };
-  next();
-}
-
-/** Move a queued preview to the front (e.g. the probe the creator opened). */
-export function prioritizeProbePreview(probeId: string) {
-  const task = previewQueue.find((t) => t.probeId === probeId);
-  if (task) {
-    task.rank = [-1, task.rank[1]];
-    previewQueue.sort(byRank);
-  }
-}
-
-/**
- * Wait (up to `timeoutMs`) for a preview of this probe that is queued or
- * running in this tab. Resolves true if there was one to wait for — the
- * caller then reads the fresh options from the cache.
- */
-async function waitForProbePreview(
-  probeId: string,
-  timeoutMs = 30_000,
-): Promise<boolean> {
-  const done = previewDone.get(probeId);
-  if (!done) return false;
-  prioritizeProbePreview(probeId);
-  await Promise.race([
-    done,
-    new Promise((resolve) => setTimeout(resolve, timeoutMs)),
-  ]);
-  return true;
-}
+// The background queue for previews (one per tab) lives in
+// `lib/preview-queue.ts`; the deck moves the open question to its front.
+export { prioritizeProbePreview } from "@/lib/preview-queue";
 
 /**
  * `(probeId) => probe | null`: waits for a preview of that probe already
@@ -630,23 +554,10 @@ export function useApplyProbePreview(portfolioId: string) {
       return trackActivity(portfolioId, "Applying your answer", async () => {
         // Within the preview's scope, never on locked fields — the change
         // the creator was shown is the change that lands
-        const commit = await commitPortfolioChange(portfolioId, (current) => {
-          const { schema, changed } = applyProbeOption(current.schema, preview, {
-            validTargetIds,
-          });
-          if (!changed) return null;
-          return {
-            trigger: "answer",
-            schema,
-            automated: true,
-            provenance: {
-              layer: "dimensions",
-              action: "design_probe_resolved",
-              actor: resolvedBy,
-              rationale: `"${probe.text}" → "${option.label}"`,
-            },
-          };
-        });
+        const commit = await commitPortfolioChange(
+          portfolioId,
+          answerChange(probe, option, resolvedBy, validTargetIds),
+        );
 
         await updateProbeRow(probe.id, {
           status: "resolved",

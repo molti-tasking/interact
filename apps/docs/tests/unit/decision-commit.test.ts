@@ -188,8 +188,10 @@ const files = sourceFiles(SRC).map((file) => ({
 const COMMIT_SITES: Record<string, string[]> = {
   // Undo of a committed change; restoring a point in the history
   "lib/engine/commit.ts": ["undo", "undo"],
-  // Answering a question from its preview; undoing an applied answer or fix
-  "hooks/query/design-probes.ts": ["answer", "undo"],
+  // Answering a question from its preview (the change; committed by the deck)
+  "lib/engine/answer-change.ts": ["answer"],
+  // Undoing an applied answer or fix
+  "hooks/query/design-probes.ts": ["undo"],
   // Choosing a fix on a conflict card (previewed fix)
   "hooks/query/conflicts.ts": ["answer"],
   // Accepting a domain standard
