@@ -11,6 +11,7 @@ import {
   useSessionUser,
   useSignOut,
 } from "@/hooks/query/study";
+import { armFromLink } from "@/lib/study/local-arm";
 import { PHASE_COPY, panelParams } from "@/lib/study/types";
 import { ArrowRight, Loader2, LogOut, Users } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -189,7 +190,10 @@ function PanelJoin({
   panel: NonNullable<ReturnType<typeof panelParams>>;
 }) {
   const router = useRouter();
-  const join = usePanelJoin({ code, ...panel });
+  const searchParams = useSearchParams();
+  // Local testing only (`arm=<condition>`); ignored unless allowed
+  const arm = armFromLink(searchParams.get("arm"));
+  const join = usePanelJoin({ code, ...panel, arm });
 
   const joinedSessionId = join.data?.sessionId;
   useEffect(() => {

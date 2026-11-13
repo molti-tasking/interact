@@ -19,6 +19,7 @@ import {
   type StudyPhase,
   type StudySession,
   type StartKind,
+  type StudyCondition,
   type StudyRunSettings,
   type StudySettings,
 } from "@/lib/study/types";
@@ -159,6 +160,28 @@ interface PanelJoinInput {
   externalId: string;
   studyId: string | null;
   sessionId: string | null;
+  /**
+   * Local testing only: the arm the link asks for (`arm=<condition>`).
+   * Applied only when this server and the database both allow it (see
+   * `lib/study/local-arm.ts`); ignored otherwise.
+   */
+  arm?: StudyCondition | null;
+}
+
+/** Local testing: put a new seat into the arm the link names, if allowed. */
+async function forceArm(sessionId: string, arm: StudyCondition): Promise<void> {
+  try {
+    const res = await fetch("/api/study/local-arm", { cache: "no-store" });
+    const { allowed } = (await res.json()) as { allowed?: boolean };
+    if (!allowed) return;
+    const { error } = await createClient().rpc("force_my_study_arm", {
+      p_session_id: sessionId,
+      p_arm: arm,
+    });
+    if (error) console.warn("[study] arm not forced:", error.message);
+  } catch (error) {
+    console.warn("[study] arm not forced:", error);
+  }
 }
 
 /**
@@ -173,7 +196,7 @@ interface PanelJoinInput {
  */
 export function usePanelJoin(input: PanelJoinInput) {
   return useQuery({
-    queryKey: [...STUDY_KEY, "panel-join", input.code, input.source, input.externalId],
+    queryKey: [...STUDY_KEY, "panel-join", input.code, input.source, input.externalId, input.arm ?? null],
     queryFn: async () => {
       const supabase = createClient();
       const { data: current } = await supabase.auth.getUser();
@@ -193,6 +216,7 @@ export function usePanelJoin(input: PanelJoinInput) {
       if (error) throw asError(error);
       const row = data?.[0];
       if (!row) throw new Error("Couldn't join the session");
+      if (input.arm) await forceArm(row.session_id, input.arm);
       return {
         sessionId: row.session_id,
         participantId: row.participant_id,
