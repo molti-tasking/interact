@@ -395,6 +395,47 @@ export function cohenKappa(a: readonly string[], b: readonly string[]): number |
   return (observed - expected) / (1 - expected);
 }
 
+/**
+ * Weighted kappa for two raters' ordinal codes (e.g. the why sheet's
+ * `score`, 0–2). `categories` in order; disagreements count by distance:
+ * linear weights 1 − |i − j| / (k − 1), quadratic 1 − ((i − j) / (k − 1))².
+ * Pairs with a code outside `categories` are left out. Null when there is
+ * nothing to compare; 1 when chance agreement is already perfect.
+ */
+export function weightedKappa(
+  a: readonly string[],
+  b: readonly string[],
+  categories: readonly string[],
+  weights: "linear" | "quadratic" = "linear",
+): number | null {
+  const k = categories.length;
+  const index = new Map(categories.map((c, i) => [c, i]));
+  const pairs: [number, number][] = [];
+  for (let i = 0; i < Math.min(a.length, b.length); i++) {
+    const x = index.get(a[i]);
+    const y = index.get(b[i]);
+    if (x !== undefined && y !== undefined) pairs.push([x, y]);
+  }
+  const n = pairs.length;
+  if (n === 0 || k < 2) return null;
+  const w = (i: number, j: number) => {
+    const d = Math.abs(i - j) / (k - 1);
+    return weights === "linear" ? 1 - d : 1 - d * d;
+  };
+  const pa = Array(k).fill(0);
+  const pb = Array(k).fill(0);
+  let observed = 0;
+  for (const [x, y] of pairs) {
+    pa[x] += 1 / n;
+    pb[y] += 1 / n;
+    observed += w(x, y) / n;
+  }
+  let expected = 0;
+  for (let i = 0; i < k; i++) for (let j = 0; j < k; j++) expected += w(i, j) * pa[i] * pb[j];
+  if (expected === 1) return 1;
+  return (observed - expected) / (1 - expected);
+}
+
 // ---------------------------------------------------------------------------
 // Answered elicitation questions
 // ---------------------------------------------------------------------------

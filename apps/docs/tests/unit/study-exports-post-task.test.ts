@@ -15,6 +15,7 @@ import {
   formCode,
   participantsCsv,
   stepSeconds,
+  weightedKappa,
   whyKeyCsv,
 } from "@/lib/study/coding";
 import { parseCsv } from "@/lib/study/export";
@@ -234,5 +235,32 @@ describe("analyst files", () => {
     expect(cell(rows[1], "fields_added")).toBe("2");
     expect(cell(rows[1], "message")).toBe("All five days, and yes, allergies");
     expect(cell(rows[1], "form")).toBe(formCode("ta"));
+  });
+});
+
+describe("weightedKappa (the why sheet's score)", () => {
+  const cats = ["0", "1", "2"];
+
+  it("is 1 for identical codes", () => {
+    expect(weightedKappa(["0", "1", "2", "2"], ["0", "1", "2", "2"], cats)).toBe(1);
+  });
+
+  it("matches a worked example (linear 3/7, quadratic 7/11)", () => {
+    const a = ["0", "1", "2", "2"];
+    const b = ["0", "2", "2", "1"];
+    expect(weightedKappa(a, b, cats, "linear")).toBeCloseTo(3 / 7, 10);
+    expect(weightedKappa(a, b, cats, "quadratic")).toBeCloseTo(7 / 11, 10);
+  });
+
+  it("counts a near miss as better than a far one", () => {
+    const a = ["0", "1", "2", "0", "2"];
+    const near = weightedKappa(a, ["1", "1", "2", "0", "2"], cats)!;
+    const far = weightedKappa(a, ["2", "1", "2", "0", "2"], cats)!;
+    expect(near).toBeGreaterThan(far);
+  });
+
+  it("leaves out codes outside the scale, and is null with nothing to compare", () => {
+    expect(weightedKappa(["0", "x"], ["0", "1"], cats)).toBe(weightedKappa(["0"], ["0"], cats));
+    expect(weightedKappa([], [], cats)).toBeNull();
   });
 });

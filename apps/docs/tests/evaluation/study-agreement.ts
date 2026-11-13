@@ -3,18 +3,28 @@
  *
  *   pnpm study:agreement rater-a/coding-requirements.csv rater-b/coding-requirements.csv
  *
- * Works for coding-requirements.csv (columns in_first_prompt, in_final_form)
- * and coding-fields.csv (column requirement_id). Rows are matched on the
- * identifying columns, not on their order. Prints Cohen's kappa per coded
- * column and lists the rows the raters disagree on.
+ * Works for every rater sheet (see docs/study/coding-guide.md):
+ *
+ *   coding-requirements.csv  in_first_prompt, in_final_form   Cohen's kappa
+ *   coding-fields.csv        requirement_id                    Cohen's kappa
+ *   coding-recall.csv        matches_field, requirement_id     Cohen's kappa
+ *   coding-why.csv           score (0, 1, 2)                   weighted kappa
+ *
+ * Rows are matched on the identifying columns, not on their order. Prints
+ * the kappa per coded column and lists the rows the raters disagree on.
+ * `score` is ordinal: weighted kappa with linear weights (quadratic printed
+ * alongside); a score other than 0, 1 or 2 is listed and left out.
  */
 
 import fs from "fs";
-import { cohenKappa } from "../../src/lib/study/coding";
+import { cohenKappa, weightedKappa } from "../../src/lib/study/coding";
 import { parseCsv } from "../../src/lib/study/export";
 
-const CODED = ["in_first_prompt", "in_final_form", "requirement_id"];
-const KEYS = ["form", "requirement_id", "question_no"];
+const CODED = ["in_first_prompt", "in_final_form", "requirement_id", "matches_field", "score"];
+const KEYS = ["form", "requirement_id", "question_no", "line_no", "item_no"];
+/** Row-numbered sheets: there `requirement_id` is a code, not a key */
+const ROW_KEYS = ["question_no", "line_no", "item_no"];
+const ORDINAL: Record<string, string[]> = { score: ["0", "1", "2"] };
 
 function load(file: string) {
   const [header, ...rows] = parseCsv(fs.readFileSync(file, "utf-8"));
@@ -29,9 +39,9 @@ function main() {
   }
   const a = load(fileA);
   const b = load(fileB);
-  const isFields = a.header.includes("question_no");
+  const numbered = ROW_KEYS.some((k) => a.header.includes(k));
   const keyColumns = KEYS.filter(
-    (k) => a.header.includes(k) && !(isFields && k === "requirement_id"),
+    (k) => a.header.includes(k) && !(numbered && k === "requirement_id"),
   );
   const coded = CODED.filter(
     (c) => a.header.includes(c) && b.header.includes(c) && !keyColumns.includes(c),
@@ -48,7 +58,9 @@ function main() {
     const codesA: string[] = [];
     const codesB: string[] = [];
     const disagreements: string[] = [];
+    const invalid: string[] = [];
     let skipped = 0;
+    const scale = ORDINAL[column];
     for (const row of a.rows) {
       const key = keyOf(a.header, row);
       const other = byKeyB.get(key);
@@ -58,15 +70,28 @@ function main() {
         skipped++;
         continue;
       }
+      if (scale && (!scale.includes(va) || !scale.includes(vb))) {
+        invalid.push(`  ${key}: ${va} vs ${vb}`);
+        continue;
+      }
       codesA.push(va);
       codesB.push(vb);
       if (va !== vb) disagreements.push(`  ${key}: ${va} vs ${vb}`);
     }
-    const kappa = cohenKappa(codesA, codesB);
-    console.log(
-      `${column}: kappa = ${kappa === null ? "n/a" : kappa.toFixed(3)} ` +
-        `(${codesA.length} rows, ${disagreements.length} disagreements, ${skipped} not coded by both)`,
-    );
+    const fmt = (k: number | null) => (k === null ? "n/a" : k.toFixed(3));
+    const summary = `(${codesA.length} rows, ${disagreements.length} disagreements, ${skipped} not coded by both)`;
+    if (scale) {
+      console.log(
+        `${column}: weighted kappa (linear) = ${fmt(weightedKappa(codesA, codesB, scale, "linear"))}, ` +
+          `quadratic = ${fmt(weightedKappa(codesA, codesB, scale, "quadratic"))} ${summary}`,
+      );
+      if (invalid.length > 0) {
+        console.log(`  ${invalid.length} rows with a score other than ${scale.join(", ")} (left out):`);
+        console.log(invalid.join("\n"));
+      }
+    } else {
+      console.log(`${column}: kappa = ${fmt(cohenKappa(codesA, codesB))} ${summary}`);
+    }
     if (disagreements.length > 0) console.log(disagreements.join("\n"));
   }
 }
