@@ -105,17 +105,23 @@ async function answerPage(page: Page) {
 }
 
 /**
- * The arm's tour on the first form: it opens a moment after the workspace
- * is ready, with `steps` steps; on the second form it doesn't open again.
- * An open tour dims the page and blocks clicks, so it is closed here.
+ * The arm's coach mark on the first form: one popover on the arm's pane,
+ * without buttons; a click into the pane ends it (and does nothing else).
+ * On the second form it doesn't open again.
  */
-async function handleTour(page: Page, task: number, steps: number) {
+async function handleTour(page: Page, task: number) {
   const popover = page.locator(".driver-popover");
   if (task === 1) {
     await expect(popover).toBeVisible({ timeout: 10_000 });
-    await expect(popover.locator(".driver-popover-title")).toHaveText("Your task");
-    await expect(popover.locator(".driver-popover-progress-text")).toHaveText(`1 of ${steps}`);
-    await page.locator(".driver-popover-close-btn").click();
+    await expect(popover.locator(".driver-popover-title")).toHaveText("Working on your form");
+    await expect(popover).toContainText("Click the highlighted area to start.");
+    await expect(
+      popover.locator(".driver-popover-close-btn, .driver-popover-next-btn, .driver-popover-prev-btn").filter({ visible: true }),
+    ).toHaveCount(0);
+    await page.keyboard.press("Escape");
+    await page.keyboard.press("ArrowRight");
+    await expect(popover).toBeVisible();
+    await page.locator('[data-tour="workspace-controls"]').click({ position: { x: 24, y: 24 } });
   } else {
     await page.waitForTimeout(1_500);
   }
@@ -214,7 +220,7 @@ async function participant(
       await expect(page.locator("#study-intent")).toHaveCount(0);
       const pane = page.getByTestId("assistant-pane");
       await expect(pane).toBeVisible();
-      await handleTour(page, task, 3);
+      await handleTour(page, task);
       await expect(page.getByTestId("card-deck-section")).toHaveCount(0);
       await expect(page.getByTestId("intent-editor")).toHaveCount(0);
       await expect(page.getByTestId("chat-edit-pane")).toHaveCount(0);
@@ -236,7 +242,7 @@ async function participant(
     await page.locator("#study-intent").fill(DESCRIPTIONS[key]);
     await page.getByRole("button", { name: "Create my form" }).click();
     await expect(fields.first()).toBeVisible({ timeout: AI });
-    await handleTour(page, task, condition === "full" ? 4 : 3);
+    await handleTour(page, task);
     const before = await fields.count();
 
     if (condition === "baseline") {
@@ -411,10 +417,12 @@ test.describe("Briefs study, study link to completion redirect", () => {
       for (const type of ["joined", "first_prompt", "brief_read", "form_marked_ready", "questionnaire_submitted"]) {
         expect(types, type).toContain(type);
       }
-      // The arm's own tour, once (on the first form), closed by the participant
+      // The arm's own coach mark, once (on the first form), ended by a click
       const tours = events.filter((e) => e.type === "tour_started").map((e) => e.payload.tour);
       expect(tours).toEqual([`task-${condition}`]);
-      expect(types).toContain("tour_closed");
+      const [closed] = events.filter((e) => e.type === "tour_closed").map((e) => e.payload);
+      expect(closed).toMatchObject({ tour: `task-${condition}`, reason: "clicked" });
+      expect(typeof closed.ms).toBe("number");
       if (condition === "assistant") {
         expect(types).not.toContain("probe_shown");
         expect(types).not.toContain("chat_message");
@@ -649,7 +657,7 @@ test.describe("Briefs study, wave 2: taking over a finished form", () => {
 
       await expect(page.getByTestId("task-bar")).toContainText("Somebody else built it");
       // The form is there from the start, so the tour opens right away
-      await handleTour(page, 1, 4);
+      await handleTour(page, 1);
       // No "describe the form" step: the form is there
       await expect(page.locator("#study-intent")).toHaveCount(0);
       const fields = page.locator('[data-testid^="form-field-"]');

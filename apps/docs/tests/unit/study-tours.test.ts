@@ -1,10 +1,12 @@
 // @vitest-environment node
 /**
- * The first form's tours are matched across arms: the same first and last
- * step, word for word, and in between only the arm's own ways to change
- * the form. None tells participants how to work.
+ * The online study's onboarding is one coach mark per arm, matched: it
+ * points at the arm's own pane, says in one sentence how the form can be
+ * improved, and ends with a click into that pane (a check that the
+ * participant is there).
  */
 import { describe, expect, it } from "vitest";
+import { IMPROVE_THE_FORM } from "@/lib/study/arm-copy";
 import { TOURS, taskTourId } from "@/lib/study/tours";
 
 const ARMS = {
@@ -12,45 +14,29 @@ const ARMS = {
   "no-probes": { assistantChat: false, chatEdits: false, designProbes: false },
   baseline: { assistantChat: false, chatEdits: true, designProbes: false },
   assistant: { assistantChat: true, chatEdits: false, designProbes: false },
-};
+} as const;
 
-describe("first-form tours", () => {
-  it("gives each arm its own tour", () => {
-    expect(Object.fromEntries(Object.entries(ARMS).map(([arm, caps]) => [arm, taskTourId(caps)]))).toEqual({
-      full: "task-full",
-      "no-probes": "task-no-probes",
-      baseline: "task-baseline",
-      assistant: "task-assistant",
-    });
+describe("first-form coach mark", () => {
+  it("gives each arm its own", () => {
+    for (const [arm, caps] of Object.entries(ARMS)) expect(taskTourId(caps)).toBe(`task-${arm}`);
   });
 
-  it("starts and ends the same in every arm", () => {
-    const tours = Object.values(ARMS).map((caps) => TOURS[taskTourId(caps)]);
-    for (const tour of tours) {
-      expect(tour[0]).toEqual(tours[0][0]);
-      expect(tour[tour.length - 1]).toEqual(tours[0][tours[0].length - 1]);
+  it("is one step on the arm's pane, the same in every arm but the sentence", () => {
+    for (const [arm, caps] of Object.entries(ARMS)) {
+      const steps = TOURS[taskTourId(caps)];
+      expect(steps).toHaveLength(1);
+      expect(steps[0]).toEqual({
+        element: '[data-tour="workspace-controls"]',
+        title: "Working on your form",
+        description: `${IMPROVE_THE_FORM[arm as keyof typeof ARMS]} Click the highlighted area to start.`,
+        side: "right",
+        clickToContinue: true,
+      });
     }
-    expect(tours[0][0].element).toBe('[data-testid="task-bar"]');
-    expect(tours[0][tours[0].length - 1].element).toBe('[data-testid="preview-pane"]');
   });
 
-  it("shows the full tool's three ways to change the form, and the others' two", () => {
-    expect(TOURS["task-full"].map((s) => s.title)).toEqual([
-      "Your task",
-      "Your description",
-      "Questions about your form",
-      "Your form",
-    ]);
-    expect(TOURS["task-assistant"].map((s) => s.title)).toEqual(["Your task", "The assistant", "Your form"]);
-    expect(TOURS["task-baseline"].map((s) => s.title)).toEqual(["Your task", "Change requests", "Your form"]);
-    expect(TOURS["task-no-probes"].map((s) => s.title)).toEqual(["Your task", "Your description", "Your form"]);
-  });
-
-  it("describes what is possible, not how to work", () => {
-    const text = Object.values(ARMS)
-      .flatMap((caps) => TOURS[taskTourId(caps)])
-      .map((s) => s.description)
-      .join(" ");
-    expect(text).not.toMatch(/\b(should|must|best|first answer|start by|try to|make sure)\b/i);
+  it("leaves the workshop's tours as they were", () => {
+    expect(TOURS.create.map((s) => s.title)).toEqual(["Your task", "Your intent", "Elicitation questions", "Your form"]);
+    expect(TOURS.create.some((s) => s.clickToContinue)).toBe(false);
   });
 });

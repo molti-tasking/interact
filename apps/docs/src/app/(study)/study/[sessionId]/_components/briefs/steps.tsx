@@ -4,7 +4,6 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
-import { useCapabilities } from "@/context/capabilities-context";
 import { useStudy } from "@/context/study-context";
 import { usePortfolio } from "@/hooks/query/portfolios";
 import {
@@ -14,7 +13,6 @@ import {
   useSubmitQuestionnaire,
 } from "@/hooks/query/study";
 import { FormRenderer } from "@/lib/form-renderer/FormRenderer";
-import { armOf, HOW_IT_WORKS } from "@/lib/study/arm-copy";
 import { BRIEFS } from "@/lib/study/briefs";
 import {
   BRIEFS_INSTRUMENT,
@@ -186,7 +184,6 @@ export function DeclinedView() {
 
 export function IntroView() {
   const { state } = useStudy()!;
-  const arm = armOf(useCapabilities());
   const { next, pending } = useNext("intro");
   const count = state.tasks!.length;
   const minutes = Math.round(state.session.settings.taskSeconds / 60);
@@ -206,19 +203,6 @@ export function IntroView() {
             tool so that it collects what the people in the situation need. You
             have up to {minutes} minutes; finish earlier when you think the form
             is ready. You can look at the situation again at any time.
-            <div className="mt-3 rounded-lg border bg-muted/40 p-3" data-testid="how-the-tool-works">
-              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                How the tool works
-              </p>
-              <ol className="mt-1.5 space-y-1">
-                {HOW_IT_WORKS[arm].map((line, i) => (
-                  <li key={i} className="flex gap-2">
-                    <span className="text-muted-foreground">{["a", "b", "c"][i]}.</span>
-                    <span>{line}</span>
-                  </li>
-                ))}
-              </ol>
-            </div>
           </li>
           <li>
             {state.session.settings.postTaskMeasures

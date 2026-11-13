@@ -211,7 +211,7 @@ export function PortfolioWorkspace({
         <CollectedResponsesProvider portfolioId={portfolio.id}>
           <div className="@container">
             <div className="grid grid-cols-1 gap-6 @5xl:grid-cols-[minmax(320px,400px)_minmax(0,1fr)]">
-              <div className="flex min-w-0 flex-col gap-5">
+              <div className="flex min-w-0 flex-col gap-5" data-tour="workspace-controls">
                 {capabilities.assistantChat ? (
                   <AssistantPane portfolio={portfolio} />
                 ) : capabilities.chatEdits ? (

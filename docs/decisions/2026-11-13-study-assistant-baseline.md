@@ -206,25 +206,31 @@ wave-2 test stays as it is.
 
 ### 8. Onboarding (added on the authors' request)
 
-A coach tour on the first form (`lib/study/tours.ts`), one per arm and
-matched: the same first step (the task bar) and last step (the form and
-direct editing), word for word; in between the arm's own ways to change
-the form — full: the description and the elicitation questions; assistant:
-the chat; silent baseline: the change requests. It describes what is
-possible, never how to work (a test checks for "should", "start by" and
-the like). It opens once, when what it points at is on screen, and
-"How it works" replays it. The clock keeps running; the log has every
-step and how the tour ended. Before that, the untimed intro page says in three steps how the arm's
-tool works, and the first description repeats it ("Rough is fine: … a
-draft right away, and you improve it afterwards"; `lib/study/arm-copy.ts`,
-matched like the tour). Without it, people who don't know a draft follows
-tend to write a long specification first, which is not the situation the
-study is about, and it costs task time. The text box has no placeholder:
-the hint is the only guidance on length, in every arm. The tour's logging
-now uses driver.js's
-`onPopoverRender` and `onDestroyStarted`: before, a step left within the
-~0.4 s highlight animation, or a quick ✕, went unlogged (this also
-affected the workshop's tours).
+Kept to what participants need, and matched across arms
+(`lib/study/arm-copy.ts`, `lib/study/tours.ts`, both tested):
+
+- At the first description, one line in every arm: "Rough is fine: the
+  tool drafts a form from it right away, and you improve it afterwards"
+  (the assistant: the same in its empty chat). Without it, people who
+  don't know a draft follows tend to write a long specification first —
+  not the situation the study is about — and it costs task time. No
+  placeholder: the line is the only guidance on length.
+- When the form is there (assistant: at once), one popover on the arm's
+  own pane with one sentence, the same ending in every arm — full: "Answer
+  the tool's questions, change your description, or edit the form
+  directly." It has no buttons and can't be dismissed with Esc; a click
+  into the highlighted pane ends it, and that click goes nowhere else (in
+  the questions deck it could otherwise apply an answer). The time to that
+  click is logged (`tour_closed.ms`, `reason: "clicked"`): a check that the
+  participant is there when the form appears. "How it works" shows it
+  again. The clock keeps running.
+- An earlier version explained the tool on the intro page and ran a 3–4
+  step tour; the authors found it too much.
+
+The tour's logging uses driver.js's `onPopoverRender` and
+`onDestroyStarted`: before, a step left within the ~0.4 s highlight
+animation, or a quick ✕, went unlogged (this also affected the workshop's
+tours).
 
 ## Deviations from the specification
 

@@ -44,9 +44,32 @@ export function useCoachTour({
     if (steps.length === 0) return;
     active.current?.destroy();
     log("tour_started", { tour });
+    const startedAt = Date.now();
+    // A one-step tour that asks for a click into what it highlights: no
+    // buttons, no closing; the first click there ends it and goes nowhere
+    // else (in the questions deck it could otherwise apply an answer)
+    const clickToContinue = steps.length === 1 && !!steps[0].clickToContinue;
+    const target = clickToContinue ? document.querySelector(steps[0].element) : null;
+    const swallow = (e: Event) => {
+      e.preventDefault();
+      e.stopPropagation();
+    };
+    const onTargetClick = (e: Event) => {
+      swallow(e);
+      log("tour_closed", { tour, lastStep: 0, reason: "clicked", ms: Date.now() - startedAt });
+      tourDriver.destroy();
+    };
+    const release = () => {
+      target?.removeEventListener("pointerdown", swallow, true);
+      target?.removeEventListener("mousedown", swallow, true);
+      target?.removeEventListener("click", onTargetClick, true);
+    };
     const tourDriver = driver({
-      showProgress: true,
-      allowClose: true,
+      showProgress: !clickToContinue,
+      allowClose: !clickToContinue,
+      // driver.js shows every button for an empty list; "close" alone,
+      // with closing off, shows none. No arrow keys either (→ would end it)
+      ...(clickToContinue ? { showButtons: ["close"], allowKeyboardControl: false } : {}),
       steps: steps.map((s) => ({
         element: s.element,
         popover: { title: s.title, description: s.description, side: s.side },
@@ -67,14 +90,21 @@ export function useCoachTour({
           tour,
           lastStep: state.activeIndex ?? null,
           reason: reason ?? null,
+          ms: Date.now() - startedAt,
         });
         tourDriver.destroy();
       },
       onDestroyed: () => {
+        release();
         if (active.current === tourDriver) active.current = null;
       },
     });
     active.current = tourDriver;
+    if (target) {
+      target.addEventListener("pointerdown", swallow, true);
+      target.addEventListener("mousedown", swallow, true);
+      target.addEventListener("click", onTargetClick, true);
+    }
     tourDriver.drive();
   }, [tour, log]);
 
