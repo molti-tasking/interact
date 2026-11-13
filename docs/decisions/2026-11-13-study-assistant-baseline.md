@@ -204,7 +204,56 @@ three arms lives in SQL, so its test is an integration test (deviation from
 `baseline`, each from the study link to the completion URL. The existing
 wave-2 test stays as it is.
 
-## Draft system prompt (assistant arm)
+## Deviations from the specification
+
+1. **Scope** (the authors' decision): wave 1 only. The norm group and the
+   wave-2 additions are not built.
+2. **Balancing with three arms** is tested as an integration test
+   (`study-assistant.integration.test.ts`), not a unit test: the
+   assignment is a SQL function, and a TypeScript copy would test the copy.
+3. **The assistant's e2e answers are hand-written**, in the format of a
+   recording and marked `handWritten`. Recording them needs the live model,
+   whose key is only in `.env.local`, which this change must not use. To
+   record: `RECORD_FIXTURES=true playwright test study-briefs`.
+4. **Extra columns in the rater sheets:** `situation` (as the existing
+   sheets have it), and `line_no`/`item_no` so the agreement script can
+   match rows. `why-key.csv` is new: the origin of each why item, to join
+   with the scores (the key's `why_origins` only lists them per form).
+5. **Forcing an arm** is a function called right after the join, not a
+   parameter of the join, so the 015 join function stays untouched. Locally
+   only, a second arm's link in the same browser starts a new anonymous
+   participant (otherwise each arm would need its own browser).
+6. **The 46 minutes are an estimate.** Local runs are scripted (about a
+   minute each); they check the flow, not how long people take.
+7. **The assistant's conversation** is kept in the browser (localStorage,
+   per form) and sent whole on every turn; every message and reply is also
+   in the log.
+
+## Verified (2026-11-13)
+
+On an isolated local stack (its own ports; the authors' stacks untouched):
+
+- Migration 017 applied with `supabase migration up`; `study_steps()`
+  gives the new steps for new sessions and the 014 steps otherwise.
+- Unit tests: 78 files, 807 tests, engine included. Integration tests: 5
+  files, 39 tests, among them three-arm balancing (12 joins → 2 per arm ×
+  order, the first three in three different arms), the post-task steps and
+  both gates of forcing an arm.
+- Playwright, fixture replay: `full`, `assistant` and the silent `baseline`
+  from the study link to the completion redirect, with ratings, recall and
+  why after both forms, and the exports; the wave-2 test unchanged. 4
+  passed in 3.6 minutes. Scripted runs take 45–50 s per participant, 41 of
+  them the two 20-second reading pauses — machine time, not people's.
+- `pnpm study:local` against that stack: set up, seeded, started; an
+  `arm=assistant` link was switched from its balanced `full` to `assistant`
+  (`arm_forced`); the mock assistant asked, then built a form; a reload kept
+  the conversation; a `full` link in the same browser started a second
+  participant with the generated form and the question deck.
+
+Not verified: the assistant arm with the live model (no recording exists
+yet), and how long people take.
+
+## The system prompt (assistant arm, `assistant-1`)
 
     You are a helpful assistant. You are helping someone build a web form
     in a form builder.
@@ -226,10 +275,10 @@ wave-2 test stays as it is.
 
 ## Open questions for the authors
 
-1. The final wording of the assistant's system prompt (above; the
-   committed version is quoted in the report).
+1. The final wording of the assistant's system prompt (above, as
+   committed). Bump `ASSISTANT_PROMPT_VERSION` when it changes.
 2. The post-task measures of task 1 (recall, "why") come before task 2 and
    may work as a forcing function for task 2 in both arms. Analyse task
    position, or treat task 1 as primary?
-3. The norm group's 3 minutes: implemented as a notice, not a cut-off,
-   like recall. A hard limit would give every list the same time.
+3. The norm group's 3 minutes (when it is built): a notice, like recall,
+   or a hard limit that gives every list the same time?

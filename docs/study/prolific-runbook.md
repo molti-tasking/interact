@@ -2,16 +2,20 @@
 
 How to run the between-subjects comparison with the app's self-paced study
 mode. Why it is built this way:
-[docs/decisions/2026-11-10-prolific-brief-study.md](../decisions/2026-11-10-prolific-brief-study.md).
+[docs/decisions/2026-11-10-prolific-brief-study.md](../decisions/2026-11-10-prolific-brief-study.md)
+and [2026-11-13-study-assistant-baseline.md](../decisions/2026-11-13-study-assistant-baseline.md)
+(the assistant arm and the post-task measures). To try it on your own
+machine first: [local-testing.md](local-testing.md).
 
 ## The design
 
 | | |
 |---|---|
-| Conditions | `full` (Malleable Forms) and `baseline` (one generated form, then free-text change requests) |
+| Conditions | `full` (Malleable Forms) and `assistant` (a general-purpose chat assistant next to the same canvas: it builds and changes the form itself and decides on its own whether to ask or suggest). Extra arms that can be ticked: the **silent baseline** (`baseline`: one generated form, then free-text change requests the model only carries out) and `no-probes` |
 | Task | Two situations, one form each, order counterbalanced, up to 12 minutes per form |
+| After each form | With the form hidden: two self-ratings (1–7), free recall ("list everything your form asks"), three "why does your form ask this?" items, then the quiz. Sessions created before 2026-11-13 don't have the first three |
 | Assignment | Condition × order, balanced on the server: the emptiest cell first, and among equally empty cells each factor on its own (conditions alternate from the second participant on) |
-| Length | About 37 minutes: consent and intro 3, two tasks up to 24, two quizzes 2, questionnaire 8 |
+| Length | About 46 minutes (the consent page says so): consent, intro and situations 3, two forms up to 24, after each form about 5.5 (ratings 0.5, recall 2, why 2, quiz 1), questionnaire 8. An estimate: the scripted local runs only check that the flow works (45–50 s each, machine time). Check it against the first 10 places |
 | Questionnaire | SUS, six experience items, one attention check, two open questions, the six-item Need for Cognition scale (NCS-6), two background questions — the same in every condition |
 | Sample | 64 per condition detects d = 0.5 with 80 % power (two-sided t-test); recruit about 140 |
 
@@ -43,10 +47,12 @@ mode. Why it is built this way:
    (self-paced)". Fill in the contact for the consent page, create it, paste
    Prolific's completion URL on the session page. The page warns about
    anything missing.
-6. **Try it.** Open the study link in a private window with a made-up
-   `PROLIFIC_PID`, once per condition. The "Conditions" table shows which
-   cell each test seat took. Create a fresh session for the real run, so
-   test seats are not in the data.
+6. **Try it.** Locally first: `pnpm study:local` prints a link per arm
+   ([local-testing.md](local-testing.md)). On the deployment, open the study
+   link in a private window with a made-up `PROLIFIC_PID`; `arm=` does not
+   work there, so open it until each arm has come up (the "Conditions"
+   table shows which cell each test seat took). Create a fresh session for
+   the real run, so test seats are not in the data.
 
 ## Prolific
 
@@ -56,8 +62,8 @@ mode. Why it is built this way:
   session page.
 - **Screeners:** desktop only, fluent English, approval rate 98 % or higher,
   at least 50 submissions, no programming or UX background.
-- **Time and pay:** 37 minutes estimated; at £10 per hour about £6.17 each,
-  about £865 for 140, plus Prolific's fee.
+- **Time and pay:** 46 minutes estimated; at £10 per hour about £7.67 each,
+  about £1,075 for 140, plus Prolific's fee.
 - **Maximum time:** leave Prolific's default; the app itself limits only the
   two tasks.
 - **Returns:** someone who declines consent is asked to return the
@@ -91,8 +97,12 @@ From the session page's Export card:
 | `coding-forms.md` | raters | every finished form under a code, with the first description |
 | `coding-requirements.csv` | raters | one row per form and requirement: `in_first_prompt`, `in_final_form` (1/0), `covered_by` |
 | `coding-fields.csv` | raters | one row per question: the requirement it serves, or `none` |
-| `coding-key.csv` | analyst | form code → participant, condition, order, starting point (wave 2), time, counts, quiz score |
-| `participants.csv` | analyst | outcome, SUS, `ncs6_score`, attention check, questionnaire items |
+| `coding-recall.csv` | raters | one row per recalled line: `matches_field` (question numbers or `none`), `requirement_id` |
+| `coding-why.csv` | raters | one row per why item: `score` 0 (no or wrong reason), 1 (plausible but generic), 2 (tied to the situation) |
+| `coding-key.csv` | analyst | form code → participant, condition, order, starting point (wave 2), time, counts, quiz score; appended: `rating_know`, `rating_confident`, `recall_lines`, seconds of ratings, recall, why and quiz, `why_origins`, and for `assistant` its turns, question sentences and patches |
+| `participants.csv` | analyst | outcome, SUS, `ncs6_score`, attention check, questionnaire items; appended: `seconds_<step>` for every step, and per task the ratings, why origins and assistant counts |
+| `why-key.csv` | analyst | per why item: the field and where it came from (`system`, `participant`, `inherited`), to join with the raters' scores |
+| `assistant-turns.csv` | analyst | one row per assistant turn: message, reply, question sentences, patch operations, fields added/changed/removed, latency, prompt version |
 | `question-answers.csv` | analyst | one row per answered elicitation question (below) |
 | `form-diversity.csv`, `form-diversity-pairs.csv` | analyst | how alike the finished forms of an arm are (below) |
 | JSON | archive | everything, including Prolific ids: personal data |
@@ -125,11 +135,20 @@ the same thing by the alignment used for committee drafts). `diversity` is
 had them shows a higher overlap. The pairs file has every pair, by form
 code.
 
-Each rater fills in both sheets alone. Then:
+**Assistant turns.** `question_sentences` counts the sentences of a reply
+that end in a question mark (`lib/study/assistant-metrics.ts` has the exact
+rule); `patch_ops` is fields added + updated + removed + section placements,
+empty when the reply left the form alone. The prompt is versioned
+(`prompt_version`).
+
+Each rater fills in every sheet alone, following
+[coding-guide.md](coding-guide.md). Then, per sheet:
 
 ```sh
 pnpm --filter docs study:agreement rater-a/coding-requirements.csv rater-b/coding-requirements.csv
 ```
+
+The why sheet's `score` gets weighted kappa (linear; quadratic printed too).
 
 Coverage per form = share of its requirements with `in_final_form = 1`;
 "arrived later" = `in_final_form = 1` and `in_first_prompt = 0`. Join to
@@ -158,3 +177,8 @@ wave-1 situations — have them reviewed too).
 
 Wave 1 must use a deployment whose forms are still in the database when
 wave 2 starts: the forms are copied when a wave-2 participant joins.
+
+Not done yet for wave 2 (2026-11-13): a wave-2 session created now also
+asks the post-task measures, but its why items don't yet prefer the
+inherited fields (they are chosen as in wave 1), and there is no local
+wave-2 seed in `pnpm study:local`.
