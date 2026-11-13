@@ -9,6 +9,8 @@
  * form. They say what is possible, never how to go about it.
  */
 
+import { armOf } from "./arm-copy";
+
 type TaskTourId = "task-full" | "task-no-probes" | "task-baseline" | "task-assistant";
 
 export type TourId = "create" | "review" | TaskTourId;
@@ -140,12 +142,6 @@ export const TOURS: Record<TourId, TourStep[]> = {
 };
 
 /** The first form's tour for what the participant's arm offers. */
-export function taskTourId(arm: {
-  assistantChat: boolean;
-  chatEdits: boolean;
-  designProbes: boolean;
-}): TaskTourId {
-  if (arm.assistantChat) return "task-assistant";
-  if (arm.chatEdits) return "task-baseline";
-  return arm.designProbes ? "task-full" : "task-no-probes";
+export function taskTourId(caps: Parameters<typeof armOf>[0]): TaskTourId {
+  return `task-${armOf(caps)}`;
 }

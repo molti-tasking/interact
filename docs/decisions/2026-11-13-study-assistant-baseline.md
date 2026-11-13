@@ -214,7 +214,14 @@ the chat; silent baseline: the change requests. It describes what is
 possible, never how to work (a test checks for "should", "start by" and
 the like). It opens once, when what it points at is on screen, and
 "How it works" replays it. The clock keeps running; the log has every
-step and how the tour ended. The tour's logging now uses driver.js's
+step and how the tour ended. Before that, the untimed intro page says in three steps how the arm's
+tool works, and the first description repeats it ("Rough is fine: … a
+draft right away, and you improve it afterwards"; `lib/study/arm-copy.ts`,
+matched like the tour). Without it, people who don't know a draft follows
+tend to write a long specification first, which is not the situation the
+study is about, and it costs task time. The text box has no placeholder:
+the hint is the only guidance on length, in every arm. The tour's logging
+now uses driver.js's
 `onPopoverRender` and `onDestroyStarted`: before, a step left within the
 ~0.4 s highlight animation, or a quick ✕, went unlogged (this also
 affected the workshop's tours).

@@ -9,6 +9,7 @@ import { useUndoToast } from "@/hooks/query/undo";
 import { commitPortfolioChange } from "@/lib/engine/commit";
 import { callLlm } from "@/lib/llm-client";
 import { formatActor } from "@/lib/mock-users";
+import { FIRST_DESCRIPTION_HINT } from "@/lib/study/arm-copy";
 import {
   countQuestionSentences,
   patchOperationCount,
@@ -207,10 +208,8 @@ export function AssistantPane({ portfolio }: { portfolio: Portfolio }) {
             <span className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-muted text-muted-foreground">
               <MessagesSquare className="h-5 w-5" aria-hidden />
             </span>
-            <p className="text-sm text-muted-foreground">
-              Tell the assistant what form you need. It can build and change the
-              form next to this chat.
-            </p>
+            <p className="text-sm font-medium">What form do you need?</p>
+            <p className="text-sm text-muted-foreground">{FIRST_DESCRIPTION_HINT.assistant}</p>
           </div>
         )}
         {thread.map((message, i) => (

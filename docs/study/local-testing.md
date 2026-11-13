@@ -88,6 +88,7 @@ Every arm goes through the same steps:
 | Step | Check |
 |---|---|
 | Consent | about 46 minutes; nothing about the arm |
+| Intro | "How the tool works" for your arm: a rough description is enough, a draft comes right away, then the arm's ways to improve it |
 | Situation | an image; "Start building the form" after 20 s |
 | Form | the countdown; "Show the situation" opens it again; "My form is ready" only with at least one field |
 | Tour (first form only) | opens once the arm's controls are on screen (full and silent baseline: after the form is drafted; assistant: at once); full 4 steps, the others 3; "How it works" replays it |

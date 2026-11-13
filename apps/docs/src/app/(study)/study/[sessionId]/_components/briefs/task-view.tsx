@@ -14,6 +14,7 @@ import { useStudy } from "@/context/study-context";
 import { usePortfolio } from "@/hooks/query/portfolios";
 import { useAdvanceStudyStep } from "@/hooks/query/study";
 import { useNow } from "@/hooks/use-now";
+import { armOf, FIRST_DESCRIPTION_HINT } from "@/lib/study/arm-copy";
 import { taskTourId } from "@/lib/study/tours";
 import { secondsLeft, type StudyTask } from "@/lib/study/types";
 import { usePortfolioActivity } from "@/lib/workspace-activity";
@@ -30,8 +31,9 @@ const SETTLE_TIMEOUT_MS = 20_000;
 const START_COPY = {
   heading: "Describe the form",
   label: "What form do you need?",
-  hint: "A few sentences are enough. You can change everything afterwards.",
   examples: false,
+  // The only guidance on length is the hint, the same in every arm
+  placeholder: "",
 };
 
 /**
@@ -206,7 +208,7 @@ export function TaskView({ task }: { task: StudyTask }) {
         <StartCard
           portfolio={form}
           onStarted={() => setAutoGenerate(true)}
-          copy={START_COPY}
+          copy={{ ...START_COPY, hint: FIRST_DESCRIPTION_HINT[armOf({ assistantChat, chatEdits, designProbes })] }}
         />
       )}
 

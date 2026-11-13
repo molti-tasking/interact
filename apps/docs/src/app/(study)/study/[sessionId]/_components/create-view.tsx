@@ -150,6 +150,8 @@ interface StartCopy {
    * from the description.
    */
   askTitle?: boolean;
+  /** In the empty text box; the workshop's by default */
+  placeholder?: string;
 }
 
 const WORKSHOP_START: StartCopy = {
@@ -241,7 +243,7 @@ export function StartCard({
                   void handleStart();
                 }
               }}
-              placeholder="A sentence or two is enough."
+              placeholder={copy.placeholder ?? "A sentence or two is enough."}
               className="min-h-32 bg-background text-base"
               disabled={commit.isPending}
             />
