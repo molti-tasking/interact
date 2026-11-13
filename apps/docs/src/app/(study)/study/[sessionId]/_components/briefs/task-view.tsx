@@ -14,12 +14,14 @@ import { useStudy } from "@/context/study-context";
 import { usePortfolio } from "@/hooks/query/portfolios";
 import { useAdvanceStudyStep } from "@/hooks/query/study";
 import { useNow } from "@/hooks/use-now";
+import { taskTourId } from "@/lib/study/tours";
 import { secondsLeft, type StudyTask } from "@/lib/study/types";
 import { usePortfolioActivity } from "@/lib/workspace-activity";
-import { BookOpen, Check, Loader2 } from "lucide-react";
+import { BookOpen, Check, CircleHelp, Loader2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { StartCard } from "../create-view";
+import { useCoachTour } from "../use-coach-tour";
 import { BriefImage } from "./brief-image";
 
 /** How long leaving a task waits for AI edits still in flight at most. */
@@ -51,6 +53,7 @@ export function TaskView({ task }: { task: StudyTask }) {
     null,
   );
   const briefOpenedAt = useRef(0);
+  const [replayTour, setReplayTour] = useState(0);
 
   const deadline = task.started_at
     ? new Date(
@@ -85,6 +88,18 @@ export function TaskView({ task }: { task: StudyTask }) {
     const timer = setTimeout(go, SETTLE_TIMEOUT_MS);
     return () => clearTimeout(timer);
   }, [leaving, busy, advanceStep, step]);
+
+  // The arm's tour: once, as soon as what it points at is on screen (the
+  // first form, in practice — it is seen by then), and again from "How it
+  // works". The clock keeps running; every step is logged.
+  const fieldCount = portfolio.data?.schema.fields.length ?? 0;
+  const workspaceReady = !!portfolio.data && (assistantChat || fieldCount > 0);
+  useCoachTour({
+    tour: taskTourId({ assistantChat, chatEdits, designProbes }),
+    participantId: state.participant.id,
+    ready: workspaceReady && !leaving,
+    replay: replayTour,
+  });
 
   const toggleBrief = (open: boolean) => {
     setBriefOpen(open);
@@ -149,6 +164,17 @@ export function TaskView({ task }: { task: StudyTask }) {
                   : "Edit the description, or click a field to edit it.")}
         </p>
         <div className="flex items-center gap-2">
+          {workspaceReady && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setReplayTour((n) => n + 1)}
+              data-testid="show-tour"
+            >
+              <CircleHelp className="h-3.5 w-3.5" aria-hidden />
+              How it works
+            </Button>
+          )}
           <Button
             variant="outline"
             size="sm"
