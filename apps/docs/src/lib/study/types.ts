@@ -1,3 +1,5 @@
+import { llmFallbackFromEnv } from "../llm-fallback";
+
 /**
  * Study mode (workshop sessions, migration 011): phases, settings and the
  * state the participant shell polls.
@@ -122,6 +124,11 @@ export interface StudyRunSettings {
   /** `PROBE_COMMITTEE_SIZE` */
   committeeSize: number;
   recordedAt: string;
+  /**
+   * Anthropic's API behind the gateway, for calls the gateway turns away
+   * (rate limit, budget, overload; `lib/llm-fallback.ts`). Absent: none.
+   */
+  fallback?: { model: string; fastModel: string };
 }
 
 /**
@@ -319,6 +326,11 @@ export function parseRunSettings(value: unknown): StudyRunSettings | null {
     questionStrategy: raw.questionStrategy as QuestionStrategy,
     committeeSize: size,
     recordedAt: typeof raw.recordedAt === "string" ? raw.recordedAt : "",
+    ...(raw.fallback &&
+    typeof raw.fallback.model === "string" &&
+    typeof raw.fallback.fastModel === "string"
+      ? { fallback: { model: raw.fallback.model, fastModel: raw.fallback.fastModel } }
+      : {}),
   };
 }
 
@@ -365,6 +377,7 @@ export function runSettingsFromEnv(
     !/^[2-6]$/.test(size) && "PROBE_COMMITTEE_SIZE (2 to 6)",
   ].filter((name): name is string => !!name);
   if (missing.length) return { run: null, missing };
+  const { fallback } = llmFallbackFromEnv(env);
   return {
     run: {
       model,
@@ -372,6 +385,7 @@ export function runSettingsFromEnv(
       questionStrategy: strategy as QuestionStrategy,
       committeeSize: Number(size),
       recordedAt: now.toISOString(),
+      ...(fallback ? { fallback } : {}),
     },
     missing: [],
   };

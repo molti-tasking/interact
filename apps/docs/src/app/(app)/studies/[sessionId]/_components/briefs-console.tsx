@@ -144,7 +144,11 @@ export function BriefsConsole({ session }: { session: StudySession }) {
             <>
               {settings.run ? "Runs with" : "Will run with"}{" "}
               <span className="font-medium text-foreground">{run.model}</span>
-              {run.fastModel !== run.model ? ` (and ${run.fastModel} for background checks)` : ""},{" "}
+              {run.fastModel !== run.model ? ` (and ${run.fastModel} for background checks)` : ""}
+              {run.fallback
+                ? `; when the gateway turns a call away, Anthropic's API with ${run.fallback.model}`
+                : ""}
+              ,{" "}
               {run.questionStrategy === "committee"
                 ? `questions chosen by a committee of ${run.committeeSize} drafts`
                 : "questions asked for directly (prompted)"}

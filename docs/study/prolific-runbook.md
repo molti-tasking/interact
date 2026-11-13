@@ -44,6 +44,14 @@ machine first: [local-testing.md](local-testing.md).
    ran out mid-session. The full tool makes many more model calls per form
    than the baseline (question drafts, previews, conflict checks); read the
    real cost per participant off the gateway after the first 10 places.
+   **Fallback:** set `ANTHROPIC_API_KEY` too, and calls the gateway turns
+   away (rate limit, budget, overload) go to Anthropic's API directly, with
+   the same model when `LLM_MODEL_NAME` is `anthropic/<claude id>`, else the
+   one in `LLM_FALLBACK_MODEL_NAME`. The session page and every session's
+   run settings say so. The server log says `[LLM FALLBACK]` each time it
+   steps in: if it does often, raise the gateway's limit. Anthropic's API
+   has rate limits of its own; check the key's tier against the number of
+   participants working at once.
 5. **Create the session.** Studies → New session → "Online study
    (self-paced)". Fill in the contact for the consent page, create it, paste
    Prolific's completion URL on the session page. The page warns about

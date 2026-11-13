@@ -6,7 +6,10 @@ import {
   wrapLanguageModel,
   type LanguageModel,
 } from "ai";
+import { llmFallbackFromEnv } from "./llm-fallback";
 import { resolveTemperature } from "./llm-temperature";
+
+type ChatModel = ReturnType<typeof wrapLanguageModel>;
 
 /**
  * OpenAI-compatible provider configured for self-hosted LiteLLM.
@@ -37,19 +40,29 @@ const llm = createOpenAI({
  * JSON response". Chat Completions is LiteLLM's canonical, provider-neutral
  * interface.
  */
-function chatModel(modelId: string): LanguageModel {
-  return LLM_PROVIDER === "anthropic"
-    ? anthropicChatModel(modelId)
-    : wrapLanguageModel({
-        model: llm.chat(modelId),
-        middleware: {
-          specificationVersion: "v3",
-          transformParams: async ({ params }) => ({
-            ...params,
-            temperature: resolveTemperature(modelId, params.temperature),
-          }),
-        },
-      });
+function chatModel(modelId: string, fallbackId?: string): LanguageModel {
+  if (LLM_PROVIDER === "anthropic") return anthropicChatModel(modelId);
+  const gateway = gatewayChatModel(modelId);
+  return fallbackId
+    ? withAnthropicFallback(gateway, anthropicChatModel(fallbackId), { label: fallbackId })
+    : gateway;
+}
+
+/** A chat model on the gateway. `provider` is for tests. */
+export function gatewayChatModel(
+  modelId: string,
+  provider: ReturnType<typeof createOpenAI> = llm,
+): ChatModel {
+  return wrapLanguageModel({
+    model: provider.chat(modelId),
+    middleware: {
+      specificationVersion: "v3",
+      transformParams: async ({ params }) => ({
+        ...params,
+        temperature: resolveTemperature(modelId, params.temperature),
+      }),
+    },
+  });
 }
 
 /**
@@ -79,7 +92,7 @@ export const ANTHROPIC_DEFAULT_MAX_OUTPUT_TOKENS = 16_000;
 export function anthropicChatModel(
   modelId: string,
   opts: { apiKey?: string; fetch?: typeof globalThis.fetch } = {},
-): LanguageModel {
+): ChatModel {
   const anthropic = createAnthropic({
     apiKey: opts.apiKey ?? process.env.ANTHROPIC_API_KEY,
     ...(opts.fetch ? { fetch: opts.fetch } : {}),
@@ -104,8 +117,103 @@ export function anthropicChatModel(
   });
 }
 
+// ---------------------------------------------------------------------------
+// Fallback: the gateway first, Anthropic's API when the gateway turns a call
+// away (see `llm-fallback.ts` for the environment)
+// ---------------------------------------------------------------------------
+
+/**
+ * Gateway failures after which the same call goes to Anthropic: rate limit
+ * (429), the key's budget, an overloaded or failing upstream (5xx, 529), or
+ * the gateway not answering at all. Not our own timeout or a cancelled
+ * request: the fallback would inherit the same expired signal.
+ */
+export function shouldFallBack(error: unknown): boolean {
+  if (RetryError.isInstance(error)) return shouldFallBack(error.lastError);
+  if (APICallError.isInstance(error)) {
+    const status = error.statusCode;
+    if (status === 429 || (status !== undefined && status >= 500)) return true;
+    return /ExceededBudget|budget.*exceeded|over budget|rate.?limit/i.test(
+      `${error.message} ${error.responseBody ?? ""}`,
+    );
+  }
+  if (typeof error !== "object" || error === null) return false;
+  const { name } = error as { name?: unknown };
+  if (name === "AbortError" || name === "TimeoutError") return false;
+  return isTransientLlmError(error);
+}
+
+/** When a fallback starts, later calls skip the gateway for this long. */
+const FALLBACK_COOLDOWN_MS = 60_000;
+
+/** Shared by every model on the same gateway key */
+const gatewayState = { restingUntil: 0 };
+
+/**
+ * `primary` (the gateway) with `fallback` (Anthropic's API) behind it. A
+ * call the gateway turns away is sent again, unchanged, to the fallback;
+ * after that the gateway rests for `cooldownMs` and calls go straight to
+ * the fallback. Failures of the fallback itself are thrown as they are.
+ */
+export function withAnthropicFallback(
+  primary: ChatModel,
+  fallback: ChatModel,
+  {
+    label,
+    cooldownMs = FALLBACK_COOLDOWN_MS,
+    state = gatewayState,
+    now = Date.now,
+  }: {
+    label: string;
+    cooldownMs?: number;
+    state?: { restingUntil: number };
+    now?: () => number;
+  },
+): ChatModel {
+  const rest = (error: unknown) => {
+    const resting = now() < state.restingUntil;
+    state.restingUntil = now() + cooldownMs;
+    if (resting) return;
+    const status = APICallError.isInstance(error) ? error.statusCode : undefined;
+    const message = error instanceof Error ? error.message : String(error);
+    console.warn(
+      `[LLM FALLBACK] The gateway turned a call away (${status ?? "no answer"}: ${message.slice(0, 160)}). ` +
+        `Using Anthropic's API (${label}) for the next ${Math.round(cooldownMs / 1000)} s.`,
+    );
+  };
+  return wrapLanguageModel({
+    model: primary,
+    middleware: {
+      specificationVersion: "v3",
+      wrapGenerate: async ({ doGenerate, params }) => {
+        if (now() < state.restingUntil) return fallback.doGenerate(params);
+        try {
+          return await doGenerate();
+        } catch (error) {
+          if (!shouldFallBack(error) || params.abortSignal?.aborted) throw error;
+          rest(error);
+          return fallback.doGenerate(params);
+        }
+      },
+      wrapStream: async ({ doStream, params }) => {
+        if (now() < state.restingUntil) return fallback.doStream(params);
+        try {
+          return await doStream();
+        } catch (error) {
+          if (!shouldFallBack(error) || params.abortSignal?.aborted) throw error;
+          rest(error);
+          return fallback.doStream(params);
+        }
+      },
+    },
+  });
+}
+
+const { fallback: FALLBACK, problem: FALLBACK_PROBLEM } = llmFallbackFromEnv(process.env);
+if (FALLBACK_PROBLEM) console.warn(`[LLM FALLBACK] ${FALLBACK_PROBLEM}`);
+
 // `||` (not `??`) so an empty/blank env var falls back instead of passing "".
-export const model = chatModel(process.env.LLM_MODEL_NAME || "default");
+export const model = chatModel(process.env.LLM_MODEL_NAME || "default", FALLBACK?.model);
 
 /**
  * Model for cheap classification-style calls (conflict detection, intent
@@ -114,6 +222,7 @@ export const model = chatModel(process.env.LLM_MODEL_NAME || "default");
  */
 export const fastModel = chatModel(
   process.env.LLM_FAST_MODEL_NAME || process.env.LLM_MODEL_NAME || "default",
+  FALLBACK?.fastModel,
 );
 
 /**

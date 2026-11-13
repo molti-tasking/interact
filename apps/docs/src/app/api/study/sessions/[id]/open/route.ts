@@ -42,7 +42,7 @@ const sameRun = (a: StudyRunSettings, b: StudyRunSettings) =>
   a.committeeSize === b.committeeSize;
 
 const describe = (run: StudyRunSettings) =>
-  `${run.model}${run.fastModel !== run.model ? ` (and ${run.fastModel})` : ""}, ${run.questionStrategy} questions, committee of ${run.committeeSize}`;
+  `${run.model}${run.fastModel !== run.model ? ` (and ${run.fastModel})` : ""}, ${run.questionStrategy} questions, committee of ${run.committeeSize}${run.fallback ? `, falling back to ${run.fallback.model} on Anthropic's API` : ""}`;
 
 export async function GET() {
   const denied = await guard();
