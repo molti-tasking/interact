@@ -1,7 +1,7 @@
 import fs from "fs";
 import path from "path";
 
-import type { FixtureEntry } from "./fixture-types";
+import type { FixtureEntry, ScenarioMeta } from "./fixture-types";
 
 /**
  * Loads recorded fixtures for server action replay during tests.
@@ -17,6 +17,12 @@ import type { FixtureEntry } from "./fixture-types";
  *    (`matchHints.prompt`: a description, a question, a change request)
  * 4. Else the Nth recording (N = call count for this action)
  * 5. Background work with no recording left answers "nothing to do"
+ *
+ * `FIXTURE_SCENARIO` (env) names the scenario instead of the file: the
+ * local study's mock model (`pnpm study:local` with STUDY_MOCK_LLM=1). A
+ * scenario whose scenario.meta.json says `"cycle": true` reuses its
+ * recordings in turn and never runs out; a conversation's turn
+ * (`matchHints.turn`) picks the recording made for that turn.
  */
 
 const FIXTURES_DIR = path.resolve(process.cwd(), "tests/fixtures");
@@ -28,8 +34,28 @@ let lastScenarioToken: string | null = null;
 
 // Cache parsed fixture files per scenario to avoid repeated disk reads
 const fixtureCache = new Map<string, Map<string, FixtureEntry[]>>();
+const cyclingCache = new Map<string, boolean>();
+
+/** Whether the scenario reuses its recordings in turn (scenario.meta.json). */
+function cycles(scenario: string): boolean {
+  if (!cyclingCache.has(scenario)) {
+    let cycle = false;
+    try {
+      const meta = JSON.parse(
+        fs.readFileSync(path.join(FIXTURES_DIR, scenario, "scenario.meta.json"), "utf-8"),
+      ) as Partial<ScenarioMeta>;
+      cycle = meta.cycle === true;
+    } catch {
+      // No meta file: the default (run out)
+    }
+    cyclingCache.set(scenario, cycle);
+  }
+  return cyclingCache.get(scenario)!;
+}
 
 function getActiveScenario(): { scenario: string; token: string } {
+  const fixed = process.env.FIXTURE_SCENARIO?.trim();
+  if (fixed) return { scenario: fixed, token: fixed };
   try {
     const raw = fs.readFileSync(SCENARIO_FILE, "utf-8").trim();
     const colonIndex = raw.indexOf(":");
@@ -116,10 +142,18 @@ export function loadFixture<T>(
     const byPrompt = actionFixtures.find((f) => f.matchHints?.prompt === matchHints.prompt);
     if (byPrompt) return byPrompt.output as T;
   }
+  if (matchHints?.turn !== undefined) {
+    const byTurn = actionFixtures.find((f) => f.matchHints?.turn === matchHints.turn);
+    if (byTurn) return byTurn.output as T;
+  }
 
   // 2. In recording order (no hint, or no recording for this hint)
   const sequential = actionFixtures;
   const callIndex = callCounters.get(actionName) ?? 0;
+  if (sequential.length > 0 && cycles(scenario)) {
+    callCounters.set(actionName, callIndex + 1);
+    return sequential[callIndex % sequential.length].output as T;
+  }
   if (callIndex < sequential.length) {
     callCounters.set(actionName, callIndex + 1);
     return sequential[callIndex].output as T;
@@ -145,4 +179,5 @@ export function resetFixtureState(): void {
   callCounters.clear();
   lastScenarioToken = null;
   fixtureCache.clear();
+  cyclingCache.clear();
 }

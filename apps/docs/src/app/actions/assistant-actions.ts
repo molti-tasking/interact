@@ -50,11 +50,13 @@ export async function assistantTurnAction(
   if (process.env.USE_FIXTURES || process.env.RECORD_FIXTURES) {
     const { fixtureGuard } = await import("@/lib/testing/fixture-guard");
     const last = request.messages[request.messages.length - 1]?.text ?? "";
+    const turn = request.messages.filter((m) => m.role === "user").length;
+    // Replay: the recording for this message, else the one for this turn
     return fixtureGuard(
       "assistantTurn",
       { messages: request.messages },
       () => assistantTurnReal(request),
-      { prompt: last },
+      { prompt: last, turn },
     );
   }
   return assistantTurnReal(request);

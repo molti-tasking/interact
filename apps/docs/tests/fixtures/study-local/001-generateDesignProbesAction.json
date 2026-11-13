@@ -1,0 +1,586 @@
+{
+  "actionName": "generateDesignProbesAction",
+  "callIndex": 0,
+  "input": {
+    "basePrompt": "## Purpose\nA sign-up form for parents for our football club's holiday week for kids aged 6 to 12 in August. The coaches need to know about the children before the week starts.",
+    "maxProbes": 5
+  },
+  "output": {
+    "success": true,
+    "interactions": [
+      {
+        "id": "probe-efd07c70-0ff5-4477-a2da-06aebd21a2a1",
+        "text": "Collect an emergency contact?",
+        "explanation": "Parent phone (a1) is already likely; this is for a separate person.",
+        "layer": "dimensions",
+        "source": "committee",
+        "options": [
+          {
+            "value": "nameAndPhone",
+            "label": "Name and phone",
+            "preview": {
+              "summary": "Add \"Emergency contact name\", \"Emergency contact phone number\"",
+              "schemaPatch": {
+                "addFields": [
+                  {
+                    "key": "emergencyContactName",
+                    "label": "Emergency contact name",
+                    "type": "string",
+                    "validation": null,
+                    "scale": null,
+                    "required": true
+                  },
+                  {
+                    "key": "emergencyContactPhone",
+                    "label": "Emergency contact phone number",
+                    "type": "string",
+                    "validation": null,
+                    "scale": null,
+                    "required": true
+                  }
+                ],
+                "removeFieldKeys": [],
+                "updateFields": []
+              },
+              "scope": {
+                "added": [
+                  "emergencyContactName",
+                  "emergencyContactPhone"
+                ],
+                "updated": [],
+                "removed": []
+              }
+            }
+          },
+          {
+            "value": "phoneOnly",
+            "label": "Phone only",
+            "preview": {
+              "summary": "Add \"Emergency contact phone number\"",
+              "schemaPatch": {
+                "addFields": [
+                  {
+                    "key": "emergencyContactPhone",
+                    "label": "Emergency contact phone number",
+                    "type": "string",
+                    "validation": null,
+                    "scale": null,
+                    "required": true
+                  }
+                ],
+                "removeFieldKeys": [],
+                "updateFields": []
+              },
+              "scope": {
+                "added": [
+                  "emergencyContactPhone"
+                ],
+                "updated": [],
+                "removed": []
+              }
+            }
+          },
+          {
+            "value": "none",
+            "label": "No emergency contact",
+            "preview": {
+              "summary": "No form change",
+              "schemaPatch": {},
+              "scope": {
+                "added": [],
+                "updated": [],
+                "removed": []
+              }
+            },
+            "unchanged": true
+          }
+        ],
+        "selectedOption": null,
+        "status": "pending",
+        "priority": 1,
+        "previewStatus": "ready",
+        "dimensionId": null,
+        "dimensionName": null
+      },
+      {
+        "id": "probe-2e8a5fdb-f5ed-4f1c-9fd3-63a8693e0a54",
+        "text": "Ask for T-shirt size?",
+        "explanation": "Drafts used different age bands; the child must be 6 to 12.",
+        "layer": "dimensions",
+        "source": "committee",
+        "options": [
+          {
+            "value": "sizeRequired",
+            "label": "Yes, required, ages 5-12",
+            "preview": {
+              "summary": "Add \"Child's T-shirt size\"",
+              "schemaPatch": {
+                "addFields": [
+                  {
+                    "key": "kitSize",
+                    "label": "Child's T-shirt size",
+                    "type": "select",
+                    "validation": {
+                      "options": [
+                        {
+                          "label": "Age 5-6",
+                          "value": "age5to6"
+                        },
+                        {
+                          "label": "Age 7-8",
+                          "value": "age7to8"
+                        },
+                        {
+                          "label": "Age 9-10",
+                          "value": "age9to10"
+                        },
+                        {
+                          "label": "Age 11-12",
+                          "value": "age11to12"
+                        },
+                        {
+                          "label": "Age 13-14",
+                          "value": "age13to14"
+                        }
+                      ]
+                    },
+                    "scale": null,
+                    "required": true
+                  }
+                ],
+                "removeFieldKeys": [],
+                "updateFields": []
+              },
+              "scope": {
+                "added": [
+                  "kitSize"
+                ],
+                "updated": [],
+                "removed": []
+              }
+            }
+          },
+          {
+            "value": "sizeOptional",
+            "label": "Yes, bands 6-13",
+            "preview": {
+              "summary": "Add \"Kit/T-shirt size\"",
+              "schemaPatch": {
+                "addFields": [
+                  {
+                    "key": "tshirtSize",
+                    "label": "Kit/T-shirt size",
+                    "type": "select",
+                    "validation": {
+                      "options": [
+                        {
+                          "label": "Age 6-7",
+                          "value": "6_7"
+                        },
+                        {
+                          "label": "Age 8-9",
+                          "value": "8_9"
+                        },
+                        {
+                          "label": "Age 10-11",
+                          "value": "10_11"
+                        },
+                        {
+                          "label": "Age 12-13",
+                          "value": "12_13"
+                        }
+                      ]
+                    },
+                    "scale": null,
+                    "required": false
+                  }
+                ],
+                "removeFieldKeys": [],
+                "updateFields": []
+              },
+              "scope": {
+                "added": [
+                  "tshirtSize"
+                ],
+                "updated": [],
+                "removed": []
+              }
+            }
+          },
+          {
+            "value": "noSize",
+            "label": "No size question",
+            "preview": {
+              "summary": "No form change",
+              "schemaPatch": {},
+              "scope": {
+                "added": [],
+                "updated": [],
+                "removed": []
+              }
+            },
+            "unchanged": true
+          }
+        ],
+        "selectedOption": null,
+        "status": "pending",
+        "priority": 1,
+        "previewStatus": "ready",
+        "dimensionId": null,
+        "dimensionName": null
+      },
+      {
+        "id": "probe-bec3ff0d-7f56-4494-be62-a9d1f989eb5e",
+        "text": "Ask about grouping and pickup?",
+        "explanation": "1 of 4 design drafts would change this.",
+        "layer": "dimensions",
+        "source": "committee",
+        "options": [
+          {
+            "value": "groupingAndPickup",
+            "label": "Both questions",
+            "preview": {
+              "summary": "Add \"Friends your child would like to be grouped with\", \"Other people allowed to collect your child\"",
+              "schemaPatch": {
+                "addFields": [
+                  {
+                    "key": "friendsToBeGroupedWith",
+                    "label": "Friends your child would like to be grouped with",
+                    "description": "Optional, full names",
+                    "type": "string",
+                    "validation": null,
+                    "scale": null,
+                    "required": false
+                  },
+                  {
+                    "key": "authorisedPickupPeople",
+                    "label": "Other people allowed to collect your child",
+                    "description": "Names of anyone besides you",
+                    "type": "string",
+                    "validation": null,
+                    "scale": null,
+                    "required": false
+                  }
+                ],
+                "removeFieldKeys": [],
+                "updateFields": []
+              },
+              "scope": {
+                "added": [
+                  "friendsToBeGroupedWith",
+                  "authorisedPickupPeople"
+                ],
+                "updated": [],
+                "removed": []
+              }
+            }
+          },
+          {
+            "value": "pickupOnly",
+            "label": "Pickup people only",
+            "preview": {
+              "summary": "Add \"Other people allowed to collect your child\"",
+              "schemaPatch": {
+                "addFields": [
+                  {
+                    "key": "authorisedPickupPeople",
+                    "label": "Other people allowed to collect your child",
+                    "description": "Names of anyone besides you",
+                    "type": "string",
+                    "validation": null,
+                    "scale": null,
+                    "required": false
+                  }
+                ],
+                "removeFieldKeys": [],
+                "updateFields": []
+              },
+              "scope": {
+                "added": [
+                  "authorisedPickupPeople"
+                ],
+                "updated": [],
+                "removed": []
+              }
+            }
+          },
+          {
+            "value": "groupingOnly",
+            "label": "Friend grouping only",
+            "preview": {
+              "summary": "Add \"Friends your child would like to be grouped with\"",
+              "schemaPatch": {
+                "addFields": [
+                  {
+                    "key": "friendsToBeGroupedWith",
+                    "label": "Friends your child would like to be grouped with",
+                    "description": "Optional, full names",
+                    "type": "string",
+                    "validation": null,
+                    "scale": null,
+                    "required": false
+                  }
+                ],
+                "removeFieldKeys": [],
+                "updateFields": []
+              },
+              "scope": {
+                "added": [
+                  "friendsToBeGroupedWith"
+                ],
+                "updated": [],
+                "removed": []
+              }
+            }
+          },
+          {
+            "value": "neither",
+            "label": "Neither",
+            "preview": {
+              "summary": "No form change",
+              "schemaPatch": {},
+              "scope": {
+                "added": [],
+                "updated": [],
+                "removed": []
+              }
+            },
+            "unchanged": true
+          }
+        ],
+        "selectedOption": null,
+        "status": "pending",
+        "priority": 1,
+        "previewStatus": "ready",
+        "dimensionId": null,
+        "dimensionName": null
+      },
+      {
+        "id": "probe-d4211430-da17-48ab-a574-b5f64583ba3c",
+        "text": "Ask about club membership or position?",
+        "explanation": "1 of 4 design drafts would change this.",
+        "layer": "dimensions",
+        "source": "committee",
+        "options": [
+          {
+            "value": "both",
+            "label": "Both questions",
+            "preview": {
+              "summary": "Add \"Is your child a member of our club?\", \"Preferred position\"",
+              "schemaPatch": {
+                "addFields": [
+                  {
+                    "key": "currentClubMember",
+                    "label": "Is your child a member of our club?",
+                    "type": "boolean",
+                    "validation": null,
+                    "scale": null,
+                    "required": true
+                  },
+                  {
+                    "key": "preferredPosition",
+                    "label": "Preferred position",
+                    "type": "select",
+                    "validation": {
+                      "options": [
+                        {
+                          "label": "Goalkeeper",
+                          "value": "goalkeeper"
+                        },
+                        {
+                          "label": "Defender",
+                          "value": "defender"
+                        },
+                        {
+                          "label": "Midfielder",
+                          "value": "midfielder"
+                        },
+                        {
+                          "label": "Attacker",
+                          "value": "attacker"
+                        },
+                        {
+                          "label": "No preference",
+                          "value": "none"
+                        }
+                      ]
+                    },
+                    "scale": null,
+                    "required": false
+                  }
+                ],
+                "removeFieldKeys": [],
+                "updateFields": []
+              },
+              "scope": {
+                "added": [
+                  "currentClubMember",
+                  "preferredPosition"
+                ],
+                "updated": [],
+                "removed": []
+              }
+            }
+          },
+          {
+            "value": "membership",
+            "label": "Membership only",
+            "preview": {
+              "summary": "Add \"Is your child a member of our club?\"",
+              "schemaPatch": {
+                "addFields": [
+                  {
+                    "key": "currentClubMember",
+                    "label": "Is your child a member of our club?",
+                    "type": "boolean",
+                    "validation": null,
+                    "scale": null,
+                    "required": true
+                  }
+                ],
+                "removeFieldKeys": [],
+                "updateFields": []
+              },
+              "scope": {
+                "added": [
+                  "currentClubMember"
+                ],
+                "updated": [],
+                "removed": []
+              }
+            }
+          },
+          {
+            "value": "position",
+            "label": "Position only",
+            "preview": {
+              "summary": "Add \"Preferred position\"",
+              "schemaPatch": {
+                "addFields": [
+                  {
+                    "key": "preferredPosition",
+                    "label": "Preferred position",
+                    "type": "select",
+                    "validation": {
+                      "options": [
+                        {
+                          "label": "Goalkeeper",
+                          "value": "goalkeeper"
+                        },
+                        {
+                          "label": "Defender",
+                          "value": "defender"
+                        },
+                        {
+                          "label": "Midfielder",
+                          "value": "midfielder"
+                        },
+                        {
+                          "label": "Attacker",
+                          "value": "attacker"
+                        },
+                        {
+                          "label": "No preference",
+                          "value": "none"
+                        }
+                      ]
+                    },
+                    "scale": null,
+                    "required": false
+                  }
+                ],
+                "removeFieldKeys": [],
+                "updateFields": []
+              },
+              "scope": {
+                "added": [
+                  "preferredPosition"
+                ],
+                "updated": [],
+                "removed": []
+              }
+            }
+          },
+          {
+            "value": "neither",
+            "label": "Neither",
+            "preview": {
+              "summary": "No form change",
+              "schemaPatch": {},
+              "scope": {
+                "added": [],
+                "updated": [],
+                "removed": []
+              }
+            },
+            "unchanged": true
+          }
+        ],
+        "selectedOption": null,
+        "status": "pending",
+        "priority": 1,
+        "previewStatus": "ready",
+        "dimensionId": null,
+        "dimensionName": null
+      },
+      {
+        "id": "probe-730a1b05-92bc-49cc-ab1e-ac341710a933",
+        "text": "Ask for photo consent?",
+        "explanation": "3 of 4 design drafts would change this.",
+        "layer": "dimensions",
+        "source": "committee",
+        "options": [
+          {
+            "value": "photoConsent",
+            "label": "Yes, add photo consent",
+            "preview": {
+              "summary": "Add \"I agree to photos of my child being taken during the week\"",
+              "schemaPatch": {
+                "addFields": [
+                  {
+                    "key": "photoConsent",
+                    "label": "I agree to photos of my child being taken during the week",
+                    "type": "boolean",
+                    "validation": null,
+                    "scale": null,
+                    "required": false
+                  }
+                ],
+                "removeFieldKeys": [],
+                "updateFields": []
+              },
+              "scope": {
+                "added": [
+                  "photoConsent"
+                ],
+                "updated": [],
+                "removed": []
+              }
+            }
+          },
+          {
+            "value": "noPhoto",
+            "label": "No",
+            "preview": {
+              "summary": "No form change",
+              "schemaPatch": {},
+              "scope": {
+                "added": [],
+                "updated": [],
+                "removed": []
+              }
+            },
+            "unchanged": true
+          }
+        ],
+        "selectedOption": null,
+        "status": "pending",
+        "priority": 2,
+        "previewStatus": "ready",
+        "dimensionId": null,
+        "dimensionName": null
+      }
+    ]
+  },
+  "timestamp": "2026-11-10T16:37:06.100Z"
+}

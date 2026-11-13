@@ -1,0 +1,592 @@
+{
+  "actionName": "generateDesignProbesAction",
+  "callIndex": 1,
+  "input": {
+    "basePrompt": "## Purpose\nAn application form for people who want to foster a cat from our small cat rescue for a few weeks, so volunteers can match cats and homes.",
+    "maxProbes": 5
+  },
+  "output": {
+    "success": true,
+    "interactions": [
+      {
+        "id": "probe-a79d7a80-f236-4be6-9700-588f3bbdf438",
+        "text": "Ask about renting and landlord permission?",
+        "explanation": "3 of 4 design drafts would change this.",
+        "layer": "dimensions",
+        "source": "committee",
+        "options": [
+          {
+            "value": "tenureOnly",
+            "label": "Own or rent only",
+            "preview": {
+              "summary": "Add \"Do you own or rent your home?\"",
+              "schemaPatch": {
+                "addFields": [
+                  {
+                    "key": "housingPermission",
+                    "label": "Do you own or rent your home?",
+                    "type": "select",
+                    "validation": {
+                      "options": [
+                        {
+                          "label": "Own my home",
+                          "value": "own"
+                        },
+                        {
+                          "label": "Rent, pets allowed",
+                          "value": "rentAllowed"
+                        },
+                        {
+                          "label": "Rent, need permission",
+                          "value": "rentNeedPermission"
+                        },
+                        {
+                          "label": "Other arrangement",
+                          "value": "other"
+                        }
+                      ]
+                    },
+                    "scale": null,
+                    "required": true
+                  }
+                ],
+                "removeFieldKeys": [],
+                "updateFields": []
+              },
+              "scope": {
+                "added": [
+                  "housingPermission"
+                ],
+                "updated": [],
+                "removed": []
+              }
+            }
+          },
+          {
+            "value": "landlordOnly",
+            "label": "Landlord question only",
+            "preview": {
+              "summary": "Add \"If renting, does your landlord allow pets?\"",
+              "schemaPatch": {
+                "addFields": [
+                  {
+                    "key": "landlordPermission",
+                    "label": "If renting, does your landlord allow pets?",
+                    "type": "select",
+                    "validation": {
+                      "options": [
+                        {
+                          "label": "Yes",
+                          "value": "yes"
+                        },
+                        {
+                          "label": "No",
+                          "value": "no"
+                        },
+                        {
+                          "label": "Not sure",
+                          "value": "not_sure"
+                        },
+                        {
+                          "label": "Not renting",
+                          "value": "not_renting"
+                        }
+                      ]
+                    },
+                    "scale": null,
+                    "required": true
+                  }
+                ],
+                "removeFieldKeys": [],
+                "updateFields": []
+              },
+              "scope": {
+                "added": [
+                  "landlordPermission"
+                ],
+                "updated": [],
+                "removed": []
+              }
+            }
+          },
+          {
+            "value": "both",
+            "label": "Both questions",
+            "preview": {
+              "summary": "Add \"Do you own or rent your home?\", \"If renting, does your landlord allow pets?\"",
+              "schemaPatch": {
+                "addFields": [
+                  {
+                    "key": "housingPermission",
+                    "label": "Do you own or rent your home?",
+                    "type": "select",
+                    "validation": {
+                      "options": [
+                        {
+                          "label": "Own my home",
+                          "value": "own"
+                        },
+                        {
+                          "label": "Rent, pets allowed",
+                          "value": "rentAllowed"
+                        },
+                        {
+                          "label": "Rent, need permission",
+                          "value": "rentNeedPermission"
+                        },
+                        {
+                          "label": "Other arrangement",
+                          "value": "other"
+                        }
+                      ]
+                    },
+                    "scale": null,
+                    "required": true
+                  },
+                  {
+                    "key": "landlordPermission",
+                    "label": "If renting, does your landlord allow pets?",
+                    "type": "select",
+                    "validation": {
+                      "options": [
+                        {
+                          "label": "Yes",
+                          "value": "yes"
+                        },
+                        {
+                          "label": "No",
+                          "value": "no"
+                        },
+                        {
+                          "label": "Not sure",
+                          "value": "not_sure"
+                        },
+                        {
+                          "label": "Not renting",
+                          "value": "not_renting"
+                        }
+                      ]
+                    },
+                    "scale": null,
+                    "required": true
+                  }
+                ],
+                "removeFieldKeys": [],
+                "updateFields": []
+              },
+              "scope": {
+                "added": [
+                  "housingPermission",
+                  "landlordPermission"
+                ],
+                "updated": [],
+                "removed": []
+              }
+            }
+          },
+          {
+            "value": "none",
+            "label": "No, keep as is",
+            "preview": {
+              "summary": "No form change",
+              "schemaPatch": {},
+              "scope": {
+                "added": [],
+                "updated": [],
+                "removed": []
+              }
+            },
+            "unchanged": true
+          }
+        ],
+        "selectedOption": null,
+        "status": "pending",
+        "priority": 1,
+        "previewStatus": "ready",
+        "dimensionId": null,
+        "dimensionName": null
+      },
+      {
+        "id": "probe-783dacfc-b80c-47f1-a5b6-a3c1eee75162",
+        "text": "Ask about medical care ability?",
+        "explanation": "2 of 4 design drafts would change this.",
+        "layer": "dimensions",
+        "source": "committee",
+        "options": [
+          {
+            "value": "rating",
+            "label": "Comfort rating scale",
+            "preview": {
+              "summary": "Add \"I'm comfortable giving medication or caring for a cat with medical needs\"",
+              "schemaPatch": {
+                "addFields": [
+                  {
+                    "key": "medicalCareComfort",
+                    "label": "I'm comfortable giving medication or caring for a cat with medical needs",
+                    "type": "scale",
+                    "validation": null,
+                    "scale": {
+                      "points": [
+                        "Strongly disagree",
+                        "Disagree",
+                        "Neutral",
+                        "Agree",
+                        "Strongly agree"
+                      ],
+                      "min": 1,
+                      "max": 5,
+                      "lowLabel": "",
+                      "highLabel": ""
+                    },
+                    "required": true
+                  }
+                ],
+                "removeFieldKeys": [],
+                "updateFields": []
+              },
+              "scope": {
+                "added": [
+                  "medicalCareComfort"
+                ],
+                "updated": [],
+                "removed": []
+              }
+            }
+          },
+          {
+            "value": "yesNo",
+            "label": "Yes/no question",
+            "preview": {
+              "summary": "Add \"Could you give medication or special care if a cat needs it?\"",
+              "schemaPatch": {
+                "addFields": [
+                  {
+                    "key": "comfortableWithMedicalCare",
+                    "label": "Could you give medication or special care if a cat needs it?",
+                    "type": "boolean",
+                    "validation": null,
+                    "scale": null,
+                    "required": true
+                  }
+                ],
+                "removeFieldKeys": [],
+                "updateFields": []
+              },
+              "scope": {
+                "added": [
+                  "comfortableWithMedicalCare"
+                ],
+                "updated": [],
+                "removed": []
+              }
+            }
+          },
+          {
+            "value": "none",
+            "label": "No, keep as is",
+            "preview": {
+              "summary": "No form change",
+              "schemaPatch": {},
+              "scope": {
+                "added": [],
+                "updated": [],
+                "removed": []
+              }
+            },
+            "unchanged": true
+          }
+        ],
+        "selectedOption": null,
+        "status": "pending",
+        "priority": 1,
+        "previewStatus": "ready",
+        "dimensionId": null,
+        "dimensionName": null
+      },
+      {
+        "id": "probe-7f71bc7f-e927-4cb9-a695-708aaf2087a5",
+        "text": "Ask about children and other pets?",
+        "explanation": "Home description already mentions household and pets.",
+        "layer": "dimensions",
+        "source": "committee",
+        "options": [
+          {
+            "value": "childrenOnly",
+            "label": "Children question only",
+            "preview": {
+              "summary": "Add \"Are there children under 12 in your home?\"",
+              "schemaPatch": {
+                "addFields": [
+                  {
+                    "key": "hasChildrenUnder12",
+                    "label": "Are there children under 12 in your home?",
+                    "type": "boolean",
+                    "validation": null,
+                    "scale": null,
+                    "required": true
+                  }
+                ],
+                "removeFieldKeys": [],
+                "updateFields": []
+              },
+              "scope": {
+                "added": [
+                  "hasChildrenUnder12"
+                ],
+                "updated": [],
+                "removed": []
+              }
+            }
+          },
+          {
+            "value": "petsOnly",
+            "label": "Other pets question only",
+            "preview": {
+              "summary": "Add \"Do you have other pets at home?\"",
+              "schemaPatch": {
+                "addFields": [
+                  {
+                    "key": "hasOtherPets",
+                    "label": "Do you have other pets at home?",
+                    "type": "boolean",
+                    "validation": null,
+                    "scale": null,
+                    "required": false
+                  }
+                ],
+                "removeFieldKeys": [],
+                "updateFields": []
+              },
+              "scope": {
+                "added": [
+                  "hasOtherPets"
+                ],
+                "updated": [],
+                "removed": []
+              }
+            }
+          },
+          {
+            "value": "both",
+            "label": "Both questions",
+            "preview": {
+              "summary": "Add \"Are there children under 12 in your home?\", \"Do you have other pets at home?\"",
+              "schemaPatch": {
+                "addFields": [
+                  {
+                    "key": "hasChildrenUnder12",
+                    "label": "Are there children under 12 in your home?",
+                    "type": "boolean",
+                    "validation": null,
+                    "scale": null,
+                    "required": true
+                  },
+                  {
+                    "key": "hasOtherPets",
+                    "label": "Do you have other pets at home?",
+                    "type": "boolean",
+                    "validation": null,
+                    "scale": null,
+                    "required": false
+                  }
+                ],
+                "removeFieldKeys": [],
+                "updateFields": []
+              },
+              "scope": {
+                "added": [
+                  "hasChildrenUnder12",
+                  "hasOtherPets"
+                ],
+                "updated": [],
+                "removed": []
+              }
+            }
+          },
+          {
+            "value": "none",
+            "label": "No, keep as is",
+            "preview": {
+              "summary": "No form change",
+              "schemaPatch": {},
+              "scope": {
+                "added": [],
+                "updated": [],
+                "removed": []
+              }
+            },
+            "unchanged": true
+          }
+        ],
+        "selectedOption": null,
+        "status": "pending",
+        "priority": 1,
+        "previewStatus": "ready",
+        "dimensionId": null,
+        "dimensionName": null
+      },
+      {
+        "id": "probe-4edea6fe-1a84-4855-b955-a697c2603fd8",
+        "text": "Ask where applicants live?",
+        "explanation": "Helps volunteers match cats to nearby homes.",
+        "layer": "dimensions",
+        "source": "committee",
+        "options": [
+          {
+            "value": "townPostcode",
+            "label": "Town or postcode",
+            "preview": {
+              "summary": "Add \"Town or postcode\"",
+              "schemaPatch": {
+                "addFields": [
+                  {
+                    "key": "townOrPostcode",
+                    "label": "Town or postcode",
+                    "type": "string",
+                    "validation": null,
+                    "scale": null,
+                    "required": true
+                  }
+                ],
+                "removeFieldKeys": [],
+                "updateFields": []
+              },
+              "scope": {
+                "added": [
+                  "townOrPostcode"
+                ],
+                "updated": [],
+                "removed": []
+              }
+            }
+          },
+          {
+            "value": "townCity",
+            "label": "Town or city",
+            "preview": {
+              "summary": "Add \"Town or city where you live\"",
+              "schemaPatch": {
+                "addFields": [
+                  {
+                    "key": "cityOrTown",
+                    "label": "Town or city where you live",
+                    "type": "string",
+                    "validation": null,
+                    "scale": null,
+                    "required": true
+                  }
+                ],
+                "removeFieldKeys": [],
+                "updateFields": []
+              },
+              "scope": {
+                "added": [
+                  "cityOrTown"
+                ],
+                "updated": [],
+                "removed": []
+              }
+            }
+          },
+          {
+            "value": "none",
+            "label": "No, keep as is",
+            "preview": {
+              "summary": "No form change",
+              "schemaPatch": {},
+              "scope": {
+                "added": [],
+                "updated": [],
+                "removed": []
+              }
+            },
+            "unchanged": true
+          }
+        ],
+        "selectedOption": null,
+        "status": "pending",
+        "priority": 1,
+        "previewStatus": "ready",
+        "dimensionId": null,
+        "dimensionName": null
+      },
+      {
+        "id": "probe-7092ed96-0a62-426a-8ca5-fa64ad747de9",
+        "text": "Ask for type of home?",
+        "explanation": "3 of 4 design drafts would change this.",
+        "layer": "dimensions",
+        "source": "committee",
+        "options": [
+          {
+            "value": "yes",
+            "label": "Yes, add it",
+            "preview": {
+              "summary": "Add \"Type of home\"",
+              "schemaPatch": {
+                "addFields": [
+                  {
+                    "key": "homeType",
+                    "label": "Type of home",
+                    "type": "select",
+                    "validation": {
+                      "options": [
+                        {
+                          "label": "House with garden",
+                          "value": "house_garden"
+                        },
+                        {
+                          "label": "House, no garden",
+                          "value": "house_no_garden"
+                        },
+                        {
+                          "label": "Apartment or flat",
+                          "value": "apartment"
+                        },
+                        {
+                          "label": "Other",
+                          "value": "other"
+                        }
+                      ]
+                    },
+                    "scale": null,
+                    "required": true
+                  }
+                ],
+                "removeFieldKeys": [],
+                "updateFields": []
+              },
+              "scope": {
+                "added": [
+                  "homeType"
+                ],
+                "updated": [],
+                "removed": []
+              }
+            }
+          },
+          {
+            "value": "no",
+            "label": "No, keep as is",
+            "preview": {
+              "summary": "No form change",
+              "schemaPatch": {},
+              "scope": {
+                "added": [],
+                "updated": [],
+                "removed": []
+              }
+            },
+            "unchanged": true
+          }
+        ],
+        "selectedOption": null,
+        "status": "pending",
+        "priority": 2,
+        "previewStatus": "ready",
+        "dimensionId": null,
+        "dimensionName": null
+      }
+    ]
+  },
+  "timestamp": "2026-11-10T16:37:49.205Z"
+}

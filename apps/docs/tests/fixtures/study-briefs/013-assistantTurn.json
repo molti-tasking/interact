@@ -1,0 +1,110 @@
+{
+  "actionName": "assistantTurn",
+  "callIndex": 1,
+  "input": {
+    "messages": [
+      {
+        "role": "user",
+        "text": "A sign-up form for parents for our football club's holiday week for kids aged 6 to 12 in August. The coaches need to know about the children before the week starts."
+      },
+      {
+        "role": "assistant",
+        "text": "\u2026"
+      },
+      {
+        "role": "user",
+        "text": "Parents pick the days, Monday to Friday. Yes, the coaches need allergies and someone to call in an emergency."
+      }
+    ]
+  },
+  "output": {
+    "success": true,
+    "result": {
+      "reply": "Here is a first version. It asks for the child, the days, allergies and an emergency contact. You can change any field on the form directly.",
+      "schemaPatch": {
+        "addFields": [
+          {
+            "key": "childName",
+            "label": "Child's name",
+            "description": "",
+            "type": "string",
+            "validation": null,
+            "scale": null,
+            "required": true,
+            "referenceTarget": null
+          },
+          {
+            "key": "childAge",
+            "label": "Child's age",
+            "description": "",
+            "type": "number",
+            "validation": null,
+            "scale": null,
+            "required": true,
+            "referenceTarget": null
+          },
+          {
+            "key": "days",
+            "label": "Days attending",
+            "description": "",
+            "type": "select",
+            "validation": {
+              "options": [
+                {
+                  "label": "Monday",
+                  "value": "monday"
+                },
+                {
+                  "label": "Tuesday",
+                  "value": "tuesday"
+                },
+                {
+                  "label": "Wednesday",
+                  "value": "wednesday"
+                },
+                {
+                  "label": "Thursday",
+                  "value": "thursday"
+                },
+                {
+                  "label": "Friday",
+                  "value": "friday"
+                }
+              ]
+            },
+            "scale": null,
+            "required": true,
+            "referenceTarget": null
+          },
+          {
+            "key": "allergies",
+            "label": "Allergies or dietary needs",
+            "description": "Write \"None\" if there are none",
+            "type": "string",
+            "validation": null,
+            "scale": null,
+            "required": false,
+            "referenceTarget": null
+          },
+          {
+            "key": "emergencyContact",
+            "label": "Emergency contact (name and phone)",
+            "description": "",
+            "type": "string",
+            "validation": null,
+            "scale": null,
+            "required": true,
+            "referenceTarget": null
+          }
+        ]
+      },
+      "promptVersion": "assistant-1"
+    }
+  },
+  "timestamp": "2026-11-13T09:00:00.000Z",
+  "matchHints": {
+    "prompt": "Parents pick the days, Monday to Friday. Yes, the coaches need allergies and someone to call in an emergency.",
+    "turn": 2
+  },
+  "handWritten": "Not recorded: written to the format of a recording (2026-11-13). Re-record with the live model: RECORD_FIXTURES=true playwright test study-briefs"
+}

@@ -1,0 +1,92 @@
+{
+  "actionName": "assistantTurn",
+  "callIndex": 3,
+  "input": {
+    "messages": [
+      {
+        "role": "user",
+        "text": "An application form for people who want to foster a cat from our small cat rescue for a few weeks, so volunteers can match cats and homes."
+      },
+      {
+        "role": "assistant",
+        "text": "\u2026"
+      },
+      {
+        "role": "user",
+        "text": "People who want to foster. Other pets matter, and whether the landlord allows cats."
+      }
+    ]
+  },
+  "output": {
+    "success": true,
+    "result": {
+      "reply": "Done: the form asks for the applicant's details, other pets and whether a landlord allows cats.",
+      "schemaPatch": {
+        "addFields": [
+          {
+            "key": "applicantName",
+            "label": "Your name",
+            "description": "",
+            "type": "string",
+            "validation": null,
+            "scale": null,
+            "required": true,
+            "referenceTarget": null
+          },
+          {
+            "key": "email",
+            "label": "Email address",
+            "description": "",
+            "type": "email",
+            "validation": null,
+            "scale": null,
+            "required": true,
+            "referenceTarget": null
+          },
+          {
+            "key": "otherPets",
+            "label": "Other animals in your home",
+            "description": "",
+            "type": "string",
+            "validation": null,
+            "scale": null,
+            "required": false,
+            "referenceTarget": null
+          },
+          {
+            "key": "housing",
+            "label": "Do you own or rent your home?",
+            "description": "",
+            "type": "select",
+            "validation": {
+              "options": [
+                {
+                  "label": "Own",
+                  "value": "own"
+                },
+                {
+                  "label": "Rent, pets allowed",
+                  "value": "rent,-pets-allowed"
+                },
+                {
+                  "label": "Rent, not sure",
+                  "value": "rent,-not-sure"
+                }
+              ]
+            },
+            "scale": null,
+            "required": true,
+            "referenceTarget": null
+          }
+        ]
+      },
+      "promptVersion": "assistant-1"
+    }
+  },
+  "timestamp": "2026-11-13T09:00:00.000Z",
+  "matchHints": {
+    "prompt": "People who want to foster. Other pets matter, and whether the landlord allows cats.",
+    "turn": 2
+  },
+  "handWritten": "Not recorded: written to the format of a recording (2026-11-13). Re-record with the live model: RECORD_FIXTURES=true playwright test study-briefs"
+}
