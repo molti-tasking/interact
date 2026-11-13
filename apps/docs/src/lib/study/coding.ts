@@ -22,7 +22,7 @@ import {
 } from "interact/forms/form-diversity";
 import type { BriefDefinition } from "./briefs.server";
 import { parseCsv, toCsv } from "./export";
-import { parseRunSettings, type StudyRunSettings } from "./types";
+import { briefSteps, parseRunSettings, parseSettings, type StudyRunSettings } from "./types";
 import {
   ATTENTION_ITEM,
   BRIEFS_INSTRUMENT,
@@ -30,10 +30,14 @@ import {
   ncs6Score,
   quizInstrument,
   quizScore,
+  ratingsInstrument,
+  recallInstrument,
   susScore,
+  whyInstrument,
   type QuizAnswer,
   type QuizItem,
 } from "./instruments";
+import type { WhyItem } from "./why-fields";
 
 interface CodedField {
   /** The field's key (its name in the schema) */
@@ -267,6 +271,7 @@ export function codingKeyCsv(data: StudyExport): string {
         countEvents(form.portfolioId, "field_removed"),
       countEvents(form.portfolioId, "brief_opened"),
       quiz?.items ? quizScore(quiz.items, quiz.answers ?? {}) : null,
+      ...postTaskValues(taskMeasures(data, form)),
     ];
   });
   return toCsv(
@@ -290,6 +295,8 @@ export function codingKeyCsv(data: StudyExport): string {
       "direct_edits",
       "situation_reopened",
       "quiz_score",
+      // Appended 2026-11-13, so earlier columns keep their positions
+      ...POST_TASK_COLUMNS,
     ],
     rows,
   );
@@ -300,7 +307,16 @@ export function participantsCsv(data: StudyExport): string {
   const assignment = new Map(data.assignments.map((a) => [a.participant_id, a]));
   const progress = new Map(data.progress.map((p) => [p.participant_id, p]));
   const items = BRIEFS_QUESTIONNAIRE.fields.map((f) => f.name);
+  const settings = parseSettings(data.session.settings);
+  const positions = Math.max(
+    settings.briefs.length,
+    ...data.tasks.map((t) => t.position),
+    0,
+  );
+  const steps = briefSteps(positions, settings.postTaskMeasures).filter((step) => step !== "done");
+  const perTask = Array.from({ length: positions }, (_, i) => i + 1);
   const rows = data.participants.map((p) => {
+    const timings = stepSeconds(data, p.id);
     const a = assignment.get(p.id);
     const pr = progress.get(p.id);
     const answers = (data.questionnaires.find(
@@ -317,6 +333,16 @@ export function participantsCsv(data: StudyExport): string {
       answers ? ncs6Score(answers) : null,
       answers ? (Number(answers[ATTENTION_ITEM.name]) === ATTENTION_ITEM.expected ? 1 : 0) : null,
       ...items.map((name) => answers?.[name]),
+      ...steps.map((step) => timings.get(step) ?? null),
+      ...perTask.flatMap((position) => {
+        const task = data.tasks.find((t) => t.participant_id === p.id && t.position === position);
+        const m = taskMeasures(data, {
+          participantId: p.id,
+          position,
+          portfolioId: task?.portfolio_id ?? null,
+        });
+        return [m.know, m.confident, m.whyOrigins, m.assistantTurns, m.questionSentences, m.patches];
+      }),
     ];
   });
   return toCsv(
@@ -331,6 +357,18 @@ export function participantsCsv(data: StudyExport): string {
       "ncs6_score",
       "attention_passed",
       ...items,
+      // Appended 2026-11-13: seconds per step (server clock), then per task
+      ...steps.map((step) => `seconds_${step.replace(":", "_")}`),
+      ...perTask.flatMap((position) =>
+        [
+          "rating_know",
+          "rating_confident",
+          "why_origins",
+          "assistant_turns",
+          "assistant_question_sentences",
+          "assistant_patches",
+        ].map((name) => `t${position}_${name}`),
+      ),
     ],
     rows,
   );
@@ -602,4 +640,246 @@ export function withRunLine(markdown: string, run: StudyRunSettings | null): str
     : "Run: not recorded";
   const [title, ...rest] = markdown.split("\n");
   return [title, "", line, ...rest].join("\n");
+}
+
+// ---------------------------------------------------------------------------
+// After each task: ratings, free recall, why (sessions with post-task
+// measures, 2026-11-13), and the assistant arm's turns
+// ---------------------------------------------------------------------------
+
+function answersOf(
+  data: StudyExport,
+  participantId: string,
+  instrument: string,
+): Record<string, unknown> | null {
+  const row = data.questionnaires.find(
+    (q) => q.participant_id === participantId && q.instrument === instrument,
+  );
+  return (row?.answers ?? null) as Record<string, unknown> | null;
+}
+
+/**
+ * Seconds each step of a participant took, by the server's clock: from
+ * entering it (`joined` for consent, `step_entered` for the rest) to
+ * entering the next. The last step reached has none.
+ */
+export function stepSeconds(data: StudyExport, participantId: string): Map<string, number> {
+  const entries = data.events
+    .filter(
+      (e) =>
+        e.participant_id === participantId &&
+        (e.type === "joined" || e.type === "step_entered"),
+    )
+    .sort((a, b) => Number(a.id) - Number(b.id))
+    .map((e) => ({ step: e.type === "joined" ? "consent" : (e.phase ?? ""), at: e.created_at }));
+  const out = new Map<string, number>();
+  entries.forEach((entry, i) => {
+    const next = entries[i + 1];
+    if (next) out.set(entry.step, seconds(entry.at, next.at) ?? 0);
+  });
+  return out;
+}
+
+interface TurnPayload {
+  turn?: number;
+  reply?: string;
+  replyChars?: number;
+  questionSentences?: number;
+  patchOps?: number | null;
+  added?: number;
+  changed?: number;
+  removed?: number;
+  latencyMs?: number;
+  promptVersion?: string;
+}
+
+interface TaskMeasures {
+  know: number | null;
+  confident: number | null;
+  recallLines: number | null;
+  /** e.g. "participant;system;system", sorted; empty without why items */
+  whyOrigins: string;
+  seconds: { ratings: number | null; recall: number | null; why: number | null; quiz: number | null };
+  /** Assistant arm only (empty otherwise) */
+  assistantTurns: number | "";
+  questionSentences: number | "";
+  patches: number | "";
+}
+
+function taskMeasures(
+  data: StudyExport,
+  form: { participantId: string; position: number; portfolioId: string | null },
+): TaskMeasures {
+  const { participantId, position, portfolioId } = form;
+  const ratings = answersOf(data, participantId, ratingsInstrument(position));
+  const recall = answersOf(data, participantId, recallInstrument(position));
+  const why = answersOf(data, participantId, whyInstrument(position));
+  const timings = stepSeconds(data, participantId);
+  const number = (value: unknown) => (typeof value === "number" ? value : null);
+  const lines = Array.isArray(recall?.lines) ? (recall.lines as unknown[]) : null;
+  const items = Array.isArray(why?.items) ? (why.items as WhyItem[]) : [];
+
+  const condition = data.assignments.find((a) => a.participant_id === participantId)?.condition;
+  const turns = data.events
+    .filter((e) => e.type === "assistant_turn" && e.participant_id === participantId && e.portfolio_id === portfolioId)
+    .map((e) => (e.payload ?? {}) as TurnPayload);
+  const assistant = condition === "assistant";
+  return {
+    know: number(ratings?.know),
+    confident: number(ratings?.confident),
+    recallLines: lines ? lines.length : null,
+    whyOrigins: items.map((item) => item.origin).sort().join(";"),
+    seconds: {
+      ratings: timings.get(`ratings:${position}`) ?? null,
+      recall: timings.get(`recall:${position}`) ?? null,
+      why: timings.get(`why:${position}`) ?? null,
+      quiz: timings.get(`quiz:${position}`) ?? null,
+    },
+    assistantTurns: assistant ? turns.length : "",
+    questionSentences: assistant ? turns.reduce((sum, t) => sum + (t.questionSentences ?? 0), 0) : "",
+    patches: assistant ? turns.filter((t) => (t.patchOps ?? 0) > 0).length : "",
+  };
+}
+
+const POST_TASK_COLUMNS = [
+  "rating_know",
+  "rating_confident",
+  "recall_lines",
+  "ratings_seconds",
+  "recall_seconds",
+  "why_seconds",
+  "quiz_seconds",
+  "why_origins",
+  "assistant_turns",
+  "assistant_question_sentences",
+  "assistant_patches",
+];
+
+function postTaskValues(m: TaskMeasures): unknown[] {
+  return [
+    m.know,
+    m.confident,
+    m.recallLines,
+    m.seconds.ratings,
+    m.seconds.recall,
+    m.seconds.why,
+    m.seconds.quiz,
+    m.whyOrigins,
+    m.assistantTurns,
+    m.questionSentences,
+    m.patches,
+  ];
+}
+
+/**
+ * For the raters: one row per line of free recall ("List everything your
+ * form asks"). `matches_field`: the number of the question in
+ * coding-forms.md the line names, or "none"; `requirement_id`: the
+ * requirement it names, or "none". See docs/study/coding-guide.md.
+ */
+export function codingRecallCsv(data: StudyExport): string {
+  const rows: unknown[][] = [];
+  for (const form of codedForms(data)) {
+    const answers = answersOf(data, form.participantId, recallInstrument(form.position));
+    const lines = Array.isArray(answers?.lines) ? (answers.lines as unknown[]) : [];
+    lines.forEach((line, i) => rows.push([form.code, form.brief, i + 1, String(line), "", ""]));
+  }
+  return toCsv(["form", "situation", "line_no", "text", "matches_field", "requirement_id"], rows);
+}
+
+/**
+ * For the raters: one row per "Why does your form ask this?" item. `score`:
+ * 0 = no or wrong reason, 1 = plausible but generic, 2 = tied to the
+ * situation. Where the field came from is not in this file (it is in the
+ * key).
+ */
+export function codingWhyCsv(data: StudyExport): string {
+  const rows: unknown[][] = [];
+  for (const form of codedForms(data)) {
+    const answers = answersOf(data, form.participantId, whyInstrument(form.position));
+    const items = Array.isArray(answers?.items) ? (answers.items as (WhyItem & { answer?: string })[]) : [];
+    items.forEach((item, i) => rows.push([form.code, form.brief, i + 1, item.label, item.answer ?? "", ""]));
+  }
+  return toCsv(["form", "situation", "item_no", "field_label", "answer", "score"], rows);
+}
+
+/**
+ * For the analyst: the why items with where each field came from (system,
+ * participant, inherited), to join with the raters' scores on form and
+ * item_no.
+ */
+export function whyKeyCsv(data: StudyExport): string {
+  const rows: unknown[][] = [];
+  for (const form of codedForms(data)) {
+    const answers = answersOf(data, form.participantId, whyInstrument(form.position));
+    const items = Array.isArray(answers?.items) ? (answers.items as WhyItem[]) : [];
+    items.forEach((item, i) => rows.push([form.code, i + 1, item.fieldId, item.label, item.origin]));
+  }
+  return toCsv(["form", "item_no", "field_id", "field_label", "origin"], rows);
+}
+
+/** For the analyst: one row per turn of the assistant arm, oldest first. */
+export function assistantTurnsCsv(data: StudyExport): string {
+  const names = new Map(data.participants.map((p) => [p.id, p.display_name]));
+  const assignment = new Map(data.assignments.map((a) => [a.participant_id, a]));
+  const taskOf = new Map(data.tasks.map((t) => [t.portfolio_id, t]));
+  const events = [...data.events].sort((a, b) => Number(a.id) - Number(b.id));
+  const rows: unknown[][] = [];
+  events.forEach((event, index) => {
+    if (event.type !== "assistant_turn") return;
+    const payload = (event.payload ?? {}) as TurnPayload;
+    const task = event.portfolio_id ? taskOf.get(event.portfolio_id) : undefined;
+    // The participant's message that started this turn
+    const message = events
+      .slice(0, index)
+      .reverse()
+      .find(
+        (e) =>
+          e.type === "assistant_message" &&
+          e.participant_id === event.participant_id &&
+          e.portfolio_id === event.portfolio_id &&
+          (e.payload as { turn?: number } | null)?.turn === payload.turn,
+      );
+    rows.push([
+      event.participant_id ? names.get(event.participant_id) ?? event.participant_id : "",
+      event.participant_id ? assignment.get(event.participant_id)?.condition ?? "" : "",
+      task ? formCode(task.id) : "",
+      task?.brief ?? "",
+      task?.position ?? "",
+      payload.turn ?? "",
+      payload.replyChars ?? payload.reply?.length ?? "",
+      payload.questionSentences ?? "",
+      payload.patchOps ?? "",
+      payload.added ?? "",
+      payload.changed ?? "",
+      payload.removed ?? "",
+      payload.latencyMs ?? "",
+      payload.promptVersion ?? "",
+      String((message?.payload as { text?: unknown } | null)?.text ?? ""),
+      payload.reply ?? "",
+      event.created_at,
+    ]);
+  });
+  return toCsv(
+    [
+      "participant",
+      "condition",
+      "form",
+      "situation",
+      "position",
+      "turn",
+      "reply_chars",
+      "question_sentences",
+      "patch_ops",
+      "fields_added",
+      "fields_changed",
+      "fields_removed",
+      "latency_ms",
+      "prompt_version",
+      "message",
+      "reply",
+      "created_at",
+    ],
+    rows,
+  );
 }

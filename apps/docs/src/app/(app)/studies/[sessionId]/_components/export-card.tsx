@@ -10,15 +10,19 @@ import {
   questionnaireCsv,
 } from "@/lib/study/export";
 import {
+  assistantTurnsCsv,
   codingFieldsCsv,
   codingFormsMarkdown,
   codingKeyCsv,
+  codingRecallCsv,
   codingRequirementsCsv,
+  codingWhyCsv,
   formDiversityCsv,
   formDiversityPairsCsv,
   participantsCsv,
   questionAnswersCsv,
   sessionRun,
+  whyKeyCsv,
   withRunColumns,
   withRunLine,
 } from "@/lib/study/coding";
@@ -76,6 +80,20 @@ const RATER_FILES: ExportFile[] = [
     build: (data) => codingFieldsCsv(data),
     type: "text/csv",
   },
+  {
+    key: "coding-recall",
+    label: "Recall sheet (CSV)",
+    file: (code, day) => `study-${code}-${day}-coding-recall.csv`,
+    build: (data) => codingRecallCsv(data),
+    type: "text/csv",
+  },
+  {
+    key: "coding-why",
+    label: "Why sheet (CSV)",
+    file: (code, day) => `study-${code}-${day}-coding-why.csv`,
+    build: (data) => codingWhyCsv(data),
+    type: "text/csv",
+  },
 ];
 
 /** Briefs sessions: for the analyst only — they unblind the form codes. */
@@ -99,6 +117,20 @@ const ANALYST_FILES: ExportFile[] = [
     label: "Answered elicitation questions (CSV)",
     file: (code, day) => `study-${code}-${day}-question-answers.csv`,
     build: (data) => questionAnswersCsv(data),
+    type: "text/csv",
+  },
+  {
+    key: "assistant-turns",
+    label: "Assistant turns (CSV)",
+    file: (code, day) => `study-${code}-${day}-assistant-turns.csv`,
+    build: (data) => assistantTurnsCsv(data),
+    type: "text/csv",
+  },
+  {
+    key: "why-key",
+    label: "Why items: where each field came from (CSV)",
+    file: (code, day) => `study-${code}-${day}-why-key.csv`,
+    build: (data) => whyKeyCsv(data),
     type: "text/csv",
   },
   {
@@ -200,8 +232,8 @@ export function ExportCard({ session }: { session: StudySession }) {
           <h3 className="pt-2 text-sm font-medium">For the two raters</h3>
           <p className="text-sm text-muted-foreground">
             Finished forms under a code, without participant or condition. Each
-            rater fills in both sheets on their own; compare them with{" "}
-            <code>pnpm study:agreement</code>.
+            rater fills in every sheet on their own (docs/study/coding-guide.md);
+            compare them with <code>pnpm study:agreement</code>.
           </p>
           <FileButtons files={RATER_FILES} pending={exportSession.isPending} onPick={handle} />
           <h3 className="pt-2 text-sm font-medium">For the analysis</h3>
