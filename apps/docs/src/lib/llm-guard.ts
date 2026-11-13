@@ -1,4 +1,5 @@
 import { requireDesigner, UnauthorizedError } from "@/lib/auth";
+import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { headers } from "next/headers";
 
 /**
@@ -102,14 +103,47 @@ export async function checkRateLimit(
  * the rate limit.
  */
 export async function guardLlmRequest(bucket = "llm"): Promise<void> {
-  let userId: string | undefined;
+  let principal: Awaited<ReturnType<typeof requireDesigner>> | undefined;
   try {
-    userId = (await requireDesigner())?.userId;
+    principal = await requireDesigner();
   } catch (error) {
     if (error instanceof UnauthorizedError) {
       throw new LlmUnauthorizedError(error.message);
     }
     throw error;
   }
-  await checkRateLimit(bucket, userId);
+  if (principal?.kind === "participant") await requireSessionModel();
+  await checkRateLimit(bucket, principal?.userId);
+}
+
+/** A participant's calls went to a deployment running another model. */
+export class WrongModelError extends Error {
+  constructor() {
+    super(
+      "This study runs on another server. Please open it again from the link you were given.",
+    );
+    this.name = "WrongModelError";
+  }
+}
+
+/**
+ * Several deployments, one per model, can share the database. A
+ * participant's session records the model it was opened with; calls from
+ * another deployment's model are refused (migration 018), so one model's
+ * forms can't end up in another model's session. Before migration 018, or
+ * if the check can't run, nothing is refused.
+ */
+async function requireSessionModel(): Promise<void> {
+  const model = process.env.LLM_MODEL_NAME?.trim();
+  if (!model) return;
+  const supabase = await createServerSupabaseClient();
+  const { data, error } = await supabase.rpc("my_study_runs_on", { p_model: model });
+  if (error) {
+    console.warn("[llm-guard] model check skipped:", error.message);
+    return;
+  }
+  if (data === false) {
+    console.error(`[llm-guard] A participant's session runs with another model than ${model}: refused.`);
+    throw new WrongModelError();
+  }
 }

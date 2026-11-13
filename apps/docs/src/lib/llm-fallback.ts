@@ -51,7 +51,7 @@ export function llmFallbackFromEnv(
   if (!model) {
     return {
       fallback: null,
-      problem: `ANTHROPIC_API_KEY is set, but "${env.LLM_MODEL_NAME ?? ""}" is not a Claude model id: set LLM_FALLBACK_MODEL_NAME to the model to use on Anthropic's API (e.g. claude-sonnet-5-5). The fallback is off until then.`,
+      problem: `ANTHROPIC_API_KEY is set, but "${env.LLM_MODEL_NAME ?? ""}" is not a Claude model, so there is no fallback (it would be another model). If the gateway uses an alias for a Claude model, set LLM_FALLBACK_MODEL_NAME to its id (e.g. claude-sonnet-5-5).`,
     };
   }
   const fastModel =

@@ -163,6 +163,39 @@ Coverage per form = share of its requirements with `in_final_form = 1`;
 "arrived later" = `in_final_form = 1` and `in_first_prompt = 0`. Join to
 conditions through `coding-key.csv` only after the coding is settled.
 
+## Several models
+
+To run the same study with several models (e.g. Claude Sonnet 5.5, Claude
+Haiku 5.5 and an open model such as Qwen or GLM), deploy the app once per
+model, all on the same database:
+
+1. **One deployment per model** (Coolify: add the same repository again as
+   a new resource, with its own domain). Same database variables
+   (`NEXT_PUBLIC_SUPABASE_*`, `SUPABASE_DB_URL`), same `PROBE_STRATEGY`,
+   `PROBE_COMMITTEE_SIZE` and `PROBE_ORDER`; only `LLM_MODEL_NAME` differs.
+   Leave `LLM_FAST_MODEL_NAME` unset, so one model makes every call. Deploy
+   them one after the other: each applies pending migrations on start.
+2. **Anthropic fallback only for Claude deployments.** Don't set
+   `ANTHROPIC_API_KEY` on the open model's deployment: its fallback would be
+   another model.
+3. **Per model, create and open the session on that model's deployment**
+   (the page says "Will run with …"), and copy the study link from there
+   into that model's Prolific study. A session opened elsewhere shows a
+   warning on this page, and participants who reach it through another
+   deployment are refused (migration 018) — their forms can't end up in the
+   wrong model's data.
+4. **One Prolific study per model.** Exclude the participants of the other
+   studies (Prolific: "Exclude participants from previous studies"), so
+   nobody takes part twice.
+5. **Before the first participant, try every model end to end** — locally
+   with `pnpm study:local`, `STUDY_MOCK_LLM=0` and the model's
+   `LLM_MODEL_NAME`, both arms once. Open models served through the gateway
+   need structured output (JSON schema): if a model can't do it, questions,
+   drafts and the assistant's changes fail visibly.
+
+Every export carries the model it ran with (`model` column, `run` in the
+JSON), so the sessions' files can be stacked and compared by that column.
+
 ## Wave 2: handoff
 
 Wave 2 asks whether a form is easier to take over with its intent portfolio

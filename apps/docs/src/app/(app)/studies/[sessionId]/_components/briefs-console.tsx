@@ -98,7 +98,14 @@ export function BriefsConsole({ session }: { session: StudySession }) {
     ? settings.briefs.filter((brief) => !(handoff.sources[brief]?.length))
     : [];
 
+  // Several deployments (one per model) can share the database: this one
+  // must be the one the session was opened with
+  const serverModel = server.data?.run?.model;
+  const otherModel = !!settings.run && !!serverModel && settings.run.model !== serverModel;
+
   const problems = [
+    otherModel &&
+      `This session runs with ${settings.run!.model}, but this server is set to ${serverModel}. Open this page, and copy the study link, on the deployment for ${settings.run!.model}: participants who come in here are refused.`,
     settings.briefs.length === 0 && "No situations selected.",
     missing.length > 0 &&
       `Not set on the server: ${missing.join(", ")}. The study can't be opened until the model, the question strategy and the committee size are set explicitly.`,

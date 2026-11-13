@@ -216,6 +216,28 @@ describe.runIf(available)("assistant arm, post-task steps, forced arms (local Su
     expect(await advance(seat, "task:1")).toBe("quiz:1");
   }, 60_000);
 
+  it("tells the app whether a participant's session runs with this deployment's model", async () => {
+    const { code } = await createSession({ conditions: ["full"], postTaskMeasures: true });
+    const seat = await join(code);
+    const runsOn = async (model: string) => {
+      const { data, error } = await seat.client.rpc("my_study_runs_on", { p_model: model });
+      if (error) throw error;
+      return data;
+    };
+    expect(await runsOn(RUN_SETTINGS.model)).toBe(true);
+    expect(await runsOn(` ${RUN_SETTINGS.model} `)).toBe(true);
+    expect(await runsOn("another-model")).toBe(false);
+    // Somebody in no session (or only finished ones) is never refused
+    const stranger = newClient();
+    const { data: anon } = await stranger.auth.signInAnonymously();
+    users.push(anon.user!.id);
+    expect((await stranger.rpc("my_study_runs_on", { p_model: "another-model" })).data).toBe(true);
+    await sql("UPDATE study_progress SET completed_at = now(), outcome = 'completed' WHERE participant_id = $1", [
+      seat.participantId,
+    ]);
+    expect(await runsOn("another-model")).toBe(true);
+  }, 60_000);
+
   describe("forcing an arm", () => {
     let code = "";
     beforeAll(async () => {

@@ -232,6 +232,27 @@ The tour's logging uses driver.js's `onPopoverRender` and
 animation, or a quick ✕, went unlogged (this also affected the workshop's
 tours).
 
+### 9. After the first batch: question order and several models
+
+The first Prolific batch (session ZVXY5T, 28 joined, 17 completed, 8-minute
+tasks) showed the assistant building a complete form in its first turn
+(21 of 21) and covering the requirement lists at least as well as the full
+tool by a keyword approximation. The full tool's questions did raise the
+uncued requirements, but late: its committee ranked open decisions by how
+split the drafts were, so a field every draft adds but the form lacks came
+last or was cut, and the wording prompt said to skip it.
+
+- **`PROBE_ORDER=omissions`** asks those fields first (still as questions
+  with a "keep as is" answer, never added unasked), then the contested
+  ones. Unset, the order is the pilot's. Sessions record it
+  (`run.questionOrder`); exports show `committee+omissions-first`. The
+  batch above ran without it: report it as a pilot of the earlier version,
+  and don't pool it with sessions that have the new order.
+- **Several models** run as one deployment per model on the same database
+  (runbook, "Several models"). Sessions already record their model; a
+  participant's calls from a deployment with another model are refused
+  (migration 018), and the session page warns.
+
 ## Deviations from the specification
 
 1. **Scope** (the authors' decision): wave 1 only. The norm group and the

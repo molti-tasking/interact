@@ -787,6 +787,7 @@ export type Database = {
         }
       }
       decline_my_study: { Args: { p_session_id: string }; Returns: undefined }
+      my_study_runs_on: { Args: { p_model: string }; Returns: boolean }
       force_my_study_arm: {
         Args: { p_arm: string; p_session_id: string }
         Returns: string | null
