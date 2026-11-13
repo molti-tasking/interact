@@ -190,6 +190,7 @@ function representative(members: PatchField[]): PatchField {
 export function findDisagreements(
   current: PortfolioSchema,
   candidates: readonly CandidateDesign[],
+  order: QuestionOrder = "contested",
 ): DisagreementOp[] {
   const total = candidates.length;
   if (total === 0) return [];
@@ -339,7 +340,7 @@ export function findDisagreements(
     }
   }
 
-  return rankDisagreements(ops);
+  return rankDisagreements(ops, order);
 }
 
 const KIND_ORDER: Record<DisagreementKind, number> = {
@@ -350,16 +351,46 @@ const KIND_ORDER: Record<DisagreementKind, number> = {
 };
 
 /**
- * Most contested first (vote entropy), then the changes more drafts want,
- * then by how much of the form the change touches.
+ * Which open decisions come first.
+ *
+ * - "contested" (default, as in the paper's first version and the pilot):
+ *   the changes the drafts are most split on.
+ * - "omissions": first the fields most drafts add but the form doesn't ask
+ *   for yet — what the creator may not have thought of, which a split vote
+ *   never shows because the drafts agree on it — then the contested ones.
+ *   They are still asked, never added unasked.
  */
-export function rankDisagreements(ops: readonly DisagreementOp[]): DisagreementOp[] {
-  return [...ops].sort(
-    (a, b) =>
-      b.entropy - a.entropy ||
-      b.votes / b.voters - a.votes / a.voters ||
-      KIND_ORDER[a.kind] - KIND_ORDER[b.kind],
-  );
+export type QuestionOrder = "contested" | "omissions";
+
+export const QUESTION_ORDERS: readonly QuestionOrder[] = ["contested", "omissions"];
+
+/** A new field at least half the drafts add: likely missing from the form. */
+export function isLikelyOmission(op: Pick<DisagreementOp, "kind" | "votes" | "voters">): boolean {
+  return op.kind === "add" && op.voters > 0 && op.votes / op.voters >= 0.5;
+}
+
+/**
+ * "contested": most contested first (vote entropy), then the changes more
+ * drafts want, then by how much of the form the change touches.
+ * "omissions": likely omissions first, most-wanted first; then the rest as
+ * in "contested".
+ */
+export function rankDisagreements(
+  ops: readonly DisagreementOp[],
+  order: QuestionOrder = "contested",
+): DisagreementOp[] {
+  const contested = (a: DisagreementOp, b: DisagreementOp) =>
+    b.entropy - a.entropy ||
+    b.votes / b.voters - a.votes / a.voters ||
+    KIND_ORDER[a.kind] - KIND_ORDER[b.kind];
+  if (order === "contested") return [...ops].sort(contested);
+  return [...ops].sort((a, b) => {
+    const oa = isLikelyOmission(a);
+    const ob = isLikelyOmission(b);
+    if (oa !== ob) return oa ? -1 : 1;
+    if (oa) return b.votes / b.voters - a.votes / a.voters || b.entropy - a.entropy;
+    return contested(a, b);
+  });
 }
 
 /** One line per op for the wording prompt. */
@@ -458,6 +489,7 @@ export function composeProbes(
   ops: readonly DisagreementOp[],
   composed: readonly ComposedProbe[],
   max: number,
+  order: QuestionOrder = "contested",
 ): DisagreementProbe[] {
   const byRef = new Map(ops.map((op) => [op.ref, op]));
   const claimed = new Set<string>();
@@ -506,18 +538,38 @@ export function composeProbes(
     const decided = [...used.values()];
     const entropy = Math.max(...decided.map((o) => o.entropy));
     const structural = decided.some((o) => o.kind === "add" || o.kind === "remove");
+    const omission = decided.some(isLikelyOmission);
     probes.push({
       text,
       explanation: item.explanation?.trim() || undefined,
-      // An even split over what the form collects is the most consequential
-      // open decision; wording-level differences are polish
-      priority: !structural ? 3 : entropy >= 0.9 || decided.length > 1 ? 1 : 2,
+      // "contested": an even split over what the form collects is the most
+      // consequential open decision; wording-level differences are polish.
+      // "omissions": what the form likely misses comes first (the deck
+      // orders by priority), then the contested structure, then polish.
+      priority:
+        order === "omissions"
+          ? omission
+            ? 1
+            : structural
+              ? 2
+              : 3
+          : !structural
+            ? 3
+            : entropy >= 0.9 || decided.length > 1
+              ? 1
+              : 2,
       options: answers,
       entropy,
       ops: decided.map(({ ref, kind, key, votes, voters }) => ({ ref, kind, key, votes, voters })),
     });
   }
 
+  if (order === "omissions") {
+    // In the ops' ranked order (likely omissions first), within priority
+    const rank = new Map(ops.map((op, i) => [op.ref, i]));
+    const first = (p: DisagreementProbe) => Math.min(...p.ops.map((o) => rank.get(o.ref) ?? ops.length));
+    return probes.sort((a, b) => a.priority - b.priority || first(a) - first(b)).slice(0, max);
+  }
   return probes
     .sort((a, b) => b.entropy - a.entropy || a.priority - b.priority)
     .slice(0, max);

@@ -129,6 +129,12 @@ export interface StudyRunSettings {
    * (rate limit, budget, overload; `lib/llm-fallback.ts`). Absent: none.
    */
   fallback?: { model: string; fastModel: string };
+  /**
+   * `PROBE_ORDER=omissions`: likely omissions are asked before contested
+   * changes (`QuestionOrder`). Absent: the contested order of the first
+   * version and the pilot.
+   */
+  questionOrder?: "omissions";
 }
 
 /**
@@ -331,6 +337,7 @@ export function parseRunSettings(value: unknown): StudyRunSettings | null {
     typeof raw.fallback.fastModel === "string"
       ? { fallback: { model: raw.fallback.model, fastModel: raw.fallback.fastModel } }
       : {}),
+    ...(raw.questionOrder === "omissions" ? { questionOrder: "omissions" as const } : {}),
   };
 }
 
@@ -386,6 +393,7 @@ export function runSettingsFromEnv(
       committeeSize: Number(size),
       recordedAt: now.toISOString(),
       ...(fallback ? { fallback } : {}),
+      ...(env.PROBE_ORDER?.trim() === "omissions" ? { questionOrder: "omissions" as const } : {}),
     },
     missing: [],
   };

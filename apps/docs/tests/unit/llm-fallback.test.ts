@@ -206,3 +206,18 @@ describe("run settings of a study session", () => {
     expect(parseRunSettings({ model: "m", questionStrategy: "committee", committeeSize: 4 })).not.toHaveProperty("fallback");
   });
 });
+
+describe("run settings: the question order", () => {
+  const env = { LLM_MODEL_NAME: "m", PROBE_STRATEGY: "committee", PROBE_COMMITTEE_SIZE: "4" };
+
+  it("records omissions-first when it is set, nothing otherwise, and says so in the exports", async () => {
+    const { parseRunSettings, runSettingsFromEnv } = await import("@/lib/study/types");
+    const { withRunColumns } = await import("@/lib/study/coding");
+    const run = runSettingsFromEnv({ ...env, PROBE_ORDER: "omissions" }).run!;
+    expect(run.questionOrder).toBe("omissions");
+    expect(parseRunSettings(JSON.parse(JSON.stringify(run)))?.questionOrder).toBe("omissions");
+    expect(runSettingsFromEnv(env).run).not.toHaveProperty("questionOrder");
+    expect(runSettingsFromEnv({ ...env, PROBE_ORDER: "random" }).run).not.toHaveProperty("questionOrder");
+    expect(withRunColumns("a\n1\n", run).trim().split("\n")[1]).toBe("1,m,committee+omissions-first,4");
+  });
+});

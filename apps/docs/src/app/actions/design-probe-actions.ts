@@ -14,6 +14,7 @@ import {
   describeOps,
   findDisagreements,
   type CandidateDesign,
+  type QuestionOrder,
 } from "interact/forms/probe-disagreement";
 import { fenced, formSystemPrompt } from "interact/forms/prompt";
 import {
@@ -180,6 +181,15 @@ const previewOptionsSchema = z.object({
  */
 function probeStrategy(): "committee" | "prompted" {
   return process.env.PROBE_STRATEGY === "prompted" ? "prompted" : "committee";
+}
+
+/**
+ * Which of the committee's open decisions are asked first (`PROBE_ORDER`,
+ * see `QuestionOrder`): "contested" (default) or "omissions" — fields most
+ * drafts add that the form doesn't ask for yet come first.
+ */
+function questionOrder(): QuestionOrder {
+  return process.env.PROBE_ORDER?.trim() === "omissions" ? "omissions" : "contested";
 }
 
 export async function generateDesignProbesAction(
@@ -400,7 +410,8 @@ async function committeeProbes(
   ).filter((d): d is CandidateDesign => !!d);
   if (drafts.length < 2) return [];
 
-  const ops = findDisagreements(currentSchema, drafts).slice(0, MAX_COMMITTEE_OPS);
+  const order = questionOrder();
+  const ops = findDisagreements(currentSchema, drafts, order).slice(0, MAX_COMMITTEE_OPS);
   if (ops.length === 0) return [];
 
   const prompt = `${drafts.length} designers each drafted this form independently. Below is every point where their drafts differ from the current form, with how many drafts made that change. Points where the drafts are split are decisions the description leaves open — the creator should make them.
@@ -414,7 +425,11 @@ Write up to ${maxProbes} questions that let the creator decide these points:
 - One decision per question: a single change, or a few changes that belong together (fields about the same topic).
 - Each option lists in "ops" the refs of the changes it applies. One option applies none (it keeps the form as it is). Options can apply different subsets — all of a group, just one, none.
 - Use each ref in one question only, and only refs from the list.
-- Prefer the points where the drafts are most split (closest to half). Skip a change that isn't worth a question, or that asks what an ALREADY ASKED question covers.
+${
+  order === "omissions"
+    ? `- First, ask about fields that most drafts add but the form doesn't ask for yet: the creator may not have thought of them, so they decide whether the form needs them. Then the points where the drafts are most split. Skip a change that asks what an ALREADY ASKED question covers.`
+    : `- Prefer the points where the drafts are most split (closest to half). Skip a change that isn't worth a question, or that asks what an ALREADY ASKED question covers.`
+}
 - Order the questions by how much the answer shapes the form.
 ${PROBE_QUESTION_RULES}`;
 
@@ -434,7 +449,7 @@ ${PROBE_QUESTION_RULES}`;
   );
   if (!result.output) return [];
 
-  return composeProbes(currentSchema, ops, result.output.questions, maxProbes).map(
+  return composeProbes(currentSchema, ops, result.output.questions, maxProbes, order).map(
     (probe) => {
       const top = probe.ops.reduce((a, b) => (b.votes / b.voters > a.votes / a.voters ? b : a));
       return {

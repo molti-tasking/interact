@@ -3,6 +3,7 @@ import {
   composeProbes,
   fieldTokens,
   findDisagreements,
+  isLikelyOmission,
   opsPatch,
   voteEntropy,
   type CandidateDesign,
@@ -205,5 +206,57 @@ describe("opsPatch / composeProbes", () => {
     expect(vegetarian.options.map((o) => o.value)).toEqual(["both", "keepAsIs"]);
     expect(vegetarian.options[0].preview.scope!.updated).toEqual(["diet"]);
     expect(vegetarian.priority).toBe(3);
+  });
+});
+
+describe('question order "omissions"', () => {
+  const sleep = draft("sleep", "Hours of sleep", { type: "number" });
+  const goal = draft("goal", "Goal");
+  const drafts: CandidateDesign[] = [
+    { fields: [name, now, notes, sleep, goal] },
+    { fields: [name, now, notes, sleep] },
+  ];
+
+  it("asks first about a field the drafts agree the form lacks", () => {
+    expect(findDisagreements(schema, drafts).map((o) => o.key)).toEqual(["goal", "sleep"]);
+    expect(findDisagreements(schema, drafts, "omissions").map((o) => o.key)).toEqual(["sleep", "goal"]);
+  });
+
+  it("counts a field half the drafts add as a likely omission, a lone one not", () => {
+    expect(isLikelyOmission({ kind: "add", votes: 2, voters: 4 })).toBe(true);
+    expect(isLikelyOmission({ kind: "add", votes: 1, voters: 4 })).toBe(false);
+    expect(isLikelyOmission({ kind: "remove", votes: 4, voters: 4 })).toBe(false);
+  });
+
+  it("puts likely omissions ahead of contested changes and polish", () => {
+    const ops = findDisagreements(
+      schema,
+      [
+        { fields: [name, diet(["Vegan", "Vegetarian", "Omnivore"]), notes, sleep] },
+        { fields: [name, now, notes, sleep, goal] },
+      ],
+      "omissions",
+    );
+    const ref = (key: string) => ops.find((o) => o.key === key)!.ref;
+    const probes = composeProbes(
+      schema,
+      ops,
+      [
+        { text: "Offer vegetarian?", options: [{ value: "yes", label: "Yes", ops: [ref("diet")] }] },
+        { text: "Ask for a goal?", options: [{ value: "yes", label: "Yes", ops: [ref("goal")] }] },
+        { text: "Ask how much they sleep?", options: [{ value: "yes", label: "Yes", ops: [ref("sleep")] }] },
+      ],
+      5,
+      "omissions",
+    );
+    // Both drafts add "sleep", one of two adds "goal" (half: still likely
+    // missing, asked after it); the option list is polish
+    expect(probes.map((p) => [p.text, p.priority])).toEqual([
+      ["Ask how much they sleep?", 1],
+      ["Ask for a goal?", 1],
+      ["Offer vegetarian?", 3],
+    ]);
+    // Still a question with a "keep as is" answer: never added unasked
+    expect(probes[0].options.map((o) => o.value)).toContain("keepAsIs");
   });
 });

@@ -150,7 +150,7 @@ export function BriefsConsole({ session }: { session: StudySession }) {
                 : ""}
               ,{" "}
               {run.questionStrategy === "committee"
-                ? `questions chosen by a committee of ${run.committeeSize} drafts`
+                ? `questions chosen by a committee of ${run.committeeSize} drafts${run.questionOrder === "omissions" ? ", likely omissions asked first" : ""}`
                 : "questions asked for directly (prompted)"}
               {settings.run ? ` — recorded ${formatRelativeTime(settings.run.recordedAt, now)}` : ""}.
             </>

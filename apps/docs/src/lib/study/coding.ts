@@ -667,7 +667,10 @@ const RUN_COLUMNS = ["model", "question_strategy", "committee_size"];
 export function withRunColumns(csv: string, run: StudyRunSettings | null): string {
   const [header, ...rows] = parseCsv(csv);
   if (!header) return csv;
-  const values = run ? [run.model, run.questionStrategy, run.committeeSize] : ["", "", ""];
+  const strategy = run
+    ? `${run.questionStrategy}${run.questionOrder === "omissions" ? "+omissions-first" : ""}`
+    : "";
+  const values = run ? [run.model, strategy, run.committeeSize] : ["", "", ""];
   return toCsv(
     [...header, ...RUN_COLUMNS],
     rows.map((row) => [...row, ...values]),
@@ -677,7 +680,7 @@ export function withRunColumns(csv: string, run: StudyRunSettings | null): strin
 /** The same, for a Markdown file: a line under the title. */
 export function withRunLine(markdown: string, run: StudyRunSettings | null): string {
   const line = run
-    ? `Run: model ${run.model} · ${run.questionStrategy} questions · committee of ${run.committeeSize}`
+    ? `Run: model ${run.model} · ${run.questionStrategy} questions${run.questionOrder === "omissions" ? " (likely omissions first)" : ""} · committee of ${run.committeeSize}`
     : "Run: not recorded";
   const [title, ...rest] = markdown.split("\n");
   return [title, "", line, ...rest].join("\n");
