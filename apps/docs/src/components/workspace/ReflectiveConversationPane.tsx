@@ -9,14 +9,14 @@ import { useCurrentUser } from "@/context/user-context";
 import { usePipelineGenerate } from "@/hooks/query/pipeline";
 import { usePreviousPurpose } from "@/hooks/query/provenance";
 import { useUndoToast } from "@/hooks/query/undo";
-import { diffSchemas } from "interact/forms/schema-ops";
 import { formatActor } from "@/lib/mock-users";
 import type { Portfolio, StructuredIntent } from "@/lib/types";
+import { diffSchemas } from "interact/forms/schema-ops";
 import { ChevronDown, Loader2, Sparkles } from "lucide-react";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { toast } from "sonner";
-import { StructuredIntentEditor } from "./StructuredIntentEditor";
 import { IntentSyncNotice } from "./IntentSyncNotice";
+import { StructuredIntentEditor } from "./StructuredIntentEditor";
 
 interface ReflectiveConversationPaneProps {
   portfolio: Portfolio;
@@ -167,7 +167,10 @@ export function ReflectiveConversationPane({
           d.removed.length && `${d.removed.length} removed`,
         ].filter(Boolean);
         if (parts.length) {
-          notifyUndo(commit, `Form updated from your description: ${parts.join(", ")}`);
+          notifyUndo(
+            commit,
+            `Form updated from your description: ${parts.join(", ")}`,
+          );
         }
       }
       // With a deck the edit's changes are a question to answer, not applied
@@ -207,7 +210,9 @@ export function ReflectiveConversationPane({
       actor,
     })
       .catch((err) =>
-        toast.error(err instanceof Error ? err.message : "Form generation failed"),
+        toast.error(
+          err instanceof Error ? err.message : "Form generation failed",
+        ),
       )
       .finally(() => setIsGenerating(false));
   }, [
@@ -330,12 +335,15 @@ export function ReflectiveConversationPane({
         </div>
 
         {/* The update after field edits or answers failed, or is slow */}
-        <IntentSyncNotice flag={portfolio.intent_sync} onRetry={onRetryIntentSync} />
+        <IntentSyncNotice
+          flag={portfolio.intent_sync}
+          onRetry={onRetryIntentSync}
+        />
 
         {changedElsewhere && (
           <p className="text-xs text-muted-foreground" role="status">
-            The intent was updated while you were editing. Your changes will
-            be merged in when you refine.
+            The intent was updated while you were editing. Your changes will be
+            merged in when you refine.
           </p>
         )}
 
@@ -380,11 +388,6 @@ export function ReflectiveConversationPane({
             </Button>
           )}
         </div>
-        {hasFields && !isDirty && !isGenerating && (
-          <p className="-mt-4 pb-4 text-xs text-muted-foreground/80">
-            Edit the intent to refine the form, or answer the elicitation questions.
-          </p>
-        )}
       </div>
     </div>
   );
