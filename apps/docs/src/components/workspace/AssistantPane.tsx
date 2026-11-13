@@ -18,7 +18,7 @@ import { trackActivity } from "@/lib/workspace-activity";
 import { useQueryClient } from "@tanstack/react-query";
 import { mergePatchOntoLatest } from "interact/forms/merge";
 import { diffSchemas } from "interact/forms/schema-ops";
-import { Loader2, Send } from "lucide-react";
+import { ArrowUp, FilePenLine, Loader2, MessagesSquare } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 interface ThreadMessage {
@@ -180,31 +180,59 @@ export function AssistantPane({ portfolio }: { portfolio: Portfolio }) {
   const canSend = !!draft.trim() && !sending;
 
   return (
-    <div data-testid="assistant-pane" className="flex flex-col gap-3">
-      <h3 className="workspace-section-label">Assistant</h3>
+    <section
+      data-testid="assistant-pane"
+      aria-label="Chat with the assistant"
+      // Below the study's header and task bar, so the message box is
+      // always on screen
+      className="flex h-[70vh] min-h-0 flex-col overflow-hidden rounded-2xl border bg-card shadow-sm @5xl:sticky @5xl:top-20 @5xl:h-[calc(100vh-9.5rem)]"
+    >
+      <header className="flex items-center gap-2.5 border-b px-4 py-3">
+        <span className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary">
+          <MessagesSquare className="h-4 w-4" aria-hidden />
+        </span>
+        <div className="min-w-0">
+          <h3 className="text-sm font-medium leading-tight">Assistant</h3>
+          <p className="text-xs text-muted-foreground">Chat</p>
+        </div>
+      </header>
 
       <div
         role="log"
         aria-label="Conversation with the assistant"
-        className="flex max-h-[60vh] min-h-40 flex-col gap-2 overflow-y-auto rounded-2xl border bg-card p-3"
+        className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-4 py-4"
       >
         {thread.length === 0 && !sending && (
-          <p className="px-1 py-6 text-center text-sm text-muted-foreground">
-            Tell the assistant what form you need. It can build and change the
-            form next to this chat.
-          </p>
+          <div className="m-auto max-w-[17rem] space-y-2 text-center">
+            <span className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-muted text-muted-foreground">
+              <MessagesSquare className="h-5 w-5" aria-hidden />
+            </span>
+            <p className="text-sm text-muted-foreground">
+              Tell the assistant what form you need. It can build and change the
+              form next to this chat.
+            </p>
+          </div>
         )}
         {thread.map((message, i) => (
-          <Bubble key={i} {...message} />
+          <Message key={i} {...message} />
         ))}
         {sending && (
-          <p role="status" className="flex items-center gap-2 px-1 text-sm text-muted-foreground">
-            <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
-            Working…
-          </p>
+          <div className="space-y-1" role="status">
+            <p className="text-xs font-medium text-muted-foreground">Assistant</p>
+            <span className="sr-only">The assistant is answering</span>
+            <span className="inline-flex items-center gap-1 rounded-2xl bg-muted px-3 py-2.5" aria-hidden>
+              {[0, 150, 300].map((delay) => (
+                <span
+                  key={delay}
+                  className="h-1.5 w-1.5 animate-bounce rounded-full bg-muted-foreground/60 motion-reduce:animate-none"
+                  style={{ animationDelay: `${delay}ms` }}
+                />
+              ))}
+            </span>
+          </div>
         )}
         {failure && (
-          <p role="alert" className="px-1 text-sm text-destructive">
+          <p role="alert" className="rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
             That didn&apos;t work: {failure}. Your message is back in the box — send it again.
           </p>
         )}
@@ -212,61 +240,78 @@ export function AssistantPane({ portfolio }: { portfolio: Portfolio }) {
       </div>
 
       <form
-        className="space-y-2"
+        className="border-t bg-card p-3"
         onSubmit={(e) => {
           e.preventDefault();
           void send();
         }}
       >
-        <label htmlFor="assistant-input" className="sr-only">
-          Message to the assistant
-        </label>
-        <Textarea
-          id="assistant-input"
-          data-testid="assistant-input"
-          rows={3}
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && !e.shiftKey) {
-              e.preventDefault();
-              void send();
-            }
-          }}
-          placeholder="Message the assistant…"
-          className="bg-background"
-        />
-        <div className="flex items-center justify-between gap-2">
-          <p className="text-xs text-muted-foreground">Enter to send, Shift+Enter for a new line.</p>
-          <Button type="submit" size="sm" disabled={!canSend} data-testid="assistant-send">
-            {sending ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
-            ) : (
-              <Send className="h-3.5 w-3.5" aria-hidden />
-            )}
-            Send
-          </Button>
+        <div className="rounded-xl border bg-background shadow-xs focus-within:ring-2 focus-within:ring-ring">
+          <label htmlFor="assistant-input" className="sr-only">
+            Message to the assistant
+          </label>
+          <Textarea
+            id="assistant-input"
+            data-testid="assistant-input"
+            rows={2}
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                void send();
+              }
+            }}
+            placeholder="Message the assistant…"
+            className="max-h-40 min-h-12 resize-none border-0 bg-transparent shadow-none focus-visible:ring-0"
+          />
+          <div className="flex items-center justify-between gap-2 px-3 pb-2">
+            <p className="text-xs text-muted-foreground">Enter to send · Shift+Enter for a new line</p>
+            <Button
+              type="submit"
+              size="icon"
+              className="h-8 w-8 rounded-full"
+              disabled={!canSend}
+              data-testid="assistant-send"
+              aria-label="Send"
+            >
+              {sending ? (
+                <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+              ) : (
+                <ArrowUp className="h-4 w-4" aria-hidden />
+              )}
+            </Button>
+          </div>
         </div>
       </form>
-    </div>
+    </section>
   );
 }
 
-function Bubble({ role, text, change }: ThreadMessage) {
-  const mine = role === "user";
-  return (
-    <div className={mine ? "flex justify-end" : "flex justify-start"} data-testid={`assistant-message-${role}`}>
-      <div
-        className={
-          mine
-            ? "max-w-[90%] rounded-2xl rounded-br-sm bg-primary/10 px-3 py-2 text-sm"
-            : "max-w-[90%] rounded-2xl rounded-bl-sm bg-muted px-3 py-2 text-sm"
-        }
-      >
-        <span className="sr-only">{mine ? "You: " : "Assistant: "}</span>
-        <p className="whitespace-pre-wrap break-words">{text}</p>
-        {change && <p className="mt-1 text-xs text-muted-foreground">Form updated: {change}</p>}
+function Message({ role, text, change }: ThreadMessage) {
+  if (role === "user") {
+    return (
+      <div className="flex justify-end" data-testid="assistant-message-user">
+        <div className="max-w-[85%] rounded-2xl rounded-br-md bg-primary/10 px-3.5 py-2 text-sm">
+          <span className="sr-only">You: </span>
+          <p className="whitespace-pre-wrap break-words">{text}</p>
+        </div>
       </div>
+    );
+  }
+  return (
+    <div className="space-y-1.5" data-testid="assistant-message-assistant">
+      <p className="text-xs font-medium text-muted-foreground" aria-hidden>
+        Assistant
+      </p>
+      <span className="sr-only">Assistant: </span>
+      <p className="whitespace-pre-wrap break-words text-sm leading-relaxed">{text}</p>
+      {change && (
+        <p className="inline-flex items-center gap-1.5 rounded-lg border bg-background px-2.5 py-1 text-xs text-muted-foreground">
+          <FilePenLine className="h-3.5 w-3.5 text-primary" aria-hidden />
+          Form updated: {change}
+        </p>
+      )}
     </div>
   );
 }

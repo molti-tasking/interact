@@ -140,6 +140,8 @@ interface FormRendererProps {
    * it on (`schema.assist`) — see `RespondentAssist.tsx`.
    */
   assist?: FormAssist;
+  /** Shown instead of the form while it has no fields */
+  emptyMessage?: string;
   className?: string;
 }
 
@@ -566,6 +568,7 @@ export function FormRenderer({
   paginate = true,
   randomFill = true,
   assist: assistProp,
+  emptyMessage,
   className,
 }: FormRendererProps) {
   // Respondent help exists on the live form only — never in the workspace
@@ -757,7 +760,7 @@ export function FormRenderer({
   if (schema.fields.length === 0) {
     return (
       <div className="flex items-center justify-center rounded-lg border border-dashed p-8 text-muted-foreground">
-        No fields yet. Start by describing your form intent.
+        {emptyMessage ?? "No fields yet. Start by describing your form intent."}
       </div>
     );
   }

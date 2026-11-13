@@ -548,6 +548,8 @@ export function ArtifactPane({
           fieldChangeNotes={preview?.notes}
           onFieldMove={preview ? undefined : handleFieldMove}
           fieldMarks={preview ? undefined : fieldMarks}
+          // The assistant arm has no intent to describe the form with
+          emptyMessage={capabilities.assistantChat ? "No fields yet." : undefined}
           className="space-y-4"
         />
         {onFieldsAdded && !preview && (
