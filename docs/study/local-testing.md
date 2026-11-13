@@ -90,6 +90,7 @@ Every arm goes through the same steps:
 | Consent | about 46 minutes; nothing about the arm |
 | Situation | an image; "Start building the form" after 20 s |
 | Form | the countdown; "Show the situation" opens it again; "My form is ready" only with at least one field |
+| Tour (first form only) | opens once the arm's controls are on screen (full and silent baseline: after the form is drafted; assistant: at once); full 4 steps, the others 3; "How it works" replays it |
 | Ratings | two 1–7 scales, the form hidden |
 | Recall | one item per line; Continue needs a line; after 3 minutes a notice, nothing cut off |
 | Why | up to three of your fields, by label; each needs an answer |

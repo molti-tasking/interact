@@ -204,6 +204,21 @@ three arms lives in SQL, so its test is an integration test (deviation from
 `baseline`, each from the study link to the completion URL. The existing
 wave-2 test stays as it is.
 
+### 8. Onboarding (added on the authors' request)
+
+A coach tour on the first form (`lib/study/tours.ts`), one per arm and
+matched: the same first step (the task bar) and last step (the form and
+direct editing), word for word; in between the arm's own ways to change
+the form — full: the description and the elicitation questions; assistant:
+the chat; silent baseline: the change requests. It describes what is
+possible, never how to work (a test checks for "should", "start by" and
+the like). It opens once, when what it points at is on screen, and
+"How it works" replays it. The clock keeps running; the log has every
+step and how the tour ended. The tour's logging now uses driver.js's
+`onPopoverRender` and `onDestroyStarted`: before, a step left within the
+~0.4 s highlight animation, or a quick ✕, went unlogged (this also
+affected the workshop's tours).
+
 ## Deviations from the specification
 
 1. **Scope** (the authors' decision): wave 1 only. The norm group and the
