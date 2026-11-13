@@ -52,7 +52,7 @@ function step(message: string) {
 }
 
 /** KEY=VALUE lines; quotes stripped; comments and blank lines ignored. */
-export function parseEnvFile(text: string): Record<string, string> {
+function parseEnvFile(text: string): Record<string, string> {
   const env: Record<string, string> = {};
   for (const line of text.split(/\r?\n/)) {
     const m = line.match(/^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*?)\s*$/);

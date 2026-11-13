@@ -21,7 +21,7 @@ export interface WhyItem {
   origin: WhyOrigin;
 }
 
-export const WHY_ITEM_COUNT = 3;
+const WHY_ITEM_COUNT = 3;
 
 interface FieldLike {
   id: string;

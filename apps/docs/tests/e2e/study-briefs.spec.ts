@@ -1,4 +1,4 @@
-import { expect, test, type Browser, type Page } from "@playwright/test";
+import { expect, test, type Browser, type Locator, type Page } from "@playwright/test";
 import fs from "fs";
 import { E2E_ADMIN, signIn } from "../auth";
 import { sql } from "../db";
@@ -6,16 +6,19 @@ import { resetDatabase, setScenario } from "./helpers";
 
 /**
  * The self-paced briefs study (the Prolific study), from the study link to
- * the completion redirect, once per condition:
+ * the completion redirect, once per condition (full, assistant, the silent
+ * baseline):
  *
  *   researcher  creates a session with one condition, sets the completion
  *               URL, opens it (the server records what it runs with)
- *   participant consent → intro → [situation → build → quiz] × 2 →
- *               questionnaire → completion link
+ *   participant consent → intro → [situation → build → ratings → recall →
+ *               why → quiz] × 2 → questionnaire → completion link
  *
  * Model calls are replayed from tests/fixtures/study-briefs (matched by the
- * text they are about, so the order of the situations doesn't matter). To
- * record them again with the live model:
+ * text they are about, so the order of the situations doesn't matter). The
+ * assistant's four turns are hand-written in the recordings' format (marked
+ * `handWritten`) until they are recorded. To record them again with the
+ * live model:
  *
  *   RECORD_FIXTURES=true playwright test study-briefs
  *   → tests/fixtures/_recording-session/study-briefs/
@@ -39,7 +42,15 @@ const REQUESTS: Record<string, string> = {
   foster: "Add a question about other animals in the household.",
 };
 
-async function createSession(admin: Page, condition: "full" | "baseline"): Promise<string> {
+/** Assistant: the participant's reply to its first answer, per situation */
+const ASSISTANT_ANSWERS: Record<string, string> = {
+  camp: "Parents pick the days, Monday to Friday. Yes, the coaches need allergies and someone to call in an emergency.",
+  foster: "People who want to foster. Other pets matter, and whether the landlord allows cats.",
+};
+
+type Condition = "full" | "assistant" | "baseline";
+
+async function createSession(admin: Page, condition: Condition): Promise<string> {
   await signIn(admin, "", E2E_ADMIN);
   await admin.goto("/studies");
   await admin.getByTestId("mode-briefs").click();
@@ -47,7 +58,7 @@ async function createSession(admin: Page, condition: "full" | "baseline"): Promi
   await admin.getByLabel("Email").fill("researcher@example.org");
   await admin.getByLabel("Researcher").fill("The research team");
   // One condition per session here, so the participant's condition is known
-  for (const other of ["full", "no-probes", "baseline"]) {
+  for (const other of ["full", "no-probes", "baseline", "assistant"]) {
     const box = admin.locator(`#condition-${other}`);
     const checked = (await box.getAttribute("aria-checked")) === "true";
     if (checked !== (other === condition)) await box.click();
@@ -93,11 +104,49 @@ async function answerPage(page: Page) {
   for (let i = 0; i < (await areas.count()); i++) await areas.nth(i).fill("Seeing what would change.");
 }
 
+/** Ratings → recall → why, with the form hidden (new sessions, 2026-11-13). */
+async function postTaskMeasures(page: Page, fields: Locator) {
+  await expect(page.getByRole("heading", { name: "Your form" })).toBeVisible({ timeout: 60_000 });
+  await expect(fields).toHaveCount(0);
+  await expect(page.getByTestId("ratings-continue")).toBeDisabled();
+  await page.getByTestId("rating-know").getByRole("radio", { name: "6", exact: true }).click();
+  await page.getByTestId("rating-confident").getByRole("radio", { name: "5", exact: true }).click();
+  await page.getByTestId("ratings-continue").click();
+
+  await expect(page.getByRole("heading", { name: "What your form asks" })).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByTestId("recall-continue")).toBeDisabled();
+  await page.getByTestId("recall-input").fill("The child's or applicant's name\n\nA phone number\n");
+  await page.getByTestId("recall-continue").click();
+
+  await expect(page.getByRole("heading", { name: "Why your form asks this" })).toBeVisible({ timeout: 30_000 });
+  const items = page.getByTestId("why-item");
+  await expect(items.first()).toBeVisible();
+  const n = await items.count();
+  expect(n).toBeGreaterThan(0);
+  expect(n).toBeLessThanOrEqual(3);
+  await expect(page.getByTestId("why-continue")).toBeDisabled();
+  for (let i = 0; i < n; i++) await items.nth(i).locator("textarea").fill("So the volunteers know before the start.");
+  await page.getByTestId("why-continue").click();
+}
+
+/** Seconds per step of the one participant in a session, by the server's clock. */
+async function stepTimes(sessionId: string): Promise<{ step: string; seconds: number }[]> {
+  const rows = await sql<{ step: string; at: Date }>(
+    `SELECT CASE WHEN type = 'joined' THEN 'consent' ELSE phase END AS step, created_at AS at
+     FROM study_events WHERE session_id = $1 AND type IN ('joined', 'step_entered') ORDER BY id`,
+    [sessionId],
+  );
+  return rows.slice(0, -1).map((row, i) => ({
+    step: row.step,
+    seconds: Math.round((new Date(rows[i + 1].at).getTime() - new Date(row.at).getTime()) / 1000),
+  }));
+}
+
 async function participant(
   browser: Browser,
   code: string,
   pid: string,
-  condition: "full" | "baseline",
+  condition: Condition,
 ) {
   const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
   // The completion link points at the panel: answer it here
@@ -139,10 +188,33 @@ async function participant(
     await expect(page.getByTestId("brief-continue")).toBeEnabled({ timeout: 40_000 });
     await page.getByTestId("brief-continue").click();
 
+    const fields = page.locator('[data-testid^="form-field-"]');
+    if (condition === "assistant") {
+      // No description card and no intent pane: a chat from the start, and
+      // the first message is the description
+      await expect(page.locator("#study-intent")).toHaveCount(0);
+      const pane = page.getByTestId("assistant-pane");
+      await expect(pane).toBeVisible();
+      await expect(page.getByTestId("card-deck-section")).toHaveCount(0);
+      await expect(page.getByTestId("intent-editor")).toHaveCount(0);
+      await expect(page.getByTestId("chat-edit-pane")).toHaveCount(0);
+      await expect(page.getByTestId("finish-task")).toBeDisabled();
+      await page.getByTestId("assistant-input").fill(DESCRIPTIONS[key]);
+      await page.getByTestId("assistant-send").click();
+      // (Recorded) it asks first: an answer, no form yet
+      const replies = pane.getByTestId("assistant-message-assistant");
+      await expect(replies).toHaveCount(1, { timeout: AI });
+      await expect(fields).toHaveCount(0);
+      await page.getByTestId("assistant-input").fill(ASSISTANT_ANSWERS[key]);
+      await page.getByTestId("assistant-send").click();
+      await expect(replies).toHaveCount(2, { timeout: AI });
+      // The form updates right away, like an artifact
+      await expect(pane.getByText(/Form updated: \d added/)).toBeVisible();
+      await expect.poll(() => fields.count(), { timeout: 20_000 }).toBeGreaterThan(3);
+    } else {
     // Describe the form; the tool drafts it
     await page.locator("#study-intent").fill(DESCRIPTIONS[key]);
     await page.getByRole("button", { name: "Create my form" }).click();
-    const fields = page.locator('[data-testid^="form-field-"]');
     await expect(fields.first()).toBeVisible({ timeout: AI });
     const before = await fields.count();
 
@@ -184,11 +256,13 @@ async function participant(
       await expect(page.getByText(/^Applied: /).first()).toBeVisible({ timeout: 30_000 });
       await expect.poll(() => fields.count(), { timeout: 20_000 }).not.toBe(before);
     }
+    }
 
     await page.getByTestId("finish-task").click();
     await page.getByRole("button", { name: "Yes, it's ready" }).click();
 
-    // Quiz about the form just built; the form itself is hidden
+    // With the form hidden: ratings, recall, why — then the quiz
+    await postTaskMeasures(page, fields);
     await expect(page.getByRole("heading", { name: "About the form you just built" })).toBeVisible({
       timeout: 60_000,
     });
@@ -238,7 +312,7 @@ test.describe("Briefs study, study link to completion redirect", () => {
     setScenario(SCENARIO);
   });
 
-  for (const condition of ["full", "baseline"] as const) {
+  for (const condition of ["full", "assistant", "baseline"] as const) {
     test(`${condition} condition`, async ({ browser, page: admin }) => {
       const sessionId = await createSession(admin, condition);
       const code = await joinCode(sessionId);
@@ -254,6 +328,37 @@ test.describe("Briefs study, study link to completion redirect", () => {
         [sessionId],
       );
       expect(seat).toMatchObject({ condition, outcome: "completed", step: "done" });
+
+      // How long each step took (a scripted run: machine speed, not people's)
+      const times = await stepTimes(sessionId);
+      console.log(
+        `[timing] ${condition}: ${times.reduce((sum, t) => sum + t.seconds, 0)} s — ` +
+          times.map((t) => `${t.step} ${t.seconds}`).join(", "),
+      );
+      expect(times.map((t) => t.step)).toEqual([
+        "consent", "intro",
+        "brief:1", "task:1", "ratings:1", "recall:1", "why:1", "quiz:1",
+        "brief:2", "task:2", "ratings:2", "recall:2", "why:2", "quiz:2",
+        "questionnaire",
+      ]);
+
+      // The measures after each task, stored per task
+      const measures = await sql<{ instrument: string; answers: Record<string, unknown> }>(
+        `SELECT instrument, answers FROM study_questionnaire_responses
+         WHERE participant_id = $1 AND instrument ~ '^(ratings|recall|why):' ORDER BY instrument`,
+        [seat.id],
+      );
+      expect(measures.map((m) => m.instrument)).toEqual([
+        "ratings:1", "ratings:2", "recall:1", "recall:2", "why:1", "why:2",
+      ]);
+      expect(measures[0].answers).toMatchObject({ know: 6, confident: 5 });
+      expect(measures[2].answers.lines).toEqual(["The child's or applicant's name", "A phone number"]);
+      const why = measures[4].answers.items as { origin: string; label: string; answer: string }[];
+      expect(why.length).toBeGreaterThan(0);
+      for (const item of why) {
+        expect(["system", "participant"]).toContain(item.origin);
+        expect(item.answer).toBeTruthy();
+      }
 
       const tasks = await sql<{ brief: string; finished_by: string; fields: number; snapshots: string }>(
         `SELECT t.brief, t.finished_by, p.field_count AS fields,
@@ -285,7 +390,27 @@ test.describe("Briefs study, study link to completion redirect", () => {
       for (const type of ["joined", "first_prompt", "brief_read", "form_marked_ready", "questionnaire_submitted"]) {
         expect(types, type).toContain(type);
       }
-      if (condition === "full") {
+      if (condition === "assistant") {
+        expect(types).not.toContain("probe_shown");
+        expect(types).not.toContain("chat_message");
+        const turns = events.filter((e) => e.type === "assistant_turn").map((e) => e.payload);
+        expect(turns).toHaveLength(4);
+        // The recorded first turns ask two questions and leave the form as it is
+        for (const first of turns.filter((t) => t.turn === 1)) {
+          expect(first).toMatchObject({ questionSentences: 2, patchOps: null, promptVersion: "assistant-1" });
+          expect(typeof first.latencyMs).toBe("number");
+        }
+        for (const second of turns.filter((t) => t.turn === 2)) {
+          expect(second.patchOps).toBeGreaterThan(3);
+          expect(second.added).toBe(second.patchOps);
+        }
+        const probes = await sql(
+          `SELECT 1 FROM design_probes WHERE portfolio_id IN
+             (SELECT portfolio_id FROM study_tasks WHERE session_id = $1)`,
+          [sessionId],
+        );
+        expect(probes).toHaveLength(0);
+      } else if (condition === "full") {
         const answered = events.filter((e) => e.type === "probe_answered");
         expect(answered).toHaveLength(2);
         for (const { payload } of answered) {
@@ -313,7 +438,11 @@ test.describe("Briefs study, study link to completion redirect", () => {
            AND diff <> '{"added": [], "removed": [], "modified": []}'::jsonb`,
         [sessionId],
       );
-      expect(trail.length).toBeGreaterThanOrEqual(4); // two forms: generated, then changed
+      // two forms: generated, then changed (the assistant builds each in one turn)
+      expect(trail.length).toBeGreaterThanOrEqual(condition === "assistant" ? 2 : 4);
+      if (condition === "assistant") {
+        expect(trail.map((t) => t.action)).toEqual(["assistant_edit", "assistant_edit"]);
+      }
       for (const entry of trail) {
         expect(entry.actor, entry.action).toMatch(/^Participant \d/);
         expect(entry.rationale, entry.action).toBeTruthy();
@@ -339,6 +468,26 @@ test.describe("Briefs study, study link to completion redirect", () => {
       expect(cell("outcome")).toBe("completed");
       expect(cell("attention_passed")).toBe("1");
       expect(Number(cell("ncs6_score"))).toBeGreaterThanOrEqual(1);
+      expect(cell("t1_rating_know")).toBe("6");
+      expect(Number(cell("seconds_task_1"))).toBeGreaterThan(0);
+      expect(cell("t1_assistant_turns")).toBe(condition === "assistant" ? "2" : "");
+
+      // The raters' recall sheet: two lines per form, form codes only
+      const [recall] = await Promise.all([
+        admin.waitForEvent("download"),
+        admin.getByRole("button", { name: "Recall sheet (CSV)" }).click(),
+      ]);
+      const recallRows = fs.readFileSync((await recall.path())!, "utf-8").trim().split("\n");
+      expect(recallRows[0]).toMatch(/^form,situation,line_no,text,matches_field,requirement_id,/);
+      expect(recallRows).toHaveLength(1 + 4);
+      expect(recallRows.join("\n")).not.toMatch(/assistant|baseline|Participant \d/);
+      if (condition === "assistant") {
+        const [turnsFile] = await Promise.all([
+          admin.waitForEvent("download"),
+          admin.getByRole("button", { name: "Assistant turns (CSV)" }).click(),
+        ]);
+        expect(fs.readFileSync((await turnsFile.path())!, "utf-8").trim().split("\n")).toHaveLength(1 + 4);
+      }
     });
   }
 });
