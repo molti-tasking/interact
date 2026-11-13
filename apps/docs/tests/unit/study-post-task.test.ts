@@ -42,7 +42,7 @@ describe("steps with post-task measures", () => {
 
   it("the consent page's estimate grows by the measures, and stays for old sessions", () => {
     expect(studyMinutes({ taskSeconds: 720, postTaskMeasures: false }, 2)).toBe(35);
-    expect(studyMinutes({ taskSeconds: 720, postTaskMeasures: true }, 2)).toBe(44);
+    expect(studyMinutes({ taskSeconds: 720, postTaskMeasures: true }, 2)).toBe(46);
   });
 
   it("is a setting that old sessions don't have", () => {
