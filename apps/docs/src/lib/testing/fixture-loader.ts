@@ -22,7 +22,8 @@ import type { FixtureEntry, ScenarioMeta } from "./fixture-types";
  * local study's mock model (`pnpm study:local` with STUDY_MOCK_LLM=1). A
  * scenario whose scenario.meta.json says `"cycle": true` reuses its
  * recordings in turn and never runs out; a conversation's turn
- * (`matchHints.turn`) picks the recording made for that turn.
+ * (`matchHints.turn`) picks the recording made for that turn, or the latest
+ * one before it.
  */
 
 const FIXTURES_DIR = path.resolve(process.cwd(), "tests/fixtures");
@@ -143,7 +144,11 @@ export function loadFixture<T>(
     if (byPrompt) return byPrompt.output as T;
   }
   if (matchHints?.turn !== undefined) {
-    const byTurn = actionFixtures.find((f) => f.matchHints?.turn === matchHints.turn);
+    // The recording for this turn, else the latest one before it (a mock
+    // conversation's last recording answers every turn after it)
+    const byTurn = actionFixtures
+      .filter((f) => f.matchHints?.turn !== undefined && f.matchHints.turn <= matchHints.turn!)
+      .sort((a, b) => b.matchHints!.turn! - a.matchHints!.turn!)[0];
     if (byTurn) return byTurn.output as T;
   }
 

@@ -109,10 +109,11 @@ fields to reorder them, and undo.
 
 **With the mock model** the answers don't follow what you type: the same
 recorded form and questions come back (the football club's form, then the
-cat rescue's, in turn). The mock assistant asks two questions first, builds a
-small general sign-up form on your second message, adds a field on the
-third, and then starts over. Use the real model to judge what the assistant
-actually does.
+cat rescue's, in turn). The mock assistant's replies start with "(Mock
+answer)": it asks two questions first, builds a small general sign-up form on
+your second message, adds a field on the third, and from then on only says
+that the recorded conversation is over. Use the real model to judge what the
+assistant actually does.
 
 On the facilitator page, the session's tables show each test seat (arm,
 step, time and fields per form).
