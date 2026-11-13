@@ -32,13 +32,18 @@ import { BriefImage } from "./brief-image";
 const MIN_READ_SECONDS = 20;
 
 export function Page({ children }: { children: ReactNode }) {
-  return <div className="mx-auto w-full max-w-2xl space-y-6 py-6">{children}</div>;
+  return (
+    <div className="mx-auto w-full max-w-2xl space-y-6 py-6">{children}</div>
+  );
 }
 
 export function Spinner() {
   return (
     <div className="flex justify-center py-16">
-      <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" aria-label="Loading" />
+      <Loader2
+        className="h-6 w-6 animate-spin text-muted-foreground"
+        aria-label="Loading"
+      />
     </div>
   );
 }
@@ -71,10 +76,9 @@ export function ConsentView() {
   return (
     <Page>
       <div className="space-y-1">
-        <h1 className="text-3xl tracking-tight text-primary">Before you start</h1>
-        <p className="text-muted-foreground">
-          Please read this information and decide whether you want to take part.
-        </p>
+        <h1 className="text-3xl tracking-tight text-primary">
+          Before you start
+        </h1>
       </div>
       <Card className="space-y-4 p-6 text-sm leading-relaxed">
         <section className="space-y-1">
@@ -101,10 +105,9 @@ export function ConsentView() {
           <h2 className="font-medium">How the data is used</h2>
           <p>
             What you type is sent to an AI language model to produce the form.
-            The data is stored on servers in the European Union and analysed
-            for research. Results are published without anything that
-            identifies you; anonymised data may be shared with other
-            researchers.
+            The data is stored on servers in the European Union and analysed for
+            research. Results are published without anything that identifies
+            you; anonymised data may be shared with other researchers.
           </p>
         </section>
         <section className="space-y-1">
@@ -137,14 +140,22 @@ export function ConsentView() {
         </div>
       </Card>
       <div className="flex flex-wrap items-center gap-3">
-        <Button onClick={next} disabled={!agreed || pending} data-testid="consent-continue">
-          {pending && <Loader2 className="h-4 w-4 animate-spin" aria-hidden />}
-          I agree — continue
+        <Button
+          onClick={next}
+          disabled={!agreed || pending}
+          data-testid="consent-continue"
+        >
+          {pending && <Loader2 className="h-4 w-4 animate-spin" aria-hidden />}I
+          agree — continue
         </Button>
         <Button
           variant="ghost"
           disabled={pending || decline.isPending}
-          onClick={() => decline.mutate(undefined, { onError: (err) => toast.error(err.message) })}
+          onClick={() =>
+            decline.mutate(undefined, {
+              onError: (err) => toast.error(err.message),
+            })
+          }
         >
           I don&apos;t want to take part
         </Button>
@@ -183,15 +194,15 @@ export function IntroView() {
       <Card className="p-6">
         <ol className="list-decimal space-y-3 pl-5 text-sm leading-relaxed">
           <li>
-            You read a short <span className="font-medium">situation</span>: someone needs an
-            online form. It is shown as a picture, so you describe it to the tool
-            in your own words.
+            You read a short <span className="font-medium">situation</span>:
+            someone needs an online form. It is shown as a picture, so you
+            describe it to the tool in your own words.
           </li>
           <li>
-            You <span className="font-medium">build the form</span> with the tool so that it
-            collects what the people in the situation need. You have up to {minutes}{" "}
-            minutes; finish earlier when you think the form is ready. You can look at the
-            situation again at any time.
+            You <span className="font-medium">build the form</span> with the
+            tool so that it collects what the people in the situation need. You
+            have up to {minutes} minutes; finish earlier when you think the form
+            is ready. You can look at the situation again at any time.
           </li>
           <li>
             {state.session.settings.postTaskMeasures
@@ -199,15 +210,17 @@ export function IntroView() {
               : "You answer a few quick questions about the form you built."}
           </li>
           <li>
-            {count === 2 ? "Then the same again for a second situation" : `This repeats for ${count} situations`},
-            followed by a short questionnaire.
+            {count === 2
+              ? "Then the same again for a second situation"
+              : `This repeats for ${count} situations`}
+            , followed by a short questionnaire.
           </li>
         </ol>
       </Card>
       <p className="text-sm text-muted-foreground">
         Please stay in this window and work on your own — without other tools.
-        There are no trick questions; we are interested in how the tool works for
-        you.
+        There are no trick questions; we are interested in how the tool works
+        for you.
       </p>
       <Button onClick={next} disabled={pending} data-testid="intro-continue">
         {pending && <Loader2 className="h-4 w-4 animate-spin" aria-hidden />}
@@ -253,7 +266,10 @@ export function BriefView({ task, total }: { task: StudyTask; total: number }) {
           disabled={wait > 0 || pending}
           data-testid="brief-continue"
           onClick={() => {
-            log("brief_read", { brief: task.brief, ms: Date.now() - shownAt.current });
+            log("brief_read", {
+              brief: task.brief,
+              ms: Date.now() - shownAt.current,
+            });
             next();
           }}
         >
@@ -339,22 +355,30 @@ export function QuizView({ task }: { task: StudyTask }) {
         sessionId: session.id,
         participantId: participant.id,
         instrument,
-        answers: { brief: task.brief, items, answers, ms: Date.now() - openedAt.current },
+        answers: {
+          brief: task.brief,
+          items,
+          answers,
+          ms: Date.now() - openedAt.current,
+        },
       });
       log("quiz_submitted", { position: task.position, items: items.length });
       await advance.mutateAsync({ from: step });
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Couldn't save your answers");
+      toast.error(
+        err instanceof Error ? err.message : "Couldn't save your answers",
+      );
     }
   };
 
   return (
     <Page>
       <div className="space-y-1">
-        <h1 className="text-3xl tracking-tight text-primary">About the form you just built</h1>
+        <h1 className="text-3xl tracking-tight text-primary">
+          About the fields of your form
+        </h1>
         <p className="text-muted-foreground">
-          From memory: does your form ask for each of these? The form is hidden
-          on purpose.
+          Does your form ask for each of these?
         </p>
       </div>
       <Card className="divide-y p-0">
@@ -364,7 +388,11 @@ export function QuizView({ task }: { task: StudyTask }) {
             className="flex flex-wrap items-center justify-between gap-3 px-5 py-3"
           >
             <legend className="float-left text-sm">{item.label}</legend>
-            <div className="flex gap-1" role="radiogroup" aria-label={item.label}>
+            <div
+              className="flex gap-1"
+              role="radiogroup"
+              aria-label={item.label}
+            >
               {QUIZ_OPTIONS.map((option) => {
                 const selected = answers[item.id] === option.value;
                 return (
@@ -373,11 +401,16 @@ export function QuizView({ task }: { task: StudyTask }) {
                     type="button"
                     role="radio"
                     aria-checked={selected}
-                    onClick={() => setAnswers((prev) => ({ ...prev, [item.id]: option.value }))}
+                    onClick={() =>
+                      setAnswers((prev) => ({
+                        ...prev,
+                        [item.id]: option.value,
+                      }))
+                    }
                     className={
                       selected
-                        ? "rounded-md border border-primary bg-primary/10 px-3 py-1 text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                        : "rounded-md border bg-background px-3 py-1 text-sm hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        ? "cursor-pointer rounded-md border border-primary bg-primary/10 px-3 py-1 text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        : "cursor-pointer rounded-md border bg-background px-3 py-1 text-sm hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                     }
                   >
                     {option.label}
@@ -388,7 +421,11 @@ export function QuizView({ task }: { task: StudyTask }) {
           </fieldset>
         ))}
       </Card>
-      <Button onClick={() => void handleSubmit()} disabled={!complete || busy} data-testid="quiz-continue">
+      <Button
+        onClick={() => void handleSubmit()}
+        disabled={!complete || busy}
+        data-testid="quiz-continue"
+      >
         {busy && <Loader2 className="h-4 w-4 animate-spin" aria-hidden />}
         Continue
         <ArrowRight className="h-4 w-4" aria-hidden />
@@ -447,7 +484,11 @@ export function FinalQuestionnaireView() {
                 ms: Date.now() - openedAt.current,
               });
             } catch (err) {
-              toast.error(err instanceof Error ? err.message : "Couldn't save your answers");
+              toast.error(
+                err instanceof Error
+                  ? err.message
+                  : "Couldn't save your answers",
+              );
               throw err;
             }
           }}

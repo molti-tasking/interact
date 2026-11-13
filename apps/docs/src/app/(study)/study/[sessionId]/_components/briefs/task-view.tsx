@@ -5,7 +5,6 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -28,7 +27,6 @@ const SETTLE_TIMEOUT_MS = 20_000;
 
 const START_COPY = {
   heading: "Describe the form",
-  intro: "Tell the tool, in your own words, what form is needed. It drafts a form that you then improve.",
   label: "What form do you need?",
   hint: "A few sentences are enough. You can change everything afterwards.",
   examples: false,
@@ -49,12 +47,15 @@ export function TaskView({ task }: { task: StudyTask }) {
   const [autoGenerate, setAutoGenerate] = useState(false);
   const [briefOpen, setBriefOpen] = useState(false);
   const [confirming, setConfirming] = useState(false);
-  const [leaving, setLeaving] = useState<"participant" | "timeout" | null>(null);
+  const [leaving, setLeaving] = useState<"participant" | "timeout" | null>(
+    null,
+  );
   const briefOpenedAt = useRef(0);
 
   const deadline = task.started_at
     ? new Date(
-        new Date(task.started_at).getTime() + state.session.settings.taskSeconds * 1000,
+        new Date(task.started_at).getTime() +
+          state.session.settings.taskSeconds * 1000,
       ).toISOString()
     : null;
   const now = useNow(1_000);
@@ -91,14 +92,20 @@ export function TaskView({ task }: { task: StudyTask }) {
       briefOpenedAt.current = Date.now();
       log("brief_opened", { brief: task.brief });
     } else {
-      log("brief_closed", { brief: task.brief, ms: Date.now() - briefOpenedAt.current });
+      log("brief_closed", {
+        brief: task.brief,
+        ms: Date.now() - briefOpenedAt.current,
+      });
     }
   };
 
   if (portfolio.isPending) {
     return (
       <div className="flex justify-center py-16">
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" aria-label="Loading" />
+        <Loader2
+          className="h-6 w-6 animate-spin text-muted-foreground"
+          aria-label="Loading"
+        />
       </div>
     );
   }
@@ -115,7 +122,9 @@ export function TaskView({ task }: { task: StudyTask }) {
   // The assistant arm has no "describe the form" card: its first message is
   // the description
   const started =
-    assistantChat || !!form.intent.purpose.content.trim() || form.schema.fields.length > 0;
+    assistantChat ||
+    !!form.intent.purpose.content.trim() ||
+    form.schema.fields.length > 0;
   const hasFields = form.schema.fields.length > 0;
 
   return (
@@ -134,13 +143,18 @@ export function TaskView({ task }: { task: StudyTask }) {
             (assistantChat
               ? "Write to the assistant, or click a field to edit it."
               : chatEdits
-              ? "Write to the tool to change the form, or click a field to edit it."
-              : designProbes
-                ? "Answer the tool's questions that matter, or click a field to edit it."
-                : "Edit the description, or click a field to edit it.")}
+                ? "Write to the tool to change the form, or click a field to edit it."
+                : designProbes
+                  ? "Answer the tool's questions that matter, or click a field to edit it."
+                  : "Edit the description, or click a field to edit it.")}
         </p>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={() => toggleBrief(true)} data-testid="show-brief">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => toggleBrief(true)}
+            data-testid="show-brief"
+          >
             <BookOpen className="h-3.5 w-3.5" aria-hidden />
             Show the situation
           </Button>
@@ -163,14 +177,17 @@ export function TaskView({ task }: { task: StudyTask }) {
           onAutoGenerateStarted={() => setAutoGenerate(false)}
         />
       ) : (
-        <StartCard portfolio={form} onStarted={() => setAutoGenerate(true)} copy={START_COPY} />
+        <StartCard
+          portfolio={form}
+          onStarted={() => setAutoGenerate(true)}
+          copy={START_COPY}
+        />
       )}
 
       <Dialog open={briefOpen} onOpenChange={toggleBrief}>
         <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-3xl">
           <DialogHeader>
             <DialogTitle>The situation</DialogTitle>
-            <DialogDescription>Close it to go back to your form.</DialogDescription>
           </DialogHeader>
           <BriefImage briefKey={task.brief} />
         </DialogContent>
@@ -184,7 +201,10 @@ export function TaskView({ task }: { task: StudyTask }) {
         confirmLabel="Yes, it's ready"
         cancelLabel="Keep working"
         onConfirm={() => {
-          log("form_marked_ready", { position: task.position, secondsLeft: left });
+          log("form_marked_ready", {
+            position: task.position,
+            secondsLeft: left,
+          });
           setLeaving("participant");
         }}
       />
@@ -196,7 +216,9 @@ export function TaskView({ task }: { task: StudyTask }) {
         >
           <p className="flex items-center gap-2 rounded-full border bg-background px-4 py-2 text-sm shadow-sm">
             <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-            {leaving === "timeout" ? "Time is up — saving your form…" : "Saving your form…"}
+            {leaving === "timeout"
+              ? "Time is up — saving your form…"
+              : "Saving your form…"}
           </p>
         </div>
       )}

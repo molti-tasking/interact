@@ -1,12 +1,12 @@
 "use client";
 
-import { useCapabilities } from "@/context/capabilities-context";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { PortfolioWorkspace } from "@/components/workspace/PortfolioWorkspace";
+import { useCapabilities } from "@/context/capabilities-context";
 import { useStudy } from "@/context/study-context";
 import { useCurrentUser } from "@/context/user-context";
 import { useCommitPortfolio } from "@/hooks/query/portfolios";
@@ -15,8 +15,8 @@ import { deriveTitleFromIntent } from "@/lib/new-portfolio";
 import type { Portfolio } from "@/lib/types";
 import { CheckCircle2, Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
-import { ExampleCarousel } from "./example-carousel";
 import { toast } from "sonner";
+import { ExampleCarousel } from "./example-carousel";
 import { useCoachTour } from "./use-coach-tour";
 
 /** A form counts as started once it has an intent or fields. */
@@ -54,7 +54,12 @@ export function DesignView({
   });
 
   if (!started) {
-    return <StartCard portfolio={portfolio} onStarted={() => setAutoGenerate(true)} />;
+    return (
+      <StartCard
+        portfolio={portfolio}
+        onStarted={() => setAutoGenerate(true)}
+      />
+    );
   }
   return (
     <div className="space-y-4">
@@ -111,7 +116,9 @@ function ReadyBar() {
         </p>
       ) : (
         <p className="text-sm text-muted-foreground">
-          <span className="font-medium text-foreground">When are you done?</span>{" "}
+          <span className="font-medium text-foreground">
+            When are you done?
+          </span>{" "}
           When the form asks what you want to know.
           {designProbes &&
             " You don’t have to answer every elicitation question; skip what doesn’t matter."}
@@ -133,19 +140,26 @@ function ReadyBar() {
 /** Wording of the start card; the workshop's by default. */
 interface StartCopy {
   heading: string;
-  intro: string;
+  intro?: string;
   label: string;
   hint: string;
   /** Show example descriptions (they would prime a fixed brief) */
   examples: boolean;
+  /**
+   * Ask for an optional title (the workshop). Without it, the title is made
+   * from the description.
+   */
+  askTitle?: boolean;
 }
 
 const WORKSHOP_START: StartCopy = {
   heading: "Create a form",
-  intro: "Say what you want to find out. The tool drafts a form and helps you improve it.",
+  intro:
+    "Say what you want to find out. The tool drafts a form and helps you improve it.",
   label: "What would you like to find out?",
   hint: "Rough is fine. Stuck? See the examples below.",
   examples: true,
+  askTitle: true,
 };
 
 export function StartCard({
@@ -183,7 +197,10 @@ export function StartCard({
           rationale: "Described the form to create",
         },
       }));
-      log("intent_started", { length: intentText.length, titled: !!title.trim() });
+      log("intent_started", {
+        length: intentText.length,
+        titled: !!title.trim(),
+      });
       // The creator's own first description, verbatim: the baseline for
       // "requirements added through probes that weren't asked for upfront"
       log("first_prompt", { text: intentText, title: title.trim() || null });
@@ -230,20 +247,26 @@ export function StartCard({
             />
             <p className="text-xs text-muted-foreground">{copy.hint}</p>
           </div>
+          {copy.askTitle && (
           <div className="space-y-2">
             <Label htmlFor="study-title">
               Title{" "}
-              <span className="font-normal text-muted-foreground">(optional)</span>
+              <span className="font-normal text-muted-foreground">
+                (optional)
+              </span>
             </Label>
             <Input
               id="study-title"
               value={title}
               maxLength={120}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder={derivedTitle || "Made from your description if left empty"}
+              placeholder={
+                derivedTitle || "Made from your description if left empty"
+              }
               disabled={commit.isPending}
             />
           </div>
+          )}
           <Button type="submit" disabled={!intentText || commit.isPending}>
             {commit.isPending && (
               <Loader2 className="h-4 w-4 animate-spin" aria-hidden />

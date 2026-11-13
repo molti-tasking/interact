@@ -67,7 +67,9 @@ function useSubmitStep(step: string, instrument: string) {
       log(`${instrument.split(":")[0]}_submitted`, { instrument, ms });
       await advance.mutateAsync({ from: step });
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Couldn't save your answers");
+      toast.error(
+        err instanceof Error ? err.message : "Couldn't save your answers",
+      );
     }
   };
 
@@ -108,25 +110,35 @@ const POINTS = [1, 2, 3, 4, 5, 6, 7];
 
 export function RatingsView({ task }: { task: StudyTask }) {
   const step = `ratings:${task.position}`;
-  const { loading, busy, send } = useSubmitStep(step, ratingsInstrument(task.position));
+  const { loading, busy, send } = useSubmitStep(
+    step,
+    ratingsInstrument(task.position),
+  );
   const [values, setValues] = useState<Partial<Record<RatingName, number>>>({});
 
   if (loading) return <Spinner />;
-  const complete = RATING_ITEMS.every((item) => values[item.name] !== undefined);
+  const complete = RATING_ITEMS.every(
+    (item) => values[item.name] !== undefined,
+  );
 
   return (
     <Page>
       <div className="space-y-1">
         <h1 className="text-3xl tracking-tight text-primary">Your form</h1>
-        <p className="text-muted-foreground">
-          The form is hidden now. Two quick questions about the form you just built.
-        </p>
       </div>
       <Card className="space-y-6 p-6">
         {RATING_ITEMS.map((item) => (
-          <fieldset key={item.name} className="space-y-2" data-testid={`rating-${item.name}`}>
+          <fieldset
+            key={item.name}
+            className="space-y-2"
+            data-testid={`rating-${item.name}`}
+          >
             <legend className="text-sm font-medium">{item.label}</legend>
-            <div className="flex gap-1" role="radiogroup" aria-label={item.label}>
+            <div
+              className="flex gap-1"
+              role="radiogroup"
+              aria-label={item.label}
+            >
               {POINTS.map((point) => {
                 const selected = values[item.name] === point;
                 return (
@@ -136,11 +148,13 @@ export function RatingsView({ task }: { task: StudyTask }) {
                     role="radio"
                     aria-checked={selected}
                     aria-label={`${point}${point === 1 ? ` (${item.low})` : point === 7 ? ` (${item.high})` : ""}`}
-                    onClick={() => setValues((prev) => ({ ...prev, [item.name]: point }))}
+                    onClick={() =>
+                      setValues((prev) => ({ ...prev, [item.name]: point }))
+                    }
                     className={
                       selected
-                        ? "h-10 flex-1 rounded-md border border-primary bg-primary/10 text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                        : "h-10 flex-1 rounded-md border bg-background text-sm hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        ? "cursor-pointer h-10 flex-1 rounded-md border border-primary bg-primary/10 text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        : "cursor-pointer h-10 flex-1 rounded-md border bg-background text-sm hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                     }
                   >
                     {point}
@@ -172,7 +186,10 @@ export function RatingsView({ task }: { task: StudyTask }) {
 export function RecallView({ task }: { task: StudyTask }) {
   const { log } = useStudy()!;
   const step = `recall:${task.position}`;
-  const { loading, busy, send } = useSubmitStep(step, recallInstrument(task.position));
+  const { loading, busy, send } = useSubmitStep(
+    step,
+    recallInstrument(task.position),
+  );
   const [text, setText] = useState("");
   const [overTime, setOverTime] = useState(false);
 
@@ -191,13 +208,18 @@ export function RecallView({ task }: { task: StudyTask }) {
   return (
     <Page>
       <div className="space-y-1">
-        <h1 className="text-3xl tracking-tight text-primary">What your form asks</h1>
+        <h1 className="text-3xl tracking-tight text-primary">
+          What your form asks
+        </h1>
         <p className="text-muted-foreground">
-          From memory: list everything your form asks, one per line. The form stays hidden.
+          From memory: list everything your form asks, one per line. The form
+          stays hidden.
         </p>
       </div>
       <Card className="space-y-2 p-6">
-        <Label htmlFor="recall-lines">List everything your form asks, one per line.</Label>
+        <Label htmlFor="recall-lines">
+          List everything your form asks, one per line.
+        </Label>
         <Textarea
           id="recall-lines"
           data-testid="recall-input"
@@ -207,11 +229,16 @@ export function RecallView({ task }: { task: StudyTask }) {
           className="bg-background"
         />
         <p className="text-xs text-muted-foreground" aria-live="polite">
-          {lines.length === 0 ? "At least one line." : `${lines.length} line${lines.length === 1 ? "" : "s"}`}
+          {lines.length === 0
+            ? "At least one line."
+            : `${lines.length} line${lines.length === 1 ? "" : "s"}`}
         </p>
       </Card>
       {overTime && (
-        <p role="status" className="rounded-md border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
+        <p
+          role="status"
+          className="rounded-md border bg-muted/40 px-3 py-2 text-sm text-muted-foreground"
+        >
           You have spent about three minutes here. Add anything else that comes
           to mind, then continue.
         </p>
@@ -220,7 +247,9 @@ export function RecallView({ task }: { task: StudyTask }) {
         disabled={lines.length === 0}
         busy={busy}
         testId="recall-continue"
-        onClick={() => void send({ brief: task.brief, lines, softLimitShown: overTime })}
+        onClick={() =>
+          void send({ brief: task.brief, lines, softLimitShown: overTime })
+        }
       />
     </Page>
   );
@@ -233,7 +262,10 @@ export function RecallView({ task }: { task: StudyTask }) {
 export function WhyView({ task }: { task: StudyTask }) {
   const { state } = useStudy()!;
   const step = `why:${task.position}`;
-  const { loading, busy, send, skip } = useSubmitStep(step, whyInstrument(task.position));
+  const { loading, busy, send, skip } = useSubmitStep(
+    step,
+    whyInstrument(task.position),
+  );
   const portfolio = usePortfolio(task.portfolio_id ?? undefined);
   const [answers, setAnswers] = useState<Record<string, string>>({});
 
@@ -271,24 +303,38 @@ export function WhyView({ task }: { task: StudyTask }) {
   return (
     <Page>
       <div className="space-y-1">
-        <h1 className="text-3xl tracking-tight text-primary">Why your form asks this</h1>
+        <h1 className="text-3xl tracking-tight text-primary">
+          Why your form asks this
+        </h1>
         <p className="text-muted-foreground">
-          These are questions from your form. For each, say in a sentence or
-          two why your form asks it.
+          These are questions from your form. For each, say in a sentence or two
+          why your form asks it.
         </p>
       </div>
       <Card className="divide-y p-0">
         {items.map((item, i) => (
-          <div key={item.fieldId} className="space-y-2 px-5 py-4" data-testid="why-item">
+          <div
+            key={item.fieldId}
+            className="space-y-2 px-5 py-4"
+            data-testid="why-item"
+          >
             <p className="text-sm font-medium">“{item.label}”</p>
-            <Label htmlFor={`why-${i}`} className="font-normal text-muted-foreground">
+            <Label
+              htmlFor={`why-${i}`}
+              className="font-normal text-muted-foreground"
+            >
               Why does your form ask this?
             </Label>
             <Textarea
               id={`why-${i}`}
               rows={2}
               value={answers[item.fieldId] ?? ""}
-              onChange={(e) => setAnswers((prev) => ({ ...prev, [item.fieldId]: e.target.value }))}
+              onChange={(e) =>
+                setAnswers((prev) => ({
+                  ...prev,
+                  [item.fieldId]: e.target.value,
+                }))
+              }
               className="bg-background"
             />
           </div>
@@ -301,7 +347,10 @@ export function WhyView({ task }: { task: StudyTask }) {
         onClick={() =>
           void send({
             brief: task.brief,
-            items: items.map((item) => ({ ...item, answer: answers[item.fieldId].trim() })),
+            items: items.map((item) => ({
+              ...item,
+              answer: answers[item.fieldId].trim(),
+            })),
           })
         }
       />

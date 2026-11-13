@@ -3,12 +3,11 @@
 import {
   Sheet,
   SheetContent,
-  SheetDescription,
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import { sectionOf } from "interact/forms/sections";
 import type { Field, PortfolioSchema } from "@/lib/types";
+import { sectionOf } from "interact/forms/sections";
 import { FieldEditForm } from "./FieldEditForm";
 
 // ---------------------------------------------------------------------------
@@ -21,7 +20,11 @@ interface FieldEditDrawerProps {
   schema?: PortfolioSchema;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSave: (fieldId: string, updates: Partial<Field>, section?: string | null) => void;
+  onSave: (
+    fieldId: string,
+    updates: Partial<Field>,
+    section?: string | null,
+  ) => void;
   onRemove: (fieldId: string) => void;
 }
 
@@ -44,10 +47,6 @@ export function FieldEditDrawer({
       <SheetContent className="flex flex-col">
         <SheetHeader>
           <SheetTitle>Edit field</SheetTitle>
-          <SheetDescription>
-            Changes are saved to the form when you click Save, and the intent
-            is updated to match.
-          </SheetDescription>
         </SheetHeader>
 
         <FieldEditForm
