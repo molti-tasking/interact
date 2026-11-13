@@ -51,14 +51,26 @@ export function useCoachTour({
         element: s.element,
         popover: { title: s.title, description: s.description, side: s.side },
       })),
-      onHighlighted: (_element, step, { state }) =>
+      // Logged when a step's text appears. (onHighlighted waits for the
+      // highlight animation, and a step left within ~0.4 s never got one.)
+      onPopoverRender: (_popover, { state }) =>
         log("tour_step", {
           tour,
           step: state.activeIndex ?? null,
-          title: step.popover?.title ?? null,
+          title: steps[state.activeIndex ?? -1]?.title ?? null,
         }),
-      onDestroyed: (_element, _step, { state }) => {
-        log("tour_closed", { tour, lastStep: state.activeIndex ?? null });
+      // Every way the tour ends — "Done", ✕, Esc, a click outside — also
+      // mid-animation, when driver.js skips onDestroyed. Ending it is then
+      // up to us (destroy() doesn't call this hook again).
+      onDestroyStarted: (_element, _step, { state, reason }) => {
+        log("tour_closed", {
+          tour,
+          lastStep: state.activeIndex ?? null,
+          reason: reason ?? null,
+        });
+        tourDriver.destroy();
+      },
+      onDestroyed: () => {
         if (active.current === tourDriver) active.current = null;
       },
     });
