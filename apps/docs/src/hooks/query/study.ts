@@ -168,12 +168,19 @@ interface PanelJoinInput {
   arm?: StudyCondition | null;
 }
 
-/** Local testing: put a new seat into the arm the link names, if allowed. */
-async function forceArm(sessionId: string, arm: StudyCondition): Promise<void> {
+/** Local testing: whether this server lets a study link pick its arm. */
+async function localArmAllowed(): Promise<boolean> {
   try {
     const res = await fetch("/api/study/local-arm", { cache: "no-store" });
-    const { allowed } = (await res.json()) as { allowed?: boolean };
-    if (!allowed) return;
+    return ((await res.json()) as { allowed?: boolean }).allowed === true;
+  } catch {
+    return false;
+  }
+}
+
+/** Local testing: put a new seat into the arm the link names. */
+async function forceArm(sessionId: string, arm: StudyCondition): Promise<void> {
+  try {
     const { error } = await createClient().rpc("force_my_study_arm", {
       p_session_id: sessionId,
       p_arm: arm,
@@ -204,19 +211,31 @@ export function usePanelJoin(input: PanelJoinInput) {
         const { error } = await supabase.auth.signInAnonymously();
         if (error) throw error;
       }
-      const { data, error } = await supabase.rpc("join_study_session_external", {
-        p_code: input.code,
-        p_source: input.source,
-        p_external_id: input.externalId,
-        p_external_study_id: input.studyId,
-        p_external_session_id: input.sessionId,
-        p_intent: emptyStructuredIntent() as unknown as Json,
-        p_schema: emptyPortfolioSchema() as unknown as Json,
-      });
+      const joinOnce = () =>
+        supabase.rpc("join_study_session_external", {
+          p_code: input.code,
+          p_source: input.source,
+          p_external_id: input.externalId,
+          p_external_study_id: input.studyId,
+          p_external_session_id: input.sessionId,
+          p_intent: emptyStructuredIntent() as unknown as Json,
+          p_schema: emptyPortfolioSchema() as unknown as Json,
+        });
+      const local = !!input.arm && (await localArmAllowed());
+      let { data, error } = await joinOnce();
+      // Local testing: another arm's link in a browser that already has a
+      // seat in this session starts a new participant (a new anonymous
+      // account) instead of failing. Never outside local mode.
+      if (local && error?.code === "23505" && /already takes part/.test(error.message)) {
+        await supabase.auth.signOut();
+        const { error: signInError } = await supabase.auth.signInAnonymously();
+        if (signInError) throw signInError;
+        ({ data, error } = await joinOnce());
+      }
       if (error) throw asError(error);
       const row = data?.[0];
       if (!row) throw new Error("Couldn't join the session");
-      if (input.arm) await forceArm(row.session_id, input.arm);
+      if (local && input.arm) await forceArm(row.session_id, input.arm);
       return {
         sessionId: row.session_id,
         participantId: row.participant_id,
